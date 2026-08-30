@@ -76,4 +76,11 @@ namespace MidiBottleneck
         public long CurrentLagMicroseconds;
         public long MaximumLagMicroseconds;
     }
+
+    internal interface IMidiOutput
+    {
+        void Send(MidiEvent midiEvent);
+        void Panic();
+        void Reset();
+    }
 }

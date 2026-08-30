@@ -1,5 +1,7 @@
 param(
-    [switch]$Test
+    [switch]$Test,
+    [string]$OutputName = 'MidiBottleneck.exe',
+    [switch]$MidiIntegration
 )
 
 $ErrorActionPreference = 'Stop'
@@ -16,7 +18,7 @@ New-Item -ItemType Directory -Force -Path $buildDirectory | Out-Null
 New-Item -ItemType Directory -Force -Path $distributionDirectory | Out-Null
 
 $sourceFiles = Get-ChildItem -LiteralPath (Join-Path $projectRoot 'src') -Filter '*.cs' | ForEach-Object { $_.FullName }
-$application = Join-Path $distributionDirectory 'MidiBottleneck.exe'
+$application = Join-Path $distributionDirectory $OutputName
 $manifest = Join-Path $projectRoot 'app.manifest'
 
 & $compiler /nologo /target:winexe /platform:anycpu /optimize+ /warn:4 "/out:$application" "/win32manifest:$manifest" /reference:System.dll /reference:System.Core.dll /reference:System.Drawing.dll /reference:System.Windows.Forms.dll $sourceFiles
@@ -30,6 +32,10 @@ if ($Test) {
     $testSources += (Join-Path $projectRoot 'tests\TestRunner.cs')
     & $compiler /nologo /target:exe /platform:anycpu /optimize+ /warn:4 /nowarn:0649 "/out:$testApplication" /reference:System.dll /reference:System.Core.dll /reference:System.Drawing.dll /reference:System.Windows.Forms.dll $testSources
     if ($LASTEXITCODE -ne 0) { throw 'Test compilation failed.' }
-    & $testApplication
+    if ($MidiIntegration) {
+        & $testApplication --midi-integration
+    } else {
+        & $testApplication
+    }
     if ($LASTEXITCODE -ne 0) { throw 'Tests failed.' }
 }

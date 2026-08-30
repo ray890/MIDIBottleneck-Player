@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Diagnostics;
+using System.Threading;
 using System.Windows.Forms;
 
 namespace MidiBottleneck.Tests
@@ -10,16 +12,36 @@ namespace MidiBottleneck.Tests
         private static int _passed;
 
         [STAThread]
-        private static int Main()
+        private static int Main(string[] arguments)
         {
             try
             {
+                if (arguments.Length == 2 && arguments[0] == "--midi-device")
+                {
+                    TestSingleMidiDevice(UInt32.Parse(arguments[1]));
+                    Console.WriteLine("PASS: single MIDI device " + arguments[1]);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--midi-sequence")
+                {
+                    TestMidiOutputSequence();
+                    Console.WriteLine("PASS: repeated MIDI device sequence");
+                    return 0;
+                }
                 Run("tempo map, multiple tracks, running status, and SysEx", TestMidiParser);
                 Run("FIFO queue accumulation", TestQueueSimulation);
+                Run("queue mode playback-engine ordering regression", TestQueuePlaybackEngine);
                 Run("drop-when-busy decisions", TestDropSimulation);
+                Run("drop mode preserves sparse events in playback engine", TestSparseDropPlaybackEngine);
+                Run("drop mode rejects only busy-window events in playback engine", TestDenseDropPlaybackEngine);
                 Run("zero processing time", TestZeroServiceTime);
+                Run("active seek clears queued work and stale dispatches", TestActiveSeek);
+                Run("paused seek remains paused at a clean position", TestPausedSeek);
+                Run("SMF SysEx fragments are framed for strict winmm drivers", TestSystemExclusiveAssembly);
                 Run("dense 200,000-event MIDI parsing", TestDenseMidiParser);
                 Run("Windows MIDI device enumeration", TestMidiDeviceEnumeration);
+                if (Array.IndexOf(arguments, "--midi-integration") >= 0)
+                    Run("MIDI SysEx output and repeated device switching", TestMidiOutputSwitching);
                 Run("WinForms interface construction", TestInterfaceConstruction);
                 Console.WriteLine("PASS: " + _passed + " tests");
                 return 0;
@@ -77,12 +99,60 @@ namespace MidiBottleneck.Tests
             Equal(3, result.MaximumQueueLength, "maximum queue");
         }
 
+        private static void TestQueuePlaybackEngine()
+        {
+            MidiSong song = BuildSong(new long[] { 0, 1000, 2000, 30000 });
+            FakeMidiOutput output = new FakeMidiOutput();
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.ProcessingMicroseconds = 5000;
+                engine.Start(song, output, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000, "queue playback completion");
+                PlaybackSnapshot snapshot = engine.GetSnapshot();
+                Equal(4L, snapshot.ProcessedEvents, "queue processed");
+                Equal(0L, snapshot.DroppedEvents, "queue dropped");
+                Sequence(new long[] { 0, 1000, 2000, 30000 }, output.SentTimes(), "queue output order");
+            }
+        }
+
         private static void TestDropSimulation()
         {
             long[] arrivals = new long[] { 0, 200, 400, 600, 800 };
             SimulationResult result = BottleneckSimulator.Run(arrivals, 500, ProcessingMode.Drop);
             Sequence(new long[] { 500, 1100 }, result.DispatchMicroseconds, "drop dispatches");
             Equal(3, result.DroppedEvents, "drop count");
+        }
+
+        private static void TestSparseDropPlaybackEngine()
+        {
+            MidiSong song = BuildSong(new long[] { 0, 50000, 100000 });
+            FakeMidiOutput output = new FakeMidiOutput();
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.ProcessingMicroseconds = 5000;
+                engine.Start(song, output, ProcessingMode.Drop);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000, "sparse drop playback completion");
+                PlaybackSnapshot snapshot = engine.GetSnapshot();
+                Equal(3L, snapshot.ProcessedEvents, "sparse processed");
+                Equal(0L, snapshot.DroppedEvents, "sparse dropped");
+                Sequence(new long[] { 0, 50000, 100000 }, output.SentTimes(), "sparse output");
+            }
+        }
+
+        private static void TestDenseDropPlaybackEngine()
+        {
+            MidiSong song = BuildSong(new long[] { 0, 1000, 2000, 10000 });
+            FakeMidiOutput output = new FakeMidiOutput();
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.ProcessingMicroseconds = 5000;
+                engine.Start(song, output, ProcessingMode.Drop);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000, "dense drop playback completion");
+                PlaybackSnapshot snapshot = engine.GetSnapshot();
+                Equal(2L, snapshot.ProcessedEvents, "dense processed");
+                Equal(2L, snapshot.DroppedEvents, "dense dropped");
+                Sequence(new long[] { 0, 10000 }, output.SentTimes(), "dense output");
+            }
         }
 
         private static void TestZeroServiceTime()
@@ -93,6 +163,61 @@ namespace MidiBottleneck.Tests
             Sequence(arrivals, queue.DispatchMicroseconds, "zero-time queue");
             Sequence(arrivals, drop.DispatchMicroseconds, "zero-time drop");
             Equal(0, drop.DroppedEvents, "zero-time drops");
+        }
+
+        private static void TestActiveSeek()
+        {
+            MidiSong song = BuildSong(new long[] { 0, 10000, 20000, 100000, 110000 });
+            FakeMidiOutput output = new FakeMidiOutput();
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.ProcessingMicroseconds = 20000;
+                engine.Start(song, output, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.GetSnapshot().QueueLength >= 1; }, 1000, "queue buildup before seek");
+                engine.Seek(100000);
+                PlaybackSnapshot afterSeek = engine.GetSnapshot();
+                Equal(0L, afterSeek.CurrentLagMicroseconds, "seek current lag");
+                Equal(0L, afterSeek.MaximumLagMicroseconds, "seek maximum lag reset");
+                Equal(0L, afterSeek.DroppedEvents, "seek dropped reset");
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000, "post-seek playback completion");
+                Sequence(new long[] { 100000, 110000 }, output.SentTimes(), "post-seek output");
+                if (output.ResetCount < 1) throw new Exception("seek did not reset the MIDI output");
+            }
+        }
+
+        private static void TestPausedSeek()
+        {
+            MidiSong song = BuildSong(new long[] { 0, 50000, 100000, 150000 });
+            FakeMidiOutput output = new FakeMidiOutput();
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.ProcessingMicroseconds = 1000;
+                engine.Start(song, output, ProcessingMode.Queue);
+                engine.Pause();
+                engine.Seek(100000);
+                PlaybackSnapshot snapshot = engine.GetSnapshot();
+                Equal(PlaybackState.Paused, snapshot.State, "paused seek state");
+                Near(100000L, snapshot.PlaybackMicroseconds, 2L, "paused seek position");
+                Equal(0L, snapshot.QueueLength, "paused seek queue");
+                Equal(0L, snapshot.CurrentLagMicroseconds, "paused seek lag");
+                engine.Resume();
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000, "paused-seek resume completion");
+                Sequence(new long[] { 100000, 150000 }, output.SentTimes(), "paused-seek output");
+            }
+        }
+
+        private static void TestSystemExclusiveAssembly()
+        {
+            SystemExclusiveAssembler assembler = new SystemExclusiveAssembler();
+            byte[] first = assembler.Accept(SysExEvent(0xF0, new byte[] { 0xF0, 0x7D, 0x01 }));
+            if (first != null) throw new Exception("incomplete SysEx was emitted");
+            byte[] complete = assembler.Accept(SysExEvent(0xF7, new byte[] { 0x02, 0xF7 }));
+            ByteSequence(new byte[] { 0xF0, 0x7D, 0x01, 0x02, 0xF7 }, complete, "assembled SysEx");
+
+            byte[] direct = assembler.Accept(SysExEvent(0xF0, new byte[] { 0xF0, 0x7E, 0x7F, 0xF7 }));
+            ByteSequence(new byte[] { 0xF0, 0x7E, 0x7F, 0xF7 }, direct, "complete SysEx");
+            byte[] unsafeEscape = assembler.Accept(SysExEvent(0xF7, new byte[] { 0x01, 0x02 }));
+            if (unsafeEscape != null) throw new Exception("unframed F7 escape was emitted as SysEx");
         }
 
         private static void TestDenseMidiParser()
@@ -131,6 +256,85 @@ namespace MidiBottleneck.Tests
             List<MidiOutputDeviceInfo> devices = WindowsMidiOutput.GetDevices();
             if (devices == null) throw new Exception("device enumeration returned null");
             Console.WriteLine("      Found " + devices.Count + " Windows MIDI output device(s)");
+            for (int i = 0; i < devices.Count; i++)
+                Console.WriteLine("        " + devices[i].DeviceId + ": " + devices[i].Name);
+        }
+
+        private static void TestMidiOutputSwitching()
+        {
+            List<MidiOutputDeviceInfo> devices = WindowsMidiOutput.GetDevices();
+            if (devices.Count == 0) return;
+            for (int pass = 0; pass < 2; pass++)
+                for (int i = 0; i < devices.Count; i++)
+                    RunMidiProbeProcess("--midi-device " + devices[i].DeviceId, devices[i].Name, 15000);
+            RunMidiProbeProcess("--midi-sequence", "repeated switching sequence", 30000);
+        }
+
+        private static void TestMidiOutputSequence()
+        {
+            List<MidiOutputDeviceInfo> devices = WindowsMidiOutput.GetDevices();
+            MidiEvent harmlessSysEx = SysExEvent(0xF0, new byte[] { 0xF0, 0x7D, 0x00, 0xF7 });
+            using (WindowsMidiOutput output = new WindowsMidiOutput())
+            {
+                for (int pass = 0; pass < 2; pass++)
+                {
+                    for (int i = 0; i < devices.Count; i++)
+                    {
+                        Console.WriteLine("      Pass " + (pass + 1) + ", opening " + devices[i].Name);
+                        output.Open(devices[i].DeviceId);
+                        Console.WriteLine("        opened; sending framed SysEx");
+                        output.Send(harmlessSysEx);
+                        Console.WriteLine("        sent; resetting output");
+                        output.Reset();
+                        Console.WriteLine("        reset complete");
+                    }
+                }
+            }
+        }
+
+        private static void RunMidiProbeProcess(string arguments, string description, int timeoutMilliseconds)
+        {
+            ProcessStartInfo start = new ProcessStartInfo();
+            start.FileName = Process.GetCurrentProcess().MainModule.FileName;
+            start.Arguments = arguments;
+            start.UseShellExecute = false;
+            start.CreateNoWindow = true;
+            start.RedirectStandardOutput = true;
+            start.RedirectStandardError = true;
+            using (Process process = Process.Start(start))
+            {
+                if (!process.WaitForExit(timeoutMilliseconds))
+                {
+                    process.Kill();
+                    process.WaitForExit();
+                    throw new Exception("MIDI probe timed out for " + description);
+                }
+                string output = process.StandardOutput.ReadToEnd();
+                string error = process.StandardError.ReadToEnd();
+                Console.Write(output);
+                if (process.ExitCode != 0)
+                    throw new Exception("MIDI probe failed for " + description + ": " + error);
+            }
+        }
+
+        private static void TestSingleMidiDevice(uint deviceId)
+        {
+            List<MidiOutputDeviceInfo> devices = WindowsMidiOutput.GetDevices();
+            MidiOutputDeviceInfo device = null;
+            for (int i = 0; i < devices.Count; i++)
+                if (devices[i].DeviceId == deviceId) device = devices[i];
+            if (device == null) throw new Exception("MIDI device " + deviceId + " was not found");
+            Console.WriteLine("Opening " + device.Name);
+            using (WindowsMidiOutput output = new WindowsMidiOutput())
+            {
+                output.Open(device.DeviceId);
+                Console.WriteLine("Opened; sending framed SysEx");
+                output.Send(SysExEvent(0xF0, new byte[] { 0xF0, 0x7D, 0x00, 0xF7 }));
+                Console.WriteLine("Sent; resetting");
+                output.Reset();
+                Console.WriteLine("Reset complete");
+            }
+            Console.WriteLine("Close complete");
         }
 
         private static void TestInterfaceConstruction()
@@ -143,7 +347,29 @@ namespace MidiBottleneck.Tests
                 if (handle == IntPtr.Zero) throw new Exception("main window handle is zero");
                 if (form.Controls.Count == 0) throw new Exception("main window has no controls");
                 Equal("MIDI Event Bottleneck Simulator", form.Text, "window title");
+                List<Control> statisticValues = new List<Control>();
+                FindTaggedControls(form, "StatisticValue", statisticValues);
+                Equal(10, statisticValues.Count, "fixed statistic field count");
+                for (int i = 0; i < statisticValues.Count; i++)
+                {
+                    int width = statisticValues[i].Width;
+                    statisticValues[i].Text = "9 µs";
+                    Equal(width, statisticValues[i].Width, "short statistic width " + i);
+                    statisticValues[i].Text = "1,234,567.890 ms";
+                    Equal(width, statisticValues[i].Width, "long statistic width " + i);
+                    Equal(false, statisticValues[i].AutoSize, "statistic AutoSize " + i);
+                }
                 form.Close();
+            }
+        }
+
+        private static void FindTaggedControls(Control parent, string tag, List<Control> result)
+        {
+            foreach (Control child in parent.Controls)
+            {
+                if (String.Equals(child.Tag as string, tag, StringComparison.Ordinal))
+                    result.Add(child);
+                FindTaggedControls(child, tag, result);
             }
         }
 
@@ -172,6 +398,52 @@ namespace MidiBottleneck.Tests
             Add(noteTrack, 0x00, 0xFF, 0x2F, 0x00);
             AddTrack(bytes, noteTrack);
             return bytes.ToArray();
+        }
+
+        private static MidiSong BuildSong(long[] eventTimes)
+        {
+            MidiSong song = new MidiSong();
+            song.FilePath = "synthetic.mid";
+            song.Format = 0;
+            song.TrackCount = 1;
+            song.TicksPerQuarterNote = 480;
+            song.Events = new List<MidiEvent>();
+            for (int i = 0; i < eventTimes.Length; i++)
+            {
+                MidiEvent midiEvent = new MidiEvent();
+                midiEvent.AbsoluteTick = i;
+                midiEvent.IntendedMicroseconds = eventTimes[i];
+                midiEvent.Track = 0;
+                midiEvent.Order = i;
+                midiEvent.Kind = MidiEventKind.NoteOn;
+                midiEvent.Channel = 0;
+                midiEvent.Status = 0x90;
+                midiEvent.Data = new byte[] { 0x90, (byte)(60 + (i % 12)), 1 };
+                song.Events.Add(midiEvent);
+            }
+            song.DurationMicroseconds = eventTimes.Length == 0 ? 0 : eventTimes[eventTimes.Length - 1];
+            return song;
+        }
+
+        private static MidiEvent SysExEvent(byte status, byte[] data)
+        {
+            MidiEvent midiEvent = new MidiEvent();
+            midiEvent.Kind = MidiEventKind.SystemExclusive;
+            midiEvent.Status = status;
+            midiEvent.Channel = -1;
+            midiEvent.Data = data;
+            return midiEvent;
+        }
+
+        private static void WaitFor(Func<bool> condition, int timeoutMilliseconds, string name)
+        {
+            Stopwatch timer = Stopwatch.StartNew();
+            while (!condition())
+            {
+                if (timer.ElapsedMilliseconds > timeoutMilliseconds)
+                    throw new Exception(name + " timed out");
+                Thread.Sleep(1);
+            }
         }
 
         private static void AddTrack(List<byte> target, List<byte> track)
@@ -212,10 +484,52 @@ namespace MidiBottleneck.Tests
                 Equal(expected[i], actual[i], name + "[" + i + "]");
         }
 
+        private static void ByteSequence(IList<byte> expected, IList<byte> actual, string name)
+        {
+            if (actual == null) throw new Exception(name + " is null");
+            Equal(expected.Count, actual.Count, name + " count");
+            for (int i = 0; i < expected.Count; i++)
+                Equal(expected[i], actual[i], name + "[" + i + "]");
+        }
+
         private static void Equal<T>(T expected, T actual, string name)
         {
             if (!EqualityComparer<T>.Default.Equals(expected, actual))
                 throw new Exception(name + ": expected " + expected + ", got " + actual);
+        }
+
+        private static void Near(long expected, long actual, long tolerance, string name)
+        {
+            if (Math.Abs(expected - actual) > tolerance)
+                throw new Exception(name + ": expected " + expected + " ± " + tolerance + ", got " + actual);
+        }
+
+        private sealed class FakeMidiOutput : IMidiOutput
+        {
+            private readonly object _sync = new object();
+            private readonly List<long> _sent = new List<long>();
+            public int ResetCount;
+
+            public void Send(MidiEvent midiEvent)
+            {
+                lock (_sync) _sent.Add(midiEvent.IntendedMicroseconds);
+            }
+
+            public void Panic() { }
+
+            public void Reset()
+            {
+                lock (_sync)
+                {
+                    ResetCount++;
+                    _sent.Clear();
+                }
+            }
+
+            public List<long> SentTimes()
+            {
+                lock (_sync) return new List<long>(_sent);
+            }
         }
     }
 }

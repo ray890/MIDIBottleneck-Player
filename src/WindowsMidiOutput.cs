@@ -12,7 +12,7 @@ namespace MidiBottleneck
         public override string ToString() { return Name; }
     }
 
-    internal sealed class WindowsMidiOutput : IDisposable
+    internal sealed class WindowsMidiOutput : IMidiOutput, IDisposable
     {
         private const uint MhDone = 0x00000001;
         private const int MaxPnameLen = 32;
@@ -61,6 +61,7 @@ namespace MidiBottleneck
 
         private IntPtr _handle;
         private readonly List<LongBuffer> _longBuffers = new List<LongBuffer>();
+        private readonly SystemExclusiveAssembler _systemExclusiveAssembler = new SystemExclusiveAssembler();
 
         public static List<MidiOutputDeviceInfo> GetDevices()
         {
@@ -98,7 +99,7 @@ namespace MidiBottleneck
             ReclaimCompletedLongMessages();
             if (midiEvent.Kind == MidiEventKind.SystemExclusive)
             {
-                SendLong(midiEvent.Data);
+                HandleSystemExclusive(midiEvent);
                 return;
             }
 
@@ -122,9 +123,21 @@ namespace MidiBottleneck
 
         public void Reset()
         {
+            _systemExclusiveAssembler.Reset();
             if (_handle == IntPtr.Zero) return;
             midiOutReset(_handle);
             ReclaimAllLongMessages();
+        }
+
+        private void HandleSystemExclusive(MidiEvent midiEvent)
+        {
+            // In an SMF, F0 starts a SysEx packet while an F7 event either
+            // continues that packet or contains escaped bytes. winmm drivers are
+            // allowed to reject an unframed continuation, so assemble fragments
+            // and submit only a complete F0...F7 packet.
+            byte[] packet = _systemExclusiveAssembler.Accept(midiEvent);
+            if (packet != null)
+                SendLong(packet);
         }
 
         private void SendLong(byte[] bytes)
@@ -138,7 +151,10 @@ namespace MidiBottleneck
                 MidiHeader header = new MidiHeader();
                 header.Data = buffer.Data;
                 header.BufferLength = (uint)bytes.Length;
-                header.BytesRecorded = (uint)bytes.Length;
+                // dwBytesRecorded is an input-buffer field. It must be zero for
+                // an output buffer; permissive synths ignored the old value, but
+                // stricter drivers such as OmniMIDI reject it at prepare time.
+                header.BytesRecorded = 0;
                 buffer.Header = Marshal.AllocHGlobal(headerSize);
                 Marshal.StructureToPtr(header, buffer.Header, false);
                 uint result = midiOutPrepareHeader(_handle, buffer.Header, (uint)headerSize);
@@ -217,6 +233,7 @@ namespace MidiBottleneck
             if (_handle == IntPtr.Zero) return;
             midiOutReset(_handle);
             ReclaimAllLongMessages();
+            _systemExclusiveAssembler.Reset();
             midiOutClose(_handle);
             _handle = IntPtr.Zero;
         }

@@ -12,7 +12,10 @@ namespace MidiBottleneck
         private readonly PlaybackEngine _engine = new PlaybackEngine();
         private readonly WindowsMidiOutput _output = new WindowsMidiOutput();
         private MidiSong _song;
+        private MidiSong _engineSong;
         private bool _updatingProcessingControls;
+        private bool _draggingSeek;
+        private long _selectedPositionMicroseconds;
 
         private Label _fileLabel;
         private Label _fileInfoLabel;
@@ -27,6 +30,12 @@ namespace MidiBottleneck
         private Button _pauseButton;
         private Button _stopButton;
         private Label _stateLabel;
+        private TrackBar _seekBar;
+        private Label _seekPositionLabel;
+        private Button _seekBack10Button;
+        private Button _seekBack5Button;
+        private Button _seekForward5Button;
+        private Button _seekForward10Button;
         private Label _rateValue;
         private Label _queueValue;
         private Label _maxQueueValue;
@@ -198,6 +207,29 @@ namespace MidiBottleneck
         private Control BuildPlaybackGroup()
         {
             GroupBox group = NewGroup("Playback");
+            TableLayoutPanel layout = NewTable(2);
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150));
+
+            _seekBar = new TrackBar();
+            _seekBar.Minimum = 0;
+            _seekBar.Maximum = 1000000;
+            _seekBar.TickStyle = TickStyle.None;
+            _seekBar.Dock = DockStyle.Fill;
+            _seekBar.Enabled = false;
+            _seekBar.MouseDown += delegate { _draggingSeek = true; };
+            _seekBar.MouseUp += delegate { _draggingSeek = false; PerformSeek(SeekBarToMicroseconds(_seekBar.Value)); };
+            _seekBar.KeyUp += delegate { PerformSeek(SeekBarToMicroseconds(_seekBar.Value)); };
+            _seekBar.ValueChanged += SeekBarValueChanged;
+            layout.Controls.Add(_seekBar, 0, 0);
+
+            _seekPositionLabel = new Label();
+            _seekPositionLabel.Text = "00:00.000 / 00:00.000";
+            _seekPositionLabel.Dock = DockStyle.Fill;
+            _seekPositionLabel.TextAlign = ContentAlignment.MiddleRight;
+            _seekPositionLabel.Font = new Font("Consolas", 9F, FontStyle.Regular, GraphicsUnit.Point);
+            layout.Controls.Add(_seekPositionLabel, 1, 0);
+
             FlowLayoutPanel panel = new FlowLayoutPanel();
             panel.Dock = DockStyle.Fill;
             panel.AutoSize = true;
@@ -206,6 +238,10 @@ namespace MidiBottleneck
             _playButton = NewButton("Play", PlayClicked);
             _pauseButton = NewButton("Pause", PauseClicked);
             _stopButton = NewButton("Stop", StopClicked);
+            _seekBack10Button = NewButton("−10 sec", delegate { SeekBy(-10000000); });
+            _seekBack5Button = NewButton("−5 sec", delegate { SeekBy(-5000000); });
+            _seekForward5Button = NewButton("+5 sec", delegate { SeekBy(5000000); });
+            _seekForward10Button = NewButton("+10 sec", delegate { SeekBy(10000000); });
             Button reset = NewButton("Reset statistics", delegate { _engine.ResetStatistics(); RefreshStatistics(); });
             reset.Margin = new Padding(18, 3, 3, 3);
             _stateLabel = new Label();
@@ -215,9 +251,15 @@ namespace MidiBottleneck
             panel.Controls.Add(_playButton);
             panel.Controls.Add(_pauseButton);
             panel.Controls.Add(_stopButton);
+            panel.Controls.Add(_seekBack10Button);
+            panel.Controls.Add(_seekBack5Button);
+            panel.Controls.Add(_seekForward5Button);
+            panel.Controls.Add(_seekForward10Button);
             panel.Controls.Add(reset);
             panel.Controls.Add(_stateLabel);
-            group.Controls.Add(panel);
+            layout.Controls.Add(panel, 0, 1);
+            layout.SetColumnSpan(panel, 2);
+            group.Controls.Add(layout);
             return group;
         }
 
@@ -255,9 +297,12 @@ namespace MidiBottleneck
             table.Controls.Add(name, column, row);
             Label value = new Label();
             value.Text = "0";
-            value.AutoSize = true;
-            value.Font = new Font("Segoe UI Semibold", 9F, FontStyle.Bold, GraphicsUnit.Point);
-            value.Anchor = AnchorStyles.Left;
+            value.AutoSize = false;
+            value.MinimumSize = new Size(145, 24);
+            value.Dock = DockStyle.Fill;
+            value.TextAlign = ContentAlignment.MiddleRight;
+            value.Font = new Font("Consolas", 9F, FontStyle.Bold, GraphicsUnit.Point);
+            value.Tag = "StatisticValue";
             value.Margin = new Padding(3, 5, 18, 5);
             table.Controls.Add(value, column + 1, row);
             return value;
@@ -322,11 +367,14 @@ namespace MidiBottleneck
                 try
                 {
                     _engine.Stop();
+                    _engineSong = null;
+                    _selectedPositionMicroseconds = 0;
                     Cursor = Cursors.WaitCursor;
                     _song = MidiFileParser.Load(dialog.FileName);
                     _fileLabel.Text = Path.GetFileName(_song.FilePath);
                     _fileLabel.ToolTipText(_song.FilePath);
                     _fileInfoLabel.Text = String.Format(CultureInfo.CurrentCulture, "{0:N0} events  •  {1} tracks  •  PPQN {2}  •  {3}", _song.Events.Count, _song.TrackCount, _song.TicksPerQuarterNote, FormatTime(_song.DurationMicroseconds));
+                    UpdateSeekDisplay();
                 }
                 catch (Exception ex)
                 {
@@ -336,6 +384,7 @@ namespace MidiBottleneck
                 finally
                 {
                     Cursor = Cursors.Default;
+                    UpdateSeekDisplay();
                     UpdateTransportControls();
                 }
             }
@@ -362,8 +411,11 @@ namespace MidiBottleneck
             }
             try
             {
+                if (_selectedPositionMicroseconds >= _song.DurationMicroseconds)
+                    _selectedPositionMicroseconds = 0;
                 _output.Open(device.DeviceId);
-                _engine.Start(_song, _output, _queueRadio.Checked ? ProcessingMode.Queue : ProcessingMode.Drop);
+                _engine.Start(_song, _output, _queueRadio.Checked ? ProcessingMode.Queue : ProcessingMode.Drop, _selectedPositionMicroseconds);
+                _engineSong = _song;
                 UpdateTransportControls();
             }
             catch (Exception ex)
@@ -381,6 +433,8 @@ namespace MidiBottleneck
         private void StopClicked(object sender, EventArgs e)
         {
             _engine.Stop();
+            _selectedPositionMicroseconds = 0;
+            UpdateSeekDisplay();
             UpdateTransportControls();
             RefreshStatistics();
         }
@@ -469,6 +523,11 @@ namespace MidiBottleneck
         private void RefreshStatistics()
         {
             PlaybackSnapshot snapshot = _engine.GetSnapshot();
+            if (!_draggingSeek && snapshot.State != PlaybackState.Stopped)
+            {
+                _selectedPositionMicroseconds = snapshot.IntendedTimelineMicroseconds;
+                UpdateSeekDisplay();
+            }
             long processing = snapshot.ProcessingMicroseconds;
             _rateValue.Text = processing == 0 ? "Unlimited (simulated)" : (1000000.0 / processing).ToString("N1", CultureInfo.CurrentCulture) + " events/sec";
             _queueValue.Text = snapshot.QueueLength.ToString("N0", CultureInfo.CurrentCulture);
@@ -495,7 +554,54 @@ namespace MidiBottleneck
             _outputCombo.Enabled = !active && _outputCombo.Items.Count > 0 && _outputCombo.SelectedItem is MidiOutputDeviceInfo;
             _queueRadio.Enabled = !active;
             _dropRadio.Enabled = !active;
+            bool canSeek = _song != null;
+            _seekBar.Enabled = canSeek;
+            _seekBack10Button.Enabled = canSeek;
+            _seekBack5Button.Enabled = canSeek;
+            _seekForward5Button.Enabled = canSeek;
+            _seekForward10Button.Enabled = canSeek;
             _stateLabel.Text = state.ToString();
+        }
+
+        private void SeekBarValueChanged(object sender, EventArgs e)
+        {
+            if (!_draggingSeek) return;
+            long preview = SeekBarToMicroseconds(_seekBar.Value);
+            _seekPositionLabel.Text = FormatTime(preview) + " / " + FormatTime(_song == null ? 0 : _song.DurationMicroseconds);
+        }
+
+        private void SeekBy(long deltaMicroseconds)
+        {
+            PerformSeek(_selectedPositionMicroseconds + deltaMicroseconds);
+        }
+
+        private void PerformSeek(long targetMicroseconds)
+        {
+            if (_song == null) return;
+            targetMicroseconds = Math.Max(0, Math.Min(_song.DurationMicroseconds, targetMicroseconds));
+            _selectedPositionMicroseconds = targetMicroseconds;
+            if (_engineSong == _song)
+                _engine.Seek(targetMicroseconds);
+            UpdateSeekDisplay();
+            RefreshStatistics();
+            UpdateTransportControls();
+        }
+
+        private void UpdateSeekDisplay()
+        {
+            long duration = _song == null ? 0 : _song.DurationMicroseconds;
+            if (!_draggingSeek)
+            {
+                int position = duration <= 0 ? 0 : (int)Math.Min(1000000, ((decimal)_selectedPositionMicroseconds * 1000000m) / duration);
+                if (_seekBar.Value != position) _seekBar.Value = position;
+            }
+            _seekPositionLabel.Text = FormatTime(_selectedPositionMicroseconds) + " / " + FormatTime(duration);
+        }
+
+        private long SeekBarToMicroseconds(int value)
+        {
+            if (_song == null || _song.DurationMicroseconds <= 0) return 0;
+            return (long)(((decimal)value * _song.DurationMicroseconds) / 1000000m);
         }
 
         private void EnginePlaybackEnded(object sender, EventArgs e)

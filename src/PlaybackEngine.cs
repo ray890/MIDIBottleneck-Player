@@ -10,8 +10,9 @@ namespace MidiBottleneck
         private readonly EventWaitHandle _wake = new EventWaitHandle(false, EventResetMode.ManualReset);
         private Thread _thread;
         private MidiSong _song;
-        private WindowsMidiOutput _output;
+        private IMidiOutput _output;
         private ProcessingMode _mode;
+        private int _startEventIndex;
         private PlaybackState _state = PlaybackState.Stopped;
         private long _processingMicroseconds;
         private long _transportBaseTicks;
@@ -41,19 +42,27 @@ namespace MidiBottleneck
             }
         }
 
-        public void Start(MidiSong song, WindowsMidiOutput output, ProcessingMode mode)
+        public void Start(MidiSong song, IMidiOutput output, ProcessingMode mode)
+        {
+            Start(song, output, mode, 0);
+        }
+
+        public void Start(MidiSong song, IMidiOutput output, ProcessingMode mode, long startMicroseconds)
         {
             if (song == null) throw new ArgumentNullException("song");
             if (output == null) throw new ArgumentNullException("output");
             Stop();
+            startMicroseconds = ClampPosition(song, startMicroseconds);
             lock (_sync)
             {
                 _song = song;
                 _output = output;
                 _mode = mode;
-                _transportBaseTicks = 0;
+                _startEventIndex = FindFirstEventAtOrAfter(song, startMicroseconds);
+                _transportBaseTicks = MicrosecondsToTicks(startMicroseconds);
                 _runStartStamp = Stopwatch.GetTimestamp();
                 ResetStatisticsLocked();
+                _lastDispatchedMicroseconds = startMicroseconds;
                 _state = PlaybackState.Playing;
                 _thread = new Thread(PlaybackWorker);
                 _thread.Name = "MIDI bottleneck scheduler";
@@ -61,6 +70,59 @@ namespace MidiBottleneck
                 _thread.Priority = ThreadPriority.AboveNormal;
                 _thread.Start();
             }
+        }
+
+        public void Seek(long targetMicroseconds)
+        {
+            Thread previousThread;
+            IMidiOutput output;
+            MidiSong song;
+            PlaybackState previousState;
+
+            lock (_sync)
+            {
+                song = _song;
+                if (song == null) return;
+                targetMicroseconds = ClampPosition(song, targetMicroseconds);
+                previousState = _state;
+                if (_state == PlaybackState.Playing)
+                    _transportBaseTicks += Stopwatch.GetTimestamp() - _runStartStamp;
+                _state = PlaybackState.Stopped;
+                previousThread = _thread;
+                output = _output;
+            }
+
+            _wake.Set();
+            if (previousThread != null && previousThread != Thread.CurrentThread)
+                previousThread.Join(2000);
+            if (output != null)
+                output.Reset();
+
+            lock (_sync)
+            {
+                _transportBaseTicks = MicrosecondsToTicks(targetMicroseconds);
+                _startEventIndex = FindFirstEventAtOrAfter(song, targetMicroseconds);
+                ResetStatisticsLocked();
+                _lastDispatchedMicroseconds = targetMicroseconds;
+                _thread = null;
+
+                if (previousState == PlaybackState.Playing || previousState == PlaybackState.Paused)
+                {
+                    _state = previousState;
+                    if (_state == PlaybackState.Playing)
+                        _runStartStamp = Stopwatch.GetTimestamp();
+                    _thread = new Thread(PlaybackWorker);
+                    _thread.Name = "MIDI bottleneck scheduler";
+                    _thread.IsBackground = true;
+                    _thread.Priority = ThreadPriority.AboveNormal;
+                    _thread.Start();
+                }
+                else
+                {
+                    _state = PlaybackState.Stopped;
+                }
+            }
+            _wake.Set();
         }
 
         public void Pause()
@@ -89,7 +151,7 @@ namespace MidiBottleneck
         public void Stop()
         {
             Thread thread;
-            WindowsMidiOutput output;
+            IMidiOutput output;
             lock (_sync)
             {
                 if (_state == PlaybackState.Playing)
@@ -163,6 +225,8 @@ namespace MidiBottleneck
             catch (Exception ex)
             {
                 failure = ex;
+                try { if (_output != null) _output.Panic(); }
+                catch { }
             }
 
             lock (_sync)
@@ -192,8 +256,8 @@ namespace MidiBottleneck
 
         private void RunQueueMode(HighResolutionWaiter waiter)
         {
-            int nextArrival = 0;
-            int nextProcess = 0;
+            int nextArrival = _startEventIndex;
+            int nextProcess = _startEventIndex;
             int inService = -1;
             long completionTicks = 0;
             long lastCompletionTicks = 0;
@@ -238,7 +302,7 @@ namespace MidiBottleneck
 
         private void RunDropMode(HighResolutionWaiter waiter)
         {
-            int nextArrival = 0;
+            int nextArrival = _startEventIndex;
             int inService = -1;
             long completionTicks = Int64.MaxValue;
 
@@ -392,6 +456,28 @@ namespace MidiBottleneck
             _lastDispatchedMicroseconds = 0;
             _currentLagMicroseconds = 0;
             _maximumLagMicroseconds = 0;
+        }
+
+        private static long ClampPosition(MidiSong song, long microseconds)
+        {
+            if (microseconds < 0) return 0;
+            if (microseconds > song.DurationMicroseconds) return song.DurationMicroseconds;
+            return microseconds;
+        }
+
+        private static int FindFirstEventAtOrAfter(MidiSong song, long microseconds)
+        {
+            int low = 0;
+            int high = song.Events.Count;
+            while (low < high)
+            {
+                int middle = low + ((high - low) / 2);
+                if (song.Events[middle].IntendedMicroseconds < microseconds)
+                    low = middle + 1;
+                else
+                    high = middle;
+            }
+            return low;
         }
 
         public void Dispose()
