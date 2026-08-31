@@ -54,6 +54,13 @@ namespace MidiBottleneck
         Drop
     }
 
+    internal enum OverflowPolicy
+    {
+        DropNewest,
+        DropOldest,
+        ClearBufferAndCatchUp
+    }
+
     internal enum PlaybackState
     {
         Stopped,
@@ -75,6 +82,12 @@ namespace MidiBottleneck
         public long LastDispatchedTimelineMicroseconds;
         public long CurrentLagMicroseconds;
         public long MaximumLagMicroseconds;
+        public ServiceDurationMode ServiceDurationMode;
+        public long MidiBitrate;
+        public bool SimulateSlowdown;
+        public bool QueueLengthLimitEnabled;
+        public int QueueLengthLimit;
+        public OverflowPolicy OverflowPolicy;
     }
 
     internal interface IMidiOutput
