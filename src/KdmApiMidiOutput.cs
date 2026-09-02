@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
 using System.Runtime.InteropServices;
 
 namespace MidiBottleneck
@@ -15,6 +16,7 @@ namespace MidiBottleneck
         uint PrepareLong(IntPtr header, uint headerSize);
         uint SendLong(IntPtr header, uint headerSize);
         uint UnprepareLong(IntPtr header, uint headerSize);
+        string Version { get; }
     }
 
     internal sealed class DynamicKdmApiNative : IKdmApiNative
@@ -28,17 +30,21 @@ namespace MidiBottleneck
         private delegate void ShortMessageCall(uint message);
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate uint LongMessageCall(IntPtr header, uint headerSize);
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private delegate bool VersionCall(out uint major, out uint minor, out uint build, out uint revision);
 
         private IntPtr _module;
-        private IntPtr _bootstrapOutput;
-        private readonly BoolCall _isAvailable;
-        private readonly BoolCall _initialize;
-        private readonly BoolCall _terminate;
-        private readonly VoidCall _reset;
-        private readonly ShortMessageCall _sendShort;
-        private readonly LongMessageCall _prepareLong;
-        private readonly LongMessageCall _sendLong;
-        private readonly LongMessageCall _unprepareLong;
+        private BoolCall _isAvailable;
+        private BoolCall _initialize;
+        private BoolCall _terminate;
+        private VoidCall _reset;
+        private ShortMessageCall _sendShort;
+        private LongMessageCall _prepareLong;
+        private LongMessageCall _sendLong;
+        private LongMessageCall _unprepareLong;
+        private VersionCall _returnVersion;
+        private string _version;
 
         public DynamicKdmApiNative()
         {
@@ -54,16 +60,18 @@ namespace MidiBottleneck
             }
             if (omniMidi == null)
                 throw new InvalidOperationException("The OmniMIDI Windows output was not found. Install OmniMIDI, or turn off KDMAPI.");
-            uint openResult = midiOutOpen(out _bootstrapOutput, omniMidi.DeviceId, IntPtr.Zero, IntPtr.Zero, 0);
-            if (openResult != 0)
-                throw new Win32Exception((int)openResult, "OmniMIDI could not be opened to initialize KDMAPI.");
-            _module = GetModuleHandle("OmniMIDI");
-            if (_module == IntPtr.Zero) _module = GetModuleHandle("OmniMIDI.dll");
+
+            // KDMAPI is a direct API. Opening OmniMIDI through WinMM merely to
+            // locate the DLL also starts its synth stream; the driver's own
+            // InitializeKDMAPIStream then correctly refuses a second stream.
+            // Own a module reference instead, so delegates remain valid without
+            // retaining a conflicting WinMM output instance.
+            string modulePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "OmniMIDI.dll");
+            _module = LoadLibrary(modulePath);
+            if (_module == IntPtr.Zero) _module = LoadLibrary("OmniMIDI.dll");
             if (_module == IntPtr.Zero)
             {
-                midiOutClose(_bootstrapOutput);
-                _bootstrapOutput = IntPtr.Zero;
-                throw new Win32Exception(Marshal.GetLastWin32Error(), "The OmniMIDI driver loaded without exposing its KDMAPI module.");
+                throw new Win32Exception(Marshal.GetLastWin32Error(), "The OmniMIDI output was found, but its KDMAPI module could not be loaded.");
             }
             try
             {
@@ -75,6 +83,11 @@ namespace MidiBottleneck
                 _prepareLong = Load<LongMessageCall>("PrepareLongData");
                 _sendLong = Load<LongMessageCall>("SendDirectLongData");
                 _unprepareLong = Load<LongMessageCall>("UnprepareLongData");
+                _returnVersion = Load<VersionCall>("ReturnKDMAPIVer");
+                uint major, minor, build, revision;
+                if (!_returnVersion(out major, out minor, out build, out revision))
+                    throw new InvalidOperationException("OmniMIDI loaded, but its KDMAPI version query was rejected.");
+                _version = major + "." + minor + "." + build + "." + revision;
             }
             catch
             {
@@ -99,51 +112,39 @@ namespace MidiBottleneck
         public uint PrepareLong(IntPtr header, uint headerSize) { return _prepareLong(header, headerSize); }
         public uint SendLong(IntPtr header, uint headerSize) { return _sendLong(header, headerSize); }
         public uint UnprepareLong(IntPtr header, uint headerSize) { return _unprepareLong(header, headerSize); }
+        public string Version { get { return _version; } }
 
         public void Dispose()
         {
-            _module = IntPtr.Zero;
-            if (_bootstrapOutput != IntPtr.Zero)
+            _version = null;
+            _isAvailable = null;
+            _initialize = null;
+            _terminate = null;
+            _reset = null;
+            _sendShort = null;
+            _prepareLong = null;
+            _sendLong = null;
+            _unprepareLong = null;
+            _returnVersion = null;
+            if (_module != IntPtr.Zero)
             {
-                midiOutClose(_bootstrapOutput);
-                _bootstrapOutput = IntPtr.Zero;
+                FreeLibrary(_module);
+                _module = IntPtr.Zero;
             }
         }
 
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-        private static extern IntPtr GetModuleHandle(string moduleName);
+        private static extern IntPtr LoadLibrary(string fileName);
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool FreeLibrary(IntPtr module);
         [DllImport("kernel32.dll", CharSet = CharSet.Ansi, SetLastError = true)]
         private static extern IntPtr GetProcAddress(IntPtr module, string procedureName);
-        [DllImport("winmm.dll")]
-        private static extern uint midiOutOpen(out IntPtr handle, uint deviceId, IntPtr callback, IntPtr instance, uint flags);
-        [DllImport("winmm.dll")]
-        private static extern uint midiOutClose(IntPtr handle);
     }
 
     internal sealed class KdmApiMidiOutput : IMidiOutput, IDisposable
     {
         private const uint MhDone = 0x00000001;
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct MidiHeader
-        {
-            public IntPtr Data;
-            public uint BufferLength;
-            public uint BytesRecorded;
-            public IntPtr User;
-            public uint Flags;
-            public IntPtr Next;
-            public IntPtr Reserved;
-            public uint Offset;
-            public IntPtr Reserved0;
-            public IntPtr Reserved1;
-            public IntPtr Reserved2;
-            public IntPtr Reserved3;
-            public IntPtr Reserved4;
-            public IntPtr Reserved5;
-            public IntPtr Reserved6;
-            public IntPtr Reserved7;
-        }
 
         private sealed class LongBuffer
         {
@@ -164,22 +165,27 @@ namespace MidiBottleneck
         }
 
         internal KdmApiMidiOutput(IKdmApiNative native)
+            : this(native, false)
+        {
+        }
+
+        internal KdmApiMidiOutput(IKdmApiNative native, bool ownsNative)
         {
             if (native == null) throw new ArgumentNullException("native");
             _native = native;
-            _ownsNative = false;
+            _ownsNative = ownsNative;
         }
 
         public void Open()
         {
-            CloseStream();
+            CloseStream(true);
             if (_native == null) _native = new DynamicKdmApiNative();
             try
             {
                 if (!_native.IsAvailable())
-                    throw new InvalidOperationException("OmniMIDI reported that KDMAPI is unavailable.");
+                    throw new InvalidOperationException("OmniMIDI loaded, but reported that KDMAPI is unavailable.");
                 if (!_native.InitializeStream())
-                    throw new InvalidOperationException("OmniMIDI could not initialize its KDMAPI stream.");
+                    throw new InvalidOperationException("OmniMIDI rejected KDMAPI stream initialization (KDMAPI " + _native.Version + ").");
                 _open = true;
             }
             catch
@@ -200,8 +206,8 @@ namespace MidiBottleneck
             ReclaimCompletedLongMessages();
             if (midiEvent.Kind == MidiEventKind.SystemExclusive)
             {
-                byte[] packet = _systemExclusiveAssembler.Accept(midiEvent);
-                if (packet != null) SendLongPacket(packet);
+                SystemExclusivePacket packet = _systemExclusiveAssembler.AcceptPacket(midiEvent);
+                if (packet != null) SendLongPacket(packet, midiEvent);
                 return;
             }
             _native.SendShort(PackShortMessage(midiEvent.Data));
@@ -236,28 +242,26 @@ namespace MidiBottleneck
             ReclaimAllLongMessages();
         }
 
-        private void SendLongPacket(byte[] bytes)
+        private void SendLongPacket(SystemExclusivePacket packet, MidiEvent finalEvent)
         {
+            byte[] bytes = packet.Bytes;
             LongBuffer buffer = new LongBuffer();
-            int headerSize = Marshal.SizeOf(typeof(MidiHeader));
+            int headerSize = Marshal.SizeOf(typeof(NativeMidiHeader));
             try
             {
                 buffer.Data = Marshal.AllocHGlobal(bytes.Length);
                 Marshal.Copy(bytes, 0, buffer.Data, bytes.Length);
-                MidiHeader header = new MidiHeader();
-                header.Data = buffer.Data;
-                header.BufferLength = (uint)bytes.Length;
-                header.BytesRecorded = 0;
+                NativeMidiHeader header = NativeMidiHeader.CreateOutput(buffer.Data, bytes.Length);
                 buffer.Header = Marshal.AllocHGlobal(headerSize);
                 Marshal.StructureToPtr(header, buffer.Header, false);
-                ThrowIfError(_native.PrepareLong(buffer.Header, (uint)headerSize), "preparing a KDMAPI System Exclusive message");
+                ThrowLongIfError(_native.PrepareLong(buffer.Header, (uint)headerSize), "PrepareLongData", packet, finalEvent, headerSize, header);
                 buffer.Prepared = true;
                 uint result = _native.SendLong(buffer.Header, (uint)headerSize);
                 if (result != 0)
                 {
                     _native.UnprepareLong(buffer.Header, (uint)headerSize);
                     buffer.Prepared = false;
-                    ThrowIfError(result, "sending a KDMAPI System Exclusive message");
+                    ThrowLongIfError(result, "SendDirectLongData", packet, finalEvent, headerSize, header);
                 }
                 _longBuffers.Add(buffer);
             }
@@ -270,10 +274,10 @@ namespace MidiBottleneck
 
         private void ReclaimCompletedLongMessages()
         {
-            int headerSize = Marshal.SizeOf(typeof(MidiHeader));
+            int headerSize = Marshal.SizeOf(typeof(NativeMidiHeader));
             for (int i = _longBuffers.Count - 1; i >= 0; i--)
             {
-                MidiHeader header = (MidiHeader)Marshal.PtrToStructure(_longBuffers[i].Header, typeof(MidiHeader));
+                NativeMidiHeader header = (NativeMidiHeader)Marshal.PtrToStructure(_longBuffers[i].Header, typeof(NativeMidiHeader));
                 if ((header.Flags & MhDone) == 0) continue;
                 _native.UnprepareLong(_longBuffers[i].Header, (uint)headerSize);
                 _longBuffers[i].Prepared = false;
@@ -284,7 +288,7 @@ namespace MidiBottleneck
 
         private void ReclaimAllLongMessages()
         {
-            int headerSize = Marshal.SizeOf(typeof(MidiHeader));
+            int headerSize = Marshal.SizeOf(typeof(NativeMidiHeader));
             for (int i = _longBuffers.Count - 1; i >= 0; i--)
             {
                 if (_longBuffers[i].Prepared)
@@ -308,36 +312,70 @@ namespace MidiBottleneck
             }
         }
 
-        private static void ThrowIfError(uint code, string action)
+        private static void ThrowLongIfError(uint code, string operation, SystemExclusivePacket packet,
+            MidiEvent finalEvent, int headerSize, NativeMidiHeader header)
         {
-            if (code != 0) throw new Win32Exception((int)code, "MIDI error while " + action + ".");
+            if (code == 0) return;
+            string detail = SystemExclusiveDiagnostics.DescribeFailure(operation, code, null, packet, finalEvent,
+                headerSize, header.BufferLength, header.BytesRecorded, header.Flags, header.Data);
+            throw new Win32Exception((int)code, detail);
         }
 
-        private void CloseStream()
+        private void CloseStream(bool reportFailure)
         {
             if (!_open) return;
+            Exception resetFailure = null;
+            bool terminated = false;
             try
             {
-                _native.ResetStream();
-                ReclaimAllLongMessages();
+                try
+                {
+                    _native.ResetStream();
+                    ReclaimAllLongMessages();
+                }
+                catch (Exception ex) { resetFailure = ex; }
             }
             finally
             {
-                _native.TerminateStream();
+                try { terminated = _native.TerminateStream(); }
+                catch (Exception ex) { if (resetFailure == null) resetFailure = ex; }
                 _systemExclusiveAssembler.Reset();
                 _open = false;
+            }
+            if (reportFailure && resetFailure != null)
+                throw new InvalidOperationException("KDMAPI reset/cleanup failed before stream termination.", resetFailure);
+            if (reportFailure && !terminated)
+                throw new InvalidOperationException("OmniMIDI rejected KDMAPI stream termination.");
+        }
+
+        internal void Close()
+        {
+            try
+            {
+                CloseStream(true);
+            }
+            finally
+            {
+                // A rejected termination must not leave delegates rooted in a module that
+                // the next output transition expects to load afresh.
+                ReleaseOwnedNative();
             }
         }
 
         public void Dispose()
         {
-            CloseStream();
+            CloseStream(false);
+            ReleaseOwnedNative();
+            GC.SuppressFinalize(this);
+        }
+
+        private void ReleaseOwnedNative()
+        {
             if (_ownsNative && _native != null)
             {
                 _native.Dispose();
                 _native = null;
             }
-            GC.SuppressFinalize(this);
         }
     }
 }

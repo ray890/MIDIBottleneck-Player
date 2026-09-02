@@ -4,6 +4,7 @@ using System.IO;
 using System.Diagnostics;
 using System.Drawing;
 using System.Threading;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
 namespace MidiBottleneck.Tests
@@ -23,6 +24,16 @@ namespace MidiBottleneck.Tests
                     Console.WriteLine("PASS: single MIDI device " + arguments[1]);
                     return 0;
                 }
+                if (arguments.Length == 3 && arguments[0] == "--midi-file-sysex")
+                {
+                    ProbeFileSystemExclusive(UInt32.Parse(arguments[1]), arguments[2], false);
+                    return 0;
+                }
+                if (arguments.Length == 2 && arguments[0] == "--kdmapi-file-sysex")
+                {
+                    ProbeFileSystemExclusive(0, arguments[1], true);
+                    return 0;
+                }
                 if (arguments.Length == 1 && arguments[0] == "--midi-sequence")
                 {
                     TestMidiOutputSequence();
@@ -35,9 +46,24 @@ namespace MidiBottleneck.Tests
                     Console.WriteLine("PASS: KDMAPI integration");
                     return 0;
                 }
+                if (arguments.Length == 1 && arguments[0] == "--kdmapi-header-probe")
+                {
+                    ProbeKdmApiHeaderContract();
+                    return 0;
+                }
+                if (arguments.Length == 2 && arguments[0] == "--sysex-report")
+                {
+                    ReportSystemExclusivePackets(arguments[1]);
+                    return 0;
+                }
                 if (arguments.Length == 3 && arguments[0] == "--analyze-drop")
                 {
                     AnalyzeDropFile(arguments[1], Int64.Parse(arguments[2]));
+                    return 0;
+                }
+                if (arguments.Length == 2 && arguments[0] == "--benchmark-bounded")
+                {
+                    BenchmarkBoundedFile(arguments[1]);
                     return 0;
                 }
                 if ((arguments.Length == 6 || arguments.Length == 7) && arguments[0] == "--production-drop-trace")
@@ -48,22 +74,32 @@ namespace MidiBottleneck.Tests
                 }
                 if (arguments.Length == 2 && arguments[0] == "--render-ui")
                 {
-                    RenderMainWindow(arguments[1], false, false);
+                    RenderMainWindow(arguments[1], false, false, false);
                     return 0;
                 }
                 if (arguments.Length == 2 && arguments[0] == "--render-ui-bitrate")
                 {
-                    RenderMainWindow(arguments[1], true, false);
+                    RenderMainWindow(arguments[1], true, false, false);
                     return 0;
                 }
                 if (arguments.Length == 2 && arguments[0] == "--render-ui-min")
                 {
-                    RenderMainWindow(arguments[1], false, true);
+                    RenderMainWindow(arguments[1], false, true, false);
+                    return 0;
+                }
+                if (arguments.Length == 2 && arguments[0] == "--render-ui-finite")
+                {
+                    RenderMainWindow(arguments[1], false, false, true);
                     return 0;
                 }
                 if (arguments.Length == 3 && arguments[0] == "--render-analysis")
                 {
-                    RenderAnalysisWindow(arguments[1], arguments[2]);
+                    RenderAnalysisWindow(arguments[1], arguments[2], false, true, true);
+                    return 0;
+                }
+                if (arguments.Length == 3 && arguments[0] == "--render-analysis-bitrate")
+                {
+                    RenderAnalysisWindow(arguments[1], arguments[2], true, false, true);
                     return 0;
                 }
                 Run("tempo map, multiple tracks, running status, and SysEx", TestMidiParser);
@@ -86,11 +122,23 @@ namespace MidiBottleneck.Tests
                 Run("active seek clears queued work and stale dispatches", TestActiveSeek);
                 Run("paused seek remains paused at a clean position", TestPausedSeek);
                 Run("SMF SysEx fragments are framed for strict winmm drivers", TestSystemExclusiveAssembly);
+                Run("OmniMIDI rejected packet regression structures and MIDIHDR fields", TestOmniMidiPacketStructures);
                 Run("KDMAPI short, SysEx, reset, and stream lifecycle", TestKdmApiOutput);
+                Run("KDMAPI initialization failure cleanup", TestKdmApiInitializationCleanup);
+                Run("Stop and Seek reset then silence MIDI output", TestOutputResetSilenceContract);
+                Run("Reset stats does not disrupt playback", TestResetStatisticsDuringPlayback);
+                Run("processing slider low-range mapping and track clicks", TestProcessingSliderMapping);
+                Run("effective playback speed rolling estimate", TestEffectivePlaybackSpeed);
+                Run("current MIDI output-rate rolling estimate", TestRollingOutputRate);
+                Run("live Rate model applies at next service", TestLiveRateModelChange);
+                Run("live overflow policy applies at next overflow", TestLiveOverflowPolicyChange);
+                Run("output restart preserves paused source position and clears backlog", TestOutputRestartSemantics);
                 Run("dense 200,000-event MIDI parsing", TestDenseMidiParser);
                 Run("workload analysis and graph data", TestWorkloadAnalysis);
                 Run("configured whole-file Analysis window", TestAnalysisWindowConstruction);
+                Run("selected-model Analysis interaction and seek", TestAnalysisInteraction);
                 Run("consistent simulated-lag formatting", TestLagFormatting);
+                Run("conditional queue-pressure rendering semantics", TestQueuePressureView);
                 Run("Windows MIDI device enumeration", TestMidiDeviceEnumeration);
                 if (Array.IndexOf(arguments, "--midi-integration") >= 0)
                     Run("MIDI SysEx output and repeated device switching", TestMidiOutputSwitching);
@@ -113,7 +161,39 @@ namespace MidiBottleneck.Tests
             Console.WriteLine("  OK  " + name);
         }
 
-        private static void RenderMainWindow(string outputPath, bool bitrateMode, bool minimumSize)
+        private static void ReportSystemExclusivePackets(string midiPath)
+        {
+            MidiSong song = MidiFileParser.Load(midiPath);
+            SystemExclusiveAssembler assembler = new SystemExclusiveAssembler();
+            List<string> fragments = new List<string>();
+            int packetNumber = 0;
+            for (int eventIndex = 0; eventIndex < song.Events.Count; eventIndex++)
+            {
+                MidiEvent midiEvent = song.Events[eventIndex];
+                if (midiEvent.Kind != MidiEventKind.SystemExclusive) continue;
+                if (midiEvent.Status == 0xF0) fragments.Clear();
+                fragments.Add(String.Format("#{0} tick={1} time={2}us status={3:X2} data={4}",
+                    eventIndex, midiEvent.AbsoluteTick, midiEvent.IntendedMicroseconds, midiEvent.Status, midiEvent.Data.Length));
+                byte[] packet = assembler.Accept(midiEvent);
+                if (packet == null) continue;
+                packetNumber++;
+                Console.WriteLine("Packet {0}: {1} bytes, framed={2}, fragments=[{3}]", packetNumber, packet.Length,
+                    SystemExclusiveAssembler.IsComplete(packet), String.Join("; ", fragments.ToArray()));
+                Console.WriteLine("  leading={0}", FormatHexEdge(packet, 0, Math.Min(16, packet.Length)));
+                Console.WriteLine("  trailing={0}", FormatHexEdge(packet, Math.Max(0, packet.Length - 16), Math.Min(16, packet.Length)));
+                fragments.Clear();
+            }
+            Console.WriteLine("Total complete packets: {0}", packetNumber);
+        }
+
+        private static string FormatHexEdge(byte[] bytes, int start, int count)
+        {
+            string[] values = new string[count];
+            for (int i = 0; i < count; i++) values[i] = bytes[start + i].ToString("X2");
+            return String.Join(" ", values);
+        }
+
+        private static void RenderMainWindow(string outputPath, bool bitrateMode, bool minimumSize, bool finite)
         {
             Application.EnableVisualStyles();
             using (MainForm form = new MainForm())
@@ -124,14 +204,25 @@ namespace MidiBottleneck.Tests
                 {
                     form.Size = form.MinimumSize;
                     Application.DoEvents();
+                    form.Size = form.MinimumSize;
+                    Application.DoEvents();
                 }
                 if (bitrateMode)
                 {
                     List<Control> controls = new List<Control>();
                     CollectControls(form, controls);
-                    ComboBox serviceMode = FindComboContaining(controls, "MIDI bitrate / byte transmission");
+                    ComboBox serviceMode = FindComboContaining(controls, "MIDI serial bitrate");
                     if (serviceMode == null) throw new Exception("MIDI bitrate mode was not found for UI rendering");
                     serviceMode.SelectedIndex = 1;
+                    Application.DoEvents();
+                }
+                if (finite)
+                {
+                    List<Control> controls = new List<Control>();
+                    CollectControls(form, controls);
+                    CheckBox queueLimit = FindCheckBox(controls, "Queue length limit:");
+                    if (queueLimit == null) throw new Exception("Queue limit was not found for UI rendering");
+                    queueLimit.Checked = true;
                     Application.DoEvents();
                 }
                 using (Bitmap bitmap = new Bitmap(form.Width, form.Height))
@@ -144,18 +235,31 @@ namespace MidiBottleneck.Tests
             Console.WriteLine("Rendered UI: " + Path.GetFullPath(outputPath));
         }
 
-        private static void RenderAnalysisWindow(string midiPath, string outputPath)
+        private static void RenderAnalysisWindow(string midiPath, string outputPath, bool bitrate, bool finite, bool pinned)
         {
             Application.EnableVisualStyles();
             MidiSong song = MidiFileParser.Load(midiPath);
             AnalysisConfiguration configuration = DefaultAnalysisConfiguration();
-            configuration.QueueLengthLimitEnabled = true;
+            configuration.ServiceDurationMode = bitrate ? ServiceDurationMode.MidiBitrate : ServiceDurationMode.ProcessingTime;
+            configuration.QueueLengthLimitEnabled = finite;
             configuration.QueueLengthLimit = 64;
             WorkloadAnalysis analysis = WorkloadAnalyzer.Analyze(song, configuration);
             using (DiagnosticsForm form = new DiagnosticsForm(song, analysis))
             {
                 form.Show();
                 Application.DoEvents();
+                if (pinned)
+                {
+                    List<Control> controls = new List<Control>();
+                    CollectControls(form, controls);
+                    WorkloadGraph graph = FindControl<WorkloadGraph>(controls);
+                    if (graph != null) graph.InspectAtClientX(graph.GraphArea.Left + graph.GraphArea.Width * 2 / 3, true);
+                    PlaybackSnapshot snapshot = new PlaybackSnapshot();
+                    snapshot.IntendedTimelineMicroseconds = song.DurationMicroseconds * 3 / 5;
+                    snapshot.LastDispatchedTimelineMicroseconds = song.DurationMicroseconds * 2 / 5;
+                    form.UpdatePlaybackSnapshot(snapshot);
+                    Application.DoEvents();
+                }
                 using (Bitmap bitmap = new Bitmap(form.Width, form.Height))
                 {
                     form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size));
@@ -575,6 +679,72 @@ namespace MidiBottleneck.Tests
             if (unsafeEscape != null) throw new Exception("unframed F7 escape was emitted as SysEx");
         }
 
+        private static void TestOmniMidiPacketStructures()
+        {
+            MidiEvent gm = SysExEvent(0xF0, new byte[] { 0xF0, 0x7E, 0x7F, 0x09, 0x01, 0xF7 });
+            gm.EventIndex = 1;
+            gm.SourceFile = "4 non blondes - whatsgoingon.mid";
+            MidiEvent circus = SysExEvent(0xF0, new byte[] { 0xF0, 0x41, 0x10, 0x42, 0x12, 0x40, 0x00, 0x7F, 0x00, 0x41, 0xF7 });
+            circus.EventIndex = 0;
+            circus.AbsoluteTick = 0;
+            circus.IntendedMicroseconds = 0;
+            circus.SourceFile = "Circus Galop.mid";
+            MidiEvent lbsfs = SysExEvent(0xF0, new byte[] { 0xF0, 0x43, 0x10, 0x4C, 0x00, 0x00, 0x7E, 0x00, 0xF7 });
+            lbsfs.EventIndex = 54;
+            lbsfs.AbsoluteTick = 960;
+            lbsfs.IntendedMicroseconds = 571426;
+            lbsfs.SourceFile = "lbsfs 211k.mid";
+
+            SystemExclusiveAssembler assembler = new SystemExclusiveAssembler();
+            Equal(6, assembler.AcceptPacket(gm).Bytes.Length, "GM System On packet length");
+            SystemExclusivePacket circusPacket = assembler.AcceptPacket(circus);
+            Equal(11, circusPacket.Bytes.Length, "Circus Galop packet length");
+            Equal(true, SystemExclusiveAssembler.IsComplete(circusPacket.Bytes), "Circus Galop framing");
+            SystemExclusivePacket lbsfsPacket = assembler.AcceptPacket(lbsfs);
+            Equal(9, lbsfsPacket.Bytes.Length, "lbsfs packet length");
+            Equal(54, lbsfsPacket.Fragments[0].EventIndex, "lbsfs source event index");
+
+            FakeKdmApiNative native = new FakeKdmApiNative();
+            using (KdmApiMidiOutput output = new KdmApiMidiOutput(native))
+            {
+                output.Open();
+                output.Send(circus);
+                Equal((uint)11, native.LastHeader.BufferLength, "MIDIHDR buffer length");
+                Equal((uint)0, native.LastHeader.BytesRecorded, "output MIDIHDR recorded bytes remain zero");
+                Equal((uint)0, native.LastInitialFlags, "MIDIHDR initial flags");
+                Equal(IntPtr.Size == 8 ? 112 : 64, native.LastHeaderSize, "packed native MIDIHDR size");
+            }
+            IntPtr testData = Marshal.AllocHGlobal(6);
+            try
+            {
+                NativeMidiHeader outputHeader = NativeMidiHeader.CreateOutput(testData, 6);
+                Equal((uint)6, outputHeader.BufferLength, "shared WinMM/KDMAPI output length");
+                Equal((uint)0, outputHeader.BytesRecorded, "shared output header input-byte field");
+                Equal((uint)0, outputHeader.Flags, "shared output header flags");
+                Equal(IntPtr.Zero, outputHeader.Reserved7, "shared output header reserved fields");
+                Equal(IntPtr.Size == 8 ? 112 : 64, Marshal.SizeOf(typeof(NativeMidiHeader)), "shared packed native MIDIHDR layout");
+                Equal(new IntPtr(IntPtr.Size == 8 ? 28 : 20), Marshal.OffsetOf(typeof(NativeMidiHeader), "Next"), "packed MIDIHDR lpNext offset");
+            }
+            finally { Marshal.FreeHGlobal(testData); }
+            FakeKdmApiNative rejecting = new FakeKdmApiNative();
+            rejecting.PrepareLongResult = 11;
+            using (KdmApiMidiOutput output = new KdmApiMidiOutput(rejecting))
+            {
+                output.Open();
+                try
+                {
+                    output.Send(lbsfs);
+                    throw new Exception("rejected SysEx packet did not raise an error");
+                }
+                catch (System.ComponentModel.Win32Exception ex)
+                {
+                    if (!ex.Message.Contains("lbsfs 211k.mid") || !ex.Message.Contains("event #54") ||
+                        !ex.Message.Contains("Packet: 9 bytes") || !ex.Message.Contains("MIDIHDR: size="))
+                        throw new Exception("SysEx native error lacks packet/header diagnostics: " + ex.Message);
+                }
+            }
+        }
+
         private static void TestKdmApiOutput()
         {
             FakeKdmApiNative native = new FakeKdmApiNative();
@@ -591,9 +761,247 @@ namespace MidiBottleneck.Tests
                 Equal(1, native.SendLongCount, "KDMAPI send long count");
                 output.Reset();
                 Equal(1, native.UnprepareLongCount, "KDMAPI unprepare after reset");
+                int beforePanic = native.ShortMessages.Count;
+                output.Panic();
+                Equal(beforePanic + 48, native.ShortMessages.Count, "KDMAPI channel panic message count");
+                Equal((uint)(0xB0 | (120 << 8)), native.ShortMessages[beforePanic], "KDMAPI CC120 after reset");
+                Equal((uint)(0xB0 | (123 << 8)), native.ShortMessages[beforePanic + 1], "KDMAPI CC123 after reset");
+                Equal((uint)(0xB0 | (64 << 8)), native.ShortMessages[beforePanic + 2], "KDMAPI sustain off after reset");
             }
             Equal(1, native.TerminateCount, "KDMAPI terminate count");
             if (native.ResetCount < 2) throw new Exception("KDMAPI stream was not reset before disposal");
+        }
+
+        private static void TestKdmApiInitializationCleanup()
+        {
+            FakeKdmApiNative native = new FakeKdmApiNative();
+            native.InitializeResult = false;
+            bool failed = false;
+            using (KdmApiMidiOutput output = new KdmApiMidiOutput(native, true))
+            {
+                try { output.Open(); }
+                catch (InvalidOperationException ex)
+                {
+                    failed = ex.Message.IndexOf("rejected KDMAPI stream initialization", StringComparison.OrdinalIgnoreCase) >= 0;
+                }
+            }
+            Equal(true, failed, "phase-specific KDMAPI initialization error");
+            Equal(1, native.DisposeCount, "KDMAPI native module cleanup after initialization failure");
+            Equal(0, native.TerminateCount, "uninitialized KDMAPI stream not terminated");
+
+            FakeKdmApiNative terminationFailure = new FakeKdmApiNative();
+            terminationFailure.TerminateResult = false;
+            bool closeFailed = false;
+            KdmApiMidiOutput failingClose = new KdmApiMidiOutput(terminationFailure, true);
+            failingClose.Open();
+            try { failingClose.Close(); }
+            catch (InvalidOperationException ex)
+            {
+                closeFailed = ex.Message.IndexOf("stream termination", StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+            Equal(true, closeFailed, "phase-specific KDMAPI termination error");
+            Equal(1, terminationFailure.DisposeCount, "KDMAPI module released after termination rejection");
+        }
+
+        private static void TestOutputResetSilenceContract()
+        {
+            MidiSong song = BuildSong(new long[] { 0, 500000, 1000000 });
+            FakeMidiOutput output = new FakeMidiOutput();
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.Start(song, output, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.GetSnapshot().ProcessedEvents >= 1; }, 1000, "first event before seek silence");
+                engine.Seek(500000);
+                if (output.ResetCount < 1 || output.PanicCount < 1) throw new Exception("Seek did not reset and panic the output");
+                if (output.LastPanicSequence <= output.LastResetSequence) throw new Exception("Seek panic was not sent after reset");
+                int resetBeforeStop = output.ResetCount;
+                int panicBeforeStop = output.PanicCount;
+                engine.Stop();
+                if (output.ResetCount <= resetBeforeStop || output.PanicCount <= panicBeforeStop)
+                    throw new Exception("Stop did not reset and panic the output");
+                if (output.LastPanicSequence <= output.LastResetSequence) throw new Exception("Stop panic was not sent after reset");
+                Equal(0L, engine.GetSnapshot().OutstandingEvents, "Stop discarded outstanding events");
+            }
+        }
+
+        private static void TestResetStatisticsDuringPlayback()
+        {
+            long[] arrivals = new long[40];
+            for (int i = 0; i < arrivals.Length; i++) arrivals[i] = i * 1000;
+            MidiSong song = BuildSong(arrivals);
+            FakeMidiOutput output = new FakeMidiOutput();
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.ProcessingMicroseconds = 50000;
+                engine.Start(song, output, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.GetSnapshot().QueueLength >= 5; }, 1000, "queue before statistics reset");
+                int outputResets = output.ResetCount;
+                long playbackBefore = engine.GetSnapshot().PlaybackMicroseconds;
+                engine.ResetStatistics();
+                PlaybackSnapshot reset = engine.GetSnapshot();
+                Equal(PlaybackState.Playing, reset.State, "statistics reset playback state");
+                Equal(outputResets, output.ResetCount, "statistics reset does not touch MIDI output");
+                if (reset.PlaybackMicroseconds < playbackBefore) throw new Exception("statistics reset moved playback backwards");
+                if (reset.MaximumQueueLength < reset.QueueLength) throw new Exception("statistics reset maximum queue baseline is below current queue");
+                if (reset.MaximumLagMicroseconds < reset.CurrentLagMicroseconds) throw new Exception("statistics reset maximum lag baseline is below current lag");
+            }
+        }
+
+        private static void TestProcessingSliderMapping()
+        {
+            Equal(0L, MainForm.SliderToMicroseconds(0), "slider zero");
+            Equal(5000L, MainForm.SliderToMicroseconds(ProcessingTrackBar.LowRangeEnd), "slider low-range boundary");
+            Equal(1000000L, MainForm.SliderToMicroseconds(ProcessingTrackBar.ScaleMaximum), "slider maximum");
+            long previous = -1;
+            for (int slider = 0; slider <= ProcessingTrackBar.ScaleMaximum; slider++)
+            {
+                long value = MainForm.SliderToMicroseconds(slider);
+                if (value < previous) throw new Exception("processing slider mapping is not monotonic");
+                previous = value;
+            }
+            long[] calibration = new long[] { 0, 500, 960, 979, 1399, 2000, 3000, 5000, 10000, 1000000 };
+            for (int i = 0; i < calibration.Length; i++)
+            {
+                int slider = MainForm.MicrosecondsToSlider(calibration[i]);
+                Near(calibration[i], MainForm.SliderToMicroseconds(slider), calibration[i] <= 5000 ? 1 : Math.Max(2, calibration[i] / 500), "slider round trip " + calibration[i]);
+            }
+            Equal(0, ProcessingTrackBar.ValueFromTrackPoint(0, 500, 0, 10000), "track click left edge");
+            Near(5000, ProcessingTrackBar.ValueFromTrackPoint(250, 500, 0, 10000), 30, "track click midpoint");
+            Equal(10000, ProcessingTrackBar.ValueFromTrackPoint(500, 500, 0, 10000), "track click right edge");
+            using (ProcessingTrackBar track = new ProcessingTrackBar())
+            {
+                track.Minimum = 0;
+                track.Maximum = 10000;
+                track.Size = new Size(500, 45);
+                track.ApplyTrackClick(250);
+                Near(5000, track.Value, 30, "actual track click changes value");
+            }
+        }
+
+        private static void TestEffectivePlaybackSpeed()
+        {
+            EffectivePlaybackSpeed speed = new EffectivePlaybackSpeed();
+            double? result = null;
+            for (int i = 0; i <= 5; i++)
+                result = speed.Add(i * 50000, i * 50000, i * 50000, i, true, i * 50000);
+            Near(100, result.Value, 0.01, "realtime regression speed");
+            speed.Reset();
+            for (int i = 0; i <= 5; i++)
+                result = speed.Add(i * 50000, i * 50000, i * 25000, i, false, i * 50000);
+            Near(50, result.Value, 0.01, "falling-behind speed");
+            speed.Reset();
+            for (int i = 0; i <= 5; i++)
+                result = speed.Add(i * 50000, i * 50000, i * 75000, i, false, i * 50000);
+            Near(150, result.Value, 0.01, "catch-up speed");
+            speed.Reset();
+            for (int i = 0; i <= 5; i++)
+                result = speed.Add(i * 50000, i * 50000, 0, 0, true, i * 50000);
+            Near(100, result.Value, 0.01, "synchronized sparse passage remains realtime");
+            speed.Reset();
+            for (int i = 0; i <= 5; i++)
+                result = speed.Add(i * 50000, i * 50000, 0, i, false, i * 50000);
+            Equal(null, result, "repeated output timestamps are insufficient movement");
+            Equal("—", EffectivePlaybackSpeed.Format(null), "insufficient format");
+
+            speed.WindowMicroseconds = 0;
+            Equal(null, speed.Add(0, 0, 0, 0, false, 0), "instantaneous initial sample");
+            Equal(null, speed.Add(100000, 100000, 0, 1, false, 100000), "instantaneous repeated timestamp");
+            Near(100, speed.Add(200000, 200000, 100000, 2, false, 200000).Value, 0.01, "instantaneous shortest distinct samples");
+            long[] presets = new long[] { 0, 100000, 250000, 500000, 1500000 };
+            for (int i = 0; i < presets.Length; i++) { speed.WindowMicroseconds = presets[i]; Equal(presets[i], speed.WindowMicroseconds, "speed preset"); }
+            Equal(true, EffectivePlaybackSpeed.IsValidWindow(333000), "valid custom interval");
+            Equal(false, EffectivePlaybackSpeed.IsValidWindow(1000), "invalid custom interval");
+            long parsed;
+            Equal(true, UserPreferences.TryParseEffectiveSpeedWindow("333000", out parsed), "stored custom interval validation");
+            Equal(333000L, parsed, "stored custom interval value");
+            speed.Reset();
+            Equal(null, speed.Add(2000000, 2000000, 2000000, 20, false, 2000000), "speed reset discards old window");
+        }
+
+        private static void TestRollingOutputRate()
+        {
+            RollingOutputRate rate = new RollingOutputRate();
+            Equal(null, rate.Add(0, 0), "output-rate initial sample");
+            rate.Add(10, 100000);
+            Near(100, rate.Add(20, 200000).Value, 0.01, "successfully sent events per second");
+            rate.Reset();
+            Equal(null, rate.Add(20, 300000), "output-rate reset clears history");
+            Equal("—", RollingOutputRate.Format(null), "output-rate insufficient format");
+        }
+
+        private static void TestLiveRateModelChange()
+        {
+            MidiSong song = BuildSong(new long[] { 0, 0 });
+            FakeMidiOutput output = new FakeMidiOutput();
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.ProcessingMicroseconds = 300000;
+                Stopwatch elapsed = Stopwatch.StartNew();
+                engine.Start(song, output, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.GetSnapshot().QueueLength >= 1; }, 1000, "queued event before live Rate model change");
+                engine.MidiBitrate = 100000000;
+                engine.ServiceDurationMode = ServiceDurationMode.MidiBitrate;
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1000, "completion after live Rate model change");
+                elapsed.Stop();
+                if (elapsed.ElapsedMilliseconds < 240 || elapsed.ElapsedMilliseconds > 520)
+                    throw new Exception("live Rate model did not preserve current service then accelerate the next one: " + elapsed.ElapsedMilliseconds + " ms");
+            }
+        }
+
+        private static void TestLiveOverflowPolicyChange()
+        {
+            MidiSong song = BuildSong(new long[] { 0, 0, 200000, 200000 });
+            FakeMidiOutput output = new FakeMidiOutput();
+            string tracePath = Path.Combine(Path.GetTempPath(), "midi-live-overflow-" + Guid.NewGuid().ToString("N") + ".csv");
+            try
+            {
+                DropTraceRecorder trace = new DropTraceRecorder(0, 300000, 100);
+                using (PlaybackEngine engine = new PlaybackEngine())
+                {
+                    engine.QueueLengthLimit = 2;
+                    engine.ProcessingMicroseconds = 1000000;
+                    engine.OverflowPolicy = OverflowPolicy.DropNewest;
+                    engine.SetDropTrace(trace);
+                    engine.Start(song, output, ProcessingMode.Drop);
+                    WaitFor(delegate { return engine.GetSnapshot().OutstandingEvents == 2; }, 1000, "full buffer before live overflow policy change");
+                    engine.OverflowPolicy = OverflowPolicy.ClearBufferAndCatchUp;
+                    WaitFor(delegate { return engine.GetSnapshot().DroppedEvents >= 3; }, 1000, "clear-buffer overflow after live policy change");
+                    engine.Stop();
+                }
+                trace.Save(tracePath);
+                string traceText = File.ReadAllText(tracePath);
+                if (traceText.IndexOf("buffer cleared; caught up to realtime", StringComparison.Ordinal) < 0)
+                    throw new Exception("new overflow policy was not read at the later overflow");
+            }
+            finally { if (File.Exists(tracePath)) File.Delete(tracePath); }
+        }
+
+        private static void TestOutputRestartSemantics()
+        {
+            MidiSong song = BuildSong(new long[] { 0, 50000, 100000, 150000, 200000 });
+            FakeMidiOutput first = new FakeMidiOutput();
+            FakeMidiOutput second = new FakeMidiOutput();
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.ProcessingMicroseconds = 100000;
+                engine.Start(song, first, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.GetSnapshot().PlaybackMicroseconds >= 60000; }, 1000, "source position before output restart");
+                engine.Pause();
+                long sourcePosition = engine.GetSnapshot().IntendedTimelineMicroseconds;
+                engine.Stop();
+                engine.Start(song, second, ProcessingMode.Queue, sourcePosition, true);
+                PlaybackSnapshot restarted = engine.GetSnapshot();
+                Equal(PlaybackState.Paused, restarted.State, "paused output restart state");
+                Near(sourcePosition, restarted.IntendedTimelineMicroseconds, 2, "output restart source position");
+                Equal(0L, restarted.QueueLength, "output restart queue cleared");
+                Equal(0L, restarted.ProcessedEvents, "output restart statistics cleared");
+                if (first.ResetCount < 1) throw new Exception("old output was not reset during restart");
+                engine.Resume();
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000, "output restart completion");
+                if (second.SentTimes().Count == 0) throw new Exception("replacement output received no events");
+                for (int i = 0; i < second.SentTimes().Count; i++)
+                    if (second.SentTimes()[i] < sourcePosition) throw new Exception("stale pre-restart event reached replacement output");
+            }
         }
 
         private static void TestKdmApiIntegration()
@@ -603,17 +1011,55 @@ namespace MidiBottleneck.Tests
                 Console.WriteLine("      Loading and initializing OmniMIDI KDMAPI");
                 output.Open();
                 Console.WriteLine("      Sending framed System Exclusive packet");
-                output.Send(SysExEvent(0xF0, new byte[] { 0xF0, 0x7D, 0x00, 0xF7 }));
+                output.Send(SysExEvent(0xF0, new byte[] { 0xF0, 0x7E, 0x7F, 0x09, 0x01, 0xF7 }));
                 MidiEvent allNotesOff = BuildSong(new long[] { 0 }).Events[0];
                 allNotesOff.Kind = MidiEventKind.ControlChange;
                 allNotesOff.Data = new byte[] { 0xB0, 123, 0 };
                 Console.WriteLine("      Sending short message");
                 output.Send(allNotesOff);
                 Console.WriteLine("      Resetting KDMAPI stream");
-                output.Reset();
+                MidiOutputSafety.ResetAndSilence(output);
                 Console.WriteLine("      KDMAPI stream reset complete");
             }
             Console.WriteLine("      KDMAPI stream terminated");
+        }
+
+        private static void ProbeKdmApiHeaderContract()
+        {
+            using (DynamicKdmApiNative native = new DynamicKdmApiNative())
+            {
+                Console.WriteLine("KDMAPI version " + native.Version + ", available=" + native.IsAvailable());
+                Console.WriteLine("Initialize=" + native.InitializeStream());
+                IntPtr data = Marshal.AllocHGlobal(6);
+                IntPtr headerPointer = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(NativeMidiHeader)));
+                try
+                {
+                    Marshal.Copy(new byte[] { 0xF0, 0x7E, 0x7F, 0x09, 0x01, 0xF7 }, 0, data, 6);
+                    uint[] sizes = new uint[] { 64, 112, 120, 128 };
+                    for (int i = 0; i < sizes.Length; i++)
+                    {
+                        NativeMidiHeader header = NativeMidiHeader.CreateOutput(data, 6);
+                        Marshal.StructureToPtr(header, headerPointer, false);
+                        uint result = native.PrepareLong(headerPointer, sizes[i]);
+                        Console.WriteLine("size=" + sizes[i] + ", recorded=0 => " + result);
+                        if (result == 0) Console.WriteLine("  unprepare => " + native.UnprepareLong(headerPointer, sizes[i]));
+                    }
+                    NativeMidiHeader recorded = NativeMidiHeader.CreateOutput(data, 6);
+                    recorded.BytesRecorded = 6;
+                    Marshal.StructureToPtr(recorded, headerPointer, false);
+                    uint packedSize = (uint)Marshal.SizeOf(typeof(NativeMidiHeader));
+                    uint recordedResult = native.PrepareLong(headerPointer, packedSize);
+                    Console.WriteLine("size=" + packedSize + ", recorded=6 => " + recordedResult);
+                    if (recordedResult == 0) Console.WriteLine("  unprepare => " + native.UnprepareLong(headerPointer, packedSize));
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(headerPointer);
+                    Marshal.FreeHGlobal(data);
+                    native.ResetStream();
+                    Console.WriteLine("Terminate=" + native.TerminateStream());
+                }
+            }
         }
 
         private static void TestDenseMidiParser()
@@ -715,10 +1161,89 @@ namespace MidiBottleneck.Tests
             }
         }
 
+        private static void TestAnalysisInteraction()
+        {
+            MidiSong song = BuildSong(new long[] { 0, 25000, 50000, 75000, 100000 });
+            song.FilePath = "analysis-interaction.mid";
+            AnalysisConfiguration configuration = DefaultAnalysisConfiguration();
+            configuration.QueueLengthLimitEnabled = true;
+            configuration.QueueLengthLimit = 2;
+            WorkloadAnalysis analysis = WorkloadAnalyzer.Analyze(song, 25000, configuration);
+            using (DiagnosticsForm form = new DiagnosticsForm(song, analysis))
+            {
+                form.Show();
+                Application.DoEvents();
+                List<Control> controls = new List<Control>();
+                CollectControls(form, controls);
+                WorkloadGraph graph = FindControl<WorkloadGraph>(controls);
+                if (graph == null) throw new Exception("interactive Analysis graph was not found");
+                graph.Size = new Size(600, 400);
+                Equal(0L, graph.TimeAtClientX(graph.GraphArea.Left), "Analysis x-to-time beginning");
+                Near(song.DurationMicroseconds, graph.TimeAtClientX(graph.GraphArea.Right), 1, "Analysis x-to-time end");
+                graph.InspectAtClientX(graph.GraphArea.Left + graph.GraphArea.Width / 2, true);
+                if (!graph.PinnedTimeMicroseconds.HasValue) throw new Exception("Analysis click did not pin inspection");
+                long pin = graph.PinnedTimeMicroseconds.Value;
+                graph.InspectAtClientX(graph.GraphArea.Left + graph.GraphArea.Width / 3, false);
+                Equal(pin, graph.PinnedTimeMicroseconds.Value, "Analysis hover preserves pin");
+                Equal(true, form.SeekToPinEnabled, "Seek to pin remains enabled after hover");
+
+                int centerX = graph.GraphArea.Left + graph.GraphArea.Width / 2;
+                long centerBefore = graph.TimeAtClientX(centerX);
+                graph.ZoomAtClientX(centerX, 120);
+                Near(centerBefore, graph.TimeAtClientX(centerX), 2, "zoom remains centered on cursor timestamp");
+                if (graph.ViewEndMicroseconds - graph.ViewStartMicroseconds >= song.DurationMicroseconds)
+                    throw new Exception("Analysis wheel zoom did not reduce viewport");
+                graph.PanByPixels(100000);
+                Equal(0L, graph.ViewStartMicroseconds, "Analysis pan clamps at beginning");
+                graph.PanByPixels(-100000);
+                Near(song.DurationMicroseconds, graph.ViewEndMicroseconds, 1, "Analysis pan clamps at end");
+                graph.ResetZoom();
+                Equal(0L, graph.ViewStartMicroseconds, "Analysis reset zoom start");
+                Near(song.DurationMicroseconds, graph.ViewEndMicroseconds, 1, "Analysis reset zoom end");
+
+                graph.ZoomAtClientX(centerX, 240);
+                graph.FollowTarget = AnalysisFollowTarget.PlaybackTimeline;
+                graph.SetPlaybackPositions(song.DurationMicroseconds, song.DurationMicroseconds / 4);
+                if (graph.ViewEndMicroseconds < song.DurationMicroseconds)
+                    throw new Exception("Analysis playback follow did not reveal end marker");
+                graph.FollowTarget = AnalysisFollowTarget.MidiOutput;
+                graph.SetPlaybackPositions(song.DurationMicroseconds, 0);
+                Equal(0L, graph.ViewStartMicroseconds, "Analysis MIDI-output follow reveals beginning marker");
+
+                bool seekRaised = false;
+                form.SeekRequested += delegate { seekRaised = true; };
+                Button seek = FindButton(controls, "Seek to pin");
+                if (seek == null || !seek.Enabled) throw new Exception("Analysis seek action was not enabled for pinned selection");
+                seek.PerformClick();
+                Equal(true, seekRaised, "Analysis deliberate seek action");
+
+                AnalysisConfiguration bitrate = DefaultAnalysisConfiguration();
+                bitrate.ServiceDurationMode = ServiceDurationMode.MidiBitrate;
+                form.UpdateAnalysis(WorkloadAnalyzer.Analyze(song, 25000, bitrate));
+                Equal(true, graph.UsesByteRate, "Analysis selected MIDI byte-rate graph");
+                form.Close();
+            }
+        }
+
         private static void TestLagFormatting()
         {
             Equal("0.000 ms", MainForm.FormatLagMilliseconds(0), "zero lag format");
             Equal("43.137 ms", MainForm.FormatLagMilliseconds(43137), "nonzero lag format");
+        }
+
+        private static void TestQueuePressureView()
+        {
+            using (StatisticsView statistics = new StatisticsView())
+            {
+                statistics.Size = new Size(700, 104);
+                statistics.SetQueuePressure(false, 0, 2000, false);
+                Equal(false, statistics.QueuePressureVisible, "unlimited queue hides pressure meter");
+                statistics.SetQueuePressure(true, 1463, 2000, false);
+                Equal(true, statistics.QueuePressureVisible, "finite queue shows pressure meter");
+                Near(0.7315, statistics.QueuePressureRatio, 0.0001, "queue pressure ratio includes outstanding slot count");
+                using (Bitmap bitmap = new Bitmap(statistics.Width, statistics.Height))
+                    statistics.DrawToBitmap(bitmap, statistics.ClientRectangle);
+            }
         }
 
         private static AnalysisConfiguration DefaultAnalysisConfiguration()
@@ -811,12 +1336,47 @@ namespace MidiBottleneck.Tests
             {
                 output.Open(device.DeviceId);
                 Console.WriteLine("Opened; sending framed SysEx");
-                output.Send(SysExEvent(0xF0, new byte[] { 0xF0, 0x7D, 0x00, 0xF7 }));
+                output.Send(SysExEvent(0xF0, new byte[] { 0xF0, 0x7E, 0x7F, 0x09, 0x01, 0xF7 }));
                 Console.WriteLine("Sent; resetting");
-                output.Reset();
+                MidiOutputSafety.ResetAndSilence(output);
                 Console.WriteLine("Reset complete");
             }
             Console.WriteLine("Close complete");
+        }
+
+        private static void ProbeFileSystemExclusive(uint deviceId, string path, bool kdmApi)
+        {
+            MidiSong song = MidiFileParser.Load(path);
+            IMidiOutput output;
+            IDisposable disposable;
+            if (kdmApi)
+            {
+                KdmApiMidiOutput kdm = new KdmApiMidiOutput();
+                kdm.Open();
+                output = kdm;
+                disposable = kdm;
+            }
+            else
+            {
+                WindowsMidiOutput winmm = new WindowsMidiOutput();
+                winmm.Open(deviceId);
+                output = winmm;
+                disposable = winmm;
+            }
+            int fragments = 0;
+            try
+            {
+                for (int i = 0; i < song.Events.Count; i++)
+                {
+                    if (song.Events[i].Kind != MidiEventKind.SystemExclusive) continue;
+                    output.Send(song.Events[i]);
+                    fragments++;
+                }
+                MidiOutputSafety.ResetAndSilence(output);
+            }
+            finally { disposable.Dispose(); }
+            Console.WriteLine((kdmApi ? "KDMAPI" : "WinMM") + " accepted " + fragments +
+                " SysEx fragment(s) from " + Path.GetFileName(path));
         }
 
         private static void AnalyzeDropFile(string path, long serviceMicroseconds)
@@ -879,6 +1439,37 @@ namespace MidiBottleneck.Tests
             {
                 Console.WriteLine("  finite FIFO capacity " + capacities[i] + ": " + AnalyzeFiniteQueue(song, serviceMicroseconds, capacities[i]).ToString("F2") + "%");
                 Console.WriteLine("  token bucket capacity " + capacities[i] + ": " + AnalyzeTokenBucket(song, serviceMicroseconds, capacities[i]).ToString("F2") + "%");
+            }
+        }
+
+        private static void BenchmarkBoundedFile(string path)
+        {
+            Stopwatch parse = Stopwatch.StartNew();
+            MidiSong song = MidiFileParser.Load(path);
+            parse.Stop();
+            for (int i = 0; i < song.Events.Count; i++) song.Events[i].IntendedMicroseconds = 0;
+            song.DurationMicroseconds = 0;
+            Console.WriteLine("Parsed " + song.Events.Count.ToString("N0") + " events in " + parse.ElapsedMilliseconds + " ms");
+            BenchmarkBoundedPass(song, false, "zero-service bounded throughput");
+            BenchmarkBoundedPass(song, true, "1-us bounded overflow throughput");
+        }
+
+        private static void BenchmarkBoundedPass(MidiSong song, bool slowdown, string label)
+        {
+            CountingMidiOutput output = new CountingMidiOutput();
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.SimulateSlowdown = slowdown;
+                engine.ProcessingMicroseconds = 1;
+                engine.QueueLengthLimit = 2000;
+                engine.OverflowPolicy = OverflowPolicy.DropNewest;
+                Stopwatch elapsed = Stopwatch.StartNew();
+                engine.Start(song, output, ProcessingMode.Drop);
+                while (engine.State == PlaybackState.Playing) Thread.Sleep(1);
+                elapsed.Stop();
+                PlaybackSnapshot result = engine.GetSnapshot();
+                Console.WriteLine(label + ": " + elapsed.ElapsedMilliseconds + " ms, sent=" +
+                    result.ProcessedEvents.ToString("N0") + ", dropped=" + result.DroppedEvents.ToString("N0"));
             }
         }
 
@@ -981,7 +1572,7 @@ namespace MidiBottleneck.Tests
                 Rectangle bounds = statistics.Bounds;
                 int layoutEvents = 0;
                 statistics.Layout += delegate { layoutEvents++; };
-                string[] values = new string[10];
+                string[] values = new string[8];
                 for (int i = 0; i < values.Length; i++) values[i] = "9 µs";
                 Equal(true, statistics.SetValues(values), "statistics first update");
                 Equal(false, statistics.SetValues(values), "statistics unchanged update");
@@ -1012,19 +1603,48 @@ namespace MidiBottleneck.Tests
                 CheckBox slowdown = FindCheckBox(controls, "Simulate slowdown");
                 CheckBox queueLimit = FindCheckBox(controls, "Queue length limit:");
                 CheckBox kdmApi = FindCheckBox(controls, "KDMAPI");
-                ComboBox serviceMode = FindComboContaining(controls, "MIDI bitrate / byte transmission");
+                ComboBox serviceMode = FindComboContaining(controls, "MIDI serial bitrate");
                 ComboBox overflow = FindComboContaining(controls, "Clear buffer and jump to realtime");
                 ComboBox midiOutput = FindMidiOutputCombo(controls);
-                Button dinPreset = FindButton(controls, "31,250 DIN");
+                Button dinPreset = FindButton(controls, "5-pin DIN");
                 NumericUpDown queueLimitValue = FindNumericWithValue(controls, 2000m);
                 if (slowdown == null || queueLimit == null || kdmApi == null || serviceMode == null || overflow == null || dinPreset == null || queueLimitValue == null)
                     throw new Exception("independent processing policy controls were not found");
-                Equal(new Size(740, 670), form.MinimumSize, "compact minimum window size");
+                Equal(new Size(600, 660), form.MinimumSize, "normal-layout minimum window size");
+                GroupBox processingGroup = FindGroupBox(controls, "Processing model");
+                int unlimitedProcessingHeight = processingGroup == null ? 0 : processingGroup.Height;
+                queueLimit.Checked = true;
+                Application.DoEvents();
+                if (processingGroup != null) Equal(unlimitedProcessingHeight, processingGroup.Height, "queue toggle preserves processing group height");
+                queueLimit.Checked = false;
+                Application.DoEvents();
+                if (processingGroup != null) Equal(unlimitedProcessingHeight, processingGroup.Height, "queue untoggle restores processing group height");
+
+                form.Size = new Size(600, 660);
+                Application.DoEvents();
+                Equal(true, statistics.Compact, "compact layout breakpoint");
+                Equal(new Size(560, 600), form.MinimumSize, "compact-layout realized minimum size");
+                Equal(2, statistics.ColumnCount, "compact statistics remain two columns");
+                form.Size = form.MinimumSize;
+                Application.DoEvents();
+                if (statistics.Bottom > form.ClientSize.Height) throw new Exception("compact statistics are clipped");
+                form.Size = new Size(790, 660);
+                Application.DoEvents();
+                Equal(false, statistics.Compact, "normal layout restored across breakpoint");
+                Equal(new Size(600, 660), form.MinimumSize, "normal minimum restored");
+                for (int transition = 0; transition < 4; transition++)
+                {
+                    form.Size = new Size(600, 660); Application.DoEvents();
+                    Equal(true, statistics.Compact, "repeated compact transition");
+                    form.Size = new Size(790, 660); Application.DoEvents();
+                    Equal(false, statistics.Compact, "repeated normal transition");
+                    if (processingGroup != null) Equal(unlimitedProcessingHeight, processingGroup.Height, "processing height stable across breakpoints");
+                }
                 if (FindButton(controls, "Play") == null) throw new Exception("merged Play button was not found");
                 if (FindButton(controls, "Pause") != null) throw new Exception("separate Pause button still exists");
                 if (FindButton(controls, "−10 sec") != null || FindButton(controls, "+10 sec") != null)
                     throw new Exception("redundant ten-second seek buttons still exist");
-                if (FindButton(controls, "Reset statistics") != null) throw new Exception("redundant statistics reset button still exists");
+                if (FindButton(controls, "Reset stats") == null) throw new Exception("Reset stats button was not restored");
                 if (!ContainsLabel(controls, "Rate model:")) throw new Exception("rate model label was not found");
                 if (midiOutput != null)
                 {
@@ -1119,6 +1739,16 @@ namespace MidiBottleneck.Tests
             {
                 CheckBox checkBox = controls[i] as CheckBox;
                 if (checkBox != null && checkBox.Text == text) return checkBox;
+            }
+            return null;
+        }
+
+        private static GroupBox FindGroupBox(List<Control> controls, string text)
+        {
+            for (int i = 0; i < controls.Count; i++)
+            {
+                GroupBox group = controls[i] as GroupBox;
+                if (group != null && group.Text == text) return group;
             }
             return null;
         }
@@ -1328,6 +1958,20 @@ namespace MidiBottleneck.Tests
                 throw new Exception(name + ": expected " + expected + " ± " + tolerance + ", got " + actual);
         }
 
+        private static void Near(double expected, double actual, double tolerance, string name)
+        {
+            if (Math.Abs(expected - actual) > tolerance)
+                throw new Exception(name + ": expected " + expected + " ± " + tolerance + ", got " + actual);
+        }
+
+        private sealed class CountingMidiOutput : IMidiOutput
+        {
+            public long Count;
+            public void Send(MidiEvent midiEvent) { Count++; }
+            public void Panic() { }
+            public void Reset() { }
+        }
+
         private sealed class FakeMidiOutput : IMidiOutput
         {
             private readonly object _sync = new object();
@@ -1335,6 +1979,9 @@ namespace MidiBottleneck.Tests
             private readonly List<MidiEvent> _sentEvents = new List<MidiEvent>();
             public int ResetCount;
             public int PanicCount;
+            public int LastResetSequence;
+            public int LastPanicSequence;
+            private int _safetySequence;
 
             public void Send(MidiEvent midiEvent)
             {
@@ -1345,13 +1992,14 @@ namespace MidiBottleneck.Tests
                 }
             }
 
-            public void Panic() { lock (_sync) PanicCount++; }
+            public void Panic() { lock (_sync) { PanicCount++; LastPanicSequence = ++_safetySequence; } }
 
             public void Reset()
             {
                 lock (_sync)
                 {
                     ResetCount++;
+                    LastResetSequence = ++_safetySequence;
                     _sent.Clear();
                     _sentEvents.Clear();
                 }
@@ -1374,6 +2022,27 @@ namespace MidiBottleneck.Tests
             }
         }
 
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        private struct CapturedMidiHeader
+        {
+            public IntPtr Data;
+            public uint BufferLength;
+            public uint BytesRecorded;
+            public IntPtr User;
+            public uint Flags;
+            public IntPtr Next;
+            public IntPtr Reserved;
+            public uint Offset;
+            public IntPtr Reserved0;
+            public IntPtr Reserved1;
+            public IntPtr Reserved2;
+            public IntPtr Reserved3;
+            public IntPtr Reserved4;
+            public IntPtr Reserved5;
+            public IntPtr Reserved6;
+            public IntPtr Reserved7;
+        }
+
         private sealed class FakeKdmApiNative : IKdmApiNative
         {
             public int InitializeCount;
@@ -1382,17 +2051,32 @@ namespace MidiBottleneck.Tests
             public int PrepareLongCount;
             public int SendLongCount;
             public int UnprepareLongCount;
+            public int DisposeCount;
+            public bool InitializeResult = true;
+            public bool TerminateResult = true;
+            public uint PrepareLongResult;
+            public int LastHeaderSize;
+            public CapturedMidiHeader LastHeader;
+            public uint LastInitialFlags;
             public readonly List<uint> ShortMessages = new List<uint>();
+            public string Version { get { return "test"; } }
 
             public bool IsAvailable() { return true; }
-            public bool InitializeStream() { InitializeCount++; return true; }
-            public bool TerminateStream() { TerminateCount++; return true; }
+            public bool InitializeStream() { InitializeCount++; return InitializeResult; }
+            public bool TerminateStream() { TerminateCount++; return TerminateResult; }
             public void ResetStream() { ResetCount++; }
             public void SendShort(uint message) { ShortMessages.Add(message); }
-            public uint PrepareLong(IntPtr header, uint headerSize) { PrepareLongCount++; return 0; }
+            public uint PrepareLong(IntPtr header, uint headerSize)
+            {
+                PrepareLongCount++;
+                LastHeaderSize = (int)headerSize;
+                LastHeader = (CapturedMidiHeader)Marshal.PtrToStructure(header, typeof(CapturedMidiHeader));
+                LastInitialFlags = LastHeader.Flags;
+                return PrepareLongResult;
+            }
             public uint SendLong(IntPtr header, uint headerSize) { SendLongCount++; return 0; }
             public uint UnprepareLong(IntPtr header, uint headerSize) { UnprepareLongCount++; return 0; }
-            public void Dispose() { }
+            public void Dispose() { DisposeCount++; }
         }
     }
 }

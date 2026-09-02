@@ -75,13 +75,19 @@ namespace MidiBottleneck
                 allEvents.Sort(CompareEvents);
                 allTempos.Sort(CompareTempos);
                 AssignRealTimes(allEvents, allTempos, division);
+                string fullPath = Path.GetFullPath(path);
+                for (int eventIndex = 0; eventIndex < allEvents.Count; eventIndex++)
+                {
+                    allEvents[eventIndex].EventIndex = eventIndex;
+                    allEvents[eventIndex].SourceFile = fullPath;
+                }
 
                 long duration = TickToMicroseconds(endTick, allTempos, division);
                 if (allEvents.Count > 0 && allEvents[allEvents.Count - 1].IntendedMicroseconds > duration)
                     duration = allEvents[allEvents.Count - 1].IntendedMicroseconds;
 
                 MidiSong song = new MidiSong();
-                song.FilePath = Path.GetFullPath(path);
+                song.FilePath = fullPath;
                 song.Format = format;
                 song.TrackCount = trackCount;
                 song.TicksPerQuarterNote = division;

@@ -26,6 +26,8 @@ namespace MidiBottleneck
         public int Channel;
         public byte Status;
         public byte[] Data;
+        public int EventIndex;
+        public string SourceFile;
 
         public string Description
         {
@@ -74,6 +76,7 @@ namespace MidiBottleneck
         public PlaybackState State;
         public long ProcessingMicroseconds;
         public long QueueLength;
+        public long OutstandingEvents;
         public long MaximumQueueLength;
         public long ProcessedEvents;
         public long DroppedEvents;
@@ -95,5 +98,27 @@ namespace MidiBottleneck
         void Send(MidiEvent midiEvent);
         void Panic();
         void Reset();
+    }
+
+    internal static class MidiOutputSafety
+    {
+        // Reset discards queued/native work. Panic must follow it so the
+        // controller messages cannot themselves be discarded by that reset.
+        public static void ResetAndSilence(IMidiOutput output)
+        {
+            if (output == null) return;
+            Exception resetFailure = null;
+            try { output.Reset(); }
+            catch (Exception ex) { resetFailure = ex; }
+            try { output.Panic(); }
+            catch (Exception panicFailure)
+            {
+                if (resetFailure == null) throw;
+                throw new InvalidOperationException("MIDI reset and post-reset panic both failed.",
+                    new AggregateException(resetFailure, panicFailure));
+            }
+            if (resetFailure != null)
+                throw new InvalidOperationException("MIDI reset failed; a post-reset panic was still attempted.", resetFailure);
+        }
     }
 }

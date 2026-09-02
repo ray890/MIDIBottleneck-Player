@@ -10,6 +10,12 @@ namespace MidiBottleneck
     {
         private readonly TextBox _summary;
         private readonly WorkloadGraph _graph;
+        private readonly TextBox _inspection;
+        private readonly Button _seekButton;
+        private readonly ComboBox _followCombo;
+        private WorkloadAnalysis _analysis;
+
+        internal event EventHandler<WorkloadSelectionEventArgs> SeekRequested;
 
         internal MidiSong SourceSong { get; private set; }
 
@@ -38,9 +44,71 @@ namespace MidiBottleneck
             _summary.Font = new Font("Consolas", 9F, FontStyle.Regular, GraphicsUnit.Point);
             split.Panel1.Controls.Add(_summary);
 
+            TableLayoutPanel graphLayout = new TableLayoutPanel();
+            graphLayout.Dock = DockStyle.Fill;
+            graphLayout.ColumnCount = 2;
+            graphLayout.RowCount = 3;
+            graphLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            graphLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            graphLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            graphLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            graphLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 92));
+
+            FlowLayoutPanel navigation = new FlowLayoutPanel();
+            navigation.AutoSize = true;
+            navigation.Dock = DockStyle.Fill;
+            navigation.WrapContents = false;
+            Button resetZoom = new Button();
+            resetZoom.Text = "Reset zoom";
+            resetZoom.AutoSize = true;
+            resetZoom.Click += delegate { _graph.ResetZoom(); };
+            Label followLabel = new Label();
+            followLabel.Text = "Follow:";
+            followLabel.AutoSize = true;
+            followLabel.Anchor = AnchorStyles.Left;
+            followLabel.Margin = new Padding(12, 7, 3, 3);
+            _followCombo = new ComboBox();
+            _followCombo.DropDownStyle = ComboBoxStyle.DropDownList;
+            _followCombo.Items.Add("Off");
+            _followCombo.Items.Add("Playback timeline");
+            _followCombo.Items.Add("MIDI output");
+            _followCombo.SelectedIndex = 0;
+            _followCombo.Width = 150;
+            _followCombo.SelectedIndexChanged += delegate { _graph.FollowTarget = (AnalysisFollowTarget)_followCombo.SelectedIndex; };
+            navigation.Controls.Add(resetZoom);
+            navigation.Controls.Add(followLabel);
+            navigation.Controls.Add(_followCombo);
+            graphLayout.Controls.Add(navigation, 0, 0);
+            graphLayout.SetColumnSpan(navigation, 2);
+
             _graph = new WorkloadGraph();
             _graph.Dock = DockStyle.Fill;
-            split.Panel2.Controls.Add(_graph);
+            _graph.InspectionChanged += GraphInspectionChanged;
+            _graph.SeekRequested += GraphSeekRequested;
+            graphLayout.Controls.Add(_graph, 0, 1);
+            graphLayout.SetColumnSpan(_graph, 2);
+
+            _inspection = new TextBox();
+            _inspection.Dock = DockStyle.Fill;
+            _inspection.Multiline = true;
+            _inspection.ReadOnly = true;
+            _inspection.BackColor = SystemColors.Window;
+            _inspection.Font = new Font("Consolas", 8.5F, FontStyle.Regular, GraphicsUnit.Point);
+            _inspection.Text = "Hover over the graph to inspect a time. Click to pin; double-click to seek.";
+            graphLayout.Controls.Add(_inspection, 0, 2);
+
+            _seekButton = new Button();
+            _seekButton.Text = "Seek to pin";
+            _seekButton.AutoSize = true;
+            _seekButton.Enabled = false;
+            _seekButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            _seekButton.Click += delegate
+            {
+                if (_graph.PinnedTimeMicroseconds.HasValue)
+                    RaiseSeekRequested(_graph.PinnedTimeMicroseconds.Value);
+            };
+            graphLayout.Controls.Add(_seekButton, 1, 2);
+            split.Panel2.Controls.Add(graphLayout);
             Controls.Add(split);
             UpdateAnalysis(analysis);
             PerformLayout();
@@ -56,6 +124,7 @@ namespace MidiBottleneck
         internal void UpdateAnalysis(WorkloadAnalysis analysis)
         {
             if (analysis == null) throw new ArgumentNullException("analysis");
+            _analysis = analysis;
             int selectionStart = _summary == null ? 0 : _summary.SelectionStart;
             if (_summary != null)
             {
@@ -64,6 +133,63 @@ namespace MidiBottleneck
                 _summary.SelectionLength = 0;
             }
             if (_graph != null) _graph.Analysis = analysis;
+            if (_graph != null && _graph.InspectedTimeMicroseconds.HasValue)
+                UpdateInspection(_graph.InspectedTimeMicroseconds.Value, _graph.PinnedTimeMicroseconds.HasValue);
+        }
+
+        internal void UpdatePlaybackSnapshot(PlaybackSnapshot snapshot)
+        {
+            if (snapshot == null || _graph == null) return;
+            _graph.SetPlaybackPositions(snapshot.IntendedTimelineMicroseconds, snapshot.LastDispatchedTimelineMicroseconds);
+        }
+
+        internal WorkloadGraph Graph { get { return _graph; } }
+        internal bool SeekToPinEnabled { get { return _seekButton.Enabled; } }
+
+        private void GraphInspectionChanged(object sender, WorkloadSelectionEventArgs e)
+        {
+            UpdateInspection(e.TimeMicroseconds, e.Pinned);
+        }
+
+        private void GraphSeekRequested(object sender, WorkloadSelectionEventArgs e)
+        {
+            UpdateInspection(e.TimeMicroseconds, true);
+            RaiseSeekRequested(e.TimeMicroseconds);
+        }
+
+        private void RaiseSeekRequested(long timeMicroseconds)
+        {
+            EventHandler<WorkloadSelectionEventArgs> handler = SeekRequested;
+            if (handler != null) handler(this, new WorkloadSelectionEventArgs(timeMicroseconds, true));
+        }
+
+        private void UpdateInspection(long timeMicroseconds, bool pinned)
+        {
+            if (_analysis == null || _inspection == null) return;
+            WorkloadBucket bucket = _graph.BucketAt(timeMicroseconds);
+            int bucketIndex = (int)Math.Max(0, Math.Min(_analysis.Buckets.Length - 1,
+                timeMicroseconds / Math.Max(1, _analysis.BucketMicroseconds)));
+            long start = bucketIndex * _analysis.BucketMicroseconds;
+            long end = Math.Min(_analysis.DurationMicroseconds, start + _analysis.BucketMicroseconds);
+            double seconds = _analysis.BucketMicroseconds / 1000000.0;
+            StringBuilder text = new StringBuilder();
+            text.Append(pinned ? "Pinned: " : "Cursor: ").AppendLine(FormatClock(timeMicroseconds));
+            text.Append("Bucket: ").Append(FormatClock(start)).Append("–").AppendLine(FormatClock(end));
+            if (bucket != null)
+            {
+                text.Append("Events/sec: ").Append((bucket.EventCount / seconds).ToString("N1", CultureInfo.CurrentCulture));
+                text.Append("   MIDI bytes/sec: ").AppendLine((bucket.ByteCount / seconds).ToString("N1", CultureInfo.CurrentCulture));
+                text.Append("Largest simultaneous cluster: ").Append(bucket.LargestCluster.ToString("N0", CultureInfo.CurrentCulture));
+                if (_analysis.Configuration != null && _analysis.Configuration.QueueLengthLimitEnabled)
+                {
+                    text.Append("   Predicted occupancy: ").Append(bucket.PredictedPeakOccupancy.ToString("N0", CultureInfo.CurrentCulture));
+                    text.Append(" / ").Append(_analysis.Configuration.QueueLengthLimit.ToString("N0", CultureInfo.CurrentCulture));
+                    text.Append("   Predicted drops: ").Append(bucket.PredictedDroppedEvents.ToString("N0", CultureInfo.CurrentCulture));
+                    if (bucket.PredictedBufferClears > 0) text.Append("   Predicted buffer clear");
+                }
+            }
+            _inspection.Text = text.ToString();
+            _seekButton.Enabled = _graph.PinnedTimeMicroseconds.HasValue;
         }
 
         private static string BuildSummary(WorkloadAnalysis analysis)
@@ -88,12 +214,12 @@ namespace MidiBottleneck
                 text.AppendLine("Simulate slowdown:  " + (configuration.SimulateSlowdown ? "On" : "Off (zero service time)"));
                 if (configuration.ServiceDurationMode == ServiceDurationMode.MidiBitrate)
                 {
-                    text.AppendLine("Service duration:   MIDI bytes at " + configuration.MidiBitrate.ToString("N0", CultureInfo.CurrentCulture) + " bit/s");
+                    text.AppendLine("Rate model:         MIDI serial bitrate at " + configuration.MidiBitrate.ToString("N0", CultureInfo.CurrentCulture) + " bit/s");
                     text.AppendLine("Maximum rate:       " + analysis.ByteServiceCapacityPerSecond.ToString("N1", CultureInfo.CurrentCulture) + " bytes/sec");
                 }
                 else
                 {
-                    text.AppendLine("Service duration:   " + configuration.ProcessingMicroseconds.ToString("N0", CultureInfo.CurrentCulture) + " µs/event");
+                    text.AppendLine("Rate model:         Processing time, " + configuration.ProcessingMicroseconds.ToString("N0", CultureInfo.CurrentCulture) + " µs/event");
                     text.AppendLine("Maximum rate:       " + (configuration.SimulateSlowdown ? analysis.EventServiceCapacityPerSecond.ToString("N1", CultureInfo.CurrentCulture) + " events/sec" : "Immediate (simulated)"));
                 }
                 text.AppendLine("Queue length limit: " + (configuration.QueueLengthLimitEnabled ? configuration.QueueLengthLimit.ToString("N0", CultureInfo.CurrentCulture) + " event slots" : "Unlimited"));

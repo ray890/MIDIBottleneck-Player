@@ -26,6 +26,7 @@ namespace MidiBottleneck
         private long _runStartStamp;
 
         private long _queueLength;
+        private long _outstandingEvents;
         private long _maximumQueueLength;
         private long _processedEvents;
         private long _droppedEvents;
@@ -113,6 +114,11 @@ namespace MidiBottleneck
 
         public void Start(MidiSong song, IMidiOutput output, ProcessingMode mode, long startMicroseconds)
         {
+            Start(song, output, mode, startMicroseconds, false);
+        }
+
+        public void Start(MidiSong song, IMidiOutput output, ProcessingMode mode, long startMicroseconds, bool startPaused)
+        {
             if (song == null) throw new ArgumentNullException("song");
             if (output == null) throw new ArgumentNullException("output");
             Stop();
@@ -127,7 +133,7 @@ namespace MidiBottleneck
                 _runStartStamp = Stopwatch.GetTimestamp();
                 ResetStatisticsLocked();
                 _lastDispatchedMicroseconds = startMicroseconds;
-                _state = PlaybackState.Playing;
+                _state = startPaused ? PlaybackState.Paused : PlaybackState.Playing;
                 _thread = new Thread(PlaybackWorker);
                 _thread.Name = "MIDI bottleneck scheduler";
                 _thread.IsBackground = true;
@@ -160,7 +166,7 @@ namespace MidiBottleneck
             if (previousThread != null && previousThread != Thread.CurrentThread)
                 previousThread.Join(2000);
             if (output != null)
-                output.Reset();
+                MidiOutputSafety.ResetAndSilence(output);
 
             lock (_sync)
             {
@@ -228,11 +234,12 @@ namespace MidiBottleneck
             if (thread != null && thread != Thread.CurrentThread)
                 thread.Join(2000);
             if (output != null)
-                output.Reset();
+                MidiOutputSafety.ResetAndSilence(output);
             lock (_sync)
             {
                 if (_thread == thread) _thread = null;
                 _queueLength = 0;
+                _outstandingEvents = 0;
                 _currentLagMicroseconds = 0;
             }
         }
@@ -269,6 +276,7 @@ namespace MidiBottleneck
                 snapshot.QueueLengthLimit = Volatile.Read(ref _queueLengthLimit);
                 snapshot.OverflowPolicy = (OverflowPolicy)Volatile.Read(ref _overflowPolicy);
                 snapshot.QueueLength = _queueLength;
+                snapshot.OutstandingEvents = _outstandingEvents;
                 snapshot.MaximumQueueLength = _maximumQueueLength;
                 snapshot.ProcessedEvents = _processedEvents;
                 snapshot.DroppedEvents = _droppedEvents;
@@ -314,6 +322,7 @@ namespace MidiBottleneck
                 }
                 _thread = null;
                 _queueLength = 0;
+                _outstandingEvents = 0;
                 _currentLagMicroseconds = 0;
             }
 
@@ -344,7 +353,7 @@ namespace MidiBottleneck
 
                 while (nextArrival < _song.Events.Count && EventTicks(nextArrival) <= now)
                     nextArrival++;
-                UpdateQueue(nextArrival - nextProcess);
+                UpdateQueue(nextArrival - nextProcess, inService >= 0);
 
                 if (inService >= 0 && completionTicks <= now)
                 {
@@ -359,7 +368,7 @@ namespace MidiBottleneck
                     inService = nextProcess++;
                     long startTicks = Math.Max(EventTicks(inService), lastCompletionTicks);
                     completionTicks = checked(startTicks + ServiceTicksForEvent(inService));
-                    UpdateQueue(nextArrival - nextProcess);
+                    UpdateQueue(nextArrival - nextProcess, true);
                     continue;
                 }
 
@@ -381,13 +390,14 @@ namespace MidiBottleneck
             int inService = -1;
             long completionTicks = Int64.MaxValue;
             int bufferCapacity = Volatile.Read(ref _queueLengthLimit);
-            OverflowPolicy overflowPolicy = (OverflowPolicy)Volatile.Read(ref _overflowPolicy);
             System.Collections.Generic.Queue<int> pending = new System.Collections.Generic.Queue<int>(bufferCapacity);
             int consecutiveDrops = 0;
             long clusterTimestamp = Int64.MinValue;
             int clusterEnd = nextArrival;
             int clusterSize = 0;
             int maximumBufferOccupancy = 0;
+            bool traceEnabled;
+            lock (_sync) traceEnabled = _dropTrace != null;
 
             while (IsActive())
             {
@@ -408,15 +418,16 @@ namespace MidiBottleneck
                         // completion, not at the scheduler thread's wake time.
                         long serviceStart = completedAt;
                         completionTicks = checked(serviceStart + ServiceTicksForEvent(inService));
-                        TraceService(inService, serviceStart, completionTicks, EstimateBusyUntil(completionTicks, pending));
+                        if (traceEnabled)
+                            TraceService(inService, serviceStart, completionTicks, EstimateBusyUntil(completionTicks, pending));
                     }
-                    UpdateQueue(pending.Count);
+                    UpdateQueue(pending.Count, inService >= 0);
                     continue;
                 }
 
                 if (nextArrival < _song.Events.Count && arrivalTicks <= now)
                 {
-                    if (arrivalTicks != clusterTimestamp || nextArrival >= clusterEnd)
+                    if (traceEnabled && (arrivalTicks != clusterTimestamp || nextArrival >= clusterEnd))
                     {
                         clusterTimestamp = arrivalTicks;
                         clusterEnd = nextArrival + 1;
@@ -441,54 +452,72 @@ namespace MidiBottleneck
                         }
                         int occupancy = pending.Count + (inService >= 0 ? 1 : 0);
                         if (occupancy > maximumBufferOccupancy) maximumBufferOccupancy = occupancy;
-                        long busyUntil = EstimateBusyUntil(completionTicks, pending);
-                        TraceAcceptedAdmission(acceptedIndex, now, clusterSize, occupancy, maximumBufferOccupancy, busyUntil);
-                        if (acceptedIndex == inService)
-                            TraceService(acceptedIndex, arrivalTicks, completionTicks, busyUntil);
-                        UpdateQueue(pending.Count);
+                        if (traceEnabled)
+                        {
+                            long busyUntil = EstimateBusyUntil(completionTicks, pending);
+                            TraceAcceptedAdmission(acceptedIndex, now, clusterSize, occupancy, maximumBufferOccupancy, busyUntil);
+                            if (acceptedIndex == inService)
+                                TraceService(acceptedIndex, arrivalTicks, completionTicks, busyUntil);
+                        }
+                        UpdateQueue(pending.Count, inService >= 0);
                     }
                     else
                     {
+                        OverflowPolicy overflowPolicy = (OverflowPolicy)Volatile.Read(ref _overflowPolicy);
                         if (overflowPolicy == OverflowPolicy.DropOldest && pending.Count > 0)
                         {
                             int evicted = pending.Dequeue();
                             consecutiveDrops++;
                             lock (_sync) _droppedEvents++;
-                            TraceDropped(evicted, now, "oldest pending event evicted on overflow", ClusterSizeAt(evicted), consecutiveDrops,
-                                EstimateBusyUntil(completionTicks, pending), outstanding - 1, maximumBufferOccupancy);
+                            if (traceEnabled)
+                                TraceDropped(evicted, now, "oldest pending event evicted on overflow", ClusterSizeAt(evicted), consecutiveDrops,
+                                    EstimateBusyUntil(completionTicks, pending), outstanding - 1, maximumBufferOccupancy);
 
                             int acceptedIndex = nextArrival;
                             pending.Enqueue(acceptedIndex);
-                            long busyUntil = EstimateBusyUntil(completionTicks, pending);
-                            TraceAcceptedAdmission(acceptedIndex, now, clusterSize, outstanding, maximumBufferOccupancy, busyUntil);
-                            UpdateQueue(pending.Count);
+                            if (traceEnabled)
+                            {
+                                long busyUntil = EstimateBusyUntil(completionTicks, pending);
+                                TraceAcceptedAdmission(acceptedIndex, now, clusterSize, outstanding, maximumBufferOccupancy, busyUntil);
+                            }
+                            UpdateQueue(pending.Count, inService >= 0);
                             consecutiveDrops = 0;
                         }
                         else if (overflowPolicy == OverflowPolicy.ClearBufferAndCatchUp)
                         {
-                            System.Collections.Generic.List<int> cleared = new System.Collections.Generic.List<int>(outstanding + 1);
-                            if (inService >= 0) cleared.Add(inService);
-                            while (pending.Count > 0) cleared.Add(pending.Dequeue());
+                            System.Collections.Generic.List<int> cleared = traceEnabled
+                                ? new System.Collections.Generic.List<int>(outstanding + 1) : null;
+                            int clearedCount = outstanding;
+                            if (traceEnabled && inService >= 0) cleared.Add(inService);
+                            if (traceEnabled)
+                                while (pending.Count > 0) cleared.Add(pending.Dequeue());
+                            else
+                                pending.Clear();
                             inService = -1;
                             completionTicks = Int64.MaxValue;
 
                             int catchUp = nextArrival;
                             while (catchUp < _song.Events.Count && EventTicks(catchUp) <= now)
                             {
-                                cleared.Add(catchUp);
+                                if (traceEnabled) cleared.Add(catchUp);
+                                clearedCount++;
                                 catchUp++;
                             }
 
-                            for (int clearedIndex = 0; clearedIndex < cleared.Count; clearedIndex++)
+                            if (traceEnabled)
                             {
-                                int eventIndex = cleared[clearedIndex];
-                                consecutiveDrops++;
-                                TraceDropped(eventIndex, now, "buffer cleared; caught up to realtime", ClusterSizeAt(eventIndex),
-                                    consecutiveDrops, 0, 0, maximumBufferOccupancy);
+                                for (int clearedIndex = 0; clearedIndex < cleared.Count; clearedIndex++)
+                                {
+                                    int eventIndex = cleared[clearedIndex];
+                                    consecutiveDrops++;
+                                    TraceDropped(eventIndex, now, "buffer cleared; caught up to realtime", ClusterSizeAt(eventIndex),
+                                        consecutiveDrops, 0, 0, maximumBufferOccupancy);
+                                }
                             }
-                            lock (_sync) _droppedEvents += cleared.Count;
+                            else consecutiveDrops += clearedCount;
+                            lock (_sync) _droppedEvents += clearedCount;
                             nextArrival = catchUp;
-                            UpdateQueue(0);
+                            UpdateQueue(0, false);
                             SetCurrentLag(0);
                             try { _output.Panic(); }
                             catch { }
@@ -498,8 +527,9 @@ namespace MidiBottleneck
                         {
                             consecutiveDrops++;
                             lock (_sync) _droppedEvents++;
-                            TraceDropped(nextArrival, now, "newest event dropped; buffer full (" + bufferCapacity + " events outstanding)",
-                                clusterSize, consecutiveDrops, EstimateBusyUntil(completionTicks, pending), outstanding, maximumBufferOccupancy);
+                            if (traceEnabled)
+                                TraceDropped(nextArrival, now, "newest event dropped; buffer full (" + bufferCapacity + " events outstanding)",
+                                    clusterSize, consecutiveDrops, EstimateBusyUntil(completionTicks, pending), outstanding, maximumBufferOccupancy);
                         }
                     }
                     nextArrival++;
@@ -531,11 +561,12 @@ namespace MidiBottleneck
             }
         }
 
-        private void UpdateQueue(long queue)
+        private void UpdateQueue(long queue, bool inService)
         {
             lock (_sync)
             {
                 _queueLength = queue;
+                _outstandingEvents = queue + (inService ? 1 : 0);
                 if (queue > _maximumQueueLength) _maximumQueueLength = queue;
             }
         }
@@ -673,6 +704,7 @@ namespace MidiBottleneck
         private void ResetStatisticsLocked()
         {
             _queueLength = 0;
+            _outstandingEvents = 0;
             _maximumQueueLength = 0;
             _processedEvents = 0;
             _droppedEvents = 0;

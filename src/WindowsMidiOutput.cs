@@ -32,27 +32,6 @@ namespace MidiBottleneck
             public uint Support;
         }
 
-        [StructLayout(LayoutKind.Sequential)]
-        private struct MidiHeader
-        {
-            public IntPtr Data;
-            public uint BufferLength;
-            public uint BytesRecorded;
-            public IntPtr User;
-            public uint Flags;
-            public IntPtr Next;
-            public IntPtr Reserved;
-            public uint Offset;
-            public IntPtr Reserved0;
-            public IntPtr Reserved1;
-            public IntPtr Reserved2;
-            public IntPtr Reserved3;
-            public IntPtr Reserved4;
-            public IntPtr Reserved5;
-            public IntPtr Reserved6;
-            public IntPtr Reserved7;
-        }
-
         private sealed class LongBuffer
         {
             public IntPtr Data;
@@ -135,35 +114,30 @@ namespace MidiBottleneck
             // continues that packet or contains escaped bytes. winmm drivers are
             // allowed to reject an unframed continuation, so assemble fragments
             // and submit only a complete F0...F7 packet.
-            byte[] packet = _systemExclusiveAssembler.Accept(midiEvent);
+            SystemExclusivePacket packet = _systemExclusiveAssembler.AcceptPacket(midiEvent);
             if (packet != null)
-                SendLong(packet);
+                SendLong(packet, midiEvent);
         }
 
-        private void SendLong(byte[] bytes)
+        private void SendLong(SystemExclusivePacket packet, MidiEvent finalEvent)
         {
+            byte[] bytes = packet.Bytes;
             LongBuffer buffer = new LongBuffer();
-            int headerSize = Marshal.SizeOf(typeof(MidiHeader));
+            int headerSize = Marshal.SizeOf(typeof(NativeMidiHeader));
             try
             {
                 buffer.Data = Marshal.AllocHGlobal(bytes.Length);
                 Marshal.Copy(bytes, 0, buffer.Data, bytes.Length);
-                MidiHeader header = new MidiHeader();
-                header.Data = buffer.Data;
-                header.BufferLength = (uint)bytes.Length;
-                // dwBytesRecorded is an input-buffer field. It must be zero for
-                // an output buffer; permissive synths ignored the old value, but
-                // stricter drivers such as OmniMIDI reject it at prepare time.
-                header.BytesRecorded = 0;
+                NativeMidiHeader header = NativeMidiHeader.CreateOutput(buffer.Data, bytes.Length);
                 buffer.Header = Marshal.AllocHGlobal(headerSize);
                 Marshal.StructureToPtr(header, buffer.Header, false);
                 uint result = midiOutPrepareHeader(_handle, buffer.Header, (uint)headerSize);
-                ThrowIfError(result, "preparing a System Exclusive message");
+                ThrowLongIfError(result, "midiOutPrepareHeader", packet, finalEvent, headerSize, header);
                 result = midiOutLongMsg(_handle, buffer.Header, (uint)headerSize);
                 if (result != 0)
                 {
                     midiOutUnprepareHeader(_handle, buffer.Header, (uint)headerSize);
-                    ThrowIfError(result, "sending a System Exclusive message");
+                    ThrowLongIfError(result, "midiOutLongMsg", packet, finalEvent, headerSize, header);
                 }
                 _longBuffers.Add(buffer);
             }
@@ -176,10 +150,10 @@ namespace MidiBottleneck
 
         private void ReclaimCompletedLongMessages()
         {
-            int headerSize = Marshal.SizeOf(typeof(MidiHeader));
+            int headerSize = Marshal.SizeOf(typeof(NativeMidiHeader));
             for (int i = _longBuffers.Count - 1; i >= 0; i--)
             {
-                MidiHeader header = (MidiHeader)Marshal.PtrToStructure(_longBuffers[i].Header, typeof(MidiHeader));
+                NativeMidiHeader header = (NativeMidiHeader)Marshal.PtrToStructure(_longBuffers[i].Header, typeof(NativeMidiHeader));
                 if ((header.Flags & MhDone) != 0)
                 {
                     midiOutUnprepareHeader(_handle, _longBuffers[i].Header, (uint)headerSize);
@@ -191,7 +165,7 @@ namespace MidiBottleneck
 
         private void ReclaimAllLongMessages()
         {
-            int headerSize = Marshal.SizeOf(typeof(MidiHeader));
+            int headerSize = Marshal.SizeOf(typeof(NativeMidiHeader));
             for (int i = _longBuffers.Count - 1; i >= 0; i--)
             {
                 midiOutUnprepareHeader(_handle, _longBuffers[i].Header, (uint)headerSize);
@@ -220,6 +194,17 @@ namespace MidiBottleneck
             System.Text.StringBuilder text = new System.Text.StringBuilder(256);
             midiOutGetErrorText(code, text, text.Capacity);
             throw new Win32Exception((int)code, "MIDI error while " + action + ": " + text);
+        }
+
+        private static void ThrowLongIfError(uint code, string operation, SystemExclusivePacket packet,
+            MidiEvent finalEvent, int headerSize, NativeMidiHeader header)
+        {
+            if (code == 0) return;
+            System.Text.StringBuilder nativeText = new System.Text.StringBuilder(256);
+            midiOutGetErrorText(code, nativeText, nativeText.Capacity);
+            string detail = SystemExclusiveDiagnostics.DescribeFailure(operation, code, nativeText.ToString(), packet,
+                finalEvent, headerSize, header.BufferLength, header.BytesRecorded, header.Flags, header.Data);
+            throw new Win32Exception((int)code, detail);
         }
 
         public void Dispose()
