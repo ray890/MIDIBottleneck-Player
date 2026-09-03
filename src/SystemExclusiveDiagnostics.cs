@@ -8,14 +8,14 @@ namespace MidiBottleneck
     internal static class SystemExclusiveDiagnostics
     {
         public static string DescribeFailure(string nativeOperation, uint errorCode, string nativeText,
-            SystemExclusivePacket packet, MidiEvent finalEvent, int headerSize, uint bufferLength,
+            string sourceFile, SystemExclusivePacket packet, MidiEvent finalEvent, int headerSize, uint bufferLength,
             uint bytesRecorded, uint flags, IntPtr dataPointer)
         {
             StringBuilder text = new StringBuilder();
             text.Append("MIDI System Exclusive failure during ").Append(nativeOperation)
                 .Append(" (native code ").Append(errorCode).Append(")");
             if (!String.IsNullOrEmpty(nativeText)) text.Append(": ").Append(nativeText);
-            text.AppendLine().Append("Source: ").Append(String.IsNullOrEmpty(finalEvent.SourceFile) ? "unknown" : Path.GetFileName(finalEvent.SourceFile));
+            text.AppendLine().Append("Source: ").Append(String.IsNullOrEmpty(sourceFile) ? "unknown" : Path.GetFileName(sourceFile));
             text.Append("; event #").Append(finalEvent.EventIndex)
                 .Append("; tick ").Append(finalEvent.AbsoluteTick)
                 .Append("; source time ").Append(finalEvent.IntendedMicroseconds.ToString(CultureInfo.InvariantCulture)).Append(" µs");

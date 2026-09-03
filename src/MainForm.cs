@@ -4,6 +4,8 @@ using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.Diagnostics;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace MidiBottleneck
@@ -29,9 +31,23 @@ namespace MidiBottleneck
         private string _outputError;
         private bool _compactLayout;
         private bool _responsiveLayoutInitialized;
+        private bool _loadingSong;
+        private CancellationTokenSource _loadCancellation;
+        private int _loadGeneration;
+        private volatile MidiLoadProgress _loadProgress;
+        private string _lastLoadStatus;
+        private string _loadingFileName;
+        private int _lastDefaultHeight = 565;
+        private bool _suppressLoadErrorDialogs;
+        private Exception _lastLoadError;
 
         private Label _fileLabel;
         private Label _fileInfoLabel;
+        private Button _openButton;
+        private ProgressBar _loadActivity;
+        private ProgressBar _loadStageActivity;
+        private Label _loadingStatusLabel;
+        private TableLayoutPanel _loadingPanel;
         private ComboBox _outputCombo;
         private CheckBox _kdmApiCheck;
         private CheckBox _simulateSlowdownCheck;
@@ -42,7 +58,9 @@ namespace MidiBottleneck
         private NumericUpDown _processingValue;
         private Label _serviceUnitLabel;
         private TrackBar _processingSlider;
-        private Label _processingSummary;
+        private Label _serviceModeLabel;
+        private Label _overflowLabel;
+        private Label _eventsLabel;
         private Button _dinPresetButton;
         private NumericUpDown _queueLimitValue;
         private Button _playButton;
@@ -54,18 +72,24 @@ namespace MidiBottleneck
         private Button _analysisButton;
         private Button _resetStatsButton;
         private StatisticsView _statisticsView;
+        private GroupBox _statisticsGroup;
         private TableLayoutPanel _rootLayout;
-        private Label _footerLabel;
-        private Timer _uiTimer;
-        private Timer _analysisRefreshTimer;
+        private TableLayoutPanel _processingTable;
+        private FlowLayoutPanel _queueCluster;
+        private FlowLayoutPanel _overflowCluster;
+        private FlowLayoutPanel _rateCluster;
+        private FlowLayoutPanel _serviceCluster;
+        private TableLayoutPanel _playbackButtonLayout;
+        private System.Windows.Forms.Timer _uiTimer;
+        private System.Windows.Forms.Timer _analysisRefreshTimer;
         private PlaybackState _lastStatisticsState = PlaybackState.Stopped;
 
         public MainForm()
         {
             Text = "MIDI Event Bottleneck Simulator";
             StartPosition = FormStartPosition.CenterScreen;
-            MinimumSize = new Size(600, 660);
-            ClientSize = new Size(790, 630);
+            MinimumSize = new Size(560, 565);
+            ClientSize = new Size(790, 526);
             Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
 
             _effectiveSpeed.WindowMicroseconds = UserPreferences.LoadEffectiveSpeedWindow();
@@ -77,11 +101,11 @@ namespace MidiBottleneck
 
             _engine.PlaybackEnded += EnginePlaybackEnded;
             _engine.PlaybackFailed += EnginePlaybackFailed;
-            _uiTimer = new Timer();
+            _uiTimer = new System.Windows.Forms.Timer();
             _uiTimer.Interval = 16;
             _uiTimer.Tick += delegate { RefreshStatistics(); };
             _uiTimer.Start();
-            _analysisRefreshTimer = new Timer();
+            _analysisRefreshTimer = new System.Windows.Forms.Timer();
             _analysisRefreshTimer.Interval = 200;
             _analysisRefreshTimer.Tick += RefreshOpenAnalyses;
             ClientSizeChanged += delegate { UpdateResponsiveLayout(); };
@@ -92,28 +116,19 @@ namespace MidiBottleneck
         {
             _rootLayout = new TableLayoutPanel();
             _rootLayout.Dock = DockStyle.Fill;
-            _rootLayout.Padding = new Padding(9);
+            _rootLayout.Padding = new Padding(5);
             _rootLayout.ColumnCount = 1;
-            _rootLayout.RowCount = 5;
+            _rootLayout.RowCount = 4;
             _rootLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             _rootLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             _rootLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             _rootLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            _rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             Controls.Add(_rootLayout);
 
             _rootLayout.Controls.Add(BuildFileAndOutputGroup(), 0, 0);
             _rootLayout.Controls.Add(BuildProcessingGroup(), 0, 1);
             _rootLayout.Controls.Add(BuildPlaybackGroup(), 0, 2);
             _rootLayout.Controls.Add(BuildStatisticsGroup(), 0, 3);
-
-            _footerLabel = new Label();
-            _footerLabel.Dock = DockStyle.Fill;
-            _footerLabel.Padding = new Padding(3, 3, 3, 0);
-            _footerLabel.ForeColor = Color.DimGray;
-            _footerLabel.Text = "Tempo-mapped MIDI events enter a single-server processor; live rate changes apply to the next event starting service.";
-            _footerLabel.ToolTipText(_footerLabel.Text);
-            _rootLayout.Controls.Add(_footerLabel, 0, 4);
         }
 
         private Control BuildFileAndOutputGroup()
@@ -125,11 +140,11 @@ namespace MidiBottleneck
             table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
 
-            Button open = new Button();
-            open.Text = "Open MIDI...";
-            open.AutoSize = true;
-            open.Click += OpenMidiClicked;
-            table.Controls.Add(open, 0, 0);
+            _openButton = new Button();
+            _openButton.Text = "Open MIDI...";
+            _openButton.AutoSize = true;
+            _openButton.Click += OpenMidiClicked;
+            table.Controls.Add(_openButton, 0, 0);
 
             _fileLabel = new Label();
             _fileLabel.Text = "No file loaded";
@@ -142,7 +157,46 @@ namespace MidiBottleneck
             _fileInfoLabel.Text = "";
             _fileInfoLabel.AutoSize = true;
             _fileInfoLabel.TextAlign = ContentAlignment.MiddleRight;
+            _fileInfoLabel.Anchor = AnchorStyles.Right;
             table.Controls.Add(_fileInfoLabel, 2, 0);
+            table.SetColumnSpan(_fileInfoLabel, 2);
+
+            _loadActivity = new ProgressBar();
+            _loadActivity.Style = ProgressBarStyle.Continuous;
+            _loadActivity.Maximum = 1000;
+            _loadActivity.Dock = DockStyle.Fill;
+            _loadActivity.Margin = new Padding(0, 1, 0, 1);
+
+            _loadStageActivity = new ProgressBar();
+            _loadStageActivity.Style = ProgressBarStyle.Continuous;
+            _loadStageActivity.Maximum = 1000;
+            _loadStageActivity.Dock = DockStyle.Fill;
+            _loadStageActivity.Margin = new Padding(0);
+
+            _loadingStatusLabel = new Label();
+            _loadingStatusLabel.AutoEllipsis = true;
+            _loadingStatusLabel.Dock = DockStyle.Fill;
+            _loadingStatusLabel.Margin = new Padding(0, 0, 5, 0);
+            _loadingStatusLabel.TextAlign = ContentAlignment.MiddleRight;
+
+            _loadingPanel = new TableLayoutPanel();
+            _loadingPanel.AutoSize = false;
+            _loadingPanel.Size = new Size(292, 24);
+            _loadingPanel.ColumnCount = 2;
+            _loadingPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 112));
+            _loadingPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180));
+            _loadingPanel.RowCount = 2;
+            _loadingPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 15));
+            _loadingPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 7));
+            _loadingPanel.Anchor = AnchorStyles.Right;
+            _loadingPanel.Margin = new Padding(3, 0, 3, 0);
+            _loadingPanel.Visible = false;
+            _loadingPanel.Controls.Add(_loadingStatusLabel, 0, 0);
+            _loadingPanel.SetRowSpan(_loadingStatusLabel, 2);
+            _loadingPanel.Controls.Add(_loadActivity, 1, 0);
+            _loadingPanel.Controls.Add(_loadStageActivity, 1, 1);
+            table.Controls.Add(_loadingPanel, 2, 0);
+            table.SetColumnSpan(_loadingPanel, 2);
 
             Label outputLabel = new Label();
             outputLabel.Text = "MIDI output:";
@@ -179,15 +233,21 @@ namespace MidiBottleneck
         private Control BuildProcessingGroup()
         {
             GroupBox group = NewGroup("Processing model");
-            TableLayoutPanel table = NewTable(8);
-            table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            TableLayoutPanel table = NewTable(2);
+            _processingTable = table;
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 48));
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 52));
+            table.RowCount = 4;
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            _queueCluster = NewInlineCluster();
+            _overflowCluster = NewInlineCluster();
+            _rateCluster = NewInlineCluster();
+            _serviceCluster = NewInlineCluster();
+            _overflowCluster.Margin = new Padding(4, 0, 0, 0);
+            _serviceCluster.Margin = new Padding(4, 0, 0, 0);
 
             _simulateSlowdownCheck = new CheckBox();
             _simulateSlowdownCheck.Text = "Simulate slowdown";
@@ -196,14 +256,14 @@ namespace MidiBottleneck
             _simulateSlowdownCheck.CheckedChanged += SimulateSlowdownChanged;
             _toolTip.SetToolTip(_simulateSlowdownCheck, "A live change applies to the next event that begins service.");
             table.Controls.Add(_simulateSlowdownCheck, 0, 1);
-            table.SetColumnSpan(_simulateSlowdownCheck, 8);
+            table.SetColumnSpan(_simulateSlowdownCheck, 2);
 
             _queueLimitCheck = new CheckBox();
             _queueLimitCheck.Text = "Queue length limit:";
             _queueLimitCheck.AutoSize = true;
             _queueLimitCheck.CheckedChanged += QueueLimitChanged;
             _toolTip.SetToolTip(_queueLimitCheck, "Queue structure is locked while playback is active.");
-            table.Controls.Add(_queueLimitCheck, 0, 0);
+            _queueCluster.Controls.Add(_queueLimitCheck);
 
             _queueLimitValue = new NumericUpDown();
             _queueLimitValue.Minimum = 1;
@@ -218,20 +278,20 @@ namespace MidiBottleneck
                 _engine.QueueLengthLimit = Decimal.ToInt32(_queueLimitValue.Value);
                 ScheduleAnalysisRefresh();
             };
-            table.Controls.Add(_queueLimitValue, 1, 0);
+            _queueCluster.Controls.Add(_queueLimitValue);
 
-            Label eventsLabel = new Label();
-            eventsLabel.Text = "events";
-            eventsLabel.AutoSize = true;
-            eventsLabel.Anchor = AnchorStyles.Left;
-            table.Controls.Add(eventsLabel, 2, 0);
+            _eventsLabel = new Label();
+            _eventsLabel.Text = "events";
+            _eventsLabel.AutoSize = true;
+            _eventsLabel.Anchor = AnchorStyles.Left;
+            _queueCluster.Controls.Add(_eventsLabel);
 
-            Label overflowLabel = new Label();
-            overflowLabel.Text = "Overflow:";
-            overflowLabel.AutoSize = true;
-            overflowLabel.Anchor = AnchorStyles.Right;
-            overflowLabel.Margin = new Padding(18, 3, 3, 3);
-            table.Controls.Add(overflowLabel, 3, 0);
+            _overflowLabel = new Label();
+            _overflowLabel.Text = "Overflow:";
+            _overflowLabel.AutoSize = true;
+            _overflowLabel.Anchor = AnchorStyles.Right;
+            _overflowLabel.Margin = new Padding(8, 3, 3, 3);
+            _overflowCluster.Controls.Add(_overflowLabel);
 
             _overflowPolicyCombo = new ComboBox();
             _overflowPolicyCombo.DropDownStyle = ComboBoxStyle.DropDownList;
@@ -242,13 +302,12 @@ namespace MidiBottleneck
             _overflowPolicyCombo.Width = 245;
             _overflowPolicyCombo.SelectedIndexChanged += OverflowPolicyChanged;
             _toolTip.SetToolTip(_overflowPolicyCombo, "A change made during playback applies at the next overflow.");
-            table.Controls.Add(_overflowPolicyCombo, 4, 0);
-            table.SetColumnSpan(_overflowPolicyCombo, 4);
+            _overflowCluster.Controls.Add(_overflowPolicyCombo);
 
-            Label serviceModeLabel = new Label();
-            serviceModeLabel.Text = "Rate model:";
-            serviceModeLabel.AutoSize = true;
-            serviceModeLabel.Anchor = AnchorStyles.Left;
+            _serviceModeLabel = new Label();
+            _serviceModeLabel.Text = "Rate model:";
+            _serviceModeLabel.AutoSize = true;
+            _serviceModeLabel.Anchor = AnchorStyles.Left;
 
             _serviceModeCombo = new ComboBox();
             _serviceModeCombo.DropDownStyle = ComboBoxStyle.DropDownList;
@@ -256,6 +315,7 @@ namespace MidiBottleneck
             _serviceModeCombo.Items.Add("MIDI serial bitrate");
             _serviceModeCombo.SelectedIndex = 0;
             _serviceModeCombo.Width = 210;
+            _serviceModeCombo.Anchor = AnchorStyles.Left;
             _serviceModeCombo.SelectedIndexChanged += ServiceModeChanged;
             _toolTip.SetToolTip(_serviceModeCombo, "A change made during playback applies to the next event that begins service.");
 
@@ -277,6 +337,7 @@ namespace MidiBottleneck
             _processingValue.Minimum = 0;
             _processingValue.Maximum = 1000000;
             _processingValue.Width = 100;
+            _processingValue.Anchor = AnchorStyles.Left;
             _processingValue.ThousandsSeparator = true;
             _processingValue.ValueChanged += ProcessingValueChanged;
             _toolTip.SetToolTip(_processingValue, "A live edit applies to the next event that begins service.");
@@ -285,19 +346,16 @@ namespace MidiBottleneck
             _serviceUnitLabel.Text = "µs";
             _serviceUnitLabel.AutoSize = true;
             _serviceUnitLabel.Anchor = AnchorStyles.Left;
-            FlowLayoutPanel serviceRow = new FlowLayoutPanel();
-            serviceRow.AutoSize = true;
-            serviceRow.Dock = DockStyle.Fill;
-            serviceRow.WrapContents = false;
-            serviceRow.Margin = new Padding(0);
-            serviceRow.Controls.Add(serviceModeLabel);
-            serviceRow.Controls.Add(_serviceModeCombo);
-            serviceRow.Controls.Add(_serviceValueLabel);
-            serviceRow.Controls.Add(_processingValue);
-            serviceRow.Controls.Add(_serviceUnitLabel);
-            serviceRow.Controls.Add(_dinPresetButton);
-            table.Controls.Add(serviceRow, 0, 2);
-            table.SetColumnSpan(serviceRow, 8);
+            _rateCluster.Controls.Add(_serviceModeLabel);
+            _rateCluster.Controls.Add(_serviceModeCombo);
+            _serviceCluster.Controls.Add(_serviceValueLabel);
+            _serviceCluster.Controls.Add(_processingValue);
+            _serviceCluster.Controls.Add(_serviceUnitLabel);
+            _serviceCluster.Controls.Add(_dinPresetButton);
+            table.Controls.Add(_queueCluster, 0, 0);
+            table.Controls.Add(_overflowCluster, 1, 0);
+            table.Controls.Add(_rateCluster, 0, 2);
+            table.Controls.Add(_serviceCluster, 1, 2);
 
             _processingSlider = new ProcessingTrackBar();
             _processingSlider.Minimum = 0;
@@ -308,59 +366,60 @@ namespace MidiBottleneck
             _processingSlider.ValueChanged += ProcessingSliderChanged;
             _toolTip.SetToolTip(_processingSlider, "Click or drag to set the rate. A live edit applies to the next event that begins service.");
             table.Controls.Add(_processingSlider, 0, 3);
-            table.SetColumnSpan(_processingSlider, 8);
-
-            _processingSummary = new Label();
-            _processingSummary.AutoSize = false;
-            _processingSummary.AutoEllipsis = true;
-            _processingSummary.Dock = DockStyle.Fill;
-            _processingSummary.Height = 18;
-            _processingSummary.Margin = new Padding(3, 0, 3, 0);
-            _processingSummary.ForeColor = Color.DimGray;
-            table.Controls.Add(_processingSummary, 0, 4);
-            table.SetColumnSpan(_processingSummary, 8);
+            table.SetColumnSpan(_processingSlider, 2);
 
             group.Controls.Add(table);
             UpdatePolicyControlState();
             return group;
         }
 
+        private static FlowLayoutPanel NewInlineCluster()
+        {
+            FlowLayoutPanel cluster = new FlowLayoutPanel();
+            cluster.AutoSize = true;
+            cluster.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            cluster.WrapContents = false;
+            cluster.FlowDirection = FlowDirection.LeftToRight;
+            cluster.Anchor = AnchorStyles.Left;
+            cluster.Margin = new Padding(0);
+            return cluster;
+        }
+
         private Control BuildPlaybackGroup()
         {
             GroupBox group = NewGroup("Playback");
-            TableLayoutPanel layout = NewTable(2);
+            TableLayoutPanel layout = NewTable(1);
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100));
 
             _timelineView = new PlaybackTimelineView();
             _timelineView.Dock = DockStyle.Top;
             _timelineView.Enabled = false;
             _timelineView.SeekRequested += delegate(object sender, TimelineSeekEventArgs e) { PerformSeek(e.PositionMicroseconds); };
             layout.Controls.Add(_timelineView, 0, 0);
-            layout.SetColumnSpan(_timelineView, 2);
-
-            FlowLayoutPanel panel = new FlowLayoutPanel();
-            panel.Dock = DockStyle.Fill;
-            panel.AutoSize = true;
-            panel.WrapContents = false;
+            _playbackButtonLayout = new TableLayoutPanel();
+            _playbackButtonLayout.Dock = DockStyle.Top;
+            _playbackButtonLayout.AutoSize = true;
+            _playbackButtonLayout.ColumnCount = 7;
+            for (int column = 0; column < 5; column++)
+                _playbackButtonLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            _playbackButtonLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            _playbackButtonLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
 
             _playButton = NewButton("Play", PlayClicked);
             _stopButton = NewButton("Stop", StopClicked);
             _seekBack5Button = NewButton("−5 sec", delegate { SeekBy(-5000000); });
             _seekForward5Button = NewButton("+5 sec", delegate { SeekBy(5000000); });
             _analysisButton = NewButton("Analysis...", ShowAnalysisClicked);
-            _analysisButton.Margin = new Padding(18, 3, 3, 3);
             _resetStatsButton = NewButton("Reset stats", ResetStatsClicked);
-            _resetStatsButton.Anchor = AnchorStyles.Right;
             _toolTip.SetToolTip(_resetStatsButton, "Reset counters and maximum baselines without seeking, clearing backlog, or resetting MIDI output.");
 
-            panel.Controls.Add(_playButton);
-            panel.Controls.Add(_stopButton);
-            panel.Controls.Add(_seekBack5Button);
-            panel.Controls.Add(_seekForward5Button);
-            panel.Controls.Add(_analysisButton);
-            layout.Controls.Add(panel, 0, 1);
-            layout.Controls.Add(_resetStatsButton, 1, 1);
+            _playbackButtonLayout.Controls.Add(_playButton, 0, 0);
+            _playbackButtonLayout.Controls.Add(_stopButton, 1, 0);
+            _playbackButtonLayout.Controls.Add(_seekBack5Button, 2, 0);
+            _playbackButtonLayout.Controls.Add(_seekForward5Button, 3, 0);
+            _playbackButtonLayout.Controls.Add(_analysisButton, 4, 0);
+            _playbackButtonLayout.Controls.Add(_resetStatsButton, 6, 0);
+            layout.Controls.Add(_playbackButtonLayout, 0, 1);
             group.Controls.Add(layout);
             return group;
         }
@@ -368,6 +427,7 @@ namespace MidiBottleneck
         private Control BuildStatisticsGroup()
         {
             GroupBox group = NewGroup("Statistics");
+            _statisticsGroup = group;
             _statisticsView = new StatisticsView();
             _statisticsView.Dock = DockStyle.Top;
             _statisticsView.SpeedMeasurementDescription = EffectivePlaybackSpeed.DescribeWindow(_effectiveSpeed.WindowMicroseconds);
@@ -383,8 +443,8 @@ namespace MidiBottleneck
             group.Dock = DockStyle.Top;
             group.AutoSize = true;
             group.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            group.Padding = new Padding(8);
-            group.Margin = new Padding(2, 2, 2, 6);
+            group.Padding = new Padding(6, 5, 6, 4);
+            group.Margin = new Padding(2, 1, 2, 3);
             return group;
         }
 
@@ -426,37 +486,141 @@ namespace MidiBottleneck
 
         private void OpenMidiClicked(object sender, EventArgs e)
         {
+            if (_loadingSong)
+            {
+                CancelMidiLoad();
+                return;
+            }
             using (OpenFileDialog dialog = new OpenFileDialog())
             {
                 dialog.Title = "Open Standard MIDI File";
                 dialog.Filter = "MIDI files (*.mid;*.midi)|*.mid;*.midi|All files (*.*)|*.*";
                 dialog.CheckFileExists = true;
                 if (dialog.ShowDialog(this) != DialogResult.OK) return;
-                try
-                {
-                    _engine.Stop();
-                    _engineSong = null;
-                    _selectedPositionMicroseconds = 0;
-                    Cursor = Cursors.WaitCursor;
-                    _song = MidiFileParser.Load(dialog.FileName);
-                    _fileLabel.Text = Path.GetFileName(_song.FilePath);
-                    _fileLabel.ToolTipText(_song.FilePath);
-                    _fileInfoLabel.Text = String.Format(CultureInfo.CurrentCulture, "{0:N0} events  •  {1} tracks  •  PPQN {2}  •  {3}", _song.Events.Count, _song.TrackCount, _song.TicksPerQuarterNote, FormatTime(_song.DurationMicroseconds));
-                    UpdateSeekDisplay();
-                }
-                catch (Exception ex)
-                {
-                    _song = null;
-                    MessageBox.Show(this, ex.Message, "Unable to load MIDI file", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-                finally
-                {
-                    Cursor = Cursors.Default;
-                    UpdateSeekDisplay();
-                    UpdateTransportControls();
-                }
+                BeginMidiLoad(dialog.FileName);
             }
         }
+
+        internal void BeginMidiLoad(string path)
+        {
+            if (String.IsNullOrWhiteSpace(path)) throw new ArgumentException("A MIDI file path is required.", "path");
+            CancelMidiLoad();
+            UnloadCurrentSong();
+            CancellationTokenSource cancellation = new CancellationTokenSource();
+            _loadCancellation = cancellation;
+            int generation = ++_loadGeneration;
+            _loadingSong = true;
+            _lastLoadError = null;
+            _loadProgress = new MidiLoadProgress("Starting", 0, 0);
+            _loadingFileName = Path.GetFileName(path);
+            _lastLoadStatus = null;
+            _openButton.Text = "Cancel";
+            _loadActivity.Value = 0;
+            _loadStageActivity.Value = 0;
+            _loadingStatusLabel.Text = "Starting…";
+            _loadingPanel.Visible = true;
+            _fileLabel.Text = "Loading " + _loadingFileName + "…";
+            _fileInfoLabel.Text = String.Empty;
+            _fileInfoLabel.Visible = false;
+            UpdateTransportControls();
+
+            Task.Factory.StartNew(delegate
+            {
+                return MidiFileParser.Load(path, cancellation.Token, delegate(MidiLoadProgress progress)
+                {
+                    _loadProgress = progress;
+                });
+            }, cancellation.Token, TaskCreationOptions.LongRunning, TaskScheduler.Default).ContinueWith(delegate(Task<MidiSong> task)
+            {
+                if (IsDisposed || !IsHandleCreated) return;
+                try
+                {
+                    BeginInvoke((MethodInvoker)delegate
+                    {
+                        if (IsDisposed || generation != _loadGeneration || cancellation != _loadCancellation) return;
+                        _loadCancellation = null;
+                        cancellation.Dispose();
+                        _loadingSong = false;
+                        _loadProgress = null;
+                        _loadingFileName = null;
+                        _loadingPanel.Visible = false;
+                        _fileInfoLabel.Visible = true;
+                        _openButton.Text = "Open MIDI...";
+                        if (task.IsCanceled)
+                        {
+                            _fileLabel.Text = "No file loaded";
+                        }
+                        else if (task.IsFaulted)
+                        {
+                            _fileLabel.Text = "No file loaded";
+                            _lastLoadError = task.Exception.GetBaseException();
+                            if (!_suppressLoadErrorDialogs)
+                                MessageBox.Show(this, _lastLoadError.Message, "Unable to load MIDI file", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+                        else
+                        {
+                            _song = task.Result;
+                            _selectedPositionMicroseconds = 0;
+                            _fileLabel.Text = Path.GetFileName(_song.FilePath);
+                            _toolTip.SetToolTip(_fileLabel, _song.FilePath);
+                            UpdateFileInformation();
+                        }
+                        UpdateSeekDisplay();
+                        UpdateTransportControls();
+                        RefreshStatistics();
+                    });
+                }
+                catch (InvalidOperationException) { }
+            });
+        }
+
+        internal void CancelMidiLoad()
+        {
+            CancellationTokenSource cancellation = _loadCancellation;
+            if (cancellation == null) return;
+            ++_loadGeneration;
+            _loadCancellation = null;
+            cancellation.Cancel();
+            cancellation.Dispose();
+            _loadingSong = false;
+            _loadProgress = null;
+            _loadingFileName = null;
+            if (_loadingPanel != null) _loadingPanel.Visible = false;
+            if (_openButton != null) _openButton.Text = "Open MIDI...";
+            if (_fileLabel != null) _fileLabel.Text = "No file loaded";
+            if (_fileInfoLabel != null)
+            {
+                _fileInfoLabel.Text = String.Empty;
+                _fileInfoLabel.Visible = true;
+            }
+            UpdateTransportControls();
+        }
+
+
+        internal void UnloadCurrentSong()
+        {
+            DiagnosticsForm[] windows = _analysisWindows.ToArray();
+            for (int i = 0; i < windows.Length; i++)
+                if (windows[i] != null && !windows[i].IsDisposed) windows[i].Close();
+            _analysisWindows.Clear();
+            _engine.Unload();
+            _engineSong = null;
+            _song = null;
+            _selectedPositionMicroseconds = 0;
+            ResetLiveMeasurements();
+        }
+
+        internal bool IsLoadingSong { get { return _loadingSong; } }
+        internal bool EngineHasAttachedSong { get { return _engine.HasAttachedSong; } }
+        internal bool EngineHasAttachedOutput { get { return _engine.HasAttachedOutput; } }
+        internal MidiSong CurrentSong { get { return _song; } }
+        internal bool SuppressLoadErrorDialogs { get { return _suppressLoadErrorDialogs; } set { _suppressLoadErrorDialogs = value; } }
+        internal Exception LastLoadError { get { return _lastLoadError; } }
+        internal bool LoadingActivityVisible { get { return _loadingPanel != null && _loadingPanel.Visible; } }
+        internal int LoadingOverallPermille { get { return _loadActivity == null ? 0 : _loadActivity.Value; } }
+        internal int LoadingStagePermille { get { return _loadStageActivity == null ? 0 : _loadStageActivity.Value; } }
+        internal string LoadingStageText { get { return _loadingStatusLabel == null ? String.Empty : _loadingStatusLabel.Text; } }
+        internal string OpenCommandText { get { return _openButton == null ? String.Empty : _openButton.Text; } }
 
         private void PlayClicked(object sender, EventArgs e)
         {
@@ -626,11 +790,8 @@ namespace MidiBottleneck
 
         private void UpdateProcessingSummary(long microseconds)
         {
-            string prefix = _engine.SimulateSlowdown ? String.Empty : "Slowdown disabled — configured value retained. ";
-            if (microseconds == 0)
-                _processingSummary.Text = prefix + "0 µs/event — unlimited simulated service rate (host and MIDI output limits still apply).";
-            else
-                _processingSummary.Text = prefix + FormatDuration(microseconds) + "/event — theoretical maximum " + (1000000.0 / microseconds).ToString("N1", CultureInfo.CurrentCulture) + " events/sec. Fine 0–5,000 µs range, then logarithmic to 1 second.";
+            _toolTip.SetToolTip(_processingSlider,
+                "Click or drag to set the rate. Fine adjustment to 5,000 µs; logarithmic above. A live edit applies to the next event that begins service.");
         }
 
         private void ServiceModeChanged(object sender, EventArgs e)
@@ -651,18 +812,20 @@ namespace MidiBottleneck
                 if (_engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate)
                 {
                     _serviceValueLabel.Text = _compactLayout ? "Bitrate:" : "MIDI bitrate:";
+                    _processingValue.Width = 110;
                     _processingValue.DecimalPlaces = 0;
                     _processingValue.Minimum = 1;
                     _processingValue.Maximum = 100000000;
                     _processingValue.Increment = 100;
                     _processingValue.Value = Math.Min(_processingValue.Maximum, _engine.MidiBitrate);
                     _serviceUnitLabel.Text = "bit/s";
-                    _dinPresetButton.Visible = true;
+                    _dinPresetButton.Visible = !_compactLayout;
                     _processingSlider.Value = BitrateToSlider(_engine.MidiBitrate);
                 }
                 else
                 {
                     _serviceValueLabel.Text = _compactLayout ? "Time/event:" : "Processing time per event:";
+                    _processingValue.Width = 100;
                     _processingValue.Minimum = 0;
                     _serviceUnitLabel.Text = "µs";
                     _dinPresetButton.Visible = false;
@@ -696,10 +859,8 @@ namespace MidiBottleneck
 
         private void UpdateBitrateSummary(long bitrate)
         {
-            long twoBytes = ServiceDurationCalculator.CalculateBitrateMicroseconds(2, bitrate);
-            long threeBytes = ServiceDurationCalculator.CalculateBitrateMicroseconds(3, bitrate);
-            string prefix = _engine.SimulateSlowdown ? String.Empty : "Slowdown disabled — configured value retained. ";
-            _processingSummary.Text = prefix + bitrate.ToString("N0", CultureInfo.CurrentCulture) + " bit/s — 2-byte message " + FormatDuration(twoBytes) + ", 3-byte message " + FormatDuration(threeBytes) + ". Ten serial bits are charged per MIDI byte.";
+            _toolTip.SetToolTip(_processingSlider,
+                "Click or drag to set the bitrate. Uses 10 transmitted bits per MIDI byte. A live edit applies to the next event that begins service.");
         }
 
         private void SimulateSlowdownChanged(object sender, EventArgs e)
@@ -772,6 +933,7 @@ namespace MidiBottleneck
 
         private void RefreshStatistics()
         {
+            UpdateLoadStatus();
             PlaybackSnapshot snapshot = _engine.GetSnapshot();
             if (!_timelineView.IsDragging && snapshot.State != PlaybackState.Stopped)
             {
@@ -783,7 +945,7 @@ namespace MidiBottleneck
                 ? "Immediate (simulated)"
                 : snapshot.ServiceDurationMode == ServiceDurationMode.MidiBitrate
                 ? snapshot.MidiBitrate.ToString("N0", CultureInfo.CurrentCulture) + " bit/s"
-                : (processing == 0 ? "Unlimited (simulated)" : (1000000.0 / processing).ToString(_compactLayout ? "N0" : "N1", CultureInfo.CurrentCulture) + (_compactLayout ? " events/s" : " events/sec"));
+                : (processing == 0 ? "Immediate (simulated)" : (1000000.0 / processing).ToString(_compactLayout ? "N0" : "N1", CultureInfo.CurrentCulture) + (_compactLayout ? " events/s" : " events/sec"));
             long sampleTime = StopwatchTicksToMicroseconds(Stopwatch.GetTimestamp());
             bool synchronized = snapshot.OutstandingEvents == 0 && snapshot.CurrentLagMicroseconds == 0 &&
                 snapshot.LastDispatchedTimelineMicroseconds <= snapshot.IntendedTimelineMicroseconds;
@@ -798,16 +960,16 @@ namespace MidiBottleneck
             _lastDroppedEvents = snapshot.DroppedEvents;
             _statisticsView.SetValues(new string[]
             {
-                configuredRate,
-                snapshot.QueueLength.ToString("N0", CultureInfo.CurrentCulture) + " / " + snapshot.MaximumQueueLength.ToString("N0", CultureInfo.CurrentCulture),
-                snapshot.ProcessedEvents.ToString("N0", CultureInfo.CurrentCulture) + " / " + snapshot.DroppedEvents.ToString("N0", CultureInfo.CurrentCulture),
-                EffectivePlaybackSpeed.Format(speed),
-                FormatLagMilliseconds(snapshot.CurrentLagMicroseconds),
-                FormatLagMilliseconds(snapshot.MaximumLagMicroseconds),
                 FormatTime(snapshot.IntendedTimelineMicroseconds) + " / " + FormatTime(snapshot.LastDispatchedTimelineMicroseconds),
+                snapshot.QueueLength.ToString("N0", CultureInfo.CurrentCulture) + " / " + snapshot.MaximumQueueLength.ToString("N0", CultureInfo.CurrentCulture),
+                configuredRate,
                 _compactLayout && outputRate.HasValue
                     ? outputRate.Value.ToString("N0", CultureInfo.CurrentCulture) + " events/s"
-                    : RollingOutputRate.Format(outputRate)
+                    : RollingOutputRate.Format(outputRate),
+                snapshot.ProcessedEvents.ToString("N0", CultureInfo.CurrentCulture) + " / " + snapshot.DroppedEvents.ToString("N0", CultureInfo.CurrentCulture),
+                EffectivePlaybackSpeed.Format(speed),
+                FormatLagMilliseconds(snapshot.MaximumLagMicroseconds),
+                FormatLagMilliseconds(snapshot.CurrentLagMicroseconds)
             });
             _statisticsView.SetQueuePressure(_queueLimitCheck.Checked, snapshot.OutstandingEvents,
                 Decimal.ToInt64(_queueLimitValue.Value), sampleTime < _overflowVisibleUntilMicroseconds);
@@ -822,7 +984,16 @@ namespace MidiBottleneck
             DiagnosticsForm[] analysisWindows = _analysisWindows.ToArray();
             for (int i = 0; i < analysisWindows.Length; i++)
                 if (analysisWindows[i] != null && !analysisWindows[i].IsDisposed)
-                    analysisWindows[i].UpdatePlaybackSnapshot(snapshot);
+                    analysisWindows[i].UpdatePlaybackSnapshot(snapshot, new PlaybackOverlayData
+                    {
+                        State = snapshot.State.ToString(),
+                        TimelineAndOutput = FormatTime(snapshot.IntendedTimelineMicroseconds) + " / " + FormatTime(snapshot.LastDispatchedTimelineMicroseconds),
+                        Queue = snapshot.QueueLength.ToString("N0", CultureInfo.CurrentCulture) + " / " + snapshot.MaximumQueueLength.ToString("N0", CultureInfo.CurrentCulture),
+                        Events = snapshot.ProcessedEvents.ToString("N0", CultureInfo.CurrentCulture) + " / " + snapshot.DroppedEvents.ToString("N0", CultureInfo.CurrentCulture),
+                        OutputRate = RollingOutputRate.Format(outputRate),
+                        EffectiveSpeed = EffectivePlaybackSpeed.Format(speed),
+                        Lag = FormatLagMilliseconds(snapshot.CurrentLagMicroseconds) + " / " + FormatLagMilliseconds(snapshot.MaximumLagMicroseconds)
+                    });
         }
 
         private static long StopwatchTicksToMicroseconds(long ticks)
@@ -834,18 +1005,33 @@ namespace MidiBottleneck
         {
             PlaybackState state = _engine.State;
             bool active = state == PlaybackState.Playing || state == PlaybackState.Paused;
-            _playButton.Enabled = _song != null;
+            _playButton.Enabled = _song != null && !_loadingSong;
             _playButton.Text = state == PlaybackState.Playing ? "Pause" : state == PlaybackState.Paused ? "Resume" : "Play";
             _stopButton.Enabled = active || state == PlaybackState.Completed;
             _outputCombo.Enabled = !_kdmApiCheck.Checked && _outputCombo.Items.Count > 0 && _outputCombo.SelectedItem is MidiOutputDeviceInfo;
             _queueLimitCheck.Enabled = !active;
             UpdatePolicyControlState();
-            bool canSeek = _song != null;
+            bool canSeek = _song != null && !_loadingSong;
             _timelineView.Enabled = canSeek;
             _seekBack5Button.Enabled = canSeek;
             _seekForward5Button.Enabled = canSeek;
             _analysisButton.Enabled = canSeek;
             _stateLabel.Text = state.ToString();
+        }
+
+        private void UpdateLoadStatus()
+        {
+            if (!_loadingSong) return;
+            MidiLoadProgress progress = _loadProgress;
+            if (progress == null) return;
+            string detail = progress.Stage + " — " + (progress.OverallPermille / 10.0).ToString("N1", CultureInfo.CurrentCulture) + "% overall";
+            if (String.Equals(detail, _lastLoadStatus, StringComparison.Ordinal)) return;
+            _lastLoadStatus = detail;
+            _loadingStatusLabel.Text = detail;
+            if (_loadActivity.Value != progress.OverallPermille) _loadActivity.Value = progress.OverallPermille;
+            if (_loadStageActivity.Value != progress.StagePermille) _loadStageActivity.Value = progress.StagePermille;
+            _toolTip.SetToolTip(_loadingPanel, detail + ". The upper bar shows overall parser work; the lower bar shows the current stage. Click Cancel to stop loading.");
+            _toolTip.SetToolTip(_loadingStatusLabel, detail);
         }
 
         private void SeekBy(long deltaMicroseconds)
@@ -856,24 +1042,23 @@ namespace MidiBottleneck
         private void ShowAnalysisClicked(object sender, EventArgs e)
         {
             if (_song == null) return;
-            try
+            AnalysisConfiguration configuration = CurrentAnalysisConfiguration();
+            DiagnosticsForm diagnostics = new DiagnosticsForm(_song);
+            _analysisWindows.Add(diagnostics);
+            diagnostics.FormClosed += delegate { _analysisWindows.Remove(diagnostics); };
+            diagnostics.SeekRequested += delegate(object source, WorkloadSelectionEventArgs seek)
             {
-                Cursor = Cursors.WaitCursor;
-                AnalysisConfiguration configuration = CurrentAnalysisConfiguration();
-                WorkloadAnalysis analysis = WorkloadAnalyzer.Analyze(_song, configuration);
-                DiagnosticsForm diagnostics = new DiagnosticsForm(_song, analysis);
-                _analysisWindows.Add(diagnostics);
-                diagnostics.FormClosed += delegate { _analysisWindows.Remove(diagnostics); };
-                diagnostics.SeekRequested += delegate(object source, WorkloadSelectionEventArgs seek)
-                {
-                    PerformSeek(seek.TimeMicroseconds);
-                };
-                diagnostics.Show(this);
-            }
-            finally
-            {
-                Cursor = Cursors.Default;
-            }
+                PerformAnalysisSeek(seek.TimeMicroseconds);
+            };
+            diagnostics.StartPosition = FormStartPosition.Manual;
+            Rectangle working = Screen.FromControl(this).WorkingArea;
+            Point proposed = new Point(Right + 12, Top);
+            if (proposed.X + diagnostics.Width > working.Right)
+                proposed.X = Math.Max(working.Left, Left + 36);
+            proposed.Y = Math.Max(working.Top, Math.Min(working.Bottom - diagnostics.Height, proposed.Y));
+            diagnostics.Location = proposed;
+            diagnostics.Show();
+            diagnostics.RequestAnalysis(configuration);
         }
 
         private void ScheduleAnalysisRefresh()
@@ -888,19 +1073,12 @@ namespace MidiBottleneck
             _analysisRefreshTimer.Stop();
             if (_analysisWindows.Count == 0) return;
             AnalysisConfiguration configuration = CurrentAnalysisConfiguration();
-            Dictionary<MidiSong, WorkloadAnalysis> refreshed = new Dictionary<MidiSong, WorkloadAnalysis>();
             DiagnosticsForm[] windows = _analysisWindows.ToArray();
             for (int i = 0; i < windows.Length; i++)
             {
                 DiagnosticsForm window = windows[i];
                 if (window == null || window.IsDisposed) continue;
-                WorkloadAnalysis analysis;
-                if (!refreshed.TryGetValue(window.SourceSong, out analysis))
-                {
-                    analysis = WorkloadAnalyzer.Analyze(window.SourceSong, configuration);
-                    refreshed.Add(window.SourceSong, analysis);
-                }
-                window.UpdateAnalysis(analysis);
+                window.RequestAnalysis(configuration);
             }
         }
 
@@ -930,44 +1108,143 @@ namespace MidiBottleneck
             UpdateTransportControls();
         }
 
+        private void PerformAnalysisSeek(long targetMicroseconds)
+        {
+            PlaybackState before = _engine.State;
+            PerformSeek(targetMicroseconds);
+            if (before == PlaybackState.Paused && _engine.State == PlaybackState.Paused)
+            {
+                _engine.Resume();
+                ResetLiveMeasurements();
+                UpdateTransportControls();
+            }
+        }
+
         private void UpdateSeekDisplay()
         {
             long duration = _song == null ? 0 : _song.DurationMicroseconds;
             _timelineView.SetTimeline(_selectedPositionMicroseconds, duration);
         }
 
+        private void UpdateFileInformation()
+        {
+            _fileInfoLabel.Text = FormatFileInformation(_song, _compactLayout);
+            _toolTip.SetToolTip(_fileInfoLabel, _song == null ? String.Empty : FormatFileInformation(_song, false));
+        }
+
+        internal static string FormatFileInformation(MidiSong song, bool compact)
+        {
+            if (song == null) return String.Empty;
+            string first = String.Format(CultureInfo.CurrentCulture, "{0:N0} events  •  {1} tracks", song.Events.Count, song.TrackCount);
+            string second = String.Format(CultureInfo.CurrentCulture, "{0:N0} notes  •  {1}", song.NoteCount, FormatTime(song.DurationMicroseconds));
+            return compact ? first + Environment.NewLine + second : first + "  •  " + second;
+        }
+
         private void UpdateResponsiveLayout()
         {
             if (_rootLayout == null || _statisticsView == null) return;
-            bool compact = ClientSize.Width < 650;
+            bool compact = ClientSize.Width < 640;
             if (_responsiveLayoutInitialized && compact == _compactLayout) return;
             _responsiveLayoutInitialized = true;
+            if (compact && !_compactLayout) _lastDefaultHeight = Math.Max(565, Height);
             _compactLayout = compact;
-            _rootLayout.SuspendLayout();
+            List<Control> suspended = new List<Control>();
+            SuspendLayout();
+            SuspendLayoutTree(_rootLayout, suspended);
             try
             {
-                MinimumSize = compact ? new Size(560, 600) : new Size(600, 660);
-                _rootLayout.Padding = compact ? new Padding(5) : new Padding(9);
-                _footerLabel.Visible = !compact;
-                _processingSummary.Visible = !compact;
-                _fileInfoLabel.Visible = !compact;
+                if (compact)
+                {
+                    MinimumSize = new Size(500, 470);
+                    MaximumSize = new Size(10000, 470);
+                }
+                else
+                {
+                    MaximumSize = Size.Empty;
+                    MinimumSize = new Size(560, 565);
+                }
+                if (!compact && Height < _lastDefaultHeight) Height = _lastDefaultHeight;
+                _rootLayout.Padding = compact ? new Padding(2) : new Padding(5);
                 _statisticsView.Compact = compact;
+                _queueLimitCheck.Text = compact ? "Queue limit:" : "Queue length limit:";
+                _serviceModeLabel.Text = compact ? "Rate:" : "Rate model:";
+                _serviceValueLabel.Text = _engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate
+                    ? (compact ? "Bitrate:" : "MIDI bitrate:")
+                    : (compact ? "Time/event:" : "Processing time per event:");
                 _serviceModeCombo.Width = compact ? 170 : 210;
-                _overflowPolicyCombo.Width = compact ? 180 : 245;
-                _processingValue.Width = compact ? 84 : 100;
+                _overflowPolicyCombo.Width = compact ? 140 : 235;
+                _overflowLabel.Margin = compact ? new Padding(0, 5, 3, 2) : new Padding(0, 6, 4, 3);
+                _queueLimitValue.Width = compact ? 92 : 100;
+                _processingValue.Width = _engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate ? 110 : 100;
+                _queueLimitCheck.Margin = compact ? new Padding(0, 4, 3, 2) : new Padding(0, 5, 4, 3);
+                _queueLimitValue.Margin = compact ? new Padding(0, 1, 3, 1) : new Padding(0, 2, 4, 2);
+                _simulateSlowdownCheck.Margin = compact ? new Padding(0, 0, 2, 0) : new Padding(0, 2, 3, 2);
+                _eventsLabel.Margin = compact ? new Padding(0, 5, 1, 2) : new Padding(0, 6, 2, 3);
+                _serviceModeLabel.Margin = compact ? new Padding(0, 5, 3, 2) : new Padding(0, 6, 4, 3);
+                _serviceModeCombo.Margin = compact ? new Padding(0, 1, 3, 1) : new Padding(0, 2, 3, 2);
+                _serviceValueLabel.Margin = compact ? new Padding(0, 5, 3, 2) : new Padding(0, 6, 4, 3);
+                _processingValue.Margin = compact ? new Padding(0, 1, 3, 1) : new Padding(0, 2, 3, 2);
+                _serviceUnitLabel.Margin = compact ? new Padding(0, 5, 2, 2) : new Padding(0, 6, 3, 3);
+                _dinPresetButton.Margin = compact ? new Padding(1, 0, 1, 0) : new Padding(3, 0, 3, 0);
+                _processingTable.Padding = compact ? new Padding(0) : new Padding(1);
+                _processingSlider.Margin = compact ? new Padding(0, 0, 0, 0) : new Padding(3);
+                _processingSlider.AutoSize = false;
+                _processingSlider.Height = compact ? 32 : 36;
+                _dinPresetButton.Visible = !_compactLayout && _engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate;
+                _timelineView.Height = compact ? 32 : 38;
+                _timelineView.MinimumSize = new Size(300, compact ? 32 : 38);
+                _timelineView.Margin = compact ? new Padding(1, 0, 1, 0) : new Padding(3);
+                _playbackButtonLayout.Margin = compact ? new Padding(1, 0, 1, 0) : new Padding(3);
+                Button[] playbackButtons = new Button[] { _playButton, _stopButton, _seekBack5Button, _seekForward5Button, _analysisButton, _resetStatsButton };
+                for (int i = 0; i < playbackButtons.Length; i++)
+                    playbackButtons[i].Margin = compact ? new Padding(1, 1, 1, 1) : new Padding(3);
+                _playButton.AutoSize = _stopButton.AutoSize = _seekBack5Button.AutoSize = _seekForward5Button.AutoSize =
+                    _analysisButton.AutoSize = _resetStatsButton.AutoSize = !compact;
+                if (compact)
+                {
+                    _playButton.Width = 54; _stopButton.Width = 54; _seekBack5Button.Width = 59;
+                    _seekForward5Button.Width = 59; _analysisButton.Width = 76; _resetStatsButton.Width = 76;
+                }
                 Control.ControlCollection children = _rootLayout.Controls;
                 for (int i = 0; i < children.Count; i++)
                 {
                     GroupBox group = children[i] as GroupBox;
                     if (group == null) continue;
-                    group.Padding = compact ? new Padding(5) : new Padding(8);
-                    group.Margin = compact ? new Padding(1, 1, 1, 4) : new Padding(2, 2, 2, 6);
+                    group.Padding = compact ? new Padding(3, 3, 3, 2) : new Padding(6, 5, 6, 4);
+                    group.Margin = compact ? new Padding(1, 0, 1, 1) : new Padding(2, 1, 2, 3);
                 }
-                ConfigureServiceControls();
+                UpdateFileInformation();
             }
             finally
             {
-                _rootLayout.ResumeLayout(true);
+                for (int i = suspended.Count - 1; i >= 0; i--) suspended[i].ResumeLayout(false);
+                ResumeLayout(true);
+                // A width crossing can first be laid out at the old compact
+                // height because MaximumSize is removed during that same
+                // resize message.  Complete one layout and paint of the
+                // custom surface after every affected container is resumed;
+                // otherwise the lower rows retain the old clipped backing
+                // pixels until a statistic happens to change.
+                _statisticsGroup.PerformLayout();
+                _rootLayout.PerformLayout();
+                PerformLayout();
+                _statisticsView.Refresh();
+            }
+        }
+
+        private static void SuspendLayoutTree(Control control, List<Control> suspended)
+        {
+            control.SuspendLayout();
+            suspended.Add(control);
+            for (int i = 0; i < control.Controls.Count; i++)
+            {
+                Control child = control.Controls[i];
+                // Suspend only actual layout containers. Suspending every
+                // descendant also freezes UpDownBase's private edit/spinner
+                // children and makes each responsive transition needlessly
+                // expensive on a realized form.
+                if (child is TableLayoutPanel || child is FlowLayoutPanel || child is GroupBox)
+                    SuspendLayoutTree(child, suspended);
             }
         }
 
@@ -1062,8 +1339,12 @@ namespace MidiBottleneck
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
+            CancelMidiLoad();
             _uiTimer.Stop();
             _analysisRefreshTimer.Stop();
+            DiagnosticsForm[] analysisWindows = _analysisWindows.ToArray();
+            for (int i = 0; i < analysisWindows.Length; i++)
+                if (analysisWindows[i] != null && !analysisWindows[i].IsDisposed) analysisWindows[i].Close();
             _engine.Dispose();
             _output.Dispose();
             _kdmApiOutput.Dispose();

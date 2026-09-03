@@ -1,10 +1,22 @@
 using System;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 
 namespace MidiBottleneck
 {
+    internal sealed class PlaybackOverlayData
+    {
+        public string State;
+        public string TimelineAndOutput;
+        public string Queue;
+        public string Events;
+        public string OutputRate;
+        public string EffectiveSpeed;
+        public string Lag;
+    }
+
     internal sealed class WorkloadSelectionEventArgs : EventArgs
     {
         public readonly long TimeMicroseconds;
@@ -36,12 +48,26 @@ namespace MidiBottleneck
         private long _viewEnd;
         private AnalysisFollowTarget _followTarget;
         private bool _mouseDown;
+        private bool _mouseDownAtEdge;
         private bool _dragging;
         private Point _dragOrigin;
         private long _dragViewStart;
+        private Bitmap _staticLayer;
+        private long _lastInspectionNotificationTicks;
+        private PlaybackOverlayData _overlayData;
+        private PlaybackState _playbackState;
+        private bool _playbackStatisticsVisible;
+        private int _staticLayerBuildCount;
+        private readonly Timer _dynamicTimer;
+        private Point _pendingPointer;
+        private bool _hoverUpdatePending;
+        private bool _dynamicRepaintPending;
+        private int _dynamicPaintCount;
 
         public event EventHandler<WorkloadSelectionEventArgs> InspectionChanged;
         public event EventHandler<WorkloadSelectionEventArgs> SeekRequested;
+        public event EventHandler ViewportChanged;
+        private string _emptyMessage = "No analysis available.";
 
         public WorkloadGraph()
         {
@@ -54,6 +80,9 @@ namespace MidiBottleneck
             _toolTip = new ToolTip();
             _toolTip.SetToolTip(this, "Wheel: zoom around cursor. Drag: pan. Click: pin. Double-click: seek.");
             Cursor = Cursors.Cross;
+            _dynamicTimer = new Timer();
+            _dynamicTimer.Interval = 16;
+            _dynamicTimer.Tick += ProcessDynamicUpdates;
         }
 
         public WorkloadAnalysis Analysis
@@ -75,7 +104,7 @@ namespace MidiBottleneck
                     }
                     if (_pinnedTime.HasValue) _pinnedTime = Math.Min(_analysis.DurationMicroseconds, _pinnedTime.Value);
                 }
-                Invalidate();
+                InvalidateStaticLayer();
             }
         }
 
@@ -86,10 +115,34 @@ namespace MidiBottleneck
         internal long ViewStartMicroseconds { get { return _viewStart; } }
         internal long ViewEndMicroseconds { get { return _viewEnd; } }
         internal AnalysisFollowTarget FollowTarget { get { return _followTarget; } set { _followTarget = value; ApplyFollow(); } }
+        internal bool PlaybackStatisticsVisible
+        {
+            get { return _playbackStatisticsVisible; }
+            set { if (_playbackStatisticsVisible != value) { _playbackStatisticsVisible = value; Invalidate(); } }
+        }
+        internal bool PlaybackStatisticsDrawn
+        {
+            get { return _playbackStatisticsVisible && _overlayData != null && (_playbackState == PlaybackState.Playing || _playbackState == PlaybackState.Paused); }
+        }
+        internal int StaticLayerBuildCount { get { return _staticLayerBuildCount; } }
+        internal long? PlaybackTimelinePosition { get { return _playbackTimeline; } }
+        internal long? MidiOutputPosition { get { return _midiOutputPosition; } }
+        internal int DynamicPaintCount { get { return _dynamicPaintCount; } }
+        internal string EmptyMessage { get { return _emptyMessage; } set { _emptyMessage = value ?? String.Empty; Invalidate(); } }
 
         internal Rectangle GraphArea
         {
-            get { return new Rectangle(54, 45, Math.Max(20, ClientSize.Width - 70), Math.Max(50, ClientSize.Height - 168)); }
+            get
+            {
+                int horizontalAllowance = Math.Max(42, TextRenderer.MeasureText("00:00", _labelFont).Width / 2 + 8);
+                int top = 42;
+                bool finite = _analysis != null && _analysis.Configuration != null && _analysis.Configuration.QueueLengthLimitEnabled;
+                bool narrow = ClientSize.Width - horizontalAllowance * 2 < 430;
+                int bottomAllowance = finite ? (narrow ? 121 : 104) : (narrow ? 104 : 87);
+                return new Rectangle(horizontalAllowance, top,
+                    Math.Max(20, ClientSize.Width - horizontalAllowance * 2),
+                    Math.Max(50, ClientSize.Height - top - bottomAllowance));
+            }
         }
 
         internal long TimeAtClientX(int x)
@@ -124,11 +177,25 @@ namespace MidiBottleneck
             Invalidate();
         }
 
+        internal bool TryGetPinTime(Point point, out long timeMicroseconds)
+        {
+            timeMicroseconds = 0;
+            if (_analysis == null || _analysis.DurationMicroseconds <= 0) return false;
+            Rectangle area = GraphArea;
+            const int edgeTolerance = 6;
+            if (point.Y < area.Top || point.Y >= area.Bottom ||
+                point.X < area.Left - edgeTolerance || point.X > area.Right + edgeTolerance)
+                return false;
+            timeMicroseconds = TimeAtClientX(Math.Max(area.Left, Math.Min(area.Right, point.X)));
+            return true;
+        }
+
         internal void ResetZoom()
         {
             _viewStart = 0;
             _viewEnd = _analysis == null ? 1 : Math.Max(1, _analysis.DurationMicroseconds);
-            Invalidate();
+            InvalidateStaticLayer();
+            RaiseViewportChanged();
         }
 
         internal void ZoomAtClientX(int x, int wheelDelta)
@@ -137,7 +204,7 @@ namespace MidiBottleneck
             long duration = _analysis.DurationMicroseconds;
             long oldSpan = Math.Max(1, _viewEnd - _viewStart);
             double factor = Math.Pow(0.8, wheelDelta / 120.0);
-            long minimum = Math.Max(_analysis.BucketMicroseconds * 2, Math.Max(1, duration / 2000));
+            long minimum = Math.Max(1, duration / 100000);
             long newSpan = Math.Max(minimum, Math.Min(duration, (long)Math.Round(oldSpan * factor)));
             long anchor = TimeAtClientX(x);
             Rectangle area = GraphArea;
@@ -162,7 +229,14 @@ namespace MidiBottleneck
             if (start + span > duration) start = duration - span;
             _viewStart = Math.Max(0, start);
             _viewEnd = _viewStart + span;
-            Invalidate();
+            InvalidateStaticLayer();
+            RaiseViewportChanged();
+        }
+
+        private void RaiseViewportChanged()
+        {
+            EventHandler handler = ViewportChanged;
+            if (handler != null) handler(this, EventArgs.Empty);
         }
 
         internal void SetPlaybackPositions(long playbackTimeline, long midiOutputPosition)
@@ -173,7 +247,14 @@ namespace MidiBottleneck
             _playbackTimeline = playbackTimeline;
             _midiOutputPosition = midiOutputPosition;
             ApplyFollow();
-            Invalidate();
+            RequestDynamicRepaint();
+        }
+
+        internal void SetPlaybackOverlay(PlaybackState state, PlaybackOverlayData data)
+        {
+            _playbackState = state;
+            _overlayData = data;
+            if (_playbackStatisticsVisible) RequestDynamicRepaint();
         }
 
         private void ApplyFollow()
@@ -198,7 +279,7 @@ namespace MidiBottleneck
         protected override void OnMouseMove(MouseEventArgs e)
         {
             base.OnMouseMove(e);
-            if (_mouseDown)
+            if (_mouseDown && !_mouseDownAtEdge)
             {
                 int dx = e.X - _dragOrigin.X;
                 if (!_dragging && Math.Abs(dx) >= 4) _dragging = true;
@@ -212,27 +293,28 @@ namespace MidiBottleneck
                 }
             }
             if (_analysis == null || !GraphArea.Contains(e.Location)) return;
-            long time = TimeAtClientX(e.X);
-            if (_hoverTime == time) return;
-            _hoverTime = time;
-            OnInspectionChanged(time, false);
-            Invalidate();
+            _pendingPointer = e.Location;
+            _hoverUpdatePending = true;
+            RequestDynamicRepaint();
         }
 
         protected override void OnMouseLeave(EventArgs e)
         {
             base.OnMouseLeave(e);
             if (_mouseDown) return;
+            _hoverUpdatePending = false;
             _hoverTime = null;
             if (_pinnedTime.HasValue) OnInspectionChanged(_pinnedTime.Value, true);
-            Invalidate();
+            RequestDynamicRepaint();
         }
 
         protected override void OnMouseDown(MouseEventArgs e)
         {
             base.OnMouseDown(e);
-            if (e.Button != MouseButtons.Left || _analysis == null || !GraphArea.Contains(e.Location)) return;
+            long ignored;
+            if (e.Button != MouseButtons.Left || !TryGetPinTime(e.Location, out ignored)) return;
             _mouseDown = true;
+            _mouseDownAtEdge = !GraphArea.Contains(e.Location);
             _dragging = false;
             _dragOrigin = e.Location;
             _dragViewStart = _viewStart;
@@ -245,12 +327,14 @@ namespace MidiBottleneck
             if (e.Button != MouseButtons.Left || !_mouseDown) return;
             bool wasDragging = _dragging;
             _mouseDown = false;
+            _mouseDownAtEdge = false;
             _dragging = false;
             Capture = false;
             Cursor = Cursors.Cross;
-            if (!wasDragging && GraphArea.Contains(e.Location))
+            long pinTime;
+            if (!wasDragging && TryGetPinTime(e.Location, out pinTime))
             {
-                _pinnedTime = TimeAtClientX(e.X);
+                _pinnedTime = pinTime;
                 OnInspectionChanged(_pinnedTime.Value, true);
                 Invalidate();
             }
@@ -259,8 +343,9 @@ namespace MidiBottleneck
         protected override void OnMouseDoubleClick(MouseEventArgs e)
         {
             base.OnMouseDoubleClick(e);
-            if (e.Button != MouseButtons.Left || _analysis == null || !GraphArea.Contains(e.Location)) return;
-            _pinnedTime = TimeAtClientX(e.X);
+            long pinTime;
+            if (e.Button != MouseButtons.Left || !TryGetPinTime(e.Location, out pinTime)) return;
+            _pinnedTime = pinTime;
             EventHandler<WorkloadSelectionEventArgs> handler = SeekRequested;
             if (handler != null) handler(this, new WorkloadSelectionEventArgs(_pinnedTime.Value, true));
         }
@@ -273,25 +358,89 @@ namespace MidiBottleneck
 
         protected override void OnPaint(PaintEventArgs e)
         {
+            _dynamicPaintCount++;
             base.OnPaint(e);
-            e.Graphics.Clear(BackColor);
-            if (_analysis == null || _analysis.Buckets == null || _analysis.Buckets.Length == 0) return;
+            if (_analysis == null || _analysis.Buckets == null || _analysis.Buckets.Length == 0)
+            {
+                e.Graphics.Clear(BackColor);
+                TextRenderer.DrawText(e.Graphics, _emptyMessage, _labelFont, ClientRectangle, Color.Silver,
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis);
+                return;
+            }
+            EnsureStaticLayer();
+            e.Graphics.DrawImageUnscaled(_staticLayer, Point.Empty);
             bool byteModel = UsesByteRate;
-            string scope = (_viewStart == 0 && _viewEnd >= _analysis.DurationMicroseconds ? "WHOLE FILE   " : "VISIBLE RANGE   ") +
-                FormatClock(_viewStart) + " – " + FormatClock(_viewEnd);
-            TextRenderer.DrawText(e.Graphics, scope, _labelFont, new Rectangle(54, 2, ClientSize.Width - 70, 20), Color.Gainsboro,
-                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
-
             Rectangle area = GraphArea;
-            string title = byteModel ? "MIDI bytes/sec" : "Events/sec";
-            string unit = byteModel ? "bytes/sec" : "events/sec";
-            double peak = byteModel ? _analysis.PeakBytesPerSecond : _analysis.PeakEventsPerSecond;
-            double capacity = byteModel ? _analysis.ByteServiceCapacityPerSecond : _analysis.EventServiceCapacityPerSecond;
-            DrawPanel(e.Graphics, area, byteModel, title, unit, peak, capacity);
             DrawLiveMarkers(e.Graphics, area);
-            DrawTimelineAxis(e.Graphics, area);
-            DrawMarkerLanes(e.Graphics, area);
+            DrawPlaybackStatistics(e.Graphics, area);
             DrawInspection(e.Graphics, area, byteModel);
+        }
+
+        private void RequestDynamicRepaint()
+        {
+            _dynamicRepaintPending = true;
+            if (!_dynamicTimer.Enabled) _dynamicTimer.Start();
+        }
+
+        private void ProcessDynamicUpdates(object sender, EventArgs e)
+        {
+            if (IsDisposed || !IsHandleCreated) return;
+            if (_hoverUpdatePending && _analysis != null)
+            {
+                long time = TimeAtClientX(_pendingPointer.X);
+                _hoverTime = time;
+                long now = Stopwatch.GetTimestamp();
+                if (_lastInspectionNotificationTicks == 0 || now - _lastInspectionNotificationTicks >= Stopwatch.Frequency / 30)
+                {
+                    _hoverUpdatePending = false;
+                    _lastInspectionNotificationTicks = now;
+                    OnInspectionChanged(time, false);
+                }
+            }
+            if (_dynamicRepaintPending)
+            {
+                _dynamicRepaintPending = false;
+                Invalidate();
+            }
+            if (!_hoverUpdatePending && !_dynamicRepaintPending) _dynamicTimer.Stop();
+        }
+
+        private void EnsureStaticLayer()
+        {
+            if (_staticLayer != null && _staticLayer.Width == Math.Max(1, ClientSize.Width) && _staticLayer.Height == Math.Max(1, ClientSize.Height)) return;
+            if (_staticLayer != null) _staticLayer.Dispose();
+            _staticLayer = new Bitmap(Math.Max(1, ClientSize.Width), Math.Max(1, ClientSize.Height));
+            _staticLayerBuildCount++;
+            using (Graphics graphics = Graphics.FromImage(_staticLayer))
+            {
+                graphics.Clear(BackColor);
+                bool byteModel = UsesByteRate;
+                string scope = (_viewStart == 0 && _viewEnd >= _analysis.DurationMicroseconds ? "WHOLE FILE   " : "VISIBLE RANGE   ") +
+                    FormatClock(_viewStart) + " – " + FormatClock(_viewEnd);
+                Rectangle area = GraphArea;
+                TextRenderer.DrawText(graphics, scope, _labelFont, new Rectangle(area.Left, 5, area.Width, 20), Color.Gainsboro,
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
+                string title = byteModel ? "MIDI bytes/sec" : "Events/sec";
+                string unit = byteModel ? "bytes/sec" : "events/sec";
+                double peak = byteModel ? _analysis.PeakBytesPerSecond : _analysis.PeakEventsPerSecond;
+                double capacity = byteModel ? _analysis.ByteServiceCapacityPerSecond : _analysis.EventServiceCapacityPerSecond;
+                DrawPanel(graphics, area, byteModel, title, unit, peak, capacity);
+                DrawTimelineAxis(graphics, area);
+                DrawMarkerLanes(graphics, area);
+            }
+        }
+
+        private void InvalidateStaticLayer()
+        {
+            if (_staticLayer != null) { _staticLayer.Dispose(); _staticLayer = null; }
+            Invalidate();
+        }
+
+        protected override void OnResize(EventArgs e)
+        {
+            InvalidateStaticLayer();
+            base.OnResize(e);
+            RaiseViewportChanged();
         }
 
         private void BucketRangeAtPixel(int x, Rectangle area, out int first, out int last)
@@ -339,10 +488,19 @@ namespace MidiBottleneck
                     graphics.DrawLine(capacityPen, area.Left, capacityY, area.Right, capacityY);
                 }
             }
-            TextRenderer.DrawText(graphics, title, _labelFont, new Rectangle(area.Left, area.Top - 22, area.Width / 2, 20), ForeColor,
-                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
-            string scale = "peak " + peak.ToString("N1") + " " + unit;
-            if (capacity > 0) scale += "   maximum rate " + capacity.ToString("N1") + " " + unit;
+            TextRenderer.DrawText(graphics, title, _labelFont, new Rectangle(area.Left, area.Top - 22, area.Width / 3, 20), ForeColor,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis);
+            string scale;
+            if (area.Width < 430)
+            {
+                scale = "peak " + peak.ToString("N0");
+                if (capacity > 0) scale += "  •  max " + capacity.ToString("N0") + "/s";
+            }
+            else
+            {
+                scale = "peak " + peak.ToString("N1") + " " + unit;
+                if (capacity > 0) scale += "   maximum rate " + capacity.ToString("N1") + " " + unit;
+            }
             TextRenderer.DrawText(graphics, scale, _labelFont, new Rectangle(area.Left + area.Width / 3, area.Top - 22, area.Width * 2 / 3, 20), ForeColor,
                 TextFormatFlags.Right | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
         }
@@ -403,14 +561,33 @@ namespace MidiBottleneck
                     }
                 }
             }
-            string legend = "◆ Simultaneous burst ≥50   red shading: predicted overflow";
-            if (_analysis.Configuration != null && _analysis.Configuration.QueueLengthLimitEnabled)
-                legend += "   pressure strip: finite-buffer occupancy";
-            TextRenderer.DrawText(graphics, legend, _labelFont, new Rectangle(area.Left, area.Bottom + 47, area.Width, 18), Color.Silver,
-                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis);
-            string liveLegend = "·· Playback timeline    ·– MIDI output position (last sent event)    fixed " +
-                (_analysis.BucketMicroseconds / 1000.0).ToString("N0") + " ms buckets";
-            TextRenderer.DrawText(graphics, liveLegend, _labelFont, new Rectangle(area.Left, area.Bottom + 64, area.Width, 18), Color.Silver,
+            bool finite = _analysis.Configuration != null && _analysis.Configuration.QueueLengthLimitEnabled;
+            bool narrow = area.Width < 430;
+            if (narrow)
+            {
+                DrawLegendLine(graphics, area, 47, "◆ Magenta: burst ≥50 simultaneous events");
+                int next = 64;
+                if (finite)
+                {
+                    DrawLegendLine(graphics, area, next, "Red area: overflow  •  Strip: queue pressure");
+                    next += 17;
+                }
+                DrawLegendLine(graphics, area, next, "White dots: playback timeline");
+                DrawLegendLine(graphics, area, next + 17, "Green dash-dot: MIDI output  •  " + FormatResolution(_analysis.BucketMicroseconds));
+                return;
+            }
+
+            DrawLegendLine(graphics, area, 47, "Magenta diamond: ≥50 simultaneous events");
+            if (finite)
+                DrawLegendLine(graphics, area, 64, "Red: predicted overflow  •  Strip: predicted queue pressure");
+            string liveLegend = "White dots: playback timeline  •  Green dash-dot: MIDI output  •  " +
+                FormatResolution(_analysis.BucketMicroseconds);
+            DrawLegendLine(graphics, area, finite ? 81 : 64, liveLegend);
+        }
+
+        private void DrawLegendLine(Graphics graphics, Rectangle area, int offset, string text)
+        {
+            TextRenderer.DrawText(graphics, text, _labelFont, new Rectangle(area.Left, area.Bottom + offset, area.Width, 18), Color.Silver,
                 TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis);
         }
 
@@ -433,15 +610,58 @@ namespace MidiBottleneck
             double value = bucket == null ? 0 : (bytes ? bucket.ByteCount : bucket.EventCount) / seconds;
             string tip = FormatClockDetailed(inspected.Value) + "   " + value.ToString("N1") + (bytes ? " bytes/sec" : " events/sec");
             int tipX = Math.Max(area.Left, Math.Min(area.Right - 215, x + 7));
-            using (Brush background = new SolidBrush(Color.FromArgb(220, 40, 44, 50))) graphics.FillRectangle(background, tipX, area.Top + 5, 210, 20);
-            TextRenderer.DrawText(graphics, tip, _labelFont, new Rectangle(tipX + 4, area.Top + 5, 204, 20), Color.White,
+            int tipY = area.Top + 5;
+            Rectangle overlay = PlaybackStatisticsBounds(area);
+            if (PlaybackStatisticsDrawn && new Rectangle(tipX, tipY, 210, 20).IntersectsWith(overlay))
+                tipY = Math.Min(area.Bottom - 20, overlay.Bottom + 5);
+            using (Brush background = new SolidBrush(Color.FromArgb(220, 40, 44, 50))) graphics.FillRectangle(background, tipX, tipY, 210, 20);
+            TextRenderer.DrawText(graphics, tip, _labelFont, new Rectangle(tipX + 4, tipY, 204, 20), Color.White,
                 TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
+        }
+
+        private void DrawPlaybackStatistics(Graphics graphics, Rectangle area)
+        {
+            if (!PlaybackStatisticsDrawn) return;
+            string[] lines = new string[]
+            {
+                "Playback: " + _overlayData.State,
+                "Timeline / output: " + _overlayData.TimelineAndOutput,
+                "Queue now / maximum: " + _overlayData.Queue,
+                "Events sent / dropped: " + _overlayData.Events,
+                "Output rate: " + _overlayData.OutputRate,
+                "Effective speed: " + _overlayData.EffectiveSpeed,
+                "Lag current / maximum: " + _overlayData.Lag
+            };
+            Rectangle panel = PlaybackStatisticsBounds(area);
+            using (Brush background = new SolidBrush(Color.FromArgb(218, 12, 15, 19)))
+            using (Pen outline = new Pen(Color.FromArgb(130, 190, 195, 202)))
+            {
+                graphics.FillRectangle(background, panel);
+                graphics.DrawRectangle(outline, panel);
+            }
+            for (int i = 0; i < lines.Length; i++)
+                TextRenderer.DrawText(graphics, lines[i], _labelFont,
+                    new Rectangle(panel.Left + 7, panel.Top + 4 + i * 17, panel.Width - 14, 17), Color.WhiteSmoke,
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis);
+        }
+
+        internal Rectangle PlaybackStatisticsBounds(Rectangle area)
+        {
+            int width = Math.Min(310, Math.Max(220, area.Width - 16));
+            int height = 8 + 7 * 17;
+            return new Rectangle(area.Left + 7, area.Top + 7, width, height);
         }
 
         private static string FormatClock(long microseconds)
         {
             TimeSpan value = TimeSpan.FromTicks(Math.Max(0, microseconds) * 10);
             return ((int)value.TotalMinutes).ToString("00") + ":" + value.Seconds.ToString("00");
+        }
+
+        private static string FormatResolution(long microseconds)
+        {
+            return microseconds >= 1000000 ? (microseconds / 1000000.0).ToString("0.###") + " s" :
+                (microseconds / 1000.0).ToString("0.###") + " ms";
         }
 
         internal static string FormatClockDetailed(long microseconds)
@@ -452,7 +672,7 @@ namespace MidiBottleneck
 
         protected override void Dispose(bool disposing)
         {
-            if (disposing) { _labelFont.Dispose(); _toolTip.Dispose(); }
+            if (disposing) { _dynamicTimer.Stop(); _dynamicTimer.Dispose(); if (_staticLayer != null) _staticLayer.Dispose(); _labelFont.Dispose(); _toolTip.Dispose(); }
             base.Dispose(disposing);
         }
     }

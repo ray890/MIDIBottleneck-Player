@@ -8,23 +8,26 @@ namespace MidiBottleneck
     {
         private static readonly string[] Captions = new string[]
         {
-            "Theoretical maximum rate:", "Queue current / maximum:",
-            "Events processed / dropped:", "Effective playback speed:",
-            "Current simulated lag:", "Maximum simulated lag:",
-            "Timeline / MIDI output:", "Current output rate:"
+            "Timeline / output:", "Queue now / maximum:",
+            "Maximum rate:", "Output rate:",
+            "Events sent / dropped:", "Effective speed:",
+            "Maximum lag:", "Current lag:"
         };
         private static readonly string[] CompactCaptions = new string[]
         {
-            "Maximum rate:", "Queue now / max:",
-            "Events sent / dropped:", "Effective speed:",
-            "Current lag:", "Maximum lag:",
-            "Timeline / output:", "Output rate:"
+            "Timeline / output:", "Queue now / max:",
+            "Maximum rate:", "Output rate:",
+            "Sent / dropped:", "Effective speed:",
+            "Maximum lag:", "Current lag:"
         };
 
         private readonly string[] _values = new string[8];
         private readonly Font _captionFont;
         private readonly Font _valueFont;
         private readonly ToolTip _toolTip;
+        private readonly bool[] _captionTruncated = new bool[8];
+        private readonly bool[] _valueTruncated = new bool[8];
+        private readonly int[] _lastValueWidths = new int[8];
         private bool _compact;
         private bool _queueLimited;
         private long _occupied;
@@ -52,7 +55,14 @@ namespace MidiBottleneck
         internal bool Compact
         {
             get { return _compact; }
-            set { if (_compact != value) { _compact = value; Invalidate(); } }
+            set
+            {
+                if (_compact == value) return;
+                _compact = value;
+                Height = value ? 96 : 104;
+                MinimumSize = new Size(0, Height);
+                Invalidate();
+            }
         }
 
         public bool SetValues(string[] values)
@@ -70,6 +80,7 @@ namespace MidiBottleneck
                 }
             }
             if (changed) Invalidate();
+            if (changed) _lastToolTipCell = -1;
             return changed;
         }
 
@@ -77,18 +88,12 @@ namespace MidiBottleneck
         {
             occupied = Math.Max(0, occupied);
             limit = Math.Max(1, limit);
-            bool heightChanged = _queueLimited != limited;
-            if (!heightChanged && _occupied == occupied && _limit == limit && _overflowPulse == overflowPulse) return;
+            bool visibilityChanged = _queueLimited != limited;
+            if (!visibilityChanged && _occupied == occupied && _limit == limit && _overflowPulse == overflowPulse) return;
             _queueLimited = limited;
             _occupied = occupied;
             _limit = limit;
             _overflowPulse = overflowPulse;
-            if (heightChanged)
-            {
-                Height = limited ? 122 : 104;
-                MinimumSize = new Size(0, Height);
-                if (Parent != null) Parent.PerformLayout();
-            }
             Invalidate();
         }
 
@@ -96,6 +101,9 @@ namespace MidiBottleneck
         internal bool QueuePressureVisible { get { return _queueLimited; } }
         internal double QueuePressureRatio { get { return _queueLimited ? Math.Min(1.0, _occupied / (double)Math.Max(1, _limit)) : 0; } }
         internal int ColumnCount { get { return 2; } }
+        internal static string CaptionAt(int index) { return Captions[index]; }
+        internal bool ValueWasTruncated(int index) { return _valueTruncated[index]; }
+        internal int ValueAllocationWidth(int index) { return _lastValueWidths[index]; }
         internal string SpeedMeasurementDescription
         {
             get { return _speedMeasurementDescription; }
@@ -108,7 +116,7 @@ namespace MidiBottleneck
             e.Graphics.Clear(BackColor);
             int columnWidth = Math.Max(1, ClientSize.Width / 2);
             int contentHeight = Math.Max(1, ClientSize.Height - (_queueLimited ? 18 : 0));
-            int rowHeight = Math.Max(22, contentHeight / 4);
+            int rowHeight = Math.Max(20, contentHeight / 4);
             for (int index = 0; index < _values.Length; index++)
             {
                 int column = index % 2;
@@ -120,13 +128,23 @@ namespace MidiBottleneck
 
         private void DrawCell(Graphics graphics, int left, int index, int row, int width, int rowHeight)
         {
-            int valueWidth = index == 6 ? Math.Min(190, width * 3 / 5) :
-                index == 0 || index == 7 ? Math.Min(170, width / 2) : Math.Min(145, width / 2);
             int gap = _compact ? 3 : 6;
-            Rectangle caption = new Rectangle(left + 3, row * rowHeight, Math.Max(55, width - valueWidth - gap - 5), rowHeight);
-            Rectangle value = new Rectangle(left + width - valueWidth - 3, row * rowHeight, valueWidth, rowHeight);
             TextFormatFlags vertical = TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding;
-            TextRenderer.DrawText(graphics, _compact ? CompactCaptions[index] : Captions[index], _captionFont, caption, ForeColor,
+            string captionText = _compact ? CompactCaptions[index] : Captions[index];
+            int measuredValue = TextRenderer.MeasureText(graphics, _values[index], _valueFont, Size.Empty,
+                vertical).Width + 2;
+            int measuredCaption = TextRenderer.MeasureText(graphics, captionText, _captionFont, Size.Empty,
+                vertical).Width + 2;
+            int innerWidth = Math.Max(1, width - 6);
+            int minimumCaption = _compact ? 45 : 60;
+            int valueWidth = Math.Min(measuredValue, Math.Max(24, innerWidth - minimumCaption - gap));
+            _lastValueWidths[index] = valueWidth;
+            int captionWidth = Math.Max(1, innerWidth - valueWidth - gap);
+            Rectangle caption = new Rectangle(left + 3, row * rowHeight, captionWidth, rowHeight);
+            Rectangle value = new Rectangle(caption.Right + gap, row * rowHeight, valueWidth, rowHeight);
+            _captionTruncated[index] = measuredCaption > caption.Width;
+            _valueTruncated[index] = measuredValue > value.Width;
+            TextRenderer.DrawText(graphics, captionText, _captionFont, caption, ForeColor,
                 vertical | TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
             TextRenderer.DrawText(graphics, _values[index], _valueFont, value, ForeColor,
                 vertical | TextFormatFlags.Right | TextFormatFlags.EndEllipsis);
@@ -147,16 +165,22 @@ namespace MidiBottleneck
             int cell = CellAt(e.Location);
             if (cell == _lastToolTipCell) return;
             _lastToolTipCell = cell;
-            string text = cell == 3 ? "Output-timeline advancement relative to elapsed playback time. Current measurement window: " +
+            string text = cell == 5 ? "Output-timeline advancement relative to elapsed playback time. Current measurement window: " +
                 _speedMeasurementDescription + ". Right-click to change it." :
-                cell == 6 ? "Playback timeline / MIDI output position. The output position is the source timestamp of the most recently sent MIDI event." : String.Empty;
+                cell == 0 ? "Playback timeline / MIDI output position. The output position is the source timestamp of the most recently sent MIDI event." :
+                cell == 6 || cell == 7 ? "Lag is lateness through MIDI dispatch, including scheduler delay or a blocking output call. It cannot measure synthesizer rendering or audio-device latency." : String.Empty;
+            if (cell >= 0 && (_captionTruncated[cell] || _valueTruncated[cell]))
+            {
+                string full = Captions[cell] + " " + _values[cell];
+                text = String.IsNullOrEmpty(text) ? full : full + Environment.NewLine + text;
+            }
             _toolTip.SetToolTip(this, text);
         }
 
         protected override void OnMouseUp(MouseEventArgs e)
         {
             base.OnMouseUp(e);
-            if (e.Button == MouseButtons.Right && CellAt(e.Location) == 3)
+            if (e.Button == MouseButtons.Right && CellAt(e.Location) == 5)
             {
                 EventHandler<MouseEventArgs> handler = EffectiveSpeedContextRequested;
                 if (handler != null) handler(this, e);

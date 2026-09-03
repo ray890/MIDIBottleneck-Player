@@ -27,7 +27,6 @@ namespace MidiBottleneck
         public byte Status;
         public byte[] Data;
         public int EventIndex;
-        public string SourceFile;
 
         public string Description
         {
@@ -43,9 +42,11 @@ namespace MidiBottleneck
     internal sealed class MidiSong
     {
         public string FilePath;
+        public long FileSizeBytes;
         public int Format;
         public int TrackCount;
         public int TicksPerQuarterNote;
+        public long NoteCount;
         public List<MidiEvent> Events;
         public long DurationMicroseconds;
     }
@@ -98,6 +99,11 @@ namespace MidiBottleneck
         void Send(MidiEvent midiEvent);
         void Panic();
         void Reset();
+    }
+
+    internal interface IMidiOutputContext
+    {
+        string SourceFile { get; set; }
     }
 
     internal static class MidiOutputSafety

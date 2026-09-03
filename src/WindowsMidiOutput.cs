@@ -12,7 +12,7 @@ namespace MidiBottleneck
         public override string ToString() { return Name; }
     }
 
-    internal sealed class WindowsMidiOutput : IMidiOutput, IDisposable
+    internal sealed class WindowsMidiOutput : IMidiOutput, IMidiOutputContext, IDisposable
     {
         private const uint MhDone = 0x00000001;
         private const int MaxPnameLen = 32;
@@ -41,6 +41,7 @@ namespace MidiBottleneck
         private IntPtr _handle;
         private readonly List<LongBuffer> _longBuffers = new List<LongBuffer>();
         private readonly SystemExclusiveAssembler _systemExclusiveAssembler = new SystemExclusiveAssembler();
+        public string SourceFile { get; set; }
 
         public static List<MidiOutputDeviceInfo> GetDevices()
         {
@@ -196,13 +197,13 @@ namespace MidiBottleneck
             throw new Win32Exception((int)code, "MIDI error while " + action + ": " + text);
         }
 
-        private static void ThrowLongIfError(uint code, string operation, SystemExclusivePacket packet,
+        private void ThrowLongIfError(uint code, string operation, SystemExclusivePacket packet,
             MidiEvent finalEvent, int headerSize, NativeMidiHeader header)
         {
             if (code == 0) return;
             System.Text.StringBuilder nativeText = new System.Text.StringBuilder(256);
             midiOutGetErrorText(code, nativeText, nativeText.Capacity);
-            string detail = SystemExclusiveDiagnostics.DescribeFailure(operation, code, nativeText.ToString(), packet,
+            string detail = SystemExclusiveDiagnostics.DescribeFailure(operation, code, nativeText.ToString(), SourceFile, packet,
                 finalEvent, headerSize, header.BufferLength, header.BytesRecorded, header.Flags, header.Data);
             throw new Win32Exception((int)code, detail);
         }

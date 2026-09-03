@@ -71,7 +71,10 @@ namespace MidiBottleneck
             if (_module == IntPtr.Zero) _module = LoadLibrary("OmniMIDI.dll");
             if (_module == IntPtr.Zero)
             {
-                throw new Win32Exception(Marshal.GetLastWin32Error(), "The OmniMIDI output was found, but its KDMAPI module could not be loaded.");
+                string architecture = IntPtr.Size == 8 ? "x64" : "x86";
+                throw new Win32Exception(Marshal.GetLastWin32Error(),
+                    "The OmniMIDI output was found, but its " + architecture +
+                    " KDMAPI module could not be loaded. Install a matching OmniMIDI architecture or turn off KDMAPI.");
             }
             try
             {
@@ -142,7 +145,7 @@ namespace MidiBottleneck
         private static extern IntPtr GetProcAddress(IntPtr module, string procedureName);
     }
 
-    internal sealed class KdmApiMidiOutput : IMidiOutput, IDisposable
+    internal sealed class KdmApiMidiOutput : IMidiOutput, IMidiOutputContext, IDisposable
     {
         private const uint MhDone = 0x00000001;
 
@@ -156,6 +159,7 @@ namespace MidiBottleneck
         private IKdmApiNative _native;
         private readonly bool _ownsNative;
         private bool _open;
+        public string SourceFile { get; set; }
         private readonly List<LongBuffer> _longBuffers = new List<LongBuffer>();
         private readonly SystemExclusiveAssembler _systemExclusiveAssembler = new SystemExclusiveAssembler();
 
@@ -312,11 +316,11 @@ namespace MidiBottleneck
             }
         }
 
-        private static void ThrowLongIfError(uint code, string operation, SystemExclusivePacket packet,
+        private void ThrowLongIfError(uint code, string operation, SystemExclusivePacket packet,
             MidiEvent finalEvent, int headerSize, NativeMidiHeader header)
         {
             if (code == 0) return;
-            string detail = SystemExclusiveDiagnostics.DescribeFailure(operation, code, null, packet, finalEvent,
+            string detail = SystemExclusiveDiagnostics.DescribeFailure(operation, code, null, SourceFile, packet, finalEvent,
                 headerSize, header.BufferLength, header.BytesRecorded, header.Flags, header.Data);
             throw new Win32Exception((int)code, detail);
         }

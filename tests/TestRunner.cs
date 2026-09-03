@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Diagnostics;
 using System.Drawing;
+using System.Globalization;
 using System.Threading;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
@@ -66,6 +67,37 @@ namespace MidiBottleneck.Tests
                     BenchmarkBoundedFile(arguments[1]);
                     return 0;
                 }
+                if (arguments.Length == 3 && arguments[0] == "--benchmark-output-window")
+                {
+                    BenchmarkOutputWindow(arguments[1], arguments[2]);
+                    return 0;
+                }
+                if (arguments.Length == 5 && arguments[0] == "--benchmark-output-range")
+                {
+                    BenchmarkOutputWindow(arguments[1], arguments[2], Int64.Parse(arguments[3], CultureInfo.InvariantCulture),
+                        Int64.Parse(arguments[4], CultureInfo.InvariantCulture));
+                    return 0;
+                }
+                if (arguments.Length == 2 && arguments[0] == "--benchmark-load-memory")
+                {
+                    BenchmarkSequentialLoadMemory(arguments[1]);
+                    return 0;
+                }
+                if (arguments.Length == 2 && arguments[0] == "--benchmark-analysis")
+                {
+                    BenchmarkAnalysis(arguments[1]);
+                    return 0;
+                }
+                if (arguments.Length == 2 && arguments[0] == "--benchmark-output-window-ui")
+                {
+                    BenchmarkOutputWindowWithUi(arguments[1]);
+                    return 0;
+                }
+                if (arguments.Length == 2 && arguments[0] == "--benchmark-ui-load")
+                {
+                    BenchmarkAsyncUiLoad(arguments[1]);
+                    return 0;
+                }
                 if ((arguments.Length == 6 || arguments.Length == 7) && arguments[0] == "--production-drop-trace")
                 {
                     int capacity = arguments.Length == 7 ? Int32.Parse(arguments[6]) : PlaybackEngine.DefaultDropBufferCapacity;
@@ -87,22 +119,95 @@ namespace MidiBottleneck.Tests
                     RenderMainWindow(arguments[1], false, true, false);
                     return 0;
                 }
+                if (arguments.Length == 2 && arguments[0] == "--render-ui-min-bitrate")
+                {
+                    RenderMainWindow(arguments[1], true, true, false);
+                    return 0;
+                }
+                if (arguments.Length == 2 && arguments[0] == "--render-ui-min-finite")
+                {
+                    RenderMainWindow(arguments[1], false, true, true);
+                    return 0;
+                }
                 if (arguments.Length == 2 && arguments[0] == "--render-ui-finite")
                 {
                     RenderMainWindow(arguments[1], false, false, true);
                     return 0;
                 }
+                if (arguments.Length == 3 && arguments[0] == "--render-ui-clientwidth")
+                {
+                    RenderMainWindowAtWidth(arguments[1], Int32.Parse(arguments[2]));
+                    return 0;
+                }
+                if (arguments.Length == 2 && arguments[0] == "--render-ui-restored")
+                {
+                    RenderRestoredMainWindow(arguments[1]);
+                    return 0;
+                }
+                if (arguments.Length == 3 && arguments[0] == "--render-ui-loading")
+                {
+                    RenderLoadingMainWindow(arguments[1], arguments[2]);
+                    return 0;
+                }
                 if (arguments.Length == 3 && arguments[0] == "--render-analysis")
                 {
-                    RenderAnalysisWindow(arguments[1], arguments[2], false, true, true);
+                    RenderAnalysisWindow(arguments[1], arguments[2], false, true, true, false, false, null, false);
                     return 0;
                 }
                 if (arguments.Length == 3 && arguments[0] == "--render-analysis-bitrate")
                 {
-                    RenderAnalysisWindow(arguments[1], arguments[2], true, false, true);
+                    RenderAnalysisWindow(arguments[1], arguments[2], true, false, true, false, false, null, false);
+                    return 0;
+                }
+                if (arguments.Length == 3 && arguments[0] == "--render-analysis-overlay")
+                {
+                    RenderAnalysisWindow(arguments[1], arguments[2], false, true, true, true, false, null, false);
+                    return 0;
+                }
+                if (arguments.Length == 3 && arguments[0] == "--render-analysis-min")
+                {
+                    RenderAnalysisWindow(arguments[1], arguments[2], false, true, true, false, true, null, false);
+                    return 0;
+                }
+                if (arguments.Length == 4 && arguments[0] == "--render-analysis-resolution")
+                {
+                    RenderAnalysisWindow(arguments[1], arguments[2], false, true, true, false, false, arguments[3], false);
+                    return 0;
+                }
+                if (arguments.Length == 4 && arguments[0] == "--render-analysis-custom")
+                {
+                    RenderCustomAnalysisWindow(arguments[1], arguments[2], Decimal.Parse(arguments[3], CultureInfo.InvariantCulture));
+                    return 0;
+                }
+                if (arguments.Length == 3 && arguments[0] == "--render-analysis-recalculating")
+                {
+                    RenderBusyAnalysisWindow(arguments[1], arguments[2]);
+                    return 0;
+                }
+                if (arguments.Length == 4 && arguments[0] == "--render-analysis-splitter")
+                {
+                    RenderAnalysisSplitter(arguments[1], arguments[2], String.Equals(arguments[3], "after", StringComparison.OrdinalIgnoreCase));
+                    return 0;
+                }
+                if (arguments.Length == 3 && arguments[0] == "--render-analysis-edge-pin")
+                {
+                    RenderAnalysisEdgePin(arguments[1], arguments[2]);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-finishing-ui")
+                {
+                    RunFocused("background loading, stale-result rejection, and unload", TestBackgroundMidiLoading);
+                    RunFocused("asynchronous Analysis refresh and resolution policy", TestAsynchronousAnalysis);
+                    RunFocused("configured whole-file Analysis window", TestAnalysisWindowConstruction);
+                    RunFocused("selected-model Analysis interaction and seek", TestAnalysisInteraction);
+                    RunFocused("Analysis graph geometry, overlay, and coalesced message-pump updates", TestAnalysisRenderingRefinements);
+                    RunFocused("WinForms interface construction", TestInterfaceConstruction);
+                    RunFocused("finishing layout, loading-footprint, splitter, and edge-pin contracts", TestFinishingReleaseContracts);
+                    Console.WriteLine("PASS: " + _passed + " focused finishing tests");
                     return 0;
                 }
                 Run("tempo map, multiple tracks, running status, and SysEx", TestMidiParser);
+                Run("explicit process architecture and packed MIDIHDR ABI", TestProcessArchitecture);
                 Run("FIFO queue accumulation", TestQueueSimulation);
                 Run("queue mode playback-engine ordering regression", TestQueuePlaybackEngine);
                 Run("independent slowdown and queue-limit combinations", TestIndependentPolicyCombinations);
@@ -115,6 +220,7 @@ namespace MidiBottleneck.Tests
                 Run("overflow policy behavior", TestOverflowPolicies);
                 Run("clear buffer and catch up production behavior", TestClearBufferCatchUpPlaybackEngine);
                 Run("zero processing time", TestZeroServiceTime);
+                Run("slowdown-enabled zero service uses immediate scheduler path", TestEffectiveZeroServicePath);
                 Run("MIDI bitrate byte-duration calculation", TestMidiBitrateCalculation);
                 Run("MIDI bitrate production service intervals", TestMidiBitratePlaybackIntervals);
                 Run("parsed MIDI Queue playback under MIDI bitrate", TestParsedMidiBitrateQueuePlayback);
@@ -134,22 +240,33 @@ namespace MidiBottleneck.Tests
                 Run("live overflow policy applies at next overflow", TestLiveOverflowPolicyChange);
                 Run("output restart preserves paused source position and clears backlog", TestOutputRestartSemantics);
                 Run("dense 200,000-event MIDI parsing", TestDenseMidiParser);
+                Run("cancellable parser progress and cancellation", TestCancellableMidiParser);
+                Run("contiguous event-storage limit fails clearly before allocation", TestContiguousEventStorageLimit);
+                Run("background loading, stale-result rejection, and unload", TestBackgroundMidiLoading);
                 Run("workload analysis and graph data", TestWorkloadAnalysis);
+                Run("asynchronous Analysis refresh and resolution policy", TestAsynchronousAnalysis);
                 Run("configured whole-file Analysis window", TestAnalysisWindowConstruction);
                 Run("selected-model Analysis interaction and seek", TestAnalysisInteraction);
+                Run("Analysis graph geometry, overlay, and coalesced message-pump updates", TestAnalysisRenderingRefinements);
+                Run("Analysis paused seek resumes and stopped seek stays stopped", TestAnalysisSeekPlaybackPolicy);
                 Run("consistent simulated-lag formatting", TestLagFormatting);
                 Run("conditional queue-pressure rendering semantics", TestQueuePressureView);
+                Run("statistics return width after long values", TestStatisticsWidthRelease);
+                Run("corrected 02:03–02:06 benchmark extraction", TestBenchmarkWindowExtraction);
+                Run("zero-service extreme burst scheduler responsiveness", TestImmediateBurstPerformance);
+                Run("simulated-slowdown burst keeps WinForms responsive", TestSlowdownBurstUiResponsiveness);
                 Run("Windows MIDI device enumeration", TestMidiDeviceEnumeration);
                 if (Array.IndexOf(arguments, "--midi-integration") >= 0)
                     Run("MIDI SysEx output and repeated device switching", TestMidiOutputSwitching);
                 Run("WinForms interface construction", TestInterfaceConstruction);
+                Run("finishing layout, loading-footprint, splitter, and edge-pin contracts", TestFinishingReleaseContracts);
                 Run("playback timeline rendering path", TestPlaybackTimelineRendering);
                 Console.WriteLine("PASS: " + _passed + " tests");
                 return 0;
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine("FAIL: " + ex.Message);
+                Console.Error.WriteLine("FAIL: " + ex.ToString());
                 return 1;
             }
         }
@@ -159,6 +276,11 @@ namespace MidiBottleneck.Tests
             test();
             _passed++;
             Console.WriteLine("  OK  " + name);
+        }
+
+        private static void RunFocused(string name, Action test)
+        {
+            Run(name, test);
         }
 
         private static void ReportSystemExclusivePackets(string midiPath)
@@ -214,20 +336,25 @@ namespace MidiBottleneck.Tests
                     ComboBox serviceMode = FindComboContaining(controls, "MIDI serial bitrate");
                     if (serviceMode == null) throw new Exception("MIDI bitrate mode was not found for UI rendering");
                     serviceMode.SelectedIndex = 1;
+                    if (minimumSize)
+                    {
+                        NumericUpDown bitrate = FindNumericWithMaximum(controls, 100000000m);
+                        if (bitrate != null) bitrate.Value = bitrate.Maximum;
+                    }
                     Application.DoEvents();
                 }
                 if (finite)
                 {
                     List<Control> controls = new List<Control>();
                     CollectControls(form, controls);
-                    CheckBox queueLimit = FindCheckBox(controls, "Queue length limit:");
+                    CheckBox queueLimit = FindCheckBox(controls, minimumSize ? "Queue limit:" : "Queue length limit:");
                     if (queueLimit == null) throw new Exception("Queue limit was not found for UI rendering");
                     queueLimit.Checked = true;
                     Application.DoEvents();
                 }
                 using (Bitmap bitmap = new Bitmap(form.Width, form.Height))
                 {
-                    form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size));
+                    CaptureForm(form, bitmap);
                     bitmap.Save(outputPath);
                 }
                 form.Close();
@@ -235,7 +362,149 @@ namespace MidiBottleneck.Tests
             Console.WriteLine("Rendered UI: " + Path.GetFullPath(outputPath));
         }
 
-        private static void RenderAnalysisWindow(string midiPath, string outputPath, bool bitrate, bool finite, bool pinned)
+        private static void RenderMainWindowAtWidth(string outputPath, int clientWidth)
+        {
+            Application.EnableVisualStyles();
+            using (MainForm form = new MainForm())
+            {
+                form.Show();
+                Application.DoEvents();
+                if (clientWidth >= 640)
+                {
+                    form.ClientSize = new Size(639, 525);
+                    Application.DoEvents();
+                }
+                form.ClientSize = new Size(clientWidth, 570);
+                Application.DoEvents();
+                using (Bitmap bitmap = new Bitmap(form.Width, form.Height))
+                {
+                    CaptureForm(form, bitmap);
+                    bitmap.Save(outputPath);
+                }
+                form.Close();
+            }
+            Console.WriteLine("Rendered UI at " + clientWidth + " client pixels: " + Path.GetFullPath(outputPath));
+        }
+
+        private static void RenderRestoredMainWindow(string outputPath)
+        {
+            Application.EnableVisualStyles();
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); Application.DoEvents();
+                form.Size = new Size(500, 510); Application.DoEvents();
+                List<Control> controls = new List<Control>();
+                CollectControls(form, controls);
+                ComboBox serviceMode = FindComboContaining(controls, "MIDI serial bitrate");
+                serviceMode.SelectedIndex = 1; Application.DoEvents();
+                form.Size = new Size(806, 590); Application.DoEvents();
+                form.Refresh(); PumpFor(150);
+                using (Bitmap bitmap = new Bitmap(form.Width, form.Height))
+                {
+                    CaptureForm(form, bitmap);
+                    bitmap.Save(outputPath);
+                }
+                form.Close();
+            }
+            Console.WriteLine("Rendered compact-to-default restoration: " + Path.GetFullPath(outputPath));
+        }
+
+        private static void RenderLoadingMainWindow(string midiPath, string outputPath)
+        {
+            Application.EnableVisualStyles();
+            using (MainForm form = new MainForm())
+            {
+                form.SuppressLoadErrorDialogs = true;
+                form.Show(); Application.DoEvents();
+                form.BeginMidiLoad(midiPath);
+                PumpUntil(delegate
+                {
+                    return !form.IsLoadingSong || form.LoadingOverallPermille >= 5;
+                }, 10000, "loading-progress visual state");
+                if (!form.IsLoadingSong)
+                    throw new Exception("the selected MIDI completed before its loading-progress state could be captured");
+                using (Bitmap bitmap = new Bitmap(form.Width, form.Height))
+                {
+                    CaptureForm(form, bitmap);
+                    bitmap.Save(outputPath);
+                }
+                form.CancelMidiLoad();
+                form.Close();
+            }
+            Console.WriteLine("Rendered two-level loading progress: " + Path.GetFullPath(outputPath));
+        }
+
+        private static void RenderCustomAnalysisWindow(string midiPath, string outputPath, decimal milliseconds)
+        {
+            Application.EnableVisualStyles();
+            MidiSong song = MidiFileParser.Load(midiPath);
+            AnalysisConfiguration configuration = DefaultAnalysisConfiguration();
+            WorkloadAnalysis analysis = WorkloadAnalyzer.Analyze(song, configuration);
+            using (DiagnosticsForm form = new DiagnosticsForm(song, analysis))
+            {
+                form.Show(); Application.DoEvents();
+                string error;
+                if (!form.SetCustomResolutionMilliseconds(milliseconds, out error)) throw new Exception(error);
+                long expectedResolution = Decimal.ToInt64(Decimal.Round(milliseconds * 1000m, 0, MidpointRounding.AwayFromZero));
+                PumpUntil(delegate
+                {
+                    return !form.CalculationPending && form.ActiveResolutionMicroseconds == expectedResolution;
+                }, 30000, "custom-resolution visual Analysis");
+                form.Refresh();
+                form.Graph.Focus();
+                Cursor.Position = form.PointToScreen(new Point(form.ClientSize.Width - 4, form.ClientSize.Height - 4));
+                PumpFor(300);
+                form.Activate();
+                form.BringToFront();
+                PumpFor(100);
+                using (Bitmap bitmap = new Bitmap(form.Width, form.Height))
+                {
+                    using (Graphics graphics = Graphics.FromImage(bitmap))
+                        graphics.CopyFromScreen(form.Location, Point.Empty, form.Size);
+                    bitmap.Save(outputPath);
+                }
+                form.Close();
+            }
+            Console.WriteLine("Rendered custom Analysis resolution: " + Path.GetFullPath(outputPath));
+        }
+
+        private static void RenderBusyAnalysisWindow(string midiPath, string outputPath)
+        {
+            Application.EnableVisualStyles();
+            MidiSong song = MidiFileParser.Load(midiPath);
+            AnalysisConfiguration configuration = DefaultAnalysisConfiguration();
+            WorkloadAnalysis completed = WorkloadAnalyzer.Analyze(song, configuration);
+            using (DiagnosticsForm form = new DiagnosticsForm(song, completed,
+                delegate(MidiSong source, long bucket, AnalysisConfiguration requested, CancellationToken token,
+                    Action<WorkloadAnalysisProgress> progress)
+                {
+                    for (int step = 0; step <= 30; step++)
+                    {
+                        if (progress != null) progress(new WorkloadAnalysisProgress("Projecting queue pressure", step, 30, 0, 1000));
+                        if (token.WaitHandle.WaitOne(100)) token.ThrowIfCancellationRequested();
+                    }
+                    return WorkloadAnalyzer.Analyze(source, bucket, requested, token, progress);
+                }))
+            {
+                form.Show(); Application.DoEvents();
+                AnalysisConfiguration changed = DefaultAnalysisConfiguration();
+                changed.ProcessingMicroseconds = 333;
+                form.RequestAnalysis(changed);
+                PumpUntil(delegate { return form.CalculationStatusVisible && form.CalculationProgressPermille > 0; },
+                    2500, "delayed Analysis progress visual state");
+                using (Bitmap bitmap = new Bitmap(form.Width, form.Height))
+                {
+                    CaptureForm(form, bitmap);
+                    bitmap.Save(outputPath);
+                }
+                form.CancelAnalysisCalculation();
+                form.Close();
+            }
+            Console.WriteLine("Rendered delayed Analysis progress: " + Path.GetFullPath(outputPath));
+        }
+
+        private static void RenderAnalysisWindow(string midiPath, string outputPath, bool bitrate, bool finite, bool pinned, bool overlay,
+            bool minimum, string resolution, bool recalculating)
         {
             Application.EnableVisualStyles();
             MidiSong song = MidiFileParser.Load(midiPath);
@@ -248,6 +517,27 @@ namespace MidiBottleneck.Tests
             {
                 form.Show();
                 Application.DoEvents();
+                if (minimum)
+                {
+                    form.Size = form.MinimumSize;
+                    Application.DoEvents();
+                }
+                if (!String.IsNullOrEmpty(resolution))
+                {
+                    List<Control> resolutionControls = new List<Control>();
+                    CollectControls(form, resolutionControls);
+                    ComboBox resolutionCombo = FindComboContaining(resolutionControls, "Auto");
+                    if (resolutionCombo == null || !resolutionCombo.Items.Contains(resolution)) throw new Exception("Analysis resolution control was not found");
+                    resolutionCombo.SelectedItem = resolution;
+                    PumpUntil(delegate { return !form.CalculationPending; }, 10000, "Analysis resolution render");
+                }
+                if (recalculating)
+                {
+                    AnalysisConfiguration changed = DefaultAnalysisConfiguration();
+                    changed.ProcessingMicroseconds = 333;
+                    form.RequestAnalysis(changed);
+                    PumpUntil(delegate { return form.CalculationStatusVisible || !form.CalculationPending; }, 5000, "Analysis recalculation indicator render");
+                }
                 if (pinned)
                 {
                     List<Control> controls = new List<Control>();
@@ -255,19 +545,85 @@ namespace MidiBottleneck.Tests
                     WorkloadGraph graph = FindControl<WorkloadGraph>(controls);
                     if (graph != null) graph.InspectAtClientX(graph.GraphArea.Left + graph.GraphArea.Width * 2 / 3, true);
                     PlaybackSnapshot snapshot = new PlaybackSnapshot();
+                    snapshot.State = PlaybackState.Playing;
                     snapshot.IntendedTimelineMicroseconds = song.DurationMicroseconds * 3 / 5;
                     snapshot.LastDispatchedTimelineMicroseconds = song.DurationMicroseconds * 2 / 5;
-                    form.UpdatePlaybackSnapshot(snapshot);
+                    form.UpdatePlaybackSnapshot(snapshot, new PlaybackOverlayData
+                    {
+                        State = "Playing", TimelineAndOutput = "03:36.000 / 02:24.000", Queue = "1,463 / 2,000",
+                        Events = "82,504 / 417", OutputRate = "2,834.0 events/sec", EffectiveSpeed = "72.4%",
+                        Lag = "700.000 ms / 1,245.000 ms"
+                    });
+                    if (overlay)
+                    {
+                        CheckBox playbackStatistics = FindCheckBox(controls, "Playback statistics");
+                        if (playbackStatistics != null) playbackStatistics.Checked = true;
+                    }
                     Application.DoEvents();
                 }
                 using (Bitmap bitmap = new Bitmap(form.Width, form.Height))
                 {
-                    form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size));
+                    if (!recalculating) PumpFor(700);
+                    else Application.DoEvents();
+                    CaptureForm(form, bitmap);
                     bitmap.Save(outputPath);
                 }
                 form.Close();
             }
             Console.WriteLine("Rendered analysis: " + Path.GetFullPath(outputPath));
+        }
+
+        private static void RenderAnalysisSplitter(string midiPath, string outputPath, bool moved)
+        {
+            Application.EnableVisualStyles();
+            MidiSong song = MidiFileParser.Load(midiPath);
+            AnalysisConfiguration configuration = DefaultAnalysisConfiguration();
+            WorkloadAnalysis analysis = WorkloadAnalyzer.Analyze(song, configuration);
+            using (DiagnosticsForm form = new DiagnosticsForm(song, analysis))
+            {
+                form.Show(); Application.DoEvents();
+                if (moved)
+                {
+                    form.AnalysisSplit.SplitterDistance = Math.Min(form.AnalysisSplit.Width - form.AnalysisSplit.Panel2MinSize -
+                        form.AnalysisSplit.SplitterWidth, form.AnalysisSplit.SplitterDistance + 90);
+                    Application.DoEvents();
+                }
+                PumpFor(300);
+                using (Bitmap bitmap = new Bitmap(form.Width, form.Height))
+                {
+                    CaptureForm(form, bitmap);
+                    bitmap.Save(outputPath);
+                }
+                form.Close();
+            }
+            Console.WriteLine("Rendered Analysis splitter " + (moved ? "after drag: " : "before interaction: ") + Path.GetFullPath(outputPath));
+        }
+
+        private static void RenderAnalysisEdgePin(string midiPath, string outputPath)
+        {
+            Application.EnableVisualStyles();
+            MidiSong song = MidiFileParser.Load(midiPath);
+            WorkloadAnalysis analysis = WorkloadAnalyzer.Analyze(song, DefaultAnalysisConfiguration());
+            using (DiagnosticsForm form = new DiagnosticsForm(song, analysis))
+            {
+                form.Show(); Application.DoEvents();
+                WorkloadGraph graph = form.Graph;
+                Rectangle area = graph.GraphArea;
+                int x = area.Left - 3;
+                int y = area.Top + area.Height / 2;
+                IntPtr coordinates = new IntPtr(((y & 0xFFFF) << 16) | (x & 0xFFFF));
+                SendMessage(graph.Handle, 0x0201, new IntPtr(1), coordinates);
+                SendMessage(graph.Handle, 0x0202, IntPtr.Zero, coordinates);
+                Application.DoEvents();
+                Equal((long?)0L, graph.PinnedTimeMicroseconds, "rendered tolerated edge pin");
+                using (Bitmap bitmap = new Bitmap(form.Width, form.Height))
+                {
+                    CaptureForm(form, bitmap);
+                    bitmap.Save(outputPath);
+                }
+                form.Close();
+            }
+            Console.WriteLine("Rendered Analysis zero-time edge pin: " + Path.GetFullPath(outputPath));
         }
 
         private static void TestMidiParser()
@@ -280,6 +636,8 @@ namespace MidiBottleneck.Tests
                 Equal(1, song.Format, "format");
                 Equal(2, song.TrackCount, "track count");
                 Equal(480, song.TicksPerQuarterNote, "PPQN");
+                Equal(2L, song.NoteCount, "musical note-on count");
+                Equal((long)BuildTestMidi().Length, song.FileSizeBytes, "source file size");
                 Equal(6, song.Events.Count, "dispatchable event count");
                 Equal(0L, song.Events[0].IntendedMicroseconds, "program time");
                 Equal(0L, song.Events[1].IntendedMicroseconds, "first note time");
@@ -293,11 +651,26 @@ namespace MidiBottleneck.Tests
                 Equal(MidiEventKind.SystemExclusive, song.Events[4].Kind, "SysEx kind");
                 Equal((byte)0xF0, song.Events[4].Data[0], "SysEx prefix");
                 Equal(1500000L, song.DurationMicroseconds, "duration");
+                Equal("6 events  •  2 tracks  •  2 notes  •  00:01.500", MainForm.FormatFileInformation(song, false), "normal file information");
+                Equal("6 events  •  2 tracks" + Environment.NewLine + "2 notes  •  00:01.500", MainForm.FormatFileInformation(song, true), "compact file information");
             }
             finally
             {
                 if (File.Exists(path)) File.Delete(path);
             }
+        }
+
+        private static void TestProcessArchitecture()
+        {
+#if ARCH_X86
+            Equal(4, IntPtr.Size, "x86 process pointer size");
+            Equal(64, Marshal.SizeOf(typeof(NativeMidiHeader)), "x86 packed MIDIHDR size");
+#elif ARCH_X64
+            Equal(8, IntPtr.Size, "x64 process pointer size");
+            Equal(112, Marshal.SizeOf(typeof(NativeMidiHeader)), "x64 packed MIDIHDR size");
+#else
+            throw new Exception("test executable was not compiled for an explicit architecture");
+#endif
         }
 
         private static void TestQueueSimulation()
@@ -624,6 +997,140 @@ namespace MidiBottleneck.Tests
             Equal(0, drop.DroppedEvents, "zero-time drops");
         }
 
+        private static void TestEffectiveZeroServicePath()
+        {
+            const int benchmarkCount = 250000;
+            MidiSong benchmarkSong = BuildSong(new long[benchmarkCount]);
+            MeasureEngineRun(BuildSong(new long[1000]), false, ServiceDurationMode.ProcessingTime, 0, ProcessingMode.Queue, 0);
+            long disabledMilliseconds = MeasureEngineRun(benchmarkSong, false, ServiceDurationMode.ProcessingTime, 0,
+                ProcessingMode.Queue, benchmarkCount);
+            long enabledZeroMilliseconds = MeasureEngineRun(benchmarkSong, true, ServiceDurationMode.ProcessingTime, 0,
+                ProcessingMode.Queue, benchmarkCount);
+            if (disabledMilliseconds > 2500 || enabledZeroMilliseconds > 2500)
+                throw new Exception("effective-zero benchmark was unexpectedly slow: off=" + disabledMilliseconds +
+                    " ms, on/zero=" + enabledZeroMilliseconds + " ms");
+            if (enabledZeroMilliseconds > disabledMilliseconds * 3 + 150)
+                throw new Exception("slowdown-on zero service did not approach the slowdown-off fast path: off=" +
+                    disabledMilliseconds + " ms, on/zero=" + enabledZeroMilliseconds + " ms");
+            Console.WriteLine("      Effective-zero benchmark (" + benchmarkCount.ToString("N0") +
+                " events): slowdown off " + disabledMilliseconds + " ms; slowdown on at 0 µs " +
+                enabledZeroMilliseconds + " ms");
+
+            MidiSong finiteSong = BuildSong(new long[10000]);
+            CountingMidiOutput finiteOutput = new CountingMidiOutput();
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.SimulateSlowdown = true;
+                engine.ServiceDurationMode = ServiceDurationMode.ProcessingTime;
+                engine.ProcessingMicroseconds = 0;
+                engine.QueueLengthLimit = 1;
+                engine.Start(finiteSong, finiteOutput, ProcessingMode.Drop);
+                WaitFor(delegate { return engine.State != PlaybackState.Playing; }, 3000, "finite effective-zero run");
+                PlaybackSnapshot snapshot = engine.GetSnapshot();
+                Equal(true, snapshot.SimulateSlowdown, "zero fast path preserves logical slowdown state");
+                Equal(ServiceDurationMode.ProcessingTime, snapshot.ServiceDurationMode, "zero fast path preserves Rate model");
+                Equal(0L, snapshot.ProcessingMicroseconds, "zero fast path preserves configured processing time");
+                Equal(10000L, snapshot.ProcessedEvents, "instantaneous finite queue sends every arrival");
+                Equal(0L, snapshot.DroppedEvents, "instantaneous finite queue does not invent overflow");
+            }
+
+            long nonzeroMilliseconds = MeasureEngineRun(BuildSong(new long[1500]), true,
+                ServiceDurationMode.ProcessingTime, 100, ProcessingMode.Queue, 1500);
+            if (nonzeroMilliseconds < 75)
+                throw new Exception("small nonzero processing time incorrectly used the zero-service path (" + nonzeroMilliseconds + " ms)");
+            long bitrateMilliseconds = MeasureEngineRun(BuildSong(new long[30]), true,
+                ServiceDurationMode.MidiBitrate, 0, ProcessingMode.Queue, 30);
+            if (bitrateMilliseconds < 15)
+                throw new Exception("MIDI serial bitrate incorrectly used the processing-time zero path (" + bitrateMilliseconds + " ms)");
+
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                CallbackMidiOutput output = new CallbackMidiOutput(delegate(long sent)
+                {
+                    if (sent == 500) engine.ProcessingMicroseconds = 200;
+                });
+                engine.SimulateSlowdown = true;
+                engine.ProcessingMicroseconds = 0;
+                Stopwatch elapsed = Stopwatch.StartNew();
+                engine.Start(BuildSong(new long[5000]), output, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.State != PlaybackState.Playing; }, 4000, "live zero-to-nonzero change");
+                elapsed.Stop();
+                Equal(5000L, output.Count, "zero-to-nonzero output count");
+                if (elapsed.ElapsedMilliseconds < 400)
+                    throw new Exception("live zero-to-nonzero change was not observed within a bounded batch");
+            }
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                CallbackMidiOutput output = new CallbackMidiOutput(delegate(long sent)
+                {
+                    if (sent == 500) engine.ProcessingMicroseconds = 0;
+                });
+                engine.SimulateSlowdown = true;
+                engine.ProcessingMicroseconds = 200;
+                Stopwatch elapsed = Stopwatch.StartNew();
+                engine.Start(BuildSong(new long[5000]), output, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.State != PlaybackState.Playing; }, 3000, "live nonzero-to-zero change");
+                elapsed.Stop();
+                Equal(5000L, output.Count, "nonzero-to-zero output count");
+                if (elapsed.ElapsedMilliseconds > 1000)
+                    throw new Exception("live nonzero-to-zero change did not enter the fast path promptly");
+            }
+
+            long[] controlledTimes = new long[100000];
+            for (int i = controlledTimes.Length / 2; i < controlledTimes.Length; i++) controlledTimes[i] = 1000000;
+            MidiSong controlledSong = BuildSong(controlledTimes);
+            PacedMidiOutput controlledOutput = new PacedMidiOutput();
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.SimulateSlowdown = true;
+                engine.ProcessingMicroseconds = 0;
+                engine.Start(controlledSong, controlledOutput, ProcessingMode.Queue);
+                WaitFor(delegate { return controlledOutput.Count >= 500; }, 2000, "effective-zero control burst start");
+                Stopwatch pauseTimer = Stopwatch.StartNew();
+                engine.Pause();
+                pauseTimer.Stop();
+                if (pauseTimer.ElapsedMilliseconds > 500) throw new Exception("Pause was not responsive during zero-duration burst");
+                PumpFor(30);
+                long pausedCount = controlledOutput.Count;
+                PumpFor(30);
+                Equal(pausedCount, controlledOutput.Count, "paused zero-duration burst remains stopped");
+                Stopwatch seekTimer = Stopwatch.StartNew();
+                engine.Seek(1000000);
+                seekTimer.Stop();
+                if (seekTimer.ElapsedMilliseconds > 1000) throw new Exception("Seek was not responsive during zero-duration burst");
+                Equal(PlaybackState.Paused, engine.State, "seek preserves paused state during burst");
+                Equal(0L, engine.GetSnapshot().OutstandingEvents, "seek clears zero-duration burst backlog");
+                if (controlledOutput.ResetCount == 0 || controlledOutput.PanicCount == 0)
+                    throw new Exception("seek did not reset and silence the zero-duration burst output");
+                engine.Resume();
+                WaitFor(delegate { return controlledOutput.Count > pausedCount; }, 2000, "resume after zero-duration seek");
+                Stopwatch stopTimer = Stopwatch.StartNew();
+                engine.Stop();
+                stopTimer.Stop();
+                if (stopTimer.ElapsedMilliseconds > 1000) throw new Exception("Stop was not responsive during zero-duration burst");
+                Equal(PlaybackState.Stopped, engine.State, "Stop state after zero-duration burst");
+            }
+        }
+
+        private static long MeasureEngineRun(MidiSong song, bool slowdown, ServiceDurationMode mode,
+            long processingMicroseconds, ProcessingMode processingMode, long expectedCount)
+        {
+            CountingMidiOutput output = new CountingMidiOutput();
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.SimulateSlowdown = slowdown;
+                engine.ServiceDurationMode = mode;
+                engine.ProcessingMicroseconds = processingMicroseconds;
+                engine.MidiBitrate = ServiceDurationCalculator.FivePinDinBitrate;
+                Stopwatch elapsed = Stopwatch.StartNew();
+                engine.Start(song, output, processingMode);
+                WaitFor(delegate { return engine.State != PlaybackState.Playing; }, 5000, "deterministic scheduler measurement");
+                elapsed.Stop();
+                if (expectedCount > 0) Equal(expectedCount, output.Count, "deterministic scheduler output count");
+                return elapsed.ElapsedMilliseconds;
+            }
+        }
+
         private static void TestActiveSeek()
         {
             MidiSong song = BuildSong(new long[] { 0, 10000, 20000, 100000, 110000 });
@@ -683,17 +1190,14 @@ namespace MidiBottleneck.Tests
         {
             MidiEvent gm = SysExEvent(0xF0, new byte[] { 0xF0, 0x7E, 0x7F, 0x09, 0x01, 0xF7 });
             gm.EventIndex = 1;
-            gm.SourceFile = "4 non blondes - whatsgoingon.mid";
             MidiEvent circus = SysExEvent(0xF0, new byte[] { 0xF0, 0x41, 0x10, 0x42, 0x12, 0x40, 0x00, 0x7F, 0x00, 0x41, 0xF7 });
             circus.EventIndex = 0;
             circus.AbsoluteTick = 0;
             circus.IntendedMicroseconds = 0;
-            circus.SourceFile = "Circus Galop.mid";
             MidiEvent lbsfs = SysExEvent(0xF0, new byte[] { 0xF0, 0x43, 0x10, 0x4C, 0x00, 0x00, 0x7E, 0x00, 0xF7 });
             lbsfs.EventIndex = 54;
             lbsfs.AbsoluteTick = 960;
             lbsfs.IntendedMicroseconds = 571426;
-            lbsfs.SourceFile = "lbsfs 211k.mid";
 
             SystemExclusiveAssembler assembler = new SystemExclusiveAssembler();
             Equal(6, assembler.AcceptPacket(gm).Bytes.Length, "GM System On packet length");
@@ -730,6 +1234,7 @@ namespace MidiBottleneck.Tests
             rejecting.PrepareLongResult = 11;
             using (KdmApiMidiOutput output = new KdmApiMidiOutput(rejecting))
             {
+                output.SourceFile = "lbsfs 211k.mid";
                 output.Open();
                 try
                 {
@@ -1093,6 +1598,346 @@ namespace MidiBottleneck.Tests
             }
         }
 
+        private static void TestCancellableMidiParser()
+        {
+            string path = CreateDenseMidiFile(50000);
+            try
+            {
+                CancellationTokenSource cancellation = new CancellationTokenSource();
+                cancellation.Cancel();
+                bool cancelled = false;
+                try { MidiFileParser.Load(path, cancellation.Token, null); }
+                catch (OperationCanceledException) { cancelled = true; }
+                Equal(true, cancelled, "parser honors cancellation");
+
+                CancellationTokenSource duringParsing = new CancellationTokenSource();
+                cancelled = false;
+                try
+                {
+                    MidiFileParser.Load(path, duringParsing.Token, delegate(MidiLoadProgress progress)
+                    {
+                        if (progress.Stage.StartsWith("Parsing track", StringComparison.Ordinal)) duringParsing.Cancel();
+                    });
+                }
+                catch (OperationCanceledException) { cancelled = true; }
+                Equal(true, cancelled, "parser checks cancellation inside track parsing");
+
+                List<string> stages = new List<string>();
+                List<MidiLoadProgress> reports = new List<MidiLoadProgress>();
+                MidiSong song = MidiFileParser.Load(path, CancellationToken.None, delegate(MidiLoadProgress progress)
+                {
+                    stages.Add(progress.Stage);
+                    reports.Add(progress);
+                });
+                Equal(50000, song.Events.Count, "cancellable parser successful result");
+                bool parsedStage = false;
+                for (int i = 0; i < stages.Count; i++) if (stages[i].StartsWith("Parsing track", StringComparison.Ordinal)) parsedStage = true;
+                if (!parsedStage || !stages.Contains("Merging tracks") || !stages.Contains("Assigning playback timestamps") || !stages.Contains("Ready"))
+                    throw new Exception("parser did not report its meaningful stages");
+                int previousOverall = -1;
+                bool sawIntermediateOverall = false;
+                for (int i = 0; i < reports.Count; i++)
+                {
+                    MidiLoadProgress report = reports[i];
+                    if (report.OverallPermille < previousOverall)
+                        throw new Exception("parser overall progress moved backwards at " + report.Stage);
+                    if (report.OverallPermille < 0 || report.OverallPermille > 1000 ||
+                        report.StagePermille < 0 || report.StagePermille > 1000)
+                        throw new Exception("parser progress escaped the documented range");
+                    if (report.OverallPermille > 0 && report.OverallPermille < 1000) sawIntermediateOverall = true;
+                    previousOverall = report.OverallPermille;
+                }
+                Equal(true, sawIntermediateOverall, "parser reports honest intermediate overall progress");
+                Equal(1000, reports[reports.Count - 1].OverallPermille, "parser overall progress completes");
+                Equal(1000, reports[reports.Count - 1].StagePermille, "parser final stage progress completes");
+            }
+            finally { if (File.Exists(path)) File.Delete(path); }
+        }
+
+        private static void TestContiguousEventStorageLimit()
+        {
+            long maximum = MidiFileParser.MaximumContiguousEventCount;
+            if (maximum <= 0 || maximum > Int32.MaxValue)
+                throw new Exception("invalid computed contiguous event-storage limit: " + maximum);
+            MidiFileParser.ValidateContiguousEventCount(maximum);
+            bool rejected = false;
+            try { MidiFileParser.ValidateContiguousEventCount(maximum + 1); }
+            catch (InvalidDataException ex)
+            {
+                rejected = ex.Message.IndexOf("contiguous event-storage limit", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                    ex.Message.IndexOf("segmented-storage", StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+            Equal(true, rejected, "impossible contiguous event allocation is rejected clearly");
+            long expected = Math.Min(Int32.MaxValue, (0x7FEFFFFFL - 64L) / IntPtr.Size);
+            Equal(expected, maximum, "contiguous event limit follows current process pointer width");
+        }
+
+        private static void TestBackgroundMidiLoading()
+        {
+            string first = Path.Combine(Path.GetTempPath(), "midi-load-first-" + Guid.NewGuid().ToString("N") + ".mid");
+            string second = Path.Combine(Path.GetTempPath(), "midi-load-second-" + Guid.NewGuid().ToString("N") + ".mid");
+            string dense = null;
+            File.WriteAllBytes(first, BuildTestMidi());
+            File.WriteAllBytes(second, BuildTestMidi());
+            try
+            {
+                Application.EnableVisualStyles();
+                using (MainForm form = new MainForm())
+                {
+                    form.SuppressLoadErrorDialogs = true;
+                    form.Show();
+                    Application.DoEvents();
+                    int idleHeight = form.Height;
+                    List<Control> idleControls = new List<Control>();
+                    CollectControls(form, idleControls);
+                    GroupBox idleProcessing = FindGroupBox(idleControls, "Processing model");
+                    GroupBox idlePlayback = FindGroupBox(idleControls, "Playback");
+                    GroupBox idleStatistics = FindGroupBox(idleControls, "Statistics");
+                    int processingTop = idleProcessing.Top;
+                    int playbackTop = idlePlayback.Top;
+                    int statisticsTop = idleStatistics.Top;
+                    form.BeginMidiLoad(first);
+                    Equal("Cancel", form.OpenCommandText, "Open command becomes Cancel while loading");
+                    Equal(true, form.LoadingActivityVisible, "loading activity is visible");
+                    Equal(idleHeight, form.Height, "loading keeps the main window height stable");
+                    Equal(processingTop, idleProcessing.Top, "loading does not move Processing model");
+                    Equal(playbackTop, idlePlayback.Top, "loading does not move Playback");
+                    Equal(statisticsTop, idleStatistics.Top, "loading does not move Statistics");
+                    List<Control> loadingControls = new List<Control>();
+                    CollectControls(form, loadingControls);
+                    List<ProgressBar> loadingBars = new List<ProgressBar>();
+                    for (int controlIndex = 0; controlIndex < loadingControls.Count; controlIndex++)
+                    {
+                        ProgressBar bar = loadingControls[controlIndex] as ProgressBar;
+                        if (bar != null) loadingBars.Add(bar);
+                    }
+                    Equal(2, loadingBars.Count, "loading uses overall and stage progress bars");
+                    if (loadingBars[0].Style != ProgressBarStyle.Continuous || loadingBars[1].Style != ProgressBarStyle.Continuous)
+                        throw new Exception("loading progress remains indeterminate instead of reporting parser work");
+                    if (Math.Max(loadingBars[0].Height, loadingBars[1].Height) <= Math.Min(loadingBars[0].Height, loadingBars[1].Height))
+                        throw new Exception("stage progress bar is not the intended restrained half-height indicator");
+                    Button cancelButton = FindButton(loadingControls, "Cancel");
+                    Label loadingFile = null;
+                    for (int controlIndex = 0; controlIndex < loadingControls.Count; controlIndex++)
+                    {
+                        Label label = loadingControls[controlIndex] as Label;
+                        if (label != null && label.Text.StartsWith("Loading ", StringComparison.Ordinal)) loadingFile = label;
+                    }
+                    if (cancelButton == null || loadingFile == null) throw new Exception("loading top-row controls were not found");
+                    int cancelTop = form.PointToClient(cancelButton.PointToScreen(Point.Empty)).Y;
+                    int fileTop = form.PointToClient(loadingFile.PointToScreen(Point.Empty)).Y;
+                    int barsTop = Int32.MaxValue;
+                    int barsBottom = Int32.MinValue;
+                    for (int barIndex = 0; barIndex < loadingBars.Count; barIndex++)
+                    {
+                        Point barPoint = form.PointToClient(loadingBars[barIndex].PointToScreen(Point.Empty));
+                        barsTop = Math.Min(barsTop, barPoint.Y);
+                        barsBottom = Math.Max(barsBottom, barPoint.Y + loadingBars[barIndex].Height);
+                    }
+                    if (Math.Abs(cancelTop - fileTop) > 8 || barsTop < cancelTop - 2 || barsBottom > cancelTop + cancelButton.Height + 2)
+                        throw new Exception("loading text and stacked bars are not contained in the original top file row");
+                    form.BeginMidiLoad(second);
+                    PumpUntil(delegate { return !form.IsLoadingSong; }, 5000, "background MIDI load");
+                    if (form.CurrentSong == null || !String.Equals(Path.GetFullPath(second), form.CurrentSong.FilePath, StringComparison.OrdinalIgnoreCase))
+                        throw new Exception("a stale loading result replaced the newest selection");
+                    Equal("Open MIDI...", form.OpenCommandText, "Open command restored after loading");
+                    Equal(idleHeight, form.Height, "loading completion keeps the main window height stable");
+                    Equal(processingTop, idleProcessing.Top, "loading completion does not move Processing model");
+                    Equal(playbackTop, idlePlayback.Top, "loading completion does not move Playback");
+                    Equal(statisticsTop, idleStatistics.Top, "loading completion does not move Statistics");
+
+                    PlaybackEngine engine = (PlaybackEngine)typeof(MainForm).GetField("_engine", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(form);
+                    FakeMidiOutput attachedOutput = new FakeMidiOutput();
+                    engine.Start(form.CurrentSong, attachedOutput, ProcessingMode.Queue, 0, true);
+                    Equal(form.CurrentSong.FilePath, attachedOutput.SourceFile, "engine supplies one song-level source path to output diagnostics");
+                    Equal(true, form.EngineHasAttachedSong, "engine attached current song before replacement");
+                    form.UnloadCurrentSong();
+                    Equal(false, form.EngineHasAttachedSong, "unload releases engine song");
+                    Equal(false, form.EngineHasAttachedOutput, "unload releases engine output");
+                    Equal(null, attachedOutput.SourceFile, "unload clears output source context");
+
+                    form.BeginMidiLoad(first + ".missing");
+                    PumpUntil(delegate { return !form.IsLoadingSong; }, 5000, "background load error");
+                    if (form.LastLoadError == null || form.CurrentSong != null) throw new Exception("background load error did not leave a clean unloaded state");
+                    Equal(processingTop, idleProcessing.Top, "failed loading does not move Processing model");
+
+                    dense = CreateDenseMidiFile(300000);
+                    form.BeginMidiLoad(dense);
+                    Equal(processingTop, idleProcessing.Top, "progressing load does not move Processing model");
+                    int lastOverall = -1;
+                    bool sawStageMovement = false;
+                    Stopwatch loadTimer = Stopwatch.StartNew();
+                    while (form.IsLoadingSong && loadTimer.ElapsedMilliseconds < 10000)
+                    {
+                        Application.DoEvents();
+                        int overall = form.LoadingOverallPermille;
+                        int stage = form.LoadingStagePermille;
+                        if (overall < lastOverall) throw new Exception("UI loading progress moved backwards");
+                        if (stage > 0 && stage < 1000) sawStageMovement = true;
+                        lastOverall = overall;
+                        Thread.Sleep(1);
+                    }
+                    if (form.IsLoadingSong) throw new Exception("dense background progress load timed out");
+                    Equal(true, sawStageMovement, "UI displays current-stage progress movement");
+                    Equal(false, form.LoadingActivityVisible, "both loading bars hide after completion");
+                    Equal(statisticsTop, idleStatistics.Top, "progress completion does not move Statistics");
+                    form.UnloadCurrentSong();
+
+                    form.BeginMidiLoad(dense);
+                    form.CancelMidiLoad();
+                    Equal(false, form.IsLoadingSong, "loading cancellation returns UI to idle");
+                    Equal(null, form.CurrentSong, "cancelled load does not publish a partial song");
+                    Equal(playbackTop, idlePlayback.Top, "loading cancellation does not move Playback");
+                    form.Close();
+                }
+
+                using (MainForm closing = new MainForm())
+                {
+                    closing.Show(); Application.DoEvents();
+                    closing.BeginMidiLoad(dense);
+                    closing.Close();
+                    Equal(true, closing.IsDisposed, "window closes while a load is pending");
+                }
+            }
+            finally
+            {
+                if (File.Exists(first)) File.Delete(first);
+                if (File.Exists(second)) File.Delete(second);
+                if (dense != null && File.Exists(dense)) File.Delete(dense);
+            }
+        }
+
+        private static void TestAsynchronousAnalysis()
+        {
+            MidiSong song = BuildSong(new long[] { 0, 0, 100000, 200000, 300000, 400000 });
+            AnalysisConfiguration first = DefaultAnalysisConfiguration();
+            AnalysisConfiguration second = DefaultAnalysisConfiguration();
+            second.ProcessingMicroseconds = 250;
+            WorkloadAnalysis sharedCompleted = null;
+            using (DiagnosticsForm form = new DiagnosticsForm(song))
+            {
+                form.Show(); Application.DoEvents();
+                form.RequestAnalysis(first);
+                PumpUntil(delegate { return !form.CalculationPending; }, 5000, "initial asynchronous Analysis");
+                WorkloadAnalysis completed = form.Graph.Analysis;
+                if (completed == null) throw new Exception("asynchronous Analysis did not publish a completed result");
+                List<Control> controls = new List<Control>();
+                CollectControls(form, controls);
+                ComboBox resolution = FindComboContaining(controls, "Auto");
+                if (resolution == null) throw new Exception("Analysis Resolution selector was not found");
+                resolution.SelectedItem = "25 ms";
+                PumpUntil(delegate { return form.ActiveResolutionMicroseconds == 25000 && !form.CalculationPending; }, 5000, "25 ms Analysis resolution");
+                WorkloadAnalysis cached25 = form.Graph.Analysis;
+                resolution.SelectedItem = "100 ms";
+                PumpUntil(delegate { return form.ActiveResolutionMicroseconds == 100000 && !form.CalculationPending; }, 5000, "100 ms Analysis resolution");
+                resolution.SelectedItem = "25 ms";
+                PumpUntil(delegate { return Object.ReferenceEquals(cached25, form.Graph.Analysis); }, 5000, "Analysis resolution cache");
+                completed = form.Graph.Analysis;
+                form.RequestAnalysis(second);
+                form.CancelAnalysisCalculation();
+                Equal(completed, form.Graph.Analysis, "cancelled recalculation retains last completed graph");
+
+                form.RequestAnalysis(first);
+                form.RequestAnalysis(second);
+                PumpUntil(delegate { return !form.CalculationPending; }, 5000, "stale Analysis replacement");
+                Equal(250L, form.Graph.Analysis.Configuration.ProcessingMicroseconds, "stale Analysis result rejected");
+                sharedCompleted = form.Graph.Analysis;
+                form.Close();
+            }
+            using (DiagnosticsForm peer = new DiagnosticsForm(song))
+            {
+                peer.Show(); Application.DoEvents();
+                List<Control> peerControls = new List<Control>();
+                CollectControls(peer, peerControls);
+                ComboBox peerResolution = FindComboContaining(peerControls, "Auto");
+                peerResolution.SelectedItem = "25 ms";
+                peer.RequestAnalysis(second);
+                Application.DoEvents();
+                Equal(false, peer.CalculationPending, "equivalent completed Analysis is shared across windows");
+                Equal(true, Object.ReferenceEquals(sharedCompleted, peer.CurrentAnalysis), "shared Analysis reuses the completed immutable result");
+                peer.Close();
+            }
+            using (DiagnosticsForm quick = new DiagnosticsForm(song, null,
+                delegate(MidiSong source, long bucket, AnalysisConfiguration configuration, CancellationToken token,
+                    Action<WorkloadAnalysisProgress> progress)
+                {
+                    if (token.WaitHandle.WaitOne(650)) token.ThrowIfCancellationRequested();
+                    return WorkloadAnalyzer.Analyze(source, bucket, configuration, token, progress);
+                }))
+            {
+                quick.Show(); Application.DoEvents();
+                quick.RequestAnalysis(first);
+                PumpUntil(delegate { return !quick.AnalysisBusy; }, 1500, "quick Analysis completion");
+                Equal(false, quick.CalculationStatusVisible, "sub-second Analysis never flashes delayed status");
+                quick.Close();
+            }
+            int calculationNumber = 0;
+            using (DiagnosticsForm slow = new DiagnosticsForm(song, null,
+                delegate(MidiSong source, long bucket, AnalysisConfiguration configuration, CancellationToken token,
+                    Action<WorkloadAnalysisProgress> progress)
+                {
+                    int calculation = Interlocked.Increment(ref calculationNumber);
+                    for (int step = 0; step <= 15; step++)
+                    {
+                        if (progress != null) progress(new WorkloadAnalysisProgress(
+                            "Synthetic analysis " + calculation, step, 15, 0, 1000));
+                        if (token.WaitHandle.WaitOne(100)) token.ThrowIfCancellationRequested();
+                    }
+                    return WorkloadAnalyzer.Analyze(source, bucket, configuration, token, progress);
+                }))
+            {
+                slow.Show(); Application.DoEvents();
+                slow.RequestAnalysis(first);
+                PumpUntil(delegate { return slow.CalculationStatusVisible; }, 1600, "one-second delayed Analysis status");
+                Equal(true, slow.CalculationProgressVisible, "delayed Analysis progress is visible");
+                if (slow.CalculationProgressPermille <= 0) throw new Exception("delayed Analysis did not publish real progress");
+                slow.Size = new Size(1600, 660); Application.DoEvents();
+                Equal(1, slow.HeaderRowCount, "wide Analysis header uses one responsive line with busy controls");
+                Equal(true, slow.HeaderControlsFit, "wide busy Analysis header controls fit");
+                slow.Size = slow.MinimumSize; Application.DoEvents();
+                if (slow.HeaderRowCount < 2) throw new Exception("minimum-width Analysis header did not wrap naturally");
+                Equal(true, slow.HeaderControlsFit, "wrapped busy Analysis header controls fit");
+                int firstProgress = slow.CalculationProgressPermille;
+                slow.RequestAnalysis(second);
+                Application.DoEvents();
+                Equal(true, slow.CalculationStatusVisible, "superseding request keeps one continuous busy indicator");
+                Equal(true, slow.AnalysisBusy, "superseding request remains in the same busy period");
+                PumpFor(250);
+                if (slow.CalculationProgressPermille < firstProgress)
+                    throw new Exception("Analysis progress moved backwards across a superseding request");
+                PumpUntil(delegate { return !slow.AnalysisBusy; }, 3000, "superseding Analysis completion");
+                Equal(false, slow.CalculationStatusVisible, "accepted Analysis result hides busy status");
+                Equal(250L, slow.CurrentAnalysis.Configuration.ProcessingMicroseconds, "latest Analysis generation wins");
+
+                slow.RequestAnalysis(first);
+                PumpUntil(delegate { return slow.CalculationStatusVisible; }, 1600, "delayed Analysis status before cancel");
+                slow.CancelAnalysisCalculation();
+                Equal(false, slow.CalculationStatusVisible, "cancel hides delayed Analysis status");
+                Equal(false, slow.CalculationPending, "cancel retires Analysis request");
+                slow.Close();
+            }
+            string customError;
+            MidiSong customSong = BuildSong(new long[] { 0, 3000000 });
+            using (DiagnosticsForm custom = new DiagnosticsForm(customSong))
+            {
+                custom.Show(); Application.DoEvents();
+                custom.RequestAnalysis(first);
+                PumpUntil(delegate { return !custom.AnalysisBusy; }, 5000, "initial custom-resolution Analysis");
+                Equal(false, custom.SetCustomResolutionMilliseconds(0m, out customError), "custom Analysis resolution rejects zero");
+                if (String.IsNullOrEmpty(customError)) throw new Exception("custom zero-resolution error was empty");
+                Equal(false, custom.SetCustomResolutionMilliseconds(0.001m, out customError), "custom Analysis resolution rejects unsafe bucket count");
+                if (customError.IndexOf("bucket", StringComparison.OrdinalIgnoreCase) < 0)
+                    throw new Exception("unsafe custom-resolution error does not explain bucket allocation");
+                Equal(true, custom.SetCustomResolutionMilliseconds(12.5m, out customError), "safe custom Analysis resolution accepted");
+                PumpUntil(delegate { return !custom.AnalysisBusy; }, 5000, "custom Analysis resolution");
+                Equal(12500L, custom.ActiveResolutionMicroseconds, "custom Analysis resolution applied exactly");
+                custom.Close();
+            }
+            Equal(10000L, DiagnosticsForm.ChooseAutoResolution(3000000, 500, 0), "Auto selects fine resolution for short visible span");
+            Equal(1000000L, DiagnosticsForm.ChooseAutoResolution(300000000, 500, 0), "Auto selects coarse resolution for long visible span");
+            Equal(100000L, DiagnosticsForm.ChooseAutoResolution(40000000, 500, 100000), "Auto hysteresis preserves a stable current resolution");
+        }
+
         private static void TestWorkloadAnalysis()
         {
             MidiSong song = BuildSong(new long[] { 0, 0, 100000, 100000, 100000 });
@@ -1136,17 +1981,33 @@ namespace MidiBottleneck.Tests
             WorkloadAnalysis analysis = WorkloadAnalyzer.Analyze(song, 100000, configuration);
             using (DiagnosticsForm form = new DiagnosticsForm(song, analysis))
             {
+                form.Show();
+                Application.DoEvents();
+                Equal(null, form.Owner, "Analysis window remains unowned");
                 IntPtr handle = form.Handle;
                 if (handle == IntPtr.Zero) throw new Exception("Analysis window handle is zero");
                 List<Control> controls = new List<Control>();
                 CollectControls(form, controls);
                 WorkloadGraph graph = FindControl<WorkloadGraph>(controls);
-                TextBox summary = FindControl<TextBox>(controls);
+                RichTextBox summary = FindControl<RichTextBox>(controls);
                 if (graph == null || summary == null) throw new Exception("Analysis controls were not constructed");
-                if (!summary.Text.Contains("Scope: whole file")) throw new Exception("Analysis scope is not identified");
-                if (!summary.Text.Contains("Aggregation: fixed 100 ms buckets")) throw new Exception("Analysis aggregation interval is not identified");
-                if (!summary.Text.Contains("Predicted drops:")) throw new Exception("Analysis prediction summary is absent");
-                if (!summary.Text.Contains("Maximum rate:")) throw new Exception("Analysis maximum rate is absent");
+                SplitContainer split = form.AnalysisSplit;
+                if (split == null || split.SplitterWidth < 4 || split.BackColor == split.Panel1.BackColor)
+                    throw new Exception("Analysis splitter is not visibly distinct before interaction");
+                if (split.Panel1.Padding.Left > 7 || split.Panel2.Padding.Right > 7)
+                    throw new Exception("Analysis splitter retains excessive horizontal padding");
+                if (!summary.Text.Contains("Scope                 Whole file")) throw new Exception("Analysis scope is not identified");
+                if (!summary.Text.Contains("Graph resolution      100 ms")) throw new Exception("Analysis aggregation interval is not identified");
+                if (!summary.Text.Contains("Predicted drops")) throw new Exception("Analysis prediction summary is absent");
+                if (!summary.Text.Contains("Maximum rate")) throw new Exception("Analysis maximum rate is absent");
+                if (!summary.Text.Contains("SMF format") || !summary.Text.Contains("PPQN") || !summary.Text.Contains("Musical note-ons"))
+                    throw new Exception("Analysis MIDI-file metadata is incomplete");
+                form.Size = new Size(1500, 660); Application.DoEvents();
+                Equal(1, form.HeaderRowCount, "wide Analysis ordinary controls use one line");
+                Equal(true, form.HeaderControlsFit, "wide Analysis ordinary controls fit");
+                form.Size = form.MinimumSize; Application.DoEvents();
+                if (form.HeaderRowCount < 2) throw new Exception("minimum Analysis header did not wrap");
+                Equal(true, form.HeaderControlsFit, "minimum Analysis header wraps without clipping");
                 AnalysisConfiguration fasterConfiguration = DefaultAnalysisConfiguration();
                 fasterConfiguration.ProcessingMicroseconds = 10;
                 WorkloadAnalysis faster = WorkloadAnalyzer.Analyze(song, 100000, fasterConfiguration);
@@ -1180,6 +2041,19 @@ namespace MidiBottleneck.Tests
                 graph.Size = new Size(600, 400);
                 Equal(0L, graph.TimeAtClientX(graph.GraphArea.Left), "Analysis x-to-time beginning");
                 Near(song.DurationMicroseconds, graph.TimeAtClientX(graph.GraphArea.Right), 1, "Analysis x-to-time end");
+                long edgeTime;
+                int edgeY = graph.GraphArea.Top + graph.GraphArea.Height / 2;
+                Equal(true, graph.TryGetPinTime(new Point(graph.GraphArea.Left - 3, edgeY), out edgeTime), "left pin tolerance accepted");
+                Equal(0L, edgeTime, "left pin tolerance clamps to whole-file start");
+                Equal(true, graph.TryGetPinTime(new Point(graph.GraphArea.Right + 3, edgeY), out edgeTime), "right pin tolerance accepted");
+                Near(song.DurationMicroseconds, edgeTime, 1, "right pin tolerance clamps to whole-file end");
+                Equal(false, graph.TryGetPinTime(new Point(graph.GraphArea.Left - 7, edgeY), out edgeTime), "outside left pin tolerance rejected");
+                Equal(false, graph.TryGetPinTime(new Point(graph.GraphArea.Right + 7, edgeY), out edgeTime), "outside right pin tolerance rejected");
+                int pinX = graph.GraphArea.Left - 3;
+                IntPtr pinCoordinates = new IntPtr(((edgeY & 0xFFFF) << 16) | (pinX & 0xFFFF));
+                SendMessage(graph.Handle, 0x0201, new IntPtr(1), pinCoordinates);
+                SendMessage(graph.Handle, 0x0202, IntPtr.Zero, pinCoordinates);
+                Equal((long?)0L, graph.PinnedTimeMicroseconds, "tolerated left-edge click creates an exact zero pin");
                 graph.InspectAtClientX(graph.GraphArea.Left + graph.GraphArea.Width / 2, true);
                 if (!graph.PinnedTimeMicroseconds.HasValue) throw new Exception("Analysis click did not pin inspection");
                 long pin = graph.PinnedTimeMicroseconds.Value;
@@ -1193,6 +2067,10 @@ namespace MidiBottleneck.Tests
                 Near(centerBefore, graph.TimeAtClientX(centerX), 2, "zoom remains centered on cursor timestamp");
                 if (graph.ViewEndMicroseconds - graph.ViewStartMicroseconds >= song.DurationMicroseconds)
                     throw new Exception("Analysis wheel zoom did not reduce viewport");
+                Equal(true, graph.TryGetPinTime(new Point(graph.GraphArea.Left - 3, edgeY), out edgeTime), "zoomed left pin tolerance accepted");
+                Equal(graph.ViewStartMicroseconds, edgeTime, "zoomed left pin clamps to viewport start");
+                Equal(true, graph.TryGetPinTime(new Point(graph.GraphArea.Right + 3, edgeY), out edgeTime), "zoomed right pin tolerance accepted");
+                Near(graph.ViewEndMicroseconds, edgeTime, 1, "zoomed right pin clamps to viewport end");
                 graph.PanByPixels(100000);
                 Equal(0L, graph.ViewStartMicroseconds, "Analysis pan clamps at beginning");
                 graph.PanByPixels(-100000);
@@ -1221,7 +2099,129 @@ namespace MidiBottleneck.Tests
                 bitrate.ServiceDurationMode = ServiceDurationMode.MidiBitrate;
                 form.UpdateAnalysis(WorkloadAnalyzer.Analyze(song, 25000, bitrate));
                 Equal(true, graph.UsesByteRate, "Analysis selected MIDI byte-rate graph");
+                graph.PlaybackStatisticsVisible = true;
+                graph.SetPlaybackOverlay(PlaybackState.Playing, new PlaybackOverlayData
+                {
+                    State = "Playing", TimelineAndOutput = "00:00.100 / 00:00.075", Queue = "2 / 5",
+                    Events = "4 / 1", OutputRate = "40.0 events/sec", EffectiveSpeed = "75.0%", Lag = "25.000 ms / 30.000 ms"
+                });
+                Equal(true, graph.PlaybackStatisticsDrawn, "Analysis playback-statistics overlay visible while playing");
+                graph.SetPlaybackOverlay(PlaybackState.Stopped, null);
+                Equal(false, graph.PlaybackStatisticsDrawn, "Analysis playback-statistics overlay hidden while stopped");
+                graph.FollowTarget = AnalysisFollowTarget.Off;
+                graph.ResetZoom();
+                using (Bitmap dynamicBitmap = new Bitmap(graph.Width, graph.Height))
+                {
+                    graph.DrawToBitmap(dynamicBitmap, graph.ClientRectangle);
+                    int staticBuilds = graph.StaticLayerBuildCount;
+                    for (int movement = 0; movement < 120; movement++)
+                    {
+                        graph.InspectAtClientX(graph.GraphArea.Left + movement % Math.Max(1, graph.GraphArea.Width), false);
+                        graph.SetPlaybackPositions(movement * 500L, movement * 400L);
+                        graph.DrawToBitmap(dynamicBitmap, graph.ClientRectangle);
+                    }
+                    Equal(staticBuilds, graph.StaticLayerBuildCount, "mouse inspection and live markers reuse static graph layer");
+                    Equal((long?)59500L, graph.PlaybackTimelinePosition, "playback marker continues through inspection movement");
+                    Equal((long?)47600L, graph.MidiOutputPosition, "output marker continues through inspection movement");
+                }
                 form.Close();
+            }
+        }
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr SendMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        private static extern bool PrintWindow(IntPtr window, IntPtr targetDeviceContext, uint flags);
+
+        private static void CaptureForm(Form form, Bitmap bitmap)
+        {
+            bool captured = false;
+            using (Graphics graphics = Graphics.FromImage(bitmap))
+            {
+                IntPtr deviceContext = graphics.GetHdc();
+                try { captured = PrintWindow(form.Handle, deviceContext, 0); }
+                finally { graphics.ReleaseHdc(deviceContext); }
+            }
+            if (!captured) form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size));
+        }
+
+        private static void TestAnalysisRenderingRefinements()
+        {
+            MidiSong song = BuildSong(new long[] { 0, 10000, 20000, 30000, 40000, 50000, 100000 });
+            AnalysisConfiguration configuration = DefaultAnalysisConfiguration();
+            configuration.QueueLengthLimitEnabled = true;
+            configuration.QueueLengthLimit = 5;
+            WorkloadAnalysis analysis = WorkloadAnalyzer.Analyze(song, 10000, configuration);
+            using (Form host = new Form())
+            using (WorkloadGraph graph = new WorkloadGraph())
+            using (System.Windows.Forms.Timer playback = new System.Windows.Forms.Timer())
+            {
+                host.ClientSize = new Size(620, 440);
+                graph.Dock = DockStyle.Fill;
+                graph.Analysis = analysis;
+                graph.PlaybackStatisticsVisible = true;
+                graph.SetPlaybackOverlay(PlaybackState.Playing, new PlaybackOverlayData
+                {
+                    State = "Playing", TimelineAndOutput = "00:00.050 / 00:00.040", Queue = "2 / 5",
+                    Events = "5 / 0", OutputRate = "100.0 events/sec", EffectiveSpeed = "100.0%", Lag = "1.000 ms / 2.000 ms"
+                });
+                host.Controls.Add(graph);
+                host.Show(); Application.DoEvents();
+                Rectangle area = graph.GraphArea;
+                if (Math.Abs(area.Left - (graph.ClientSize.Width - area.Right)) > 1)
+                    throw new Exception("Analysis plot is not horizontally centered");
+                if (area.Top < 8 || graph.ClientSize.Height - area.Bottom < 50)
+                    throw new Exception("Analysis plot outer insets are unbalanced");
+                Rectangle overlay = graph.PlaybackStatisticsBounds(area);
+                if (overlay.Left != area.Left + 7 || overlay.Top != area.Top + 7)
+                    throw new Exception("playback statistics overlay is not anchored at plot top-left");
+
+                long marker = 0;
+                playback.Interval = 10;
+                playback.Tick += delegate { marker += 1000; graph.SetPlaybackPositions(marker, Math.Max(0, marker - 500)); };
+                int paintsBefore = graph.DynamicPaintCount;
+                playback.Start();
+                Stopwatch movement = Stopwatch.StartNew();
+                while (movement.ElapsedMilliseconds < 450)
+                {
+                    int x = area.Left + (int)(movement.ElapsedMilliseconds % Math.Max(1, area.Width));
+                    int y = area.Top + area.Height / 2;
+                    SendMessage(graph.Handle, 0x0200, IntPtr.Zero, new IntPtr((y << 16) | (x & 0xFFFF)));
+                    Application.DoEvents();
+                }
+                playback.Stop();
+                if (graph.DynamicPaintCount - paintsBefore < 5) throw new Exception("continuous mouse inspection starved graph painting");
+                if (!graph.PlaybackTimelinePosition.HasValue || graph.PlaybackTimelinePosition.Value < 10000)
+                    throw new Exception("playback marker stalled during continuous mouse inspection");
+
+                host.ClientSize = new Size(900, 600); Application.DoEvents();
+                Rectangle largeArea = graph.GraphArea;
+                if (Math.Abs(largeArea.Left - (graph.ClientSize.Width - largeArea.Right)) > 1)
+                    throw new Exception("large Analysis plot is not horizontally centered");
+                host.Close();
+            }
+        }
+
+        private static void TestAnalysisSeekPlaybackPolicy()
+        {
+            Application.EnableVisualStyles();
+            MidiSong song = BuildSong(new long[] { 0, 500000, 1000000, 1500000 });
+            using (MainForm form = new MainForm())
+            {
+                Type type = typeof(MainForm);
+                PlaybackEngine engine = (PlaybackEngine)type.GetField("_engine", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(form);
+                type.GetField("_song", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).SetValue(form, song);
+                type.GetField("_engineSong", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).SetValue(form, song);
+                engine.SimulateSlowdown = false;
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.Start(song, output, ProcessingMode.Queue, 0, true);
+                Equal(PlaybackState.Paused, engine.State, "test playback begins paused");
+                type.GetMethod("PerformAnalysisSeek", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).Invoke(form, new object[] { 750000L });
+                Equal(PlaybackState.Playing, engine.State, "Analysis seek resumes paused playback");
+                engine.Stop();
+                type.GetMethod("PerformAnalysisSeek", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).Invoke(form, new object[] { 250000L });
+                Equal(PlaybackState.Stopped, engine.State, "Analysis seek leaves stopped playback stopped");
             }
         }
 
@@ -1243,6 +2243,89 @@ namespace MidiBottleneck.Tests
                 Near(0.7315, statistics.QueuePressureRatio, 0.0001, "queue pressure ratio includes outstanding slot count");
                 using (Bitmap bitmap = new Bitmap(statistics.Width, statistics.Height))
                     statistics.DrawToBitmap(bitmap, statistics.ClientRectangle);
+            }
+        }
+
+        private static void TestStatisticsWidthRelease()
+        {
+            using (StatisticsView statistics = new StatisticsView())
+            using (Bitmap bitmap = new Bitmap(900, 130))
+            {
+                statistics.Size = bitmap.Size;
+                string[] longValues = new string[]
+                {
+                    "99:59.999 / 99:59.999", "1,097,842 / 1,500,000", "1,000,000.0 events/sec", "999,999.9 events/sec",
+                    "10,385,604 / 10,000,000", "1,234.5%", "999,999.999 ms", "999,999.999 ms"
+                };
+                statistics.SetValues(longValues);
+                statistics.DrawToBitmap(bitmap, statistics.ClientRectangle);
+                int longQueue = statistics.ValueAllocationWidth(1);
+                string[] shortValues = new string[] { "0 / 0", "0 / 0", "—", "—", "0 / 0", "—", "0.000 ms", "0.000 ms" };
+                statistics.SetValues(shortValues);
+                statistics.DrawToBitmap(bitmap, statistics.ClientRectangle);
+                if (statistics.ValueAllocationWidth(1) >= longQueue)
+                    throw new Exception("a former long queue value retained stale horizontal width");
+            }
+        }
+
+        private static void TestBenchmarkWindowExtraction()
+        {
+            MidiSong source = BuildSong(new long[] { 122999999, 123000000, 123050000, 124000000, 125999999, 126000000 });
+            MidiSong sample = ExtractBenchmarkWindow(source, 123000000, 126000000);
+            Equal(4, sample.Events.Count, "benchmark window includes every event without a cap");
+            Sequence(new long[] { 0, 50000, 1000000, 2999999 }, new List<long>
+            {
+                sample.Events[0].IntendedMicroseconds, sample.Events[1].IntendedMicroseconds,
+                sample.Events[2].IntendedMicroseconds, sample.Events[3].IntendedMicroseconds
+            }, "benchmark preserves relative timestamps");
+            Equal(3000000L, sample.DurationMicroseconds, "benchmark covers full three-second interval");
+        }
+
+        private static void TestImmediateBurstPerformance()
+        {
+            const int count = 300000;
+            MidiSong song = BuildSong(new long[count]);
+            CountingMidiOutput output = new CountingMidiOutput();
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.SimulateSlowdown = false;
+                Stopwatch elapsed = Stopwatch.StartNew();
+                engine.Start(song, output, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.State != PlaybackState.Playing; }, 4000, "immediate burst");
+                elapsed.Stop();
+                Equal((long)count, output.Count, "immediate burst sends every event");
+                if (elapsed.ElapsedMilliseconds > 2000) throw new Exception("immediate burst took " + elapsed.ElapsedMilliseconds + " ms");
+            }
+        }
+
+        private static void TestSlowdownBurstUiResponsiveness()
+        {
+            const int count = 60000;
+            MidiSong song = BuildSong(new long[count]);
+            CountingMidiOutput output = new CountingMidiOutput();
+            using (Form form = new Form())
+            using (System.Windows.Forms.Timer pulse = new System.Windows.Forms.Timer())
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                int pulses = 0;
+                pulse.Interval = 16;
+                pulse.Tick += delegate { pulses++; };
+                form.Show(); Application.DoEvents();
+                engine.SimulateSlowdown = true;
+                engine.ProcessingMicroseconds = 10;
+                pulse.Start();
+                engine.Start(song, output, ProcessingMode.Queue);
+                Stopwatch elapsed = Stopwatch.StartNew();
+                while (engine.State == PlaybackState.Playing && elapsed.ElapsedMilliseconds < 5000)
+                {
+                    Application.DoEvents();
+                    Thread.Sleep(1);
+                }
+                pulse.Stop();
+                if (engine.State == PlaybackState.Playing) throw new Exception("simulated-slowdown responsiveness run timed out");
+                if (pulses < 10) throw new Exception("scheduler starved the WinForms message pump (only " + pulses + " timer pulses)");
+                Equal((long)count, output.Count, "simulated-slowdown burst output count");
+                form.Close();
             }
         }
 
@@ -1363,6 +2446,8 @@ namespace MidiBottleneck.Tests
                 output = winmm;
                 disposable = winmm;
             }
+            IMidiOutputContext context = output as IMidiOutputContext;
+            if (context != null) context.SourceFile = song.FilePath;
             int fragments = 0;
             try
             {
@@ -1452,6 +2537,293 @@ namespace MidiBottleneck.Tests
             Console.WriteLine("Parsed " + song.Events.Count.ToString("N0") + " events in " + parse.ElapsedMilliseconds + " ms");
             BenchmarkBoundedPass(song, false, "zero-service bounded throughput");
             BenchmarkBoundedPass(song, true, "1-us bounded overflow throughput");
+        }
+
+        private static void BenchmarkOutputWindow(string path, string backendName)
+        {
+            BenchmarkOutputWindow(path, backendName, 123000000, 126000000);
+        }
+
+        private static void BenchmarkOutputWindow(string path, string backendName, long windowStart, long windowEnd)
+        {
+            if (windowStart < 0 || windowEnd <= windowStart) throw new ArgumentOutOfRangeException("windowEnd", "Benchmark end must be after a nonnegative start.");
+            Stopwatch load = Stopwatch.StartNew();
+            MidiSong source = MidiFileParser.Load(path);
+            load.Stop();
+            Console.WriteLine("Loaded {0:N0} source events in {1:N0} ms", source.Events.Count, load.ElapsedMilliseconds);
+            MidiSong sample = ExtractBenchmarkWindow(source, windowStart, windowEnd);
+            long bucketCount = (windowEnd - windowStart + 99999) / 100000;
+            if (bucketCount <= 0 || bucketCount > 1000000) throw new ArgumentOutOfRangeException("windowEnd", "Benchmark range creates an unsafe distribution size.");
+            int[] distribution = new int[(int)bucketCount];
+            for (int i = 0; i < sample.Events.Count; i++)
+            {
+                int bucket = (int)Math.Min(distribution.Length - 1, Math.Max(0, sample.Events[i].IntendedMicroseconds / 100000));
+                distribution[bucket]++;
+            }
+            Console.WriteLine("Window {0}–{1}: {2:N0} events (uncapped)", FormatBenchmarkTime(windowStart),
+                FormatBenchmarkTime(windowEnd), sample.Events.Count);
+            for (int i = 0; i < distribution.Length; i++)
+                Console.WriteLine("  {0}–{1}: {2:N0}", FormatBenchmarkTime(windowStart + i * 100000L),
+                    FormatBenchmarkTime(Math.Min(windowEnd, windowStart + (i + 1) * 100000L)), distribution[i]);
+
+            IMidiOutput realOutput = null;
+            IDisposable disposable = null;
+            if (String.Equals(backendName, "null", StringComparison.OrdinalIgnoreCase))
+                realOutput = new CountingMidiOutput();
+            else if (String.Equals(backendName, "kdmapi", StringComparison.OrdinalIgnoreCase))
+            {
+                KdmApiMidiOutput kdm = new KdmApiMidiOutput();
+                kdm.Open();
+                realOutput = kdm;
+                disposable = kdm;
+            }
+            else if (String.Equals(backendName, "winmm", StringComparison.OrdinalIgnoreCase))
+            {
+                List<MidiOutputDeviceInfo> devices = WindowsMidiOutput.GetDevices();
+                MidiOutputDeviceInfo omni = null;
+                for (int i = 0; i < devices.Count; i++)
+                    if (devices[i].Name.IndexOf("OmniMIDI", StringComparison.OrdinalIgnoreCase) >= 0) { omni = devices[i]; break; }
+                if (omni == null) throw new Exception("OmniMIDI WinMM output was not found for the bounded benchmark.");
+                WindowsMidiOutput winmm = new WindowsMidiOutput();
+                winmm.Open(omni.DeviceId);
+                realOutput = winmm;
+                disposable = winmm;
+            }
+            else throw new ArgumentException("Backend must be null, kdmapi, or winmm.");
+
+            List<double> totals = new List<double>();
+            List<double> outputs = new List<double>();
+            List<double> engines = new List<double>();
+            List<double> processorCpu = new List<double>();
+            List<long> maximumLags = new List<long>();
+            try
+            {
+                Stopwatch warmup = Stopwatch.StartNew();
+                MidiOutputSafety.ResetAndSilence(realOutput);
+                warmup.Stop();
+                Console.WriteLine("Output warm-up reset/panic: {0:N1} ms", warmup.Elapsed.TotalMilliseconds);
+                for (int run = 0; run < 3; run++)
+                {
+                    TimedMidiOutput timed = new TimedMidiOutput(realOutput);
+                    long[] lagByBucket = new long[distribution.Length];
+                    using (PlaybackEngine engine = new PlaybackEngine())
+                    {
+                        engine.SimulateSlowdown = false;
+                        TimeSpan cpuStart = Process.GetCurrentProcess().TotalProcessorTime;
+                        Stopwatch elapsed = Stopwatch.StartNew();
+                        engine.Start(sample, timed, ProcessingMode.Queue);
+                        while (engine.State == PlaybackState.Playing && elapsed.ElapsedMilliseconds < 15000)
+                        {
+                            PlaybackSnapshot live = engine.GetSnapshot();
+                            int bucket = (int)Math.Min(lagByBucket.Length - 1, Math.Max(0, live.IntendedTimelineMicroseconds / 100000));
+                            lagByBucket[bucket] = Math.Max(lagByBucket[bucket], live.CurrentLagMicroseconds);
+                            Thread.Sleep(2);
+                        }
+                        if (engine.State == PlaybackState.Playing) throw new Exception(backendName + " output benchmark exceeded 15 seconds");
+                        elapsed.Stop();
+                        PlaybackSnapshot result = engine.GetSnapshot();
+                        double outputMilliseconds = timed.SendTicks * 1000.0 / Stopwatch.Frequency;
+                        double engineMilliseconds = Math.Max(0, elapsed.Elapsed.TotalMilliseconds - outputMilliseconds);
+                        double cpuMilliseconds = Math.Max(0, (Process.GetCurrentProcess().TotalProcessorTime - cpuStart).TotalMilliseconds - outputMilliseconds);
+                        totals.Add(elapsed.Elapsed.TotalMilliseconds);
+                        outputs.Add(outputMilliseconds);
+                        engines.Add(engineMilliseconds);
+                        processorCpu.Add(cpuMilliseconds);
+                        maximumLags.Add(result.MaximumLagMicroseconds);
+                        Console.WriteLine("Run {0}: total {1:N1} ms; max dispatch lag {2:N3} ms; output calls {3:N1} ms; scheduled wall outside output {4:N1} ms; non-output process CPU {5:N1} ms",
+                            run + 1, elapsed.Elapsed.TotalMilliseconds, result.MaximumLagMicroseconds / 1000.0, outputMilliseconds, engineMilliseconds, cpuMilliseconds);
+                        Console.Write("  Lag samples by 100 ms bucket (µs):");
+                        for (int i = 0; i < lagByBucket.Length; i++) Console.Write(" " + lagByBucket[i].ToString());
+                        Console.WriteLine();
+                    }
+                }
+                totals.Sort(); outputs.Sort(); engines.Sort(); processorCpu.Sort(); maximumLags.Sort();
+                Console.WriteLine("{0} median (range): total {1:N1} ms ({2:N1}–{3:N1}); output {4:N1} ms ({5:N1}–{6:N1}); scheduled wall outside output {7:N1} ms ({8:N1}–{9:N1}); non-output CPU {10:N1} ms ({11:N1}–{12:N1}); max lag {13:N3} ms ({14:N3}–{15:N3})",
+                    backendName, totals[1], totals[0], totals[2], outputs[1], outputs[0], outputs[2], engines[1], engines[0], engines[2],
+                    processorCpu[1], processorCpu[0], processorCpu[2], maximumLags[1] / 1000.0, maximumLags[0] / 1000.0, maximumLags[2] / 1000.0);
+                if (String.Equals(backendName, "null", StringComparison.OrdinalIgnoreCase))
+                    BenchmarkUninstrumentedNull(sample);
+            }
+            finally
+            {
+                if (disposable != null) disposable.Dispose();
+            }
+        }
+
+        private static string FormatBenchmarkTime(long microseconds)
+        {
+            TimeSpan time = TimeSpan.FromTicks(Math.Max(0, microseconds) * 10L);
+            return String.Format(CultureInfo.InvariantCulture, "{0:00}:{1:00}.{2:000}", (int)time.TotalMinutes, time.Seconds, time.Milliseconds);
+        }
+
+        private static void BenchmarkUninstrumentedNull(MidiSong sample)
+        {
+            List<double> totals = new List<double>();
+            List<long> lags = new List<long>();
+            for (int run = 0; run < 3; run++)
+            {
+                CountingMidiOutput output = new CountingMidiOutput();
+                using (PlaybackEngine engine = new PlaybackEngine())
+                {
+                    engine.SimulateSlowdown = false;
+                    Stopwatch elapsed = Stopwatch.StartNew();
+                    engine.Start(sample, output, ProcessingMode.Queue);
+                    WaitFor(delegate { return engine.State != PlaybackState.Playing; }, 15000, "uninstrumented null benchmark");
+                    elapsed.Stop();
+                    PlaybackSnapshot snapshot = engine.GetSnapshot();
+                    totals.Add(elapsed.Elapsed.TotalMilliseconds);
+                    lags.Add(snapshot.MaximumLagMicroseconds);
+                }
+            }
+            totals.Sort(); lags.Sort();
+            Console.WriteLine("Uninstrumented null, UI suppressed: total {0:N1} ms ({1:N1}–{2:N1}); max lag {3:N3} ms ({4:N3}–{5:N3})",
+                totals[1], totals[0], totals[2], lags[1] / 1000.0, lags[0] / 1000.0, lags[2] / 1000.0);
+        }
+
+        private static void BenchmarkSequentialLoadMemory(string path)
+        {
+            long baseline = GC.GetTotalMemory(true);
+            Stopwatch firstTimer = Stopwatch.StartNew();
+            MidiSong first = MidiFileParser.Load(path);
+            firstTimer.Stop();
+            long firstLive = GC.GetTotalMemory(false);
+            WeakReference firstReference = new WeakReference(first);
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.Start(first, new CountingMidiOutput(), ProcessingMode.Queue, 0, true);
+                engine.Unload();
+                first = null;
+                GC.GetTotalMemory(true);
+                Console.WriteLine("After explicit engine unload: attachedSong={0}, attachedOutput={1}, oldSongAlive={2}",
+                    engine.HasAttachedSong, engine.HasAttachedOutput, firstReference.IsAlive);
+            }
+            long afterUnload = GC.GetTotalMemory(true);
+            Stopwatch secondTimer = Stopwatch.StartNew();
+            MidiSong second = MidiFileParser.Load(path);
+            secondTimer.Stop();
+            long secondLive = GC.GetTotalMemory(false);
+            WeakReference secondReference = new WeakReference(second);
+            second = null;
+            long afterSecondUnload = GC.GetTotalMemory(true);
+            Console.WriteLine("Managed live memory: baseline {0:N0}; first loaded {1:N0}; after unload {2:N0}; second loaded {3:N0}; after second unload {4:N0} bytes",
+                baseline, firstLive, afterUnload, secondLive, afterSecondUnload);
+            Console.WriteLine("Load times: first {0:N0} ms; second {1:N0} ms; secondSongAliveAfterGC={2}",
+                firstTimer.ElapsedMilliseconds, secondTimer.ElapsedMilliseconds, secondReference.IsAlive);
+        }
+
+        private static void BenchmarkOutputWindowWithUi(string path)
+        {
+            MidiSong source = MidiFileParser.Load(path);
+            MidiSong sample = ExtractBenchmarkWindow(source, 123000000, 126000000);
+            List<double> totals = new List<double>();
+            List<long> lags = new List<long>();
+            Application.EnableVisualStyles();
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); Application.DoEvents();
+                PlaybackEngine engine = (PlaybackEngine)typeof(MainForm).GetField("_engine", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(form);
+                typeof(MainForm).GetField("_song", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).SetValue(form, sample);
+                typeof(MainForm).GetField("_engineSong", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).SetValue(form, sample);
+                for (int run = 0; run < 3; run++)
+                {
+                    CountingMidiOutput output = new CountingMidiOutput();
+                    engine.SimulateSlowdown = false;
+                    Stopwatch elapsed = Stopwatch.StartNew();
+                    engine.Start(sample, output, ProcessingMode.Queue);
+                    while (engine.State == PlaybackState.Playing && elapsed.ElapsedMilliseconds < 15000)
+                    {
+                        Application.DoEvents();
+                        Thread.Sleep(1);
+                    }
+                    if (engine.State == PlaybackState.Playing) throw new Exception("normal-UI benchmark exceeded 15 seconds");
+                    elapsed.Stop();
+                    PlaybackSnapshot snapshot = engine.GetSnapshot();
+                    totals.Add(elapsed.Elapsed.TotalMilliseconds);
+                    lags.Add(snapshot.MaximumLagMicroseconds);
+                    Console.WriteLine("Normal UI run {0}: total {1:N1} ms; max dispatch lag {2:N3} ms; sent {3:N0}",
+                        run + 1, elapsed.Elapsed.TotalMilliseconds, snapshot.MaximumLagMicroseconds / 1000.0, output.Count);
+                }
+                form.Close();
+            }
+            totals.Sort(); lags.Sort();
+            Console.WriteLine("Normal UI median (range): total {0:N1} ms ({1:N1}–{2:N1}); max lag {3:N3} ms ({4:N3}–{5:N3})",
+                totals[1], totals[0], totals[2], lags[1] / 1000.0, lags[0] / 1000.0, lags[2] / 1000.0);
+        }
+
+        private static void BenchmarkAsyncUiLoad(string path)
+        {
+            Application.EnableVisualStyles();
+            using (MainForm form = new MainForm())
+            using (System.Windows.Forms.Timer pulse = new System.Windows.Forms.Timer())
+            {
+                int pulses = 0;
+                long last = 0;
+                long maximumGap = 0;
+                Stopwatch elapsed = Stopwatch.StartNew();
+                pulse.Interval = 16;
+                pulse.Tick += delegate
+                {
+                    long now = elapsed.ElapsedMilliseconds;
+                    if (last > 0) maximumGap = Math.Max(maximumGap, now - last);
+                    last = now;
+                    pulses++;
+                };
+                form.Show(); Application.DoEvents();
+                pulse.Start();
+                form.BeginMidiLoad(path);
+                PumpUntil(delegate { return !form.IsLoadingSong; }, 30000, "asynchronous large-file UI load");
+                elapsed.Stop(); pulse.Stop();
+                if (form.CurrentSong == null) throw new Exception("asynchronous large-file load failed");
+                Console.WriteLine("Async UI load: {0:N0} events in {1:N0} ms; UI pulses={2:N0}; maximum timer gap={3:N0} ms",
+                    form.CurrentSong.Events.Count, elapsed.ElapsedMilliseconds, pulses, maximumGap);
+                form.UnloadCurrentSong();
+                form.Close();
+            }
+        }
+
+        private static void BenchmarkAnalysis(string path)
+        {
+            MidiSong song = MidiFileParser.Load(path);
+            AnalysisConfiguration configuration = DefaultAnalysisConfiguration();
+            long[] resolutions = new long[] { 1000000, 100000, 10000 };
+            for (int i = 0; i < resolutions.Length; i++)
+            {
+                Stopwatch timer = Stopwatch.StartNew();
+                WorkloadAnalysis analysis = WorkloadAnalyzer.Analyze(song, resolutions[i], configuration);
+                timer.Stop();
+                Console.WriteLine("Analysis {0:N0} µs: {1:N0} buckets, {2:N0} events, {3:N0} ms",
+                    resolutions[i], analysis.Buckets.Length, analysis.TotalEvents, timer.ElapsedMilliseconds);
+            }
+        }
+
+        private static MidiSong ExtractBenchmarkWindow(MidiSong source, long windowStart, long windowEnd)
+        {
+            int first = 0;
+            int last = source.Events.Count;
+            while (first < last)
+            {
+                int middle = first + (last - first) / 2;
+                if (source.Events[middle].IntendedMicroseconds < windowStart) first = middle + 1; else last = middle;
+            }
+            MidiSong sample = new MidiSong();
+            sample.FilePath = source.FilePath;
+            sample.Format = source.Format;
+            sample.TrackCount = source.TrackCount;
+            sample.TicksPerQuarterNote = source.TicksPerQuarterNote;
+            sample.Events = new List<MidiEvent>();
+            for (int index = first; index < source.Events.Count; index++)
+            {
+                MidiEvent original = source.Events[index];
+                if (original.IntendedMicroseconds >= windowEnd) break;
+                sample.Events.Add(new MidiEvent
+                {
+                    AbsoluteTick = original.AbsoluteTick, IntendedMicroseconds = original.IntendedMicroseconds - windowStart, Track = original.Track,
+                    Order = original.Order, Kind = original.Kind, Channel = original.Channel, Status = original.Status,
+                    Data = original.Data, EventIndex = original.EventIndex
+                });
+            }
+            sample.DurationMicroseconds = Math.Max(0, windowEnd - windowStart);
+            return sample;
         }
 
         private static void BenchmarkBoundedPass(MidiSong song, bool slowdown, string label)
@@ -1561,6 +2933,8 @@ namespace MidiBottleneck.Tests
             Application.EnableVisualStyles();
             using (MainForm form = new MainForm())
             {
+                form.Show();
+                Application.DoEvents();
                 IntPtr handle = form.Handle;
                 if (!form.IsHandleCreated) throw new Exception("main window handle was not created");
                 if (handle == IntPtr.Zero) throw new Exception("main window handle is zero");
@@ -1610,7 +2984,7 @@ namespace MidiBottleneck.Tests
                 NumericUpDown queueLimitValue = FindNumericWithValue(controls, 2000m);
                 if (slowdown == null || queueLimit == null || kdmApi == null || serviceMode == null || overflow == null || dinPreset == null || queueLimitValue == null)
                     throw new Exception("independent processing policy controls were not found");
-                Equal(new Size(600, 660), form.MinimumSize, "normal-layout minimum window size");
+                Equal(new Size(560, 565), form.MinimumSize, "normal-layout minimum window size");
                 GroupBox processingGroup = FindGroupBox(controls, "Processing model");
                 int unlimitedProcessingHeight = processingGroup == null ? 0 : processingGroup.Height;
                 queueLimit.Checked = true;
@@ -1620,26 +2994,112 @@ namespace MidiBottleneck.Tests
                 Application.DoEvents();
                 if (processingGroup != null) Equal(unlimitedProcessingHeight, processingGroup.Height, "queue untoggle restores processing group height");
 
-                form.Size = new Size(600, 660);
+                form.Size = new Size(620, 590);
                 Application.DoEvents();
                 Equal(true, statistics.Compact, "compact layout breakpoint");
-                Equal(new Size(560, 600), form.MinimumSize, "compact-layout realized minimum size");
+                Equal(new Size(500, 470), form.MinimumSize, "compact-layout realized minimum size");
+                Equal(470, form.MaximumSize.Height, "compact height cap");
                 Equal(2, statistics.ColumnCount, "compact statistics remain two columns");
+                int[] compactWidths = new int[] { 620, 580, 540, 500 };
+                for (int widthIndex = 0; widthIndex < compactWidths.Length; widthIndex++)
+                {
+                    form.Size = new Size(compactWidths[widthIndex], 470);
+                    Application.DoEvents();
+                    AssertProcessingClusters(form, "active compact resize at " + compactWidths[widthIndex] + " pixels");
+                }
                 form.Size = form.MinimumSize;
                 Application.DoEvents();
+                AssertProcessingClusters(form, "compact processing-time minimum");
                 if (statistics.Bottom > form.ClientSize.Height) throw new Exception("compact statistics are clipped");
+                GroupBox compactStatisticsGroup = FindGroupBox(controls, "Statistics");
+                if (compactStatisticsGroup == null || statistics.Bottom > compactStatisticsGroup.ClientSize.Height)
+                    throw new Exception("compact Statistics group clips its custom-painted surface");
+                Button compactAnalysis = FindButton(controls, "Analysis...");
+                Button compactReset = FindButton(controls, "Reset stats");
+                if (compactAnalysis == null || compactReset == null || compactAnalysis.Right > compactReset.Left)
+                    throw new Exception("compact playback controls overlap");
+                if (compactAnalysis.Right > form.ClientSize.Width || compactReset.Right > form.ClientSize.Width)
+                    throw new Exception("compact playback controls are clipped");
+                NumericUpDown compactQueue = FindNumericWithMaximum(controls, 1000000m);
+                if (compactQueue == null) throw new Exception("compact queue-limit numeric field was not found");
+                compactQueue.Value = compactQueue.Maximum;
+                AssertNumericFullyVisible(compactQueue, "compact maximum queue limit");
+                compactQueue.Value = 2000m;
+                AssertComboFullyVisible(serviceMode, "Processing time per event", "compact Rate model");
+                AssertComboFullyVisible(overflow, Convert.ToString(overflow.SelectedItem), "compact overflow policy");
+                serviceMode.SelectedIndex = 1; Application.DoEvents();
+                NumericUpDown compactBitrate = FindNumericWithMaximum(controls, 100000000m);
+                if (compactBitrate == null) throw new Exception("compact bitrate numeric field was not found");
+                compactBitrate.Value = compactBitrate.Maximum;
+                AssertNumericFullyVisible(compactBitrate, "compact maximum MIDI bitrate");
+                AssertProcessingClusters(form, "compact bitrate minimum");
+                Equal(false, dinPreset.Visible, "5-pin DIN preset hidden only in compact layout");
+                int compactStatisticsHeight = statistics.Height;
+                queueLimit.Checked = true; Application.DoEvents();
+                Equal(compactStatisticsHeight, statistics.Height, "queue-pressure meter does not grow compact layout");
+                Equal(true, statistics.QueuePressureVisible, "finite queue pressure visible at compact minimum");
+                if (statistics.Bottom > form.ClientSize.Height) throw new Exception("finite compact statistics are clipped");
+                queueLimit.Checked = false; Application.DoEvents();
                 form.Size = new Size(790, 660);
                 Application.DoEvents();
                 Equal(false, statistics.Compact, "normal layout restored across breakpoint");
-                Equal(new Size(600, 660), form.MinimumSize, "normal minimum restored");
+                Equal(104, statistics.Height, "normal statistics height restored across breakpoint");
+                GroupBox restoredStatisticsGroup = FindGroupBox(controls, "Statistics");
+                if (restoredStatisticsGroup == null || statistics.Bottom > restoredStatisticsGroup.ClientSize.Height)
+                    throw new Exception("restored Statistics group clips its custom-painted surface");
+                Point restoredStatistics = form.PointToClient(statistics.PointToScreen(Point.Empty));
+                if (restoredStatistics.Y + statistics.Height > form.ClientSize.Height)
+                    throw new Exception("restored normal statistics are clipped: top=" + restoredStatistics.Y +
+                        ", height=" + statistics.Height + ", client=" + form.ClientSize.Height);
+                Equal(new Size(560, 565), form.MinimumSize, "normal minimum restored");
+                Equal(Size.Empty, form.MaximumSize, "normal layout removes compact height cap");
+                Equal(true, dinPreset.Visible, "5-pin DIN preset restored on return to default bitrate layout");
+                Equal(100000000m, compactBitrate.Value, "responsive transition preserves configured bitrate");
+                AssertProcessingClusters(form, "restored default bitrate");
+                int[] activeWidths = new int[] { 640, 660, 700, 740, 790 };
+                for (int widthIndex = 0; widthIndex < activeWidths.Length; widthIndex++)
+                {
+                    form.ClientSize = new Size(activeWidths[widthIndex], 570);
+                    Application.DoEvents();
+                    AssertProcessingClusters(form, "active resize at " + activeWidths[widthIndex] + " client pixels");
+                }
+                serviceMode.SelectedIndex = 0; Application.DoEvents();
+                form.ClientSize = new Size(639, 570); Application.DoEvents();
+                Equal(true, statistics.Compact, "one pixel below responsive breakpoint");
+                form.ClientSize = new Size(640, 570); Application.DoEvents();
+                Equal(false, statistics.Compact, "responsive breakpoint boundary");
                 for (int transition = 0; transition < 4; transition++)
                 {
-                    form.Size = new Size(600, 660); Application.DoEvents();
+                    form.Size = new Size(620, 590); Application.DoEvents();
                     Equal(true, statistics.Compact, "repeated compact transition");
                     form.Size = new Size(790, 660); Application.DoEvents();
                     Equal(false, statistics.Compact, "repeated normal transition");
                     if (processingGroup != null) Equal(unlimitedProcessingHeight, processingGroup.Height, "processing height stable across breakpoints");
                 }
+                PlaybackEngine responsiveEngine = (PlaybackEngine)typeof(MainForm).GetField("_engine", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(form);
+                long processingBeforeResize = responsiveEngine.ProcessingMicroseconds;
+                ServiceDurationMode modeBeforeResize = responsiveEngine.ServiceDurationMode;
+                Stopwatch responsiveTimer = Stopwatch.StartNew();
+                long slowestTransition = 0;
+                for (int transition = 0; transition < 10; transition++)
+                {
+                    Stopwatch crossing = Stopwatch.StartNew();
+                    form.ClientSize = new Size(639, 570); Application.DoEvents();
+                    crossing.Stop();
+                    slowestTransition = Math.Max(slowestTransition, crossing.ElapsedMilliseconds);
+                    crossing.Restart();
+                    form.ClientSize = new Size(640, 570); Application.DoEvents();
+                    crossing.Stop();
+                    slowestTransition = Math.Max(slowestTransition, crossing.ElapsedMilliseconds);
+                }
+                responsiveTimer.Stop();
+                if (slowestTransition >= 250 || responsiveTimer.ElapsedMilliseconds > 2200)
+                    throw new Exception("responsive breakpoint transitions took " + responsiveTimer.ElapsedMilliseconds +
+                        " ms total; slowest crossing " + slowestTransition + " ms");
+                Equal(processingBeforeResize, responsiveEngine.ProcessingMicroseconds, "resize does not reapply processing model");
+                Equal(modeBeforeResize, responsiveEngine.ServiceDurationMode, "resize does not mutate Rate model");
+                Console.WriteLine("      Responsive transitions: 20 realized crossings in " + responsiveTimer.ElapsedMilliseconds +
+                    " ms; slowest " + slowestTransition + " ms");
                 if (FindButton(controls, "Play") == null) throw new Exception("merged Play button was not found");
                 if (FindButton(controls, "Pause") != null) throw new Exception("separate Pause button still exists");
                 if (FindButton(controls, "−10 sec") != null || FindButton(controls, "+10 sec") != null)
@@ -1664,7 +3124,22 @@ namespace MidiBottleneck.Tests
                 overflow.SelectedIndex = 2;
                 Equal("Clear buffer and jump to realtime", overflow.SelectedItem.ToString(), "overflow UI selection");
 
-                Equal(0, serviceMode.SelectedIndex, "processing-time service default");
+                Equal("Timeline / output:", StatisticsView.CaptionAt(0), "statistics first caption");
+                Equal("Queue now / maximum:", StatisticsView.CaptionAt(1), "statistics second caption");
+                Equal("Maximum rate:", StatisticsView.CaptionAt(2), "statistics third caption");
+                Equal("Output rate:", StatisticsView.CaptionAt(3), "statistics fourth caption");
+                Equal("Events sent / dropped:", StatisticsView.CaptionAt(4), "statistics fifth caption");
+                Equal("Effective speed:", StatisticsView.CaptionAt(5), "statistics sixth caption");
+                Equal("Maximum lag:", StatisticsView.CaptionAt(6), "statistics seventh caption");
+                Equal("Current lag:", StatisticsView.CaptionAt(7), "statistics eighth caption");
+                statistics.Size = new Size(760, statistics.Height);
+                values[1] = "1,097,842 / 1,500,000";
+                statistics.SetValues(values);
+                using (Bitmap queueBitmap = new Bitmap(statistics.Width, statistics.Height))
+                    statistics.DrawToBitmap(queueBitmap, statistics.ClientRectangle);
+                Equal(false, statistics.ValueWasTruncated(1), "large queue value uses available cell width");
+
+                Equal(0, serviceMode.SelectedIndex, "processing-time Rate model restored for value-preservation test");
                 serviceMode.SelectedIndex = 1;
                 Application.DoEvents();
                 dinPreset.PerformClick();
@@ -1682,6 +3157,69 @@ namespace MidiBottleneck.Tests
                 Equal(false, serviceValue.Enabled, "service value disabled without slowdown");
                 form.Close();
             }
+        }
+
+        private static void TestFinishingReleaseContracts()
+        {
+            string dense = CreateDenseMidiFile(75000);
+            try
+            {
+                Application.EnableVisualStyles();
+                using (MainForm form = new MainForm())
+                {
+                    form.SuppressLoadErrorDialogs = true;
+                    form.Show(); Application.DoEvents();
+                    List<Control> controls = new List<Control>();
+                    CollectControls(form, controls);
+                    GroupBox processing = FindGroupBox(controls, "Processing model");
+                    GroupBox playback = FindGroupBox(controls, "Playback");
+                    GroupBox statisticsGroup = FindGroupBox(controls, "Statistics");
+                    StatisticsView statistics = FindStatisticsView(form);
+                    int height = form.Height;
+                    int processingTop = processing.Top;
+                    int playbackTop = playback.Top;
+                    int statisticsTop = statisticsGroup.Top;
+                    form.BeginMidiLoad(dense);
+                    Equal(height, form.Height, "finishing load keeps window height");
+                    Equal(processingTop, processing.Top, "finishing load keeps Processing model position");
+                    Equal(playbackTop, playback.Top, "finishing load keeps Playback position");
+                    Equal(statisticsTop, statisticsGroup.Top, "finishing load keeps Statistics position");
+                    Equal(true, form.LoadingActivityVisible, "finishing load shows both in-row progress bars");
+                    form.CancelMidiLoad();
+                    PumpFor(100);
+
+                    form.Size = new Size(500, 470); Application.DoEvents();
+                    form.Size = new Size(806, 590); Application.DoEvents();
+                    if (statistics.Bottom > statisticsGroup.ClientSize.Height)
+                        throw new Exception("restored Statistics surface is clipped by its group");
+                    Point viewPoint = form.PointToClient(statistics.PointToScreen(Point.Empty));
+                    if (viewPoint.Y + statistics.Height > form.ClientSize.Height)
+                        throw new Exception("restored Statistics surface is clipped by the form");
+                    using (Bitmap bitmap = new Bitmap(statistics.Width, statistics.Height))
+                        statistics.DrawToBitmap(bitmap, statistics.ClientRectangle);
+                    form.Close();
+                }
+
+                MidiSong song = BuildSong(new long[] { 0, 100000, 200000 });
+                WorkloadAnalysis analysis = WorkloadAnalyzer.Analyze(song, 100000, DefaultAnalysisConfiguration());
+                using (DiagnosticsForm analysisForm = new DiagnosticsForm(song, analysis))
+                {
+                    analysisForm.Show(); Application.DoEvents();
+                    SplitContainer split = analysisForm.AnalysisSplit;
+                    if (split.BackColor == split.Panel1.BackColor || split.SplitterWidth < 4)
+                        throw new Exception("untouched Analysis splitter is not visibly distinct");
+                    WorkloadGraph graph = analysisForm.Graph;
+                    Rectangle area = graph.GraphArea;
+                    long edgeTime;
+                    Equal(true, graph.TryGetPinTime(new Point(area.Left - 3, area.Top + area.Height / 2), out edgeTime),
+                        "finishing left-edge pin tolerance");
+                    Equal(0L, edgeTime, "finishing left-edge pin exact zero");
+                    Equal(false, graph.TryGetPinTime(new Point(area.Left - 7, area.Top + area.Height / 2), out edgeTime),
+                        "finishing outside-edge click rejection");
+                    analysisForm.Close();
+                }
+            }
+            finally { if (File.Exists(dense)) File.Delete(dense); }
         }
 
         private static void TestPlaybackTimelineRendering()
@@ -1827,6 +3365,79 @@ namespace MidiBottleneck.Tests
             return null;
         }
 
+        private static void AssertNumericFullyVisible(NumericUpDown numeric, string name)
+        {
+            if (numeric.Parent == null || numeric.Left < 0 || numeric.Top < 0 ||
+                numeric.Right > numeric.Parent.ClientSize.Width || numeric.Bottom > numeric.Parent.ClientSize.Height)
+                throw new Exception(name + " outer bounds are clipped");
+            for (int index = 0; index < numeric.Controls.Count; index++)
+            {
+                Control child = numeric.Controls[index];
+                if (!child.Visible) continue;
+                // The native UpDownBase hosts its edit/spinner children one
+                // border pixel outside the client vertically. Horizontal
+                // clipping is the failure that hides the spinner arrows.
+                if (child.Left < 0 || child.Top < -1 || child.Right > numeric.ClientSize.Width ||
+                    child.Bottom > numeric.ClientSize.Height + 1)
+                    throw new Exception(name + " internal " + child.GetType().Name + " area is clipped: " +
+                        child.Bounds + " within " + numeric.ClientRectangle);
+            }
+            string maximum = numeric.Maximum.ToString("N0");
+            int textWidth = TextRenderer.MeasureText(maximum, numeric.Font).Width;
+            if (numeric.ClientSize.Width < textWidth + SystemInformation.VerticalScrollBarWidth + 6)
+                throw new Exception(name + " is too narrow for its maximum value and spinner buttons");
+        }
+
+        private static void AssertComboFullyVisible(ComboBox combo, string longestText, string name)
+        {
+            if (combo.Parent == null || combo.Left < 0 || combo.Top < 0 || combo.Right > combo.Parent.ClientSize.Width ||
+                combo.Bottom > combo.Parent.ClientSize.Height)
+                throw new Exception(name + " bounds or dropdown arrow are clipped");
+            int required = TextRenderer.MeasureText(longestText, combo.Font, Size.Empty,
+                TextFormatFlags.NoPadding | TextFormatFlags.SingleLine).Width + SystemInformation.VerticalScrollBarWidth + 3;
+            if (combo.ClientSize.Width < required)
+                throw new Exception(name + " is too narrow for '" + longestText + "' and its dropdown arrow");
+        }
+
+        private static void AssertProcessingClusters(MainForm form, string state)
+        {
+            const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.NonPublic;
+            Type type = typeof(MainForm);
+            FlowLayoutPanel queue = (FlowLayoutPanel)type.GetField("_queueCluster", flags).GetValue(form);
+            FlowLayoutPanel overflow = (FlowLayoutPanel)type.GetField("_overflowCluster", flags).GetValue(form);
+            FlowLayoutPanel rate = (FlowLayoutPanel)type.GetField("_rateCluster", flags).GetValue(form);
+            FlowLayoutPanel service = (FlowLayoutPanel)type.GetField("_serviceCluster", flags).GetValue(form);
+            Label overflowLabel = (Label)type.GetField("_overflowLabel", flags).GetValue(form);
+            Label serviceLabel = (Label)type.GetField("_serviceValueLabel", flags).GetValue(form);
+            Label unit = (Label)type.GetField("_serviceUnitLabel", flags).GetValue(form);
+            NumericUpDown queueValue = (NumericUpDown)type.GetField("_queueLimitValue", flags).GetValue(form);
+            NumericUpDown processingValue = (NumericUpDown)type.GetField("_processingValue", flags).GetValue(form);
+            ComboBox rateCombo = (ComboBox)type.GetField("_serviceModeCombo", flags).GetValue(form);
+            ComboBox overflowCombo = (ComboBox)type.GetField("_overflowPolicyCombo", flags).GetValue(form);
+            FlowLayoutPanel[] clusters = new FlowLayoutPanel[] { queue, overflow, rate, service };
+            for (int index = 0; index < clusters.Length; index++)
+            {
+                FlowLayoutPanel cluster = clusters[index];
+                if (cluster.Left < 0 || cluster.Top < 0 || cluster.Right > cluster.Parent.ClientSize.Width ||
+                    cluster.Bottom > cluster.Parent.ClientSize.Height)
+                    throw new Exception(state + " clips processing cluster " + index + ": " + cluster.Bounds +
+                        " within " + cluster.Parent.ClientRectangle);
+            }
+            int overflowX = form.PointToClient(overflowLabel.PointToScreen(Point.Empty)).X;
+            int serviceX = form.PointToClient(serviceLabel.PointToScreen(Point.Empty)).X;
+            if (Math.Abs(overflowX - serviceX) > 1)
+                throw new Exception(state + " misaligns right-side captions by " + Math.Abs(overflowX - serviceX) + " pixels");
+            int unitGap = unit.Left - processingValue.Right;
+            if (unitGap < 0 || unitGap > 8)
+                throw new Exception(state + " lets the service unit drift " + unitGap + " pixels from its numeric field");
+            AssertNumericFullyVisible(queueValue, state + " queue numeric");
+            AssertNumericFullyVisible(processingValue, state + " rate numeric");
+            AssertComboFullyVisible(rateCombo, "Processing time per event", state + " Rate model");
+            if (overflowCombo.Right > overflow.ClientSize.Width)
+                throw new Exception(state + " clips the overflow dropdown arrow");
+        }
+
         private static byte[] BuildTestMidi()
         {
             List<byte> bytes = new List<byte>();
@@ -1875,6 +3486,7 @@ namespace MidiBottleneck.Tests
                 midiEvent.Data = new byte[] { 0x90, (byte)(60 + (i % 12)), 1 };
                 song.Events.Add(midiEvent);
             }
+            song.NoteCount = eventTimes.Length;
             song.DurationMicroseconds = eventTimes.Length == 0 ? 0 : eventTimes[eventTimes.Length - 1];
             return song;
         }
@@ -1898,6 +3510,46 @@ namespace MidiBottleneck.Tests
                     throw new Exception(name + " timed out");
                 Thread.Sleep(1);
             }
+        }
+
+        private static void PumpUntil(Func<bool> condition, int timeoutMilliseconds, string name)
+        {
+            Stopwatch timer = Stopwatch.StartNew();
+            while (!condition())
+            {
+                if (timer.ElapsedMilliseconds > timeoutMilliseconds) throw new Exception(name + " timed out");
+                Application.DoEvents();
+                Thread.Sleep(1);
+            }
+            Application.DoEvents();
+        }
+
+        private static void PumpFor(int milliseconds)
+        {
+            Stopwatch timer = Stopwatch.StartNew();
+            while (timer.ElapsedMilliseconds < milliseconds)
+            {
+                Application.DoEvents();
+                Thread.Sleep(1);
+            }
+        }
+
+        private static string CreateDenseMidiFile(int eventCount)
+        {
+            string path = Path.Combine(Path.GetTempPath(), "midi-bottleneck-dense-" + Guid.NewGuid().ToString("N") + ".mid");
+            List<byte> track = new List<byte>(eventCount * 3 + 8);
+            Add(track, 0x00, 0x90, 0x3C, 0x01);
+            for (int i = 1; i < eventCount; i++) Add(track, 0x00, 0x3C, 0x01);
+            Add(track, 0x00, 0xFF, 0x2F, 0x00);
+            List<byte> bytes = new List<byte>(track.Count + 22);
+            AddAscii(bytes, "MThd");
+            AddUInt32(bytes, 6);
+            AddUInt16(bytes, 0);
+            AddUInt16(bytes, 1);
+            AddUInt16(bytes, 480);
+            AddTrack(bytes, track);
+            File.WriteAllBytes(path, bytes.ToArray());
+            return path;
         }
 
         private static void AddTrack(List<byte> target, List<byte> track)
@@ -1972,8 +3624,54 @@ namespace MidiBottleneck.Tests
             public void Reset() { }
         }
 
-        private sealed class FakeMidiOutput : IMidiOutput
+        private sealed class CallbackMidiOutput : IMidiOutput
         {
+            private readonly Action<long> _callback;
+            private long _count;
+            internal CallbackMidiOutput(Action<long> callback) { _callback = callback; }
+            internal long Count { get { return Interlocked.Read(ref _count); } }
+            public void Send(MidiEvent midiEvent)
+            {
+                long count = Interlocked.Increment(ref _count);
+                if (_callback != null) _callback(count);
+            }
+            public void Panic() { }
+            public void Reset() { }
+        }
+
+        private sealed class PacedMidiOutput : IMidiOutput
+        {
+            private long _count;
+            internal int ResetCount;
+            internal int PanicCount;
+            internal long Count { get { return Interlocked.Read(ref _count); } }
+            public void Send(MidiEvent midiEvent)
+            {
+                Thread.SpinWait(1200);
+                Interlocked.Increment(ref _count);
+            }
+            public void Panic() { Interlocked.Increment(ref PanicCount); }
+            public void Reset() { Interlocked.Increment(ref ResetCount); }
+        }
+
+        private sealed class TimedMidiOutput : IMidiOutput
+        {
+            private readonly IMidiOutput _inner;
+            public long SendTicks;
+            public TimedMidiOutput(IMidiOutput inner) { _inner = inner; }
+            public void Send(MidiEvent midiEvent)
+            {
+                long start = Stopwatch.GetTimestamp();
+                try { _inner.Send(midiEvent); }
+                finally { SendTicks += Stopwatch.GetTimestamp() - start; }
+            }
+            public void Panic() { _inner.Panic(); }
+            public void Reset() { _inner.Reset(); }
+        }
+
+        private sealed class FakeMidiOutput : IMidiOutput, IMidiOutputContext
+        {
+            public string SourceFile { get; set; }
             private readonly object _sync = new object();
             private readonly List<long> _sent = new List<long>();
             private readonly List<MidiEvent> _sentEvents = new List<MidiEvent>();
