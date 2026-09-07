@@ -17,6 +17,9 @@ namespace MidiBottleneck
         uint SendLong(IntPtr header, uint headerSize);
         uint UnprepareLong(IntPtr header, uint headerSize);
         string Version { get; }
+        string ProviderPath { get; }
+        bool SupportsLongMessages { get; }
+        string LongMessageStatus { get; }
     }
 
     internal sealed class DynamicKdmApiNative : IKdmApiNative
@@ -45,37 +48,32 @@ namespace MidiBottleneck
         private LongMessageCall _unprepareLong;
         private VersionCall _returnVersion;
         private string _version;
+        private string _longMessageStatus;
 
         public DynamicKdmApiNative()
+            : this(null)
         {
-            List<MidiOutputDeviceInfo> devices = WindowsMidiOutput.GetDevices();
-            MidiOutputDeviceInfo omniMidi = null;
-            for (int i = 0; i < devices.Count; i++)
-            {
-                if (devices[i].Name.IndexOf("OmniMIDI", StringComparison.OrdinalIgnoreCase) >= 0)
-                {
-                    omniMidi = devices[i];
-                    break;
-                }
-            }
-            if (omniMidi == null)
-                throw new InvalidOperationException("The OmniMIDI Windows output was not found. Install OmniMIDI, or turn off KDMAPI.");
+        }
 
-            // KDMAPI is a direct API. Opening OmniMIDI through WinMM merely to
-            // locate the DLL also starts its synth stream; the driver's own
-            // InitializeKDMAPIStream then correctly refuses a second stream.
-            // Own a module reference instead, so delegates remain valid without
-            // retaining a conflicting WinMM output instance.
-            string modulePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "OmniMIDI.dll");
+        internal DynamicKdmApiNative(string explicitProviderPath)
+        {
+            // A deliberately colocated provider wins over the installed system
+            // provider.  Once selected, failure is reported for that exact file;
+            // silently falling through to a different synthesizer would make the
+            // user's selection misleading.  No WinMM device is opened or used as
+            // a brand/registration gate for this direct API.
+            string modulePath = ResolveProviderPath(explicitProviderPath,
+                AppDomain.CurrentDomain.BaseDirectory,
+                Environment.GetFolderPath(Environment.SpecialFolder.System));
+            ValidateProviderArchitecture(modulePath);
             _module = LoadLibrary(modulePath);
-            if (_module == IntPtr.Zero) _module = LoadLibrary("OmniMIDI.dll");
             if (_module == IntPtr.Zero)
             {
                 string architecture = IntPtr.Size == 8 ? "x64" : "x86";
                 throw new Win32Exception(Marshal.GetLastWin32Error(),
-                    "The OmniMIDI output was found, but its " + architecture +
-                    " KDMAPI module could not be loaded. Install a matching OmniMIDI architecture or turn off KDMAPI.");
+                    "The selected " + architecture + " KDMAPI provider could not be loaded: " + modulePath);
             }
+            ProviderPath = GetLoadedModulePath(_module, modulePath);
             try
             {
                 _isAvailable = Load<BoolCall>("IsKDMAPIAvailable");
@@ -83,14 +81,31 @@ namespace MidiBottleneck
                 _terminate = Load<BoolCall>("TerminateKDMAPIStream");
                 _reset = Load<VoidCall>("ResetKDMAPIStream");
                 _sendShort = Load<ShortMessageCall>("SendDirectData");
-                _prepareLong = Load<LongMessageCall>("PrepareLongData");
-                _sendLong = Load<LongMessageCall>("SendDirectLongData");
-                _unprepareLong = Load<LongMessageCall>("UnprepareLongData");
-                _returnVersion = Load<VersionCall>("ReturnKDMAPIVer");
-                uint major, minor, build, revision;
-                if (!_returnVersion(out major, out minor, out build, out revision))
-                    throw new InvalidOperationException("OmniMIDI loaded, but its KDMAPI version query was rejected.");
-                _version = major + "." + minor + "." + build + "." + revision;
+                _prepareLong = LoadOptional<LongMessageCall>("PrepareLongData");
+                _sendLong = LoadOptional<LongMessageCall>("SendDirectLongData");
+                _unprepareLong = LoadOptional<LongMessageCall>("UnprepareLongData");
+                int longExportCount = (_prepareLong == null ? 0 : 1) + (_sendLong == null ? 0 : 1) +
+                    (_unprepareLong == null ? 0 : 1);
+                if (longExportCount == 3)
+                    _longMessageStatus = "prepared long-message exports available";
+                else
+                {
+                    List<string> missing = new List<string>();
+                    if (_prepareLong == null) missing.Add("PrepareLongData");
+                    if (_sendLong == null) missing.Add("SendDirectLongData");
+                    if (_unprepareLong == null) missing.Add("UnprepareLongData");
+                    _longMessageStatus = "prepared long-message contract incomplete; missing " + String.Join(", ", missing.ToArray());
+                }
+                _returnVersion = LoadOptional<VersionCall>("ReturnKDMAPIVer");
+                if (_returnVersion == null)
+                    _version = "not reported";
+                else
+                {
+                    uint major, minor, build, revision;
+                    if (!_returnVersion(out major, out minor, out build, out revision))
+                        throw new InvalidOperationException("The KDMAPI provider rejected its version query: " + ProviderPath);
+                    _version = major + "." + minor + "." + build + "." + revision;
+                }
             }
             catch
             {
@@ -103,8 +118,68 @@ namespace MidiBottleneck
         {
             IntPtr address = GetProcAddress(_module, name);
             if (address == IntPtr.Zero)
-                throw new EntryPointNotFoundException("OmniMIDI does not export the required KDMAPI function " + name + ".");
+                throw new EntryPointNotFoundException("The KDMAPI provider does not export the required function " +
+                    name + ": " + ProviderPath);
             return (T)(object)Marshal.GetDelegateForFunctionPointer(address, typeof(T));
+        }
+
+        private T LoadOptional<T>(string name) where T : class
+        {
+            IntPtr address = GetProcAddress(_module, name);
+            return address == IntPtr.Zero ? null : (T)(object)Marshal.GetDelegateForFunctionPointer(address, typeof(T));
+        }
+
+        internal static string ResolveProviderPath(string explicitProviderPath, string applicationDirectory,
+            string systemDirectory)
+        {
+            if (!String.IsNullOrWhiteSpace(explicitProviderPath))
+            {
+                string requested = Path.GetFullPath(explicitProviderPath);
+                if (!File.Exists(requested))
+                    throw new FileNotFoundException("The selected KDMAPI provider was not found.", requested);
+                return requested;
+            }
+
+            string local = Path.Combine(applicationDirectory ?? String.Empty, "OmniMIDI.dll");
+            if (File.Exists(local)) return Path.GetFullPath(local);
+            string installed = Path.Combine(systemDirectory ?? String.Empty, "OmniMIDI.dll");
+            if (File.Exists(installed)) return Path.GetFullPath(installed);
+            throw new FileNotFoundException("No KDMAPI provider was found. Place a matching OmniMIDI.dll beside the application, install OmniMIDI, or turn off KDMAPI.");
+        }
+
+        internal static ushort ReadPeMachine(string path)
+        {
+            using (FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+            using (BinaryReader reader = new BinaryReader(stream))
+            {
+                if (stream.Length < 64 || reader.ReadUInt16() != 0x5A4D)
+                    throw new BadImageFormatException("The KDMAPI provider is not a valid Windows PE image: " + path);
+                stream.Position = 0x3C;
+                int peOffset = reader.ReadInt32();
+                if (peOffset < 0 || (long)peOffset + 6 > stream.Length)
+                    throw new BadImageFormatException("The KDMAPI provider has an invalid PE header: " + path);
+                stream.Position = peOffset;
+                if (reader.ReadUInt32() != 0x00004550)
+                    throw new BadImageFormatException("The KDMAPI provider has an invalid PE signature: " + path);
+                return reader.ReadUInt16();
+            }
+        }
+
+        internal static void ValidateProviderArchitecture(string path)
+        {
+            ushort actual = ReadPeMachine(path);
+            ushort expected = IntPtr.Size == 8 ? (ushort)0x8664 : (ushort)0x014C;
+            if (actual != expected)
+                throw new BadImageFormatException("The KDMAPI provider architecture does not match this " +
+                    (IntPtr.Size == 8 ? "x64" : "x86") + " application: " + path +
+                    " (PE machine 0x" + actual.ToString("X4") + ").");
+        }
+
+        private static string GetLoadedModulePath(IntPtr module, string fallback)
+        {
+            System.Text.StringBuilder path = new System.Text.StringBuilder(1024);
+            uint length = GetModuleFileName(module, path, path.Capacity);
+            return length == 0 ? fallback : path.ToString();
         }
 
         public bool IsAvailable() { return _isAvailable(); }
@@ -116,10 +191,15 @@ namespace MidiBottleneck
         public uint SendLong(IntPtr header, uint headerSize) { return _sendLong(header, headerSize); }
         public uint UnprepareLong(IntPtr header, uint headerSize) { return _unprepareLong(header, headerSize); }
         public string Version { get { return _version; } }
+        public string ProviderPath { get; private set; }
+        public bool SupportsLongMessages { get { return _prepareLong != null && _sendLong != null && _unprepareLong != null; } }
+        public string LongMessageStatus { get { return _longMessageStatus; } }
 
         public void Dispose()
         {
             _version = null;
+            _longMessageStatus = null;
+            ProviderPath = null;
             _isAvailable = null;
             _initialize = null;
             _terminate = null;
@@ -143,6 +223,8 @@ namespace MidiBottleneck
         private static extern bool FreeLibrary(IntPtr module);
         [DllImport("kernel32.dll", CharSet = CharSet.Ansi, SetLastError = true)]
         private static extern IntPtr GetProcAddress(IntPtr module, string procedureName);
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern uint GetModuleFileName(IntPtr module, System.Text.StringBuilder fileName, int size);
     }
 
     internal sealed class KdmApiMidiOutput : IMidiOutput, IMidiOutputContext, IDisposable
@@ -168,6 +250,12 @@ namespace MidiBottleneck
             _ownsNative = true;
         }
 
+        internal KdmApiMidiOutput(string providerPath)
+        {
+            _native = new DynamicKdmApiNative(providerPath);
+            _ownsNative = true;
+        }
+
         internal KdmApiMidiOutput(IKdmApiNative native)
             : this(native, false)
         {
@@ -187,9 +275,10 @@ namespace MidiBottleneck
             try
             {
                 if (!_native.IsAvailable())
-                    throw new InvalidOperationException("OmniMIDI loaded, but reported that KDMAPI is unavailable.");
+                    throw new InvalidOperationException("The KDMAPI provider reported that direct output is unavailable: " + _native.ProviderPath);
                 if (!_native.InitializeStream())
-                    throw new InvalidOperationException("OmniMIDI rejected KDMAPI stream initialization (KDMAPI " + _native.Version + ").");
+                    throw new InvalidOperationException("The KDMAPI provider rejected stream initialization (KDMAPI " +
+                        _native.Version + "): " + _native.ProviderPath);
                 _open = true;
             }
             catch
@@ -248,6 +337,10 @@ namespace MidiBottleneck
 
         private void SendLongPacket(SystemExclusivePacket packet, MidiEvent finalEvent)
         {
+            if (!_native.SupportsLongMessages)
+                throw new NotSupportedException("The selected KDMAPI provider can send short MIDI messages but does not export " +
+                    "PrepareLongData, SendDirectLongData, and UnprepareLongData. System Exclusive playback requires that prepared " +
+                    "long-message contract (" + _native.LongMessageStatus + "). Provider: " + _native.ProviderPath);
             byte[] bytes = packet.Bytes;
             LongBuffer buffer = new LongBuffer();
             int headerSize = Marshal.SizeOf(typeof(NativeMidiHeader));
@@ -349,7 +442,7 @@ namespace MidiBottleneck
             if (reportFailure && resetFailure != null)
                 throw new InvalidOperationException("KDMAPI reset/cleanup failed before stream termination.", resetFailure);
             if (reportFailure && !terminated)
-                throw new InvalidOperationException("OmniMIDI rejected KDMAPI stream termination.");
+                throw new InvalidOperationException("The KDMAPI provider rejected stream termination: " + _native.ProviderPath);
         }
 
         internal void Close()
@@ -365,6 +458,8 @@ namespace MidiBottleneck
                 ReleaseOwnedNative();
             }
         }
+
+        internal string ProviderPath { get { return _native == null ? null : _native.ProviderPath; } }
 
         public void Dispose()
         {

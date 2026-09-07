@@ -37,6 +37,7 @@ namespace MidiBottleneck
         private volatile MidiLoadProgress _loadProgress;
         private string _lastLoadStatus;
         private string _loadingFileName;
+        private long _lastLoadVisualUpdateTicks;
         private int _lastDefaultHeight = 565;
         private bool _suppressLoadErrorDialogs;
         private Exception _lastLoadError;
@@ -48,6 +49,8 @@ namespace MidiBottleneck
         private ProgressBar _loadStageActivity;
         private Label _loadingStatusLabel;
         private TableLayoutPanel _loadingPanel;
+        private TableLayoutPanel _fileOutputTable;
+        private GroupBox _fileOutputGroup;
         private ComboBox _outputCombo;
         private CheckBox _kdmApiCheck;
         private CheckBox _simulateSlowdownCheck;
@@ -134,11 +137,19 @@ namespace MidiBottleneck
         private Control BuildFileAndOutputGroup()
         {
             GroupBox group = NewGroup("File and output");
+            _fileOutputGroup = group;
             TableLayoutPanel table = NewTable(4);
+            _fileOutputTable = table;
             table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            table.RowCount = 2;
+            // Both the normal filename and the two-line loading presentation live
+            // in this fixed top-row footprint.  Visibility changes therefore do
+            // not alter the preferred height of this group.
+            table.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
+            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
             _openButton = new Button();
             _openButton.Text = "Open MIDI...";
@@ -151,6 +162,7 @@ namespace MidiBottleneck
             _fileLabel.AutoEllipsis = true;
             _fileLabel.Dock = DockStyle.Fill;
             _fileLabel.TextAlign = ContentAlignment.MiddleLeft;
+            _fileLabel.Margin = new Padding(3, 0, 2, 0);
             table.Controls.Add(_fileLabel, 1, 0);
 
             _fileInfoLabel = new Label();
@@ -160,6 +172,15 @@ namespace MidiBottleneck
             _fileInfoLabel.Anchor = AnchorStyles.Right;
             table.Controls.Add(_fileInfoLabel, 2, 0);
             table.SetColumnSpan(_fileInfoLabel, 2);
+
+            _loadingStatusLabel = new Label();
+            _loadingStatusLabel.AutoEllipsis = true;
+            _loadingStatusLabel.Dock = DockStyle.Fill;
+            _loadingStatusLabel.Margin = new Padding(2, 0, 0, 0);
+            _loadingStatusLabel.TextAlign = ContentAlignment.MiddleLeft;
+            _loadingStatusLabel.Visible = false;
+            table.Controls.Add(_loadingStatusLabel, 2, 0);
+            table.SetColumnSpan(_loadingStatusLabel, 2);
 
             _loadActivity = new ProgressBar();
             _loadActivity.Style = ProgressBarStyle.Continuous;
@@ -173,30 +194,19 @@ namespace MidiBottleneck
             _loadStageActivity.Dock = DockStyle.Fill;
             _loadStageActivity.Margin = new Padding(0);
 
-            _loadingStatusLabel = new Label();
-            _loadingStatusLabel.AutoEllipsis = true;
-            _loadingStatusLabel.Dock = DockStyle.Fill;
-            _loadingStatusLabel.Margin = new Padding(0, 0, 5, 0);
-            _loadingStatusLabel.TextAlign = ContentAlignment.MiddleRight;
-
             _loadingPanel = new TableLayoutPanel();
             _loadingPanel.AutoSize = false;
-            _loadingPanel.Size = new Size(292, 24);
-            _loadingPanel.ColumnCount = 2;
-            _loadingPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 112));
-            _loadingPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180));
+            _loadingPanel.Size = new Size(180, 23);
+            _loadingPanel.ColumnCount = 1;
+            _loadingPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             _loadingPanel.RowCount = 2;
             _loadingPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 15));
-            _loadingPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 7));
+            _loadingPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 6));
             _loadingPanel.Anchor = AnchorStyles.Right;
-            _loadingPanel.Margin = new Padding(3, 0, 3, 0);
+            _loadingPanel.Margin = new Padding(4, 0, 3, 0);
             _loadingPanel.Visible = false;
-            _loadingPanel.Controls.Add(_loadingStatusLabel, 0, 0);
-            _loadingPanel.SetRowSpan(_loadingStatusLabel, 2);
-            _loadingPanel.Controls.Add(_loadActivity, 1, 0);
-            _loadingPanel.Controls.Add(_loadStageActivity, 1, 1);
-            table.Controls.Add(_loadingPanel, 2, 0);
-            table.SetColumnSpan(_loadingPanel, 2);
+            _loadingPanel.Controls.Add(_loadActivity, 0, 0);
+            _loadingPanel.Controls.Add(_loadStageActivity, 0, 1);
 
             Label outputLabel = new Label();
             outputLabel.Text = "MIDI output:";
@@ -216,7 +226,7 @@ namespace MidiBottleneck
             _kdmApiCheck.Anchor = AnchorStyles.Left;
             _kdmApiCheck.Margin = new Padding(10, 3, 3, 3);
             _kdmApiCheck.CheckedChanged += OutputSettingChanged;
-            _toolTip.SetToolTip(_kdmApiCheck, "Send directly to OmniMIDI. Changing output during playback restarts at the current source position and clears backlog/statistics.");
+            _toolTip.SetToolTip(_kdmApiCheck, "Send directly through the application-local or installed KDMAPI provider. Changing output during playback restarts at the current source position and clears backlog/statistics.");
             _toolTip.SetToolTip(_outputCombo, "Changing output during playback restarts at the current source position and clears backlog/statistics.");
             table.Controls.Add(_kdmApiCheck, 2, 1);
 
@@ -225,6 +235,7 @@ namespace MidiBottleneck
             _stateLabel.Anchor = AnchorStyles.Right;
             _stateLabel.Margin = new Padding(12, 3, 3, 3);
             table.Controls.Add(_stateLabel, 3, 1);
+            table.Controls.Add(_loadingPanel, 3, 1);
 
             group.Controls.Add(table);
             return group;
@@ -514,14 +525,15 @@ namespace MidiBottleneck
             _loadProgress = new MidiLoadProgress("Starting", 0, 0);
             _loadingFileName = Path.GetFileName(path);
             _lastLoadStatus = null;
+            _lastLoadVisualUpdateTicks = 0;
             _openButton.Text = "Cancel";
             _loadActivity.Value = 0;
             _loadStageActivity.Value = 0;
-            _loadingStatusLabel.Text = "Starting…";
-            _loadingPanel.Visible = true;
+            _loadingStatusLabel.Text = "Starting…" + Environment.NewLine + "0.0% overall";
             _fileLabel.Text = "Loading " + _loadingFileName + "…";
+            _toolTip.SetToolTip(_fileLabel, path);
             _fileInfoLabel.Text = String.Empty;
-            _fileInfoLabel.Visible = false;
+            SetLoadingPresentation(true);
             UpdateTransportControls();
 
             Task.Factory.StartNew(delegate
@@ -543,8 +555,8 @@ namespace MidiBottleneck
                         _loadingSong = false;
                         _loadProgress = null;
                         _loadingFileName = null;
-                        _loadingPanel.Visible = false;
-                        _fileInfoLabel.Visible = true;
+                        _lastLoadVisualUpdateTicks = 0;
+                        SetLoadingPresentation(false);
                         _openButton.Text = "Open MIDI...";
                         if (task.IsCanceled)
                         {
@@ -585,7 +597,8 @@ namespace MidiBottleneck
             _loadingSong = false;
             _loadProgress = null;
             _loadingFileName = null;
-            if (_loadingPanel != null) _loadingPanel.Visible = false;
+            _lastLoadVisualUpdateTicks = 0;
+            SetLoadingPresentation(false);
             if (_openButton != null) _openButton.Text = "Open MIDI...";
             if (_fileLabel != null) _fileLabel.Text = "No file loaded";
             if (_fileInfoLabel != null)
@@ -594,6 +607,25 @@ namespace MidiBottleneck
                 _fileInfoLabel.Visible = true;
             }
             UpdateTransportControls();
+        }
+
+        private void SetLoadingPresentation(bool loading)
+        {
+            if (_fileOutputTable == null) return;
+            if (_fileOutputGroup != null) _fileOutputGroup.SuspendLayout();
+            _fileOutputTable.SuspendLayout();
+            try
+            {
+                _fileInfoLabel.Visible = !loading;
+                _loadingStatusLabel.Visible = loading;
+                _stateLabel.Visible = !loading;
+                _loadingPanel.Visible = loading;
+            }
+            finally
+            {
+                _fileOutputTable.ResumeLayout(true);
+                if (_fileOutputGroup != null) _fileOutputGroup.ResumeLayout(true);
+            }
         }
 
 
@@ -1024,14 +1056,28 @@ namespace MidiBottleneck
             if (!_loadingSong) return;
             MidiLoadProgress progress = _loadProgress;
             if (progress == null) return;
-            string detail = progress.Stage + " — " + (progress.OverallPermille / 10.0).ToString("N1", CultureInfo.CurrentCulture) + "% overall";
-            if (String.Equals(detail, _lastLoadStatus, StringComparison.Ordinal)) return;
-            _lastLoadStatus = detail;
-            _loadingStatusLabel.Text = detail;
+            long now = Stopwatch.GetTimestamp();
+            if (_lastLoadVisualUpdateTicks != 0 &&
+                (now - _lastLoadVisualUpdateTicks) * 1000L < Stopwatch.Frequency * 33L)
+                return;
+            _lastLoadVisualUpdateTicks = now;
+
+            // Bar sampling is independent of descriptive text changes.  The
+            // parser publishes only its latest immutable progress snapshot, so
+            // this cannot queue redundant UI work.
             if (_loadActivity.Value != progress.OverallPermille) _loadActivity.Value = progress.OverallPermille;
             if (_loadStageActivity.Value != progress.StagePermille) _loadStageActivity.Value = progress.StagePermille;
-            _toolTip.SetToolTip(_loadingPanel, detail + ". The upper bar shows overall parser work; the lower bar shows the current stage. Click Cancel to stop loading.");
-            _toolTip.SetToolTip(_loadingStatusLabel, detail);
+            string detail = progress.Stage + Environment.NewLine +
+                (progress.OverallPermille / 10.0).ToString("N1", CultureInfo.CurrentCulture) + "% overall  •  " +
+                (progress.StagePermille / 10.0).ToString("N1", CultureInfo.CurrentCulture) + "% stage";
+            if (!String.Equals(detail, _lastLoadStatus, StringComparison.Ordinal))
+            {
+                _lastLoadStatus = detail;
+                _loadingStatusLabel.Text = detail;
+                string fullDetail = detail.Replace(Environment.NewLine, " — ");
+                _toolTip.SetToolTip(_loadingPanel, fullDetail + ". The upper bar shows overall parser work; the lower bar shows the current stage. Click Cancel to stop loading.");
+                _toolTip.SetToolTip(_loadingStatusLabel, fullDetail);
+            }
         }
 
         private void SeekBy(long deltaMicroseconds)
@@ -1146,7 +1192,7 @@ namespace MidiBottleneck
             bool compact = ClientSize.Width < 640;
             if (_responsiveLayoutInitialized && compact == _compactLayout) return;
             _responsiveLayoutInitialized = true;
-            if (compact && !_compactLayout) _lastDefaultHeight = Math.Max(565, Height);
+            if (compact && !_compactLayout) _lastDefaultHeight = Math.Max(MinimumSize.Height, Height);
             _compactLayout = compact;
             List<Control> suspended = new List<Control>();
             SuspendLayout();
@@ -1155,15 +1201,16 @@ namespace MidiBottleneck
             {
                 if (compact)
                 {
-                    MinimumSize = new Size(500, 470);
-                    MaximumSize = new Size(10000, 470);
+                    // Remove the previous cap while the realized preferred
+                    // height is measured below.
+                    MaximumSize = Size.Empty;
+                    MinimumSize = new Size(500, 100);
                 }
                 else
                 {
                     MaximumSize = Size.Empty;
-                    MinimumSize = new Size(560, 565);
+                    MinimumSize = new Size(560, 100);
                 }
-                if (!compact && Height < _lastDefaultHeight) Height = _lastDefaultHeight;
                 _rootLayout.Padding = compact ? new Padding(2) : new Padding(5);
                 _statisticsView.Compact = compact;
                 _queueLimitCheck.Text = compact ? "Queue limit:" : "Queue length limit:";
@@ -1187,7 +1234,9 @@ namespace MidiBottleneck
                 _serviceUnitLabel.Margin = compact ? new Padding(0, 5, 2, 2) : new Padding(0, 6, 3, 3);
                 _dinPresetButton.Margin = compact ? new Padding(1, 0, 1, 0) : new Padding(3, 0, 3, 0);
                 _processingTable.Padding = compact ? new Padding(0) : new Padding(1);
-                _processingSlider.Margin = compact ? new Padding(0, 0, 0, 0) : new Padding(3);
+                // The one-pixel compact inset keeps the native TrackBar paint
+                // from touching the rate-model row above it.
+                _processingSlider.Margin = compact ? new Padding(0, 1, 0, 0) : new Padding(3);
                 _processingSlider.AutoSize = false;
                 _processingSlider.Height = compact ? 32 : 36;
                 _dinPresetButton.Visible = !_compactLayout && _engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate;
@@ -1228,9 +1277,54 @@ namespace MidiBottleneck
                 _statisticsGroup.PerformLayout();
                 _rootLayout.PerformLayout();
                 PerformLayout();
+                ApplyMeasuredWindowConstraints(true);
                 _statisticsView.Refresh();
             }
         }
+
+        protected override void OnShown(EventArgs e)
+        {
+            base.OnShown(e);
+            // The non-client metrics and AutoSize descendants are authoritative
+            // only after a real handle has completed its first layout.
+            _statisticsGroup.PerformLayout();
+            _rootLayout.PerformLayout();
+            PerformLayout();
+            ApplyMeasuredWindowConstraints(false);
+        }
+
+        private void ApplyMeasuredWindowConstraints(bool restoreDefaultHeight)
+        {
+            int requiredHeight = CalculateRequiredWindowHeight();
+            if (_compactLayout)
+            {
+                MinimumSize = new Size(500, requiredHeight);
+                MaximumSize = new Size(10000, requiredHeight);
+                if (Height != requiredHeight) Height = requiredHeight;
+            }
+            else
+            {
+                MaximumSize = Size.Empty;
+                MinimumSize = new Size(560, requiredHeight);
+                if (restoreDefaultHeight && Height < Math.Max(requiredHeight, _lastDefaultHeight))
+                    Height = Math.Max(requiredHeight, _lastDefaultHeight);
+            }
+        }
+
+        private int CalculateRequiredWindowHeight()
+        {
+            int contentBottom = _rootLayout.Padding.Top;
+            for (int i = 0; i < _rootLayout.Controls.Count; i++)
+            {
+                Control child = _rootLayout.Controls[i];
+                if (child.Visible && child.Bottom > contentBottom) contentBottom = child.Bottom;
+            }
+            int requiredClientHeight = contentBottom + _rootLayout.Padding.Bottom;
+            int nonClientHeight = Math.Max(0, Height - ClientSize.Height);
+            return Math.Max(1, requiredClientHeight + nonClientHeight);
+        }
+
+        internal int RealizedRequiredWindowHeight { get { return CalculateRequiredWindowHeight(); } }
 
         private static void SuspendLayoutTree(Control control, List<Control> suspended)
         {

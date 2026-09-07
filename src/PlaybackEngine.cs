@@ -619,9 +619,9 @@ namespace MidiBottleneck
                 long maximumLag = 0;
                 try
                 {
-                    while (nextIndex < chunkEnd && IsEffectiveZeroService())
+                    while (nextIndex < chunkEnd)
                     {
-                        if ((sent & 63) == 0 && !IsPlaying()) break;
+                        if ((sent & 63) == 0 && (!IsPlaying() || !IsEffectiveZeroService())) break;
                         MidiEvent midiEvent = _song.Events[nextIndex];
                         long actualTicks = transportAtBatchStart + Stopwatch.GetTimestamp() - stopwatchAtBatchStart;
                         _output.Send(midiEvent);

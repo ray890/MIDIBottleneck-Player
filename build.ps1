@@ -9,6 +9,7 @@ $compiler = 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 $buildDirectory = Join-Path $projectRoot 'build'
 $distributionDirectory = Join-Path $projectRoot 'dist'
 $manifest = Join-Path $projectRoot 'app.manifest'
+$runtimeConfiguration = Join-Path $projectRoot 'app.config'
 
 if (-not (Test-Path -LiteralPath $compiler)) {
     throw "The Windows .NET Framework C# compiler was not found at $compiler"
@@ -45,10 +46,12 @@ function Build-Architecture([string]$architecture, [int]$expectedMachine) {
         throw ("{0} PE machine mismatch: expected 0x{1:X4}, got 0x{2:X4}." -f $architecture, $expectedMachine, $machine)
     }
     Write-Host ("Built {0} (PE machine 0x{1:X4})" -f $application, $machine)
+    Copy-Item -LiteralPath $runtimeConfiguration -Destination ($application + '.config') -Force
 
     if ($Test) {
         & $compiler /nologo /target:exe "/platform:$architecture" "/define:$define" /optimize+ /warn:4 /nowarn:0649 "/out:$testApplication" /reference:System.dll /reference:System.Core.dll /reference:System.Drawing.dll /reference:System.Windows.Forms.dll $testSources
         if ($LASTEXITCODE -ne 0) { throw "$architecture test compilation failed." }
+        Copy-Item -LiteralPath $runtimeConfiguration -Destination ($testApplication + '.config') -Force
         if ($MidiIntegration) { & $testApplication --midi-integration } else { & $testApplication }
         if ($LASTEXITCODE -ne 0) { throw "$architecture tests failed." }
     }

@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace MidiBottleneck
 {
@@ -39,6 +42,10 @@ namespace MidiBottleneck
         }
 
         private IntPtr _handle;
+        private uint _deviceId;
+        private string _deviceName;
+        private bool _preparedLongMessagesUnsafe;
+        private bool _usesCumulativeByteCountResults;
         private readonly List<LongBuffer> _longBuffers = new List<LongBuffer>();
         private readonly SystemExclusiveAssembler _systemExclusiveAssembler = new SystemExclusiveAssembler();
         public string SourceFile { get; set; }
@@ -65,8 +72,75 @@ namespace MidiBottleneck
         public void Open(uint deviceId)
         {
             DisposeHandle();
+            string deviceName = GetDeviceName(deviceId);
             uint result = midiOutOpen(out _handle, deviceId, IntPtr.Zero, IntPtr.Zero, 0);
-            ThrowIfError(result, "opening the MIDI output");
+            ThrowIfError(result, "opening MIDI output " + deviceName + " (device " + deviceId + ")");
+            _deviceId = deviceId;
+            _deviceName = deviceName;
+            try { EnsureLocalProviderReady(); }
+            catch
+            {
+                DisposeHandle();
+                throw;
+            }
+        }
+
+        private void EnsureLocalProviderReady()
+        {
+            _preparedLongMessagesUnsafe = false;
+            _usesCumulativeByteCountResults = false;
+            string modulePath = GetLoadedModulePath();
+            string moduleDirectory = null;
+            try { moduleDirectory = Path.GetDirectoryName(Path.GetFullPath(modulePath)); }
+            catch { }
+            if (!String.Equals(moduleDirectory, Path.GetFullPath(AppDomain.CurrentDomain.BaseDirectory).TrimEnd(Path.DirectorySeparatorChar),
+                StringComparison.OrdinalIgnoreCase)) return;
+
+            string description = null;
+            try { description = FileVersionInfo.GetVersionInfo(modulePath).FileDescription; }
+            catch { }
+            _preparedLongMessagesUnsafe = IsPreparedLongMessageUnsafeDescription(description);
+
+            // Some application-local wrappers return from midiOutOpen before
+            // their synth worker is ready.  Require two consecutive standard
+            // MMSYSERR_NOERROR results from harmless sustain-off probes.  No
+            // nonzero result is ever accepted for real song data.
+            const uint sustainOffChannelOne = 0x0040B0;
+            List<uint> observed = new List<uint>();
+            Stopwatch timer = Stopwatch.StartNew();
+            int consecutiveSuccesses = 0;
+            uint last = 0;
+            do
+            {
+                last = midiOutShortMsg(_handle, sustainOffChannelOne);
+                if (observed.Count < 16) observed.Add(last);
+                if (observed.Count >= 4 && IsCumulativeByteCountContract(observed))
+                {
+                    _usesCumulativeByteCountResults = true;
+                    return;
+                }
+                if (last == 0)
+                {
+                    consecutiveSuccesses++;
+                    if (consecutiveSuccesses >= 2) return;
+                }
+                else consecutiveSuccesses = 0;
+                Thread.Sleep(10);
+            }
+            while (timer.ElapsedMilliseconds < 5000);
+            ThrowIfError(last, "waiting for two accepted initialization probes from " + OutputIdentity() +
+                "; first returns " + String.Join(", ", observed.ConvertAll(delegate(uint value) { return value.ToString(); }).ToArray()));
+        }
+
+        internal static bool IsPreparedLongMessageUnsafeDescription(string description)
+        {
+            return String.Equals(description, "WinMM to KDMAPI or syndrv", StringComparison.OrdinalIgnoreCase);
+        }
+
+        internal static bool IsCumulativeByteCountContract(IList<uint> results)
+        {
+            if (results == null || results.Count < 4) return false;
+            return results[0] == 0 && results[1] == 3 && results[2] == 6 && results[3] == 9;
         }
 
         public void Send(MidiEvent midiEvent)
@@ -86,7 +160,9 @@ namespace MidiBottleneck
             uint message = midiEvent.Data[0];
             if (midiEvent.Data.Length > 1) message |= (uint)midiEvent.Data[1] << 8;
             if (midiEvent.Data.Length > 2) message |= (uint)midiEvent.Data[2] << 16;
-            ThrowIfError(midiOutShortMsg(_handle, message), "sending a MIDI message");
+            uint result = midiOutShortMsg(_handle, message);
+            if (!_usesCumulativeByteCountResults)
+                ThrowIfError(result, "sending a short MIDI message through " + OutputIdentity());
         }
 
         public void Panic()
@@ -95,10 +171,40 @@ namespace MidiBottleneck
             for (int channel = 0; channel < 16; channel++)
             {
                 uint status = (uint)(0xB0 | channel);
-                midiOutShortMsg(_handle, status | ((uint)120 << 8));
-                midiOutShortMsg(_handle, status | ((uint)123 << 8));
-                midiOutShortMsg(_handle, status | ((uint)64 << 8));
+                SendPanicMessage(status | ((uint)120 << 8), "CC120");
+                SendPanicMessage(status | ((uint)123 << 8), "CC123");
+                SendPanicMessage(status | ((uint)64 << 8), "sustain-off");
             }
+        }
+
+        private void SendPanicMessage(uint message, string name)
+        {
+            uint result = midiOutShortMsg(_handle, message);
+            if (!_usesCumulativeByteCountResults)
+                ThrowIfError(result, "sending " + name + " panic through " + OutputIdentity());
+        }
+
+        private string OutputIdentity()
+        {
+            return (_deviceName ?? "Windows MIDI output") + " (device " + _deviceId + ", handle 0x" +
+                _handle.ToInt64().ToString("X") + ", module " + GetLoadedModulePath() + ")";
+        }
+
+        private static string GetDeviceName(uint deviceId)
+        {
+            List<MidiOutputDeviceInfo> devices = GetDevices();
+            for (int i = 0; i < devices.Count; i++)
+                if (devices[i].DeviceId == deviceId) return devices[i].Name;
+            return "MIDI output " + deviceId;
+        }
+
+        internal static string GetLoadedModulePath()
+        {
+            IntPtr module = GetModuleHandle("winmm.dll");
+            if (module == IntPtr.Zero) return "not loaded";
+            System.Text.StringBuilder path = new System.Text.StringBuilder(1024);
+            uint length = GetModuleFileName(module, path, path.Capacity);
+            return length == 0 ? "unknown" : path.ToString();
         }
 
         public void Reset()
@@ -122,6 +228,11 @@ namespace MidiBottleneck
 
         private void SendLong(SystemExclusivePacket packet, MidiEvent finalEvent)
         {
+            if (_preparedLongMessagesUnsafe)
+                throw new NotSupportedException("The selected application-local WinMM provider does not expose a safely verifiable " +
+                    "standard prepared-long-message path. System Exclusive playback was stopped instead of risking the native " +
+                    "midiOutLongMsg failure reproduced with this provider. Module: " +
+                    GetLoadedModulePath());
             byte[] bytes = packet.Bytes;
             LongBuffer buffer = new LongBuffer();
             int headerSize = Marshal.SizeOf(typeof(NativeMidiHeader));
@@ -194,7 +305,7 @@ namespace MidiBottleneck
             if (code == 0) return;
             System.Text.StringBuilder text = new System.Text.StringBuilder(256);
             midiOutGetErrorText(code, text, text.Capacity);
-            throw new Win32Exception((int)code, "MIDI error while " + action + ": " + text);
+            throw new Win32Exception((int)code, "MIDI error while " + action + " (native code " + code + "): " + text);
         }
 
         private void ThrowLongIfError(uint code, string operation, SystemExclusivePacket packet,
@@ -222,6 +333,10 @@ namespace MidiBottleneck
             _systemExclusiveAssembler.Reset();
             midiOutClose(_handle);
             _handle = IntPtr.Zero;
+            _deviceName = null;
+            _deviceId = 0;
+            _preparedLongMessagesUnsafe = false;
+            _usesCumulativeByteCountResults = false;
         }
 
         [DllImport("winmm.dll")]
@@ -244,5 +359,9 @@ namespace MidiBottleneck
         private static extern uint midiOutLongMsg(IntPtr handle, IntPtr header, uint headerSize);
         [DllImport("winmm.dll", CharSet = CharSet.Auto)]
         private static extern uint midiOutGetErrorText(uint error, System.Text.StringBuilder text, int textLength);
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern IntPtr GetModuleHandle(string moduleName);
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern uint GetModuleFileName(IntPtr module, System.Text.StringBuilder fileName, int size);
     }
 }

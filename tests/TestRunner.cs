@@ -47,6 +47,31 @@ namespace MidiBottleneck.Tests
                     Console.WriteLine("PASS: KDMAPI integration");
                     return 0;
                 }
+                if (arguments.Length == 2 && arguments[0] == "--kdmapi-provider-probe")
+                {
+                    ProbeKdmApiProvider(arguments[1], true);
+                    return 0;
+                }
+                if (arguments.Length == 2 && arguments[0] == "--kdmapi-provider-short-probe")
+                {
+                    ProbeKdmApiProvider(arguments[1], false);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--winmm-short-probe")
+                {
+                    ProbeWinMmProvider(false);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--winmm-sysex-probe")
+                {
+                    ProbeWinMmProvider(true);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--winmm-raw-probe")
+                {
+                    ProbeRawWinMmReturns();
+                    return 0;
+                }
                 if (arguments.Length == 1 && arguments[0] == "--kdmapi-header-probe")
                 {
                     ProbeKdmApiHeaderContract();
@@ -107,6 +132,11 @@ namespace MidiBottleneck.Tests
                 if (arguments.Length == 2 && arguments[0] == "--render-ui")
                 {
                     RenderMainWindow(arguments[1], false, false, false);
+                    return 0;
+                }
+                if (arguments.Length == 2 && arguments[0] == "--render-ui-default-min")
+                {
+                    RenderDefaultMinimumMainWindow(arguments[1]);
                     return 0;
                 }
                 if (arguments.Length == 2 && arguments[0] == "--render-ui-bitrate")
@@ -196,6 +226,8 @@ namespace MidiBottleneck.Tests
                 }
                 if (arguments.Length == 1 && arguments[0] == "--test-finishing-ui")
                 {
+                    RunFocused("contiguous event-storage limit fails clearly before allocation", TestContiguousEventStorageLimit);
+                    RunFocused("controlled KDMAPI provider selection and architecture validation", TestKdmApiProviderSelection);
                     RunFocused("background loading, stale-result rejection, and unload", TestBackgroundMidiLoading);
                     RunFocused("asynchronous Analysis refresh and resolution policy", TestAsynchronousAnalysis);
                     RunFocused("configured whole-file Analysis window", TestAnalysisWindowConstruction);
@@ -231,6 +263,7 @@ namespace MidiBottleneck.Tests
                 Run("OmniMIDI rejected packet regression structures and MIDIHDR fields", TestOmniMidiPacketStructures);
                 Run("KDMAPI short, SysEx, reset, and stream lifecycle", TestKdmApiOutput);
                 Run("KDMAPI initialization failure cleanup", TestKdmApiInitializationCleanup);
+                Run("controlled KDMAPI provider selection and architecture validation", TestKdmApiProviderSelection);
                 Run("Stop and Seek reset then silence MIDI output", TestOutputResetSilenceContract);
                 Run("Reset stats does not disrupt playback", TestResetStatisticsDuringPlayback);
                 Run("processing slider low-range mapping and track clicks", TestProcessingSliderMapping);
@@ -362,6 +395,24 @@ namespace MidiBottleneck.Tests
             Console.WriteLine("Rendered UI: " + Path.GetFullPath(outputPath));
         }
 
+        private static void RenderDefaultMinimumMainWindow(string outputPath)
+        {
+            Application.EnableVisualStyles();
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); Application.DoEvents();
+                form.ClientSize = new Size(640, form.ClientSize.Height); Application.DoEvents();
+                form.Size = new Size(form.Width, form.MinimumSize.Height); Application.DoEvents();
+                using (Bitmap bitmap = new Bitmap(form.Width, form.Height))
+                {
+                    CaptureForm(form, bitmap);
+                    bitmap.Save(outputPath);
+                }
+                Console.WriteLine("Rendered default minimum " + form.Width + "x" + form.Height + ": " + Path.GetFullPath(outputPath));
+                form.Close();
+            }
+        }
+
         private static void RenderMainWindowAtWidth(string outputPath, int clientWidth)
         {
             Application.EnableVisualStyles();
@@ -459,8 +510,7 @@ namespace MidiBottleneck.Tests
                 PumpFor(100);
                 using (Bitmap bitmap = new Bitmap(form.Width, form.Height))
                 {
-                    using (Graphics graphics = Graphics.FromImage(bitmap))
-                        graphics.CopyFromScreen(form.Location, Point.Empty, form.Size);
+                    CaptureForm(form, bitmap);
                     bitmap.Save(outputPath);
                 }
                 form.Close();
@@ -1275,6 +1325,23 @@ namespace MidiBottleneck.Tests
             }
             Equal(1, native.TerminateCount, "KDMAPI terminate count");
             if (native.ResetCount < 2) throw new Exception("KDMAPI stream was not reset before disposal");
+
+            FakeKdmApiNative shortOnly = new FakeKdmApiNative();
+            shortOnly.SupportsLongMessages = false;
+            using (KdmApiMidiOutput output = new KdmApiMidiOutput(shortOnly))
+            {
+                output.Open();
+                output.Send(ChannelEvent(new byte[] { 0x90, 60, 1 }));
+                bool explained = false;
+                try { output.Send(SysExEvent(0xF0, new byte[] { 0xF0, 0x7D, 0x01, 0xF7 })); }
+                catch (NotSupportedException ex)
+                {
+                    explained = ex.Message.IndexOf("short MIDI messages", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                        ex.Message.IndexOf("PrepareLongData", StringComparison.Ordinal) >= 0 &&
+                        ex.Message.IndexOf(shortOnly.ProviderPath, StringComparison.Ordinal) >= 0;
+                }
+                Equal(true, explained, "short-only KDMAPI provider reports its SysEx limitation without dropping data");
+            }
         }
 
         private static void TestKdmApiInitializationCleanup()
@@ -1287,7 +1354,7 @@ namespace MidiBottleneck.Tests
                 try { output.Open(); }
                 catch (InvalidOperationException ex)
                 {
-                    failed = ex.Message.IndexOf("rejected KDMAPI stream initialization", StringComparison.OrdinalIgnoreCase) >= 0;
+                    failed = ex.Message.IndexOf("rejected stream initialization", StringComparison.OrdinalIgnoreCase) >= 0;
                 }
             }
             Equal(true, failed, "phase-specific KDMAPI initialization error");
@@ -1529,6 +1596,173 @@ namespace MidiBottleneck.Tests
             Console.WriteLine("      KDMAPI stream terminated");
         }
 
+        private static void ProbeKdmApiProvider(string providerPath, bool includeSystemExclusive)
+        {
+            Console.WriteLine("Requested KDMAPI provider: " + Path.GetFullPath(providerPath));
+            using (KdmApiMidiOutput output = new KdmApiMidiOutput(providerPath))
+            {
+                Console.WriteLine("Loaded KDMAPI provider: " + output.ProviderPath);
+                Console.WriteLine("Initializing KDMAPI stream");
+                output.Open();
+                Console.WriteLine("Initialized; sending short Note On/Off");
+                output.Send(ChannelEvent(new byte[] { 0x90, 60, 1 }));
+                output.Send(ChannelEvent(new byte[] { 0x80, 60, 0 }));
+                Console.WriteLine("Short messages accepted");
+                if (includeSystemExclusive)
+                {
+                    Console.WriteLine("Sending framed SysEx");
+                    output.Send(SysExEvent(0xF0, new byte[] { 0xF0, 0x7E, 0x7F, 0x09, 0x01, 0xF7 }));
+                    Console.WriteLine("SysEx accepted");
+                }
+                Console.WriteLine("Resetting and silencing");
+                MidiOutputSafety.ResetAndSilence(output);
+                Console.WriteLine("Reset/panic accepted");
+            }
+            Console.WriteLine("KDMAPI provider terminated cleanly");
+        }
+
+        private static void ProbeWinMmProvider(bool includeSystemExclusive)
+        {
+            List<MidiOutputDeviceInfo> devices = WindowsMidiOutput.GetDevices();
+            Console.WriteLine("Loaded winmm module: " + WindowsMidiOutput.GetLoadedModulePath());
+            Console.WriteLine("Enumerated devices: " + devices.Count);
+            for (int i = 0; i < devices.Count; i++)
+                Console.WriteLine("  " + devices[i].DeviceId + ": " + devices[i].Name);
+            if (devices.Count == 0) throw new InvalidOperationException("The selected WinMM provider exposed no MIDI outputs.");
+            MidiOutputDeviceInfo device = devices[0];
+            using (WindowsMidiOutput output = new WindowsMidiOutput())
+            {
+                Console.WriteLine("Opening device " + device.DeviceId + ": " + device.Name);
+                output.Open(device.DeviceId);
+                Console.WriteLine("Opened; sending short Note On");
+                output.Send(ChannelEvent(new byte[] { 0x90, 60, 1 }));
+                Console.WriteLine("Note On accepted; sending short Note Off");
+                output.Send(ChannelEvent(new byte[] { 0x80, 60, 0 }));
+                Console.WriteLine("Short messages accepted");
+                if (includeSystemExclusive)
+                {
+                    Console.WriteLine("Sending framed SysEx");
+                    output.Send(SysExEvent(0xF0, new byte[] { 0xF0, 0x7E, 0x7F, 0x09, 0x01, 0xF7 }));
+                    Console.WriteLine("SysEx accepted");
+                }
+                Console.WriteLine("Resetting and sending panic");
+                MidiOutputSafety.ResetAndSilence(output);
+                Console.WriteLine("Reset/panic accepted");
+            }
+            Console.WriteLine("WinMM provider closed cleanly");
+        }
+
+        private static void ProbeRawWinMmReturns()
+        {
+            List<MidiOutputDeviceInfo> devices = WindowsMidiOutput.GetDevices();
+            Console.WriteLine("Loaded winmm module: " + WindowsMidiOutput.GetLoadedModulePath());
+            if (devices.Count == 0) throw new InvalidOperationException("No WinMM device was exposed.");
+            IntPtr handle;
+            uint open = RawMidiOutOpen(out handle, devices[0].DeviceId, IntPtr.Zero, IntPtr.Zero, 0);
+            Console.WriteLine("midiOutOpen => " + open + ", handle=0x" + handle.ToInt64().ToString("X"));
+            if (open != 0) return;
+            try
+            {
+                uint[] messages = new uint[] { 0x0040B0, 0x00013C90, 0x00003C80, 0x0040B0 };
+                string[] names = new string[] { "sustain-off", "note-on", "note-off", "sustain-off" };
+                for (int i = 0; i < messages.Length; i++)
+                {
+                    uint result = RawMidiOutShortMsg(handle, messages[i]);
+                    Console.WriteLine("immediate " + names[i] + " => " + result);
+                }
+                Thread.Sleep(1000);
+                for (int i = 0; i < messages.Length; i++)
+                {
+                    uint result = RawMidiOutShortMsg(handle, messages[i]);
+                    Console.WriteLine("after 1000 ms " + names[i] + " => " + result);
+                }
+                Console.WriteLine("midiOutReset => " + RawMidiOutReset(handle));
+            }
+            finally { Console.WriteLine("midiOutClose => " + RawMidiOutClose(handle)); }
+        }
+
+        [DllImport("winmm.dll", EntryPoint = "midiOutOpen")]
+        private static extern uint RawMidiOutOpen(out IntPtr handle, uint deviceId, IntPtr callback, IntPtr instance, uint flags);
+        [DllImport("winmm.dll", EntryPoint = "midiOutShortMsg")]
+        private static extern uint RawMidiOutShortMsg(IntPtr handle, uint message);
+        [DllImport("winmm.dll", EntryPoint = "midiOutReset")]
+        private static extern uint RawMidiOutReset(IntPtr handle);
+        [DllImport("winmm.dll", EntryPoint = "midiOutClose")]
+        private static extern uint RawMidiOutClose(IntPtr handle);
+
+        private static MidiEvent ChannelEvent(byte[] data)
+        {
+            return new MidiEvent
+            {
+                Kind = data != null && data.Length > 0 && (data[0] & 0xF0) == 0x80
+                    ? MidiEventKind.NoteOff : MidiEventKind.NoteOn,
+                Channel = data == null || data.Length == 0 ? -1 : data[0] & 0x0F,
+                Status = data == null || data.Length == 0 ? (byte)0 : data[0],
+                Data = data
+            };
+        }
+
+        private static void TestKdmApiProviderSelection()
+        {
+            Equal(true, WindowsMidiOutput.IsPreparedLongMessageUnsafeDescription("WinMM to KDMAPI or syndrv"),
+                "known Snappy WinMM long-message boundary is identified");
+            Equal(false, WindowsMidiOutput.IsPreparedLongMessageUnsafeDescription("OmniMIDI - WinMM/KDMAPI target library"),
+                "OmniMIDI prepared-long-message path remains enabled");
+            Equal(true, WindowsMidiOutput.IsCumulativeByteCountContract(new uint[] { 0, 3, 6, 9 }),
+                "Snappy cumulative accepted-byte contract is recognized exactly");
+            Equal(false, WindowsMidiOutput.IsCumulativeByteCountContract(new uint[] { 0, 3, 0, 0 }),
+                "transient startup recovery is not classified as cumulative results");
+            Equal(false, WindowsMidiOutput.IsCumulativeByteCountContract(new uint[] { 0, 3, 6, 8 }),
+                "arbitrary nonzero WinMM errors are not accepted");
+            string root = Path.Combine(Path.GetTempPath(), "kdm-provider-selection-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            try
+            {
+                string app = Path.Combine(root, "app");
+                string system = Path.Combine(root, "system");
+                Directory.CreateDirectory(app);
+                Directory.CreateDirectory(system);
+                string local = Path.Combine(app, "OmniMIDI.dll");
+                string installed = Path.Combine(system, "OmniMIDI.dll");
+                string explicitProvider = Path.Combine(root, "custom-provider.dll");
+                File.WriteAllBytes(local, new byte[] { 1 });
+                File.WriteAllBytes(installed, new byte[] { 2 });
+                File.WriteAllBytes(explicitProvider, new byte[] { 3 });
+                Equal(Path.GetFullPath(explicitProvider),
+                    DynamicKdmApiNative.ResolveProviderPath(explicitProvider, app, system),
+                    "explicit KDMAPI provider wins");
+                Equal(Path.GetFullPath(local), DynamicKdmApiNative.ResolveProviderPath(null, app, system),
+                    "application-local KDMAPI provider wins over installed provider");
+                File.Delete(local);
+                Equal(Path.GetFullPath(installed), DynamicKdmApiNative.ResolveProviderPath(null, app, system),
+                    "installed KDMAPI provider is fallback");
+
+                ushort currentMachine = DynamicKdmApiNative.ReadPeMachine(Process.GetCurrentProcess().MainModule.FileName);
+                Equal(IntPtr.Size == 8 ? (ushort)0x8664 : (ushort)0x014C, currentMachine,
+                    "provider PE reader matches process architecture");
+                string mismatch = Path.Combine(root, "wrong-architecture.dll");
+                byte[] image = new byte[128];
+                image[0] = 0x4D; image[1] = 0x5A;
+                image[0x3C] = 0x40;
+                image[0x40] = 0x50; image[0x41] = 0x45;
+                ushort wrongMachine = IntPtr.Size == 8 ? (ushort)0x014C : (ushort)0x8664;
+                image[0x44] = (byte)wrongMachine; image[0x45] = (byte)(wrongMachine >> 8);
+                File.WriteAllBytes(mismatch, image);
+                bool rejected = false;
+                try { DynamicKdmApiNative.ValidateProviderArchitecture(mismatch); }
+                catch (BadImageFormatException ex)
+                {
+                    rejected = ex.Message.IndexOf(IntPtr.Size == 8 ? "x64" : "x86", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                        ex.Message.IndexOf(mismatch, StringComparison.OrdinalIgnoreCase) >= 0;
+                }
+                Equal(true, rejected, "wrong-architecture local provider is rejected clearly");
+            }
+            finally
+            {
+                if (Directory.Exists(root)) Directory.Delete(root, true);
+            }
+        }
+
         private static void ProbeKdmApiHeaderContract()
         {
             using (DynamicKdmApiNative native = new DynamicKdmApiNative())
@@ -1665,11 +1899,26 @@ namespace MidiBottleneck.Tests
             catch (InvalidDataException ex)
             {
                 rejected = ex.Message.IndexOf("contiguous event-storage limit", StringComparison.OrdinalIgnoreCase) >= 0 &&
-                    ex.Message.IndexOf("segmented-storage", StringComparison.OrdinalIgnoreCase) >= 0;
+                    ex.Message.IndexOf("structural", StringComparison.OrdinalIgnoreCase) >= 0;
             }
             Equal(true, rejected, "impossible contiguous event allocation is rejected clearly");
-            long expected = Math.Min(Int32.MaxValue, (0x7FEFFFFFL - 64L) / IntPtr.Size);
-            Equal(expected, maximum, "contiguous event limit follows current process pointer width");
+            long legacyX64 = Math.Min(Int32.MaxValue, (0x7FEFFFFFL - 64L) / 8L);
+            long legacyX86 = Math.Min(Int32.MaxValue, (0x7FEFFFFFL - 64L) / 4L);
+            Equal(legacyX64, MidiFileParser.CalculateMaximumContiguousEventCount(8, false), "legacy x64 array byte limit");
+            Equal(legacyX86, MidiFileParser.CalculateMaximumContiguousEventCount(4, true), "x86 remains on legacy array byte limit");
+            Equal(0x7FEFFFFFL, MidiFileParser.CalculateMaximumContiguousEventCount(8, true), "configured x64 VLO element limit");
+            long expected = IntPtr.Size == 8 && MidiFileParser.VeryLargeArraysConfigured() ? 0x7FEFFFFFL :
+                Math.Min(Int32.MaxValue, (0x7FEFFFFFL - 64L) / IntPtr.Size);
+            Equal(expected, maximum, "contiguous event limit follows architecture and runtime configuration");
+
+            bool observedRejected = false;
+            try { MidiFileParser.ValidateObservedContiguousEventCount(maximum + 1, 3, 9); }
+            catch (InvalidDataException ex)
+            {
+                observedRejected = ex.Message.IndexOf("at least", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                    ex.Message.IndexOf("complete file total is not yet known", StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+            Equal(true, observedRejected, "partial running count is not reported as a complete total");
         }
 
         private static void TestBackgroundMidiLoading()
@@ -1696,6 +1945,12 @@ namespace MidiBottleneck.Tests
                     int processingTop = idleProcessing.Top;
                     int playbackTop = idlePlayback.Top;
                     int statisticsTop = idleStatistics.Top;
+                    bool transientVerticalMovement = false;
+                    form.Layout += delegate
+                    {
+                        if (idleProcessing.Top != processingTop || idlePlayback.Top != playbackTop || idleStatistics.Top != statisticsTop)
+                            transientVerticalMovement = true;
+                    };
                     form.BeginMidiLoad(first);
                     Equal("Cancel", form.OpenCommandText, "Open command becomes Cancel while loading");
                     Equal(true, form.LoadingActivityVisible, "loading activity is visible");
@@ -1703,6 +1958,7 @@ namespace MidiBottleneck.Tests
                     Equal(processingTop, idleProcessing.Top, "loading does not move Processing model");
                     Equal(playbackTop, idlePlayback.Top, "loading does not move Playback");
                     Equal(statisticsTop, idleStatistics.Top, "loading does not move Statistics");
+                    Equal(false, transientVerticalMovement, "loading start has no transient lower-group movement");
                     List<Control> loadingControls = new List<Control>();
                     CollectControls(form, loadingControls);
                     List<ProgressBar> loadingBars = new List<ProgressBar>();
@@ -1717,13 +1973,14 @@ namespace MidiBottleneck.Tests
                     if (Math.Max(loadingBars[0].Height, loadingBars[1].Height) <= Math.Min(loadingBars[0].Height, loadingBars[1].Height))
                         throw new Exception("stage progress bar is not the intended restrained half-height indicator");
                     Button cancelButton = FindButton(loadingControls, "Cancel");
+                    CheckBox kdmApi = FindCheckBox(loadingControls, "KDMAPI");
                     Label loadingFile = null;
                     for (int controlIndex = 0; controlIndex < loadingControls.Count; controlIndex++)
                     {
                         Label label = loadingControls[controlIndex] as Label;
                         if (label != null && label.Text.StartsWith("Loading ", StringComparison.Ordinal)) loadingFile = label;
                     }
-                    if (cancelButton == null || loadingFile == null) throw new Exception("loading top-row controls were not found");
+                    if (cancelButton == null || loadingFile == null || kdmApi == null) throw new Exception("loading controls were not found");
                     int cancelTop = form.PointToClient(cancelButton.PointToScreen(Point.Empty)).Y;
                     int fileTop = form.PointToClient(loadingFile.PointToScreen(Point.Empty)).Y;
                     int barsTop = Int32.MaxValue;
@@ -1734,8 +1991,16 @@ namespace MidiBottleneck.Tests
                         barsTop = Math.Min(barsTop, barPoint.Y);
                         barsBottom = Math.Max(barsBottom, barPoint.Y + loadingBars[barIndex].Height);
                     }
-                    if (Math.Abs(cancelTop - fileTop) > 8 || barsTop < cancelTop - 2 || barsBottom > cancelTop + cancelButton.Height + 2)
-                        throw new Exception("loading text and stacked bars are not contained in the original top file row");
+                    int kdmTop = form.PointToClient(kdmApi.PointToScreen(Point.Empty)).Y;
+                    int kdmCenter = kdmTop + kdmApi.Height / 2;
+                    int barsCenter = (barsTop + barsBottom) / 2;
+                    if (Math.Abs(cancelTop - fileTop) > 8 || Math.Abs(kdmCenter - barsCenter) > 5)
+                        throw new Exception("loading filename/status and output-row progress bars are not in their stable row footprints");
+                    int kdmRight = form.PointToClient(kdmApi.PointToScreen(Point.Empty)).X + kdmApi.Width;
+                    int barsLeft = Int32.MaxValue;
+                    for (int barIndex = 0; barIndex < loadingBars.Count; barIndex++)
+                        barsLeft = Math.Min(barsLeft, form.PointToClient(loadingBars[barIndex].PointToScreen(Point.Empty)).X);
+                    if (barsLeft < kdmRight) throw new Exception("loading bars are not positioned beside the KDMAPI checkbox");
                     form.BeginMidiLoad(second);
                     PumpUntil(delegate { return !form.IsLoadingSong; }, 5000, "background MIDI load");
                     if (form.CurrentSong == null || !String.Equals(Path.GetFullPath(second), form.CurrentSong.FilePath, StringComparison.OrdinalIgnoreCase))
@@ -1801,9 +2066,9 @@ namespace MidiBottleneck.Tests
             }
             finally
             {
-                if (File.Exists(first)) File.Delete(first);
-                if (File.Exists(second)) File.Delete(second);
-                if (dense != null && File.Exists(dense)) File.Delete(dense);
+                DeleteFileWhenAvailable(first);
+                DeleteFileWhenAvailable(second);
+                if (dense != null) DeleteFileWhenAvailable(dense);
             }
         }
 
@@ -2984,7 +3249,12 @@ namespace MidiBottleneck.Tests
                 NumericUpDown queueLimitValue = FindNumericWithValue(controls, 2000m);
                 if (slowdown == null || queueLimit == null || kdmApi == null || serviceMode == null || overflow == null || dinPreset == null || queueLimitValue == null)
                     throw new Exception("independent processing policy controls were not found");
-                Equal(new Size(560, 565), form.MinimumSize, "normal-layout minimum window size");
+                Equal(560, form.MinimumSize.Width, "normal-layout minimum width");
+                Equal(form.RealizedRequiredWindowHeight, form.MinimumSize.Height,
+                    "normal-layout minimum height follows realized content");
+                if (form.MinimumSize.Height >= 565)
+                    throw new Exception("normal minimum height was not reduced from its obsolete fixed value: " + form.MinimumSize.Height);
+                int defaultMinimumHeight = form.MinimumSize.Height;
                 GroupBox processingGroup = FindGroupBox(controls, "Processing model");
                 int unlimitedProcessingHeight = processingGroup == null ? 0 : processingGroup.Height;
                 queueLimit.Checked = true;
@@ -2997,13 +3267,18 @@ namespace MidiBottleneck.Tests
                 form.Size = new Size(620, 590);
                 Application.DoEvents();
                 Equal(true, statistics.Compact, "compact layout breakpoint");
-                Equal(new Size(500, 470), form.MinimumSize, "compact-layout realized minimum size");
-                Equal(470, form.MaximumSize.Height, "compact height cap");
+                Equal(500, form.MinimumSize.Width, "compact-layout minimum width");
+                Equal(form.RealizedRequiredWindowHeight, form.MinimumSize.Height,
+                    "compact minimum height follows realized content");
+                int compactMinimumHeight = form.MinimumSize.Height;
+                if (compactMinimumHeight >= 470)
+                    throw new Exception("compact minimum height was not reduced from its obsolete fixed value: " + compactMinimumHeight);
+                Equal(compactMinimumHeight, form.MaximumSize.Height, "compact height cap");
                 Equal(2, statistics.ColumnCount, "compact statistics remain two columns");
                 int[] compactWidths = new int[] { 620, 580, 540, 500 };
                 for (int widthIndex = 0; widthIndex < compactWidths.Length; widthIndex++)
                 {
-                    form.Size = new Size(compactWidths[widthIndex], 470);
+                    form.Size = new Size(compactWidths[widthIndex], compactMinimumHeight);
                     Application.DoEvents();
                     AssertProcessingClusters(form, "active compact resize at " + compactWidths[widthIndex] + " pixels");
                 }
@@ -3051,7 +3326,9 @@ namespace MidiBottleneck.Tests
                 if (restoredStatistics.Y + statistics.Height > form.ClientSize.Height)
                     throw new Exception("restored normal statistics are clipped: top=" + restoredStatistics.Y +
                         ", height=" + statistics.Height + ", client=" + form.ClientSize.Height);
-                Equal(new Size(560, 565), form.MinimumSize, "normal minimum restored");
+                Equal(560, form.MinimumSize.Width, "normal minimum width restored");
+                Equal(form.RealizedRequiredWindowHeight, form.MinimumSize.Height, "normal content-derived minimum restored");
+                Equal(defaultMinimumHeight, form.MinimumSize.Height, "normal minimum height restoration is stable");
                 Equal(Size.Empty, form.MaximumSize, "normal layout removes compact height cap");
                 Equal(true, dinPreset.Visible, "5-pin DIN preset restored on return to default bitrate layout");
                 Equal(100000000m, compactBitrate.Value, "responsive transition preserves configured bitrate");
@@ -3534,6 +3811,22 @@ namespace MidiBottleneck.Tests
             }
         }
 
+        private static void DeleteFileWhenAvailable(string path)
+        {
+            if (String.IsNullOrEmpty(path)) return;
+            Stopwatch wait = Stopwatch.StartNew();
+            while (File.Exists(path))
+            {
+                try { File.Delete(path); return; }
+                catch (IOException)
+                {
+                    if (wait.ElapsedMilliseconds >= 3000) throw;
+                    Application.DoEvents();
+                    Thread.Sleep(10);
+                }
+            }
+        }
+
         private static string CreateDenseMidiFile(int eventCount)
         {
             string path = Path.Combine(Path.GetTempPath(), "midi-bottleneck-dense-" + Guid.NewGuid().ToString("N") + ".mid");
@@ -3758,6 +4051,14 @@ namespace MidiBottleneck.Tests
             public uint LastInitialFlags;
             public readonly List<uint> ShortMessages = new List<uint>();
             public string Version { get { return "test"; } }
+            public string ProviderPath { get { return "test-provider"; } }
+            public bool SupportsLongMessages { get; set; }
+            public string LongMessageStatus { get { return SupportsLongMessages ? "prepared long-message exports available" : "test long-message exports missing"; } }
+
+            public FakeKdmApiNative()
+            {
+                SupportsLongMessages = true;
+            }
 
             public bool IsAvailable() { return true; }
             public bool InitializeStream() { InitializeCount++; return InitializeResult; }
