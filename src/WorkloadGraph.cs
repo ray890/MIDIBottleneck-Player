@@ -35,6 +35,14 @@ namespace MidiBottleneck
         MidiOutput
     }
 
+    internal sealed class TimelineAxisTick
+    {
+        public long TimeMicroseconds;
+        public int X;
+        public string Label;
+        public Rectangle LabelBounds;
+    }
+
     internal sealed class WorkloadGraph : Control
     {
         private WorkloadAnalysis _analysis;
@@ -134,7 +142,9 @@ namespace MidiBottleneck
         {
             get
             {
-                int horizontalAllowance = Math.Max(42, TextRenderer.MeasureText("00:00", _labelFont).Width / 2 + 8);
+                long span = Math.Max(1, _viewEnd - _viewStart);
+                string endLabel = FormatAxisClock(Math.Max(_viewStart, _viewEnd), ChooseTimelineTickInterval(span, Math.Max(100, ClientSize.Width)));
+                int horizontalAllowance = Math.Max(42, TextRenderer.MeasureText(endLabel, _labelFont).Width / 2 + 8);
                 int top = 42;
                 bool finite = _analysis != null && _analysis.Configuration != null && _analysis.Configuration.QueueLengthLimitEnabled;
                 bool narrow = ClientSize.Width - horizontalAllowance * 2 < 430;
@@ -520,13 +530,80 @@ namespace MidiBottleneck
 
         private void DrawTimelineAxis(Graphics graphics, Rectangle area)
         {
-            for (int tick = 0; tick <= 4; tick++)
+            System.Collections.Generic.IList<TimelineAxisTick> ticks = BuildTimelineTicks(area);
+            using (Pen tickPen = new Pen(Color.FromArgb(155, 165, 175), 1F))
             {
-                int x = area.Left + area.Width * tick / 4;
-                long time = _viewStart + (_viewEnd - _viewStart) * tick / 4;
-                TextRenderer.DrawText(graphics, FormatClock(time), _labelFont, new Rectangle(x - 42, area.Bottom + 2, 84, 18), Color.Silver,
-                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
+                for (int index = 0; index < ticks.Count; index++)
+                {
+                    TimelineAxisTick tick = ticks[index];
+                    graphics.DrawLine(tickPen, tick.X, area.Bottom + 1, tick.X, area.Bottom + 4);
+                    TextRenderer.DrawText(graphics, tick.Label, _labelFont, tick.LabelBounds, Color.Silver,
+                        TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);
+                }
             }
+        }
+
+        internal System.Collections.Generic.IList<TimelineAxisTick> TimelineTicks
+        {
+            get { return BuildTimelineTicks(GraphArea); }
+        }
+
+        private System.Collections.Generic.IList<TimelineAxisTick> BuildTimelineTicks(Rectangle area)
+        {
+            System.Collections.Generic.List<TimelineAxisTick> result = new System.Collections.Generic.List<TimelineAxisTick>();
+            if (_viewEnd <= _viewStart || area.Width <= 0) return result;
+            long span = _viewEnd - _viewStart;
+            long interval = ChooseTimelineTickInterval(span, area.Width);
+            long remainder = _viewStart % interval;
+            long first = remainder == 0 ? _viewStart : checked(_viewStart + (interval - remainder));
+            const int safetyGap = 10;
+            int previousRight = Int32.MinValue;
+            for (long time = first; time <= _viewEnd; )
+            {
+                string label = FormatAxisClock(time, interval);
+                Size measured = TextRenderer.MeasureText(label, _labelFont, Size.Empty,
+                    TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);
+                int x = area.Left + (int)Math.Round(area.Width * (time - _viewStart) / (double)span);
+                Rectangle bounds = new Rectangle(x - measured.Width / 2, area.Bottom + 5, measured.Width, Math.Max(16, measured.Height));
+                if (bounds.Left >= 2 && bounds.Right <= ClientSize.Width - 2 && bounds.Left >= previousRight + safetyGap)
+                {
+                    result.Add(new TimelineAxisTick { TimeMicroseconds = time, X = x, Label = label, LabelBounds = bounds });
+                    previousRight = bounds.Right;
+                }
+                if (time > Int64.MaxValue - interval) break;
+                time += interval;
+            }
+            return result;
+        }
+
+        internal static long ChooseTimelineTickInterval(long visibleSpanMicroseconds, int plotWidth)
+        {
+            long[] nice = new long[]
+            {
+                1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000,
+                1000000, 2000000, 5000000, 10000000, 15000000, 30000000,
+                60000000, 120000000, 300000000, 600000000, 900000000,
+                1800000000, 3600000000, 7200000000, 18000000000, 36000000000
+            };
+            visibleSpanMicroseconds = Math.Max(1, visibleSpanMicroseconds);
+            int targetTicks = Math.Max(2, plotWidth / 76);
+            long minimum = Math.Max(1, (visibleSpanMicroseconds + targetTicks - 1) / targetTicks);
+            for (int i = 0; i < nice.Length; i++) if (nice[i] >= minimum) return nice[i];
+            long hours = 3600000000L;
+            long multiples = (minimum + hours - 1) / hours;
+            return checked(Math.Max(1, multiples) * hours);
+        }
+
+        internal static string FormatAxisClock(long microseconds, long intervalMicroseconds)
+        {
+            TimeSpan value = TimeSpan.FromTicks(Math.Max(0, microseconds) * 10);
+            bool hours = value.TotalHours >= 1;
+            string prefix = hours
+                ? ((long)value.TotalHours).ToString("00") + ":" + value.Minutes.ToString("00") + ":" + value.Seconds.ToString("00")
+                : ((long)value.TotalMinutes).ToString("00") + ":" + value.Seconds.ToString("00");
+            if (intervalMicroseconds < 1000000)
+                return prefix + "." + value.Milliseconds.ToString("000");
+            return prefix;
         }
 
         private void DrawMarkerLanes(Graphics graphics, Rectangle area)

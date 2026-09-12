@@ -46,9 +46,26 @@ namespace MidiBottleneck
         private string _deviceName;
         private bool _preparedLongMessagesUnsafe;
         private bool _usesCumulativeByteCountResults;
+        private readonly Func<IntPtr, uint, uint> _sendShort;
+        private readonly bool _testBoundary;
+        private string _outputIdentity;
+        private static readonly int HeaderSize = Marshal.SizeOf(typeof(NativeMidiHeader));
         private readonly List<LongBuffer> _longBuffers = new List<LongBuffer>();
         private readonly SystemExclusiveAssembler _systemExclusiveAssembler = new SystemExclusiveAssembler();
         public string SourceFile { get; set; }
+
+        public WindowsMidiOutput() { _sendShort = midiOutShortMsg; }
+
+        // Deterministic boundary injection exercises the production adapter's
+        // packing, reclamation and result handling without opening hardware.
+        internal WindowsMidiOutput(Func<IntPtr, uint, uint> sendShort)
+        {
+            _sendShort = sendShort;
+            _testBoundary = true;
+            _handle = new IntPtr(1);
+            _deviceName = "Deterministic WinMM boundary";
+            _outputIdentity = OutputIdentity();
+        }
 
         public static List<MidiOutputDeviceInfo> GetDevices()
         {
@@ -77,6 +94,7 @@ namespace MidiBottleneck
             ThrowIfError(result, "opening MIDI output " + deviceName + " (device " + deviceId + ")");
             _deviceId = deviceId;
             _deviceName = deviceName;
+            _outputIdentity = OutputIdentity();
             try { EnsureLocalProviderReady(); }
             catch
             {
@@ -160,9 +178,9 @@ namespace MidiBottleneck
             uint message = midiEvent.Data[0];
             if (midiEvent.Data.Length > 1) message |= (uint)midiEvent.Data[1] << 8;
             if (midiEvent.Data.Length > 2) message |= (uint)midiEvent.Data[2] << 16;
-            uint result = midiOutShortMsg(_handle, message);
-            if (!_usesCumulativeByteCountResults)
-                ThrowIfError(result, "sending a short MIDI message through " + OutputIdentity());
+            uint result = _sendShort(_handle, message);
+            if (result != 0 && !_usesCumulativeByteCountResults)
+                ThrowIfError(result, "sending a short MIDI message through " + _outputIdentity);
         }
 
         public void Panic()
@@ -179,9 +197,9 @@ namespace MidiBottleneck
 
         private void SendPanicMessage(uint message, string name)
         {
-            uint result = midiOutShortMsg(_handle, message);
-            if (!_usesCumulativeByteCountResults)
-                ThrowIfError(result, "sending " + name + " panic through " + OutputIdentity());
+            uint result = _sendShort(_handle, message);
+            if (result != 0 && !_usesCumulativeByteCountResults)
+                ThrowIfError(result, "sending " + name + " panic through " + _outputIdentity);
         }
 
         private string OutputIdentity()
@@ -262,7 +280,8 @@ namespace MidiBottleneck
 
         private void ReclaimCompletedLongMessages()
         {
-            int headerSize = Marshal.SizeOf(typeof(NativeMidiHeader));
+            if (_longBuffers.Count == 0) return;
+            int headerSize = HeaderSize;
             for (int i = _longBuffers.Count - 1; i >= 0; i--)
             {
                 NativeMidiHeader header = (NativeMidiHeader)Marshal.PtrToStructure(_longBuffers[i].Header, typeof(NativeMidiHeader));
@@ -328,12 +347,14 @@ namespace MidiBottleneck
         private void DisposeHandle()
         {
             if (_handle == IntPtr.Zero) return;
+            if (_testBoundary) { _handle = IntPtr.Zero; return; }
             midiOutReset(_handle);
             ReclaimAllLongMessages();
             _systemExclusiveAssembler.Reset();
             midiOutClose(_handle);
             _handle = IntPtr.Zero;
             _deviceName = null;
+            _outputIdentity = null;
             _deviceId = 0;
             _preparedLongMessagesUnsafe = false;
             _usesCumulativeByteCountResults = false;

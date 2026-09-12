@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using System.Runtime.CompilerServices;
 
 namespace MidiBottleneck
 {
@@ -72,12 +73,49 @@ namespace MidiBottleneck
         public int PredictedBufferClears;
         public double EventServiceCapacityPerSecond;
         public double ByteServiceCapacityPerSecond;
+
+        internal WorkloadAnalysis CopyWorkload(AnalysisConfiguration configuration, CancellationToken token)
+        {
+            WorkloadAnalysis copy = (WorkloadAnalysis)MemberwiseClone();
+            copy.Configuration = configuration;
+            copy.Buckets = new WorkloadBucket[Buckets.Length];
+            for (int i = 0; i < Buckets.Length; i++)
+            {
+                if ((i & 4095) == 0) token.ThrowIfCancellationRequested();
+                copy.Buckets[i] = new WorkloadBucket { EventCount = Buckets[i].EventCount,
+                    ByteCount = Buckets[i].ByteCount, LargestCluster = Buckets[i].LargestCluster };
+            }
+            return copy;
+        }
+
+        internal WorkloadAnalysis WithConfiguration(AnalysisConfiguration configuration)
+        {
+            if (Configuration != null && configuration != null &&
+                Configuration.SimulateSlowdown == configuration.SimulateSlowdown &&
+                Configuration.ServiceDurationMode == configuration.ServiceDurationMode &&
+                Configuration.ProcessingMicroseconds == configuration.ProcessingMicroseconds &&
+                Configuration.MidiBitrate == configuration.MidiBitrate &&
+                Configuration.QueueLengthLimitEnabled == configuration.QueueLengthLimitEnabled &&
+                Configuration.QueueLengthLimit == configuration.QueueLengthLimit &&
+                Configuration.OverflowPolicy == configuration.OverflowPolicy) return this;
+            WorkloadAnalysis copy = (WorkloadAnalysis)MemberwiseClone();
+            copy.Configuration = configuration;
+            return copy;
+        }
     }
 
     internal static class WorkloadAnalyzer
     {
         public const long DefaultBucketMicroseconds = 100000;
         public const int MaximumBucketCount = 2000000;
+        private sealed class SongWorkloads
+        {
+            public readonly Dictionary<long, WorkloadAnalysis> Results = new Dictionary<long, WorkloadAnalysis>();
+            public readonly Queue<long> Order = new Queue<long>();
+            public int Buckets;
+        }
+        private static readonly ConditionalWeakTable<MidiSong, SongWorkloads> Workloads = new ConditionalWeakTable<MidiSong, SongWorkloads>();
+        internal static long WorkloadScanCount;
 
         public static WorkloadAnalysis Analyze(MidiSong song)
         {
@@ -109,6 +147,69 @@ namespace MidiBottleneck
             CancellationToken cancellationToken, Action<WorkloadAnalysisProgress> progress)
         {
             if (song == null) throw new ArgumentNullException("song");
+            SongWorkloads cache = Workloads.GetOrCreateValue(song);
+            WorkloadAnalysis workload;
+            while (!Monitor.TryEnter(cache, 25)) cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!cache.Results.TryGetValue(bucketMicroseconds, out workload))
+                {
+                    workload = AnalyzeUncached(song, bucketMicroseconds, null, cancellationToken, progress);
+                    while (cache.Order.Count > 0 && (cache.Results.Count >= 2 ||
+                        cache.Buckets + workload.Buckets.Length > MaximumBucketCount))
+                    {
+                        long old = cache.Order.Dequeue();
+                        cache.Buckets -= cache.Results[old].Buckets.Length;
+                        cache.Results.Remove(old);
+                    }
+                    cache.Results.Add(bucketMicroseconds, workload);
+                    cache.Order.Enqueue(bucketMicroseconds);
+                    cache.Buckets += workload.Buckets.Length;
+                }
+            }
+            finally { Monitor.Exit(cache); }
+            WorkloadAnalysis result = workload.CopyWorkload(configuration, cancellationToken);
+            Report(progress, "Reusing file workload", 1, 1, 0, 750);
+            if (configuration == null) { Report(progress, "Complete", 1, 1, 0, 1000); return result; }
+            if (configuration.SimulateSlowdown)
+            {
+                if (configuration.ServiceDurationMode == ServiceDurationMode.ProcessingTime)
+                {
+                    for (int i = 0; i < result.Buckets.Length; i++)
+                    {
+                        if ((i & 4095) == 0) cancellationToken.ThrowIfCancellationRequested();
+                        result.Buckets[i].ServiceDemandMicroseconds = checked(result.Buckets[i].EventCount * configuration.ProcessingMicroseconds);
+                    }
+                    if (configuration.ProcessingMicroseconds > 0)
+                        result.EventServiceCapacityPerSecond = 1000000.0 / configuration.ProcessingMicroseconds;
+                }
+                else
+                {
+                    // Per-message rounding is exact; aggregate byte totals
+                    // cannot substitute for the sum of rounded service times.
+                    for (int i = 0; i < song.Events.Count; i++)
+                    {
+                        if ((i & 16383) == 0)
+                        {
+                            cancellationToken.ThrowIfCancellationRequested();
+                            Report(progress, "Calculating serial service demand", i, song.Events.Count, 750, 0);
+                        }
+                        int bucket = (int)Math.Min(result.Buckets.Length - 1, Math.Max(0, song.Events[i].IntendedMicroseconds / bucketMicroseconds));
+                        result.Buckets[bucket].ServiceDemandMicroseconds += EventServiceMicroseconds(song.Events[i], configuration);
+                    }
+                    result.ByteServiceCapacityPerSecond = configuration.MidiBitrate / 10.0;
+                }
+            }
+            AnalyzePressure(song, result, configuration, cancellationToken, progress);
+            return result;
+        }
+
+        internal static WorkloadAnalysis AnalyzeUncached(MidiSong song, long bucketMicroseconds, AnalysisConfiguration configuration,
+            CancellationToken cancellationToken, Action<WorkloadAnalysisProgress> progress)
+        {
+            if (song == null) throw new ArgumentNullException("song");
+            Interlocked.Increment(ref WorkloadScanCount);
             int bucketCount = CalculateBucketCount(song.DurationMicroseconds, bucketMicroseconds);
             WorkloadAnalysis result = new WorkloadAnalysis
             {
@@ -213,7 +314,7 @@ namespace MidiBottleneck
                     result.ByteServiceCapacityPerSecond = configuration.MidiBitrate / 10.0;
                 AnalyzePressure(song, result, configuration, cancellationToken, progress);
             }
-            else Report(progress, "Complete", 1, 1, 750, 250);
+            else Report(progress, "File workload complete", 1, 1, 0, 750);
             return result;
         }
 
@@ -261,6 +362,7 @@ namespace MidiBottleneck
             bool busy = false;
             long completion = 0;
             int limit = Math.Max(1, configuration.QueueLengthLimit);
+            CompleteNoteTracker completeNotes = new CompleteNoteTracker();
             for (int i = 0; i < song.Events.Count; i++)
             {
                 if ((i & 16383) == 0)
@@ -280,8 +382,17 @@ namespace MidiBottleneck
                 }
 
                 int bucketIndex = (int)Math.Min(result.Buckets.Length - 1, Math.Max(0, arrival / result.BucketMicroseconds));
+                MidiEvent incomingEvent = song.Events[i];
+                CompleteNoteEventKind noteKind = CompleteNoteTracker.Classify(incomingEvent);
+                if (noteKind == CompleteNoteEventKind.NoteOff && completeNotes.ShouldSuppressNoteOff(incomingEvent))
+                {
+                    RecordDrop(result, bucketIndex, 1);
+                    continue;
+                }
                 int occupancy = pending.Count + (busy ? 1 : 0);
-                if (occupancy < limit)
+                bool safetyAdmission = configuration.OverflowPolicy == OverflowPolicy.DropIncomingCompleteNotes &&
+                    noteKind != CompleteNoteEventKind.NoteOn;
+                if (occupancy < limit || safetyAdmission)
                 {
                     if (!busy)
                     {
@@ -289,11 +400,15 @@ namespace MidiBottleneck
                         completion = checked(arrival + EventServiceMicroseconds(song.Events[i], configuration));
                     }
                     else pending.Enqueue(i);
+                    if (noteKind == CompleteNoteEventKind.NoteOn)
+                        completeNotes.RecordNoteOn(incomingEvent, true, false);
                 }
                 else if (configuration.OverflowPolicy == OverflowPolicy.DropOldest && pending.Count > 0)
                 {
                     pending.Dequeue();
                     pending.Enqueue(i);
+                    if (noteKind == CompleteNoteEventKind.NoteOn)
+                        completeNotes.RecordNoteOn(incomingEvent, true, false);
                     RecordDrop(result, bucketIndex, 1);
                 }
                 else if (configuration.OverflowPolicy == OverflowPolicy.ClearBufferAndCatchUp)
@@ -306,7 +421,13 @@ namespace MidiBottleneck
                     result.PredictedBufferClears++;
                     result.Buckets[bucketIndex].PredictedBufferClears++;
                 }
-                else RecordDrop(result, bucketIndex, 1);
+                else
+                {
+                    if (noteKind == CompleteNoteEventKind.NoteOn)
+                        completeNotes.RecordNoteOn(incomingEvent, false,
+                            configuration.OverflowPolicy == OverflowPolicy.DropIncomingCompleteNotes);
+                    RecordDrop(result, bucketIndex, 1);
+                }
 
                 occupancy = pending.Count + (busy ? 1 : 0);
                 if (occupancy > result.PredictedMaximumOccupancy) result.PredictedMaximumOccupancy = occupancy;

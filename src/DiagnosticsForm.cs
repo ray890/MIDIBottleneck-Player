@@ -369,7 +369,7 @@ namespace MidiBottleneck
             if (_analysisCache.TryGetValue(cacheKey, out cached))
             {
                 CancelCurrentAnalysisWork();
-                UpdateAnalysis(cached);
+                UpdateAnalysis(cached.WithConfiguration(CloneConfiguration(_pendingConfiguration)));
                 EndBusyPeriod();
                 return;
             }
@@ -377,7 +377,7 @@ namespace MidiBottleneck
             {
                 CancelCurrentAnalysisWork();
                 RememberLocalAnalysis(cacheKey, cached);
-                UpdateAnalysis(cached);
+                UpdateAnalysis(cached.WithConfiguration(CloneConfiguration(_pendingConfiguration)));
                 EndBusyPeriod();
                 return;
             }
@@ -705,10 +705,10 @@ namespace MidiBottleneck
         {
             return resolution.ToString(CultureInfo.InvariantCulture) + "|" +
                 value.SimulateSlowdown + "|" + (int)value.ServiceDurationMode + "|" +
-                value.ProcessingMicroseconds.ToString(CultureInfo.InvariantCulture) + "|" +
-                value.MidiBitrate.ToString(CultureInfo.InvariantCulture) + "|" +
-                value.QueueLengthLimitEnabled + "|" + value.QueueLengthLimit.ToString(CultureInfo.InvariantCulture) + "|" +
-                (int)value.OverflowPolicy;
+                (value.SimulateSlowdown && value.ServiceDurationMode == ServiceDurationMode.ProcessingTime ? value.ProcessingMicroseconds : 0).ToString(CultureInfo.InvariantCulture) + "|" +
+                (value.SimulateSlowdown && value.ServiceDurationMode == ServiceDurationMode.MidiBitrate ? value.MidiBitrate : 0).ToString(CultureInfo.InvariantCulture) + "|" +
+                value.QueueLengthLimitEnabled + "|" + (value.QueueLengthLimitEnabled ? value.QueueLengthLimit : 0).ToString(CultureInfo.InvariantCulture) + "|" +
+                (value.QueueLengthLimitEnabled ? (int)value.OverflowPolicy : 0);
         }
 
         private void RememberLocalAnalysis(string key, WorkloadAnalysis analysis)
@@ -910,6 +910,7 @@ namespace MidiBottleneck
         {
             if (policy == OverflowPolicy.DropOldest) return "Drop oldest pending event";
             if (policy == OverflowPolicy.ClearBufferAndCatchUp) return "Clear buffer and jump to realtime";
+            if (policy == OverflowPolicy.DropIncomingCompleteNotes) return "Drop incoming complete notes";
             return "Drop newest";
         }
 

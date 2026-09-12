@@ -230,6 +230,7 @@ namespace MidiBottleneck
     internal sealed class KdmApiMidiOutput : IMidiOutput, IMidiOutputContext, IDisposable
     {
         private const uint MhDone = 0x00000001;
+        private static readonly int HeaderSize = Marshal.SizeOf(typeof(NativeMidiHeader));
 
         private sealed class LongBuffer
         {
@@ -343,7 +344,7 @@ namespace MidiBottleneck
                     "long-message contract (" + _native.LongMessageStatus + "). Provider: " + _native.ProviderPath);
             byte[] bytes = packet.Bytes;
             LongBuffer buffer = new LongBuffer();
-            int headerSize = Marshal.SizeOf(typeof(NativeMidiHeader));
+            int headerSize = HeaderSize;
             try
             {
                 buffer.Data = Marshal.AllocHGlobal(bytes.Length);
@@ -371,7 +372,8 @@ namespace MidiBottleneck
 
         private void ReclaimCompletedLongMessages()
         {
-            int headerSize = Marshal.SizeOf(typeof(NativeMidiHeader));
+            if (_longBuffers.Count == 0) return;
+            int headerSize = HeaderSize;
             for (int i = _longBuffers.Count - 1; i >= 0; i--)
             {
                 NativeMidiHeader header = (NativeMidiHeader)Marshal.PtrToStructure(_longBuffers[i].Header, typeof(NativeMidiHeader));
@@ -385,7 +387,8 @@ namespace MidiBottleneck
 
         private void ReclaimAllLongMessages()
         {
-            int headerSize = Marshal.SizeOf(typeof(NativeMidiHeader));
+            if (_longBuffers.Count == 0) return;
+            int headerSize = HeaderSize;
             for (int i = _longBuffers.Count - 1; i >= 0; i--)
             {
                 if (_longBuffers[i].Prepared)

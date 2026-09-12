@@ -15,10 +15,10 @@ namespace MidiBottleneck
         };
         private static readonly string[] CompactCaptions = new string[]
         {
-            "Timeline / output:", "Queue now / max:",
-            "Maximum rate:", "Output rate:",
-            "Sent / dropped:", "Effective speed:",
-            "Maximum lag:", "Current lag:"
+            "Timeline/output:", "Queue now/max:",
+            "Max rate:", "Output rate:",
+            "Sent/dropped:", "Effective speed:",
+            "Max lag:", "Current lag:"
         };
 
         private readonly string[] _values = new string[8];
@@ -59,8 +59,11 @@ namespace MidiBottleneck
             {
                 if (_compact == value) return;
                 _compact = value;
-                Height = value ? 96 : 104;
-                MinimumSize = new Size(0, Height);
+                int height = value ? Math.Max(84, 4 * (Math.Max(_captionFont.Height, _valueFont.Height) + 1) + 18) : 104;
+                // Lower the constraint first: assigning Height while the old
+                // 104-pixel minimum is active silently restores that old height.
+                MinimumSize = new Size(0, height);
+                Height = height;
                 Invalidate();
             }
         }
@@ -99,9 +102,10 @@ namespace MidiBottleneck
 
         internal bool UsesDoubleBuffer { get { return DoubleBuffered; } }
         internal bool QueuePressureVisible { get { return _queueLimited; } }
-        internal double QueuePressureRatio { get { return _queueLimited ? Math.Min(1.0, _occupied / (double)Math.Max(1, _limit)) : 0; } }
+        internal double QueuePressureRatio { get { return _queueLimited ? _occupied / (double)Math.Max(1, _limit) : 0; } }
         internal int ColumnCount { get { return 2; } }
         internal static string CaptionAt(int index) { return Captions[index]; }
+        internal static string CompactCaptionAt(int index) { return CompactCaptions[index]; }
         internal bool ValueWasTruncated(int index) { return _valueTruncated[index]; }
         internal int ValueAllocationWidth(int index) { return _lastValueWidths[index]; }
         internal string SpeedMeasurementDescription
@@ -116,7 +120,7 @@ namespace MidiBottleneck
             e.Graphics.Clear(BackColor);
             int columnWidth = Math.Max(1, ClientSize.Width / 2);
             int contentHeight = Math.Max(1, ClientSize.Height - (_queueLimited ? 18 : 0));
-            int rowHeight = Math.Max(20, contentHeight / 4);
+            int rowHeight = Math.Max(Math.Max(_captionFont.Height, _valueFont.Height), contentHeight / 4);
             for (int index = 0; index < _values.Length; index++)
             {
                 int column = index % 2;
@@ -163,11 +167,19 @@ namespace MidiBottleneck
         {
             base.OnMouseMove(e);
             int cell = CellAt(e.Location);
+            if (_queueLimited && e.Y >= ClientSize.Height - 18)
+            {
+                _lastToolTipCell = -2;
+                _toolTip.SetToolTip(this, "Finite-buffer occupancy includes the event currently in service. Safety-preserving overflow policies may temporarily exceed the configured soft limit so a required Note Off or non-note message is not discarded.");
+                return;
+            }
             if (cell == _lastToolTipCell) return;
             _lastToolTipCell = cell;
             string text = cell == 5 ? "Output-timeline advancement relative to elapsed playback time. Current measurement window: " +
                 _speedMeasurementDescription + ". Right-click to change it." :
                 cell == 0 ? "Playback timeline / MIDI output position. The output position is the source timestamp of the most recently sent MIDI event." :
+                cell == 2 ? "With immediate simulated service, this is the highest observed 250 ms rolling dispatch rate since statistics were reset—not a theoretical hardware or scheduler capacity. Nonzero service models show their theoretical configured maximum." :
+                cell == 4 ? "Events successfully dispatched through the selected output / events discarded by the simulator. With None (no output), sent means logically consumed by the no-output diagnostic sink; no physical MIDI data leaves the application." :
                 cell == 6 || cell == 7 ? "Lag is lateness through MIDI dispatch, including scheduler delay or a blocking output call. It cannot measure synthesizer rendering or audio-device latency." : String.Empty;
             if (cell >= 0 && (_captionTruncated[cell] || _valueTruncated[cell]))
             {
@@ -198,7 +210,8 @@ namespace MidiBottleneck
             using (Pen outline = new Pen(Color.FromArgb(155, 160, 166)))
             {
                 graphics.FillRectangle(background, bar);
-                graphics.FillRectangle(fill, new Rectangle(bar.X, bar.Y, (int)Math.Round(bar.Width * ratio), bar.Height));
+                graphics.FillRectangle(fill, new Rectangle(bar.X, bar.Y,
+                    (int)Math.Round(bar.Width * Math.Min(1.0, ratio)), bar.Height));
                 graphics.DrawRectangle(outline, bar);
             }
             string text = _occupied.ToString("N0") + " / " + _limit.ToString("N0") + " — " + Math.Round(100 * ratio).ToString("N0") + "%";

@@ -24,6 +24,10 @@ namespace MidiBottleneck
         private int _overflowPolicy;
         private long _transportBaseTicks;
         private long _runStartStamp;
+        private int _dispatchSuspended = 1;
+        private bool _silenceWhenWorkerExits;
+        private Exception _workerExitSilenceFailure;
+        private int _workerStopTimeoutMilliseconds = 2000;
 
         private long _queueLength;
         private long _outstandingEvents;
@@ -33,6 +37,9 @@ namespace MidiBottleneck
         private long _lastDispatchedMicroseconds;
         private long _currentLagMicroseconds;
         private long _maximumLagMicroseconds;
+        private int _publishedNextProcess;
+        private bool _publishedInService;
+        private bool _hasPublishedQueue;
         private DropTraceRecorder _dropTrace;
 
         public event EventHandler PlaybackEnded;
@@ -131,11 +138,15 @@ namespace MidiBottleneck
                 _output = output;
                 _mode = mode;
                 _startEventIndex = FindFirstEventAtOrAfter(song, startMicroseconds);
+                _hasPublishedQueue = false;
                 _transportBaseTicks = MicrosecondsToTicks(startMicroseconds);
                 _runStartStamp = Stopwatch.GetTimestamp();
                 ResetStatisticsLocked();
                 _lastDispatchedMicroseconds = startMicroseconds;
                 _state = startPaused ? PlaybackState.Paused : PlaybackState.Playing;
+                Volatile.Write(ref _dispatchSuspended, startPaused ? 1 : 0);
+                _silenceWhenWorkerExits = false;
+                _workerExitSilenceFailure = null;
                 _thread = new Thread(PlaybackWorker);
                 _thread.Name = "MIDI bottleneck scheduler";
                 _thread.IsBackground = true;
@@ -146,8 +157,6 @@ namespace MidiBottleneck
 
         public void Seek(long targetMicroseconds)
         {
-            Thread previousThread;
-            IMidiOutput output;
             MidiSong song;
             PlaybackState previousState;
 
@@ -157,23 +166,15 @@ namespace MidiBottleneck
                 if (song == null) return;
                 targetMicroseconds = ClampPosition(song, targetMicroseconds);
                 previousState = _state;
-                if (_state == PlaybackState.Playing)
-                    _transportBaseTicks += Stopwatch.GetTimestamp() - _runStartStamp;
-                _state = PlaybackState.Stopped;
-                previousThread = _thread;
-                output = _output;
             }
 
-            _wake.Set();
-            if (previousThread != null && previousThread != Thread.CurrentThread)
-                previousThread.Join(2000);
-            if (output != null)
-                MidiOutputSafety.ResetAndSilence(output);
+            StopWorkerForTransition("seeking");
 
             lock (_sync)
             {
                 _transportBaseTicks = MicrosecondsToTicks(targetMicroseconds);
                 _startEventIndex = FindFirstEventAtOrAfter(song, targetMicroseconds);
+                _hasPublishedQueue = false;
                 ResetStatisticsLocked();
                 _lastDispatchedMicroseconds = targetMicroseconds;
                 _thread = null;
@@ -181,6 +182,7 @@ namespace MidiBottleneck
                 if (previousState == PlaybackState.Playing || previousState == PlaybackState.Paused)
                 {
                     _state = previousState;
+                    Volatile.Write(ref _dispatchSuspended, _state == PlaybackState.Playing ? 0 : 1);
                     if (_state == PlaybackState.Playing)
                         _runStartStamp = Stopwatch.GetTimestamp();
                     _thread = new Thread(PlaybackWorker);
@@ -192,6 +194,7 @@ namespace MidiBottleneck
                 else
                 {
                     _state = PlaybackState.Stopped;
+                    Volatile.Write(ref _dispatchSuspended, 1);
                 }
             }
             _wake.Set();
@@ -199,13 +202,35 @@ namespace MidiBottleneck
 
         public void Pause()
         {
+            MidiSong song;
             lock (_sync)
             {
                 if (_state != PlaybackState.Playing) return;
-                _transportBaseTicks += Stopwatch.GetTimestamp() - _runStartStamp;
-                _state = PlaybackState.Paused;
+                song = _song;
             }
-            _output.Panic();
+
+            // Pause is a native-output boundary, not merely a scheduler flag.
+            // Retire the worker first so Reset/Panic cannot race an active Send
+            // and provider-buffered messages cannot arrive after the panic.
+            StopWorkerForTransition("pausing playback");
+
+            lock (_sync)
+            {
+                if (song == null || _song != song) return;
+                long pausedMicroseconds = ClampPosition(song, TicksToMicroseconds(_transportBaseTicks));
+                _transportBaseTicks = MicrosecondsToTicks(pausedMicroseconds);
+                _startEventIndex = FindFirstEventAtOrAfter(song, pausedMicroseconds);
+                _hasPublishedQueue = false;
+                _state = PlaybackState.Paused;
+                Volatile.Write(ref _dispatchSuspended, 1);
+                _silenceWhenWorkerExits = false;
+                _workerExitSilenceFailure = null;
+                _thread = new Thread(PlaybackWorker);
+                _thread.Name = "MIDI bottleneck scheduler";
+                _thread.IsBackground = true;
+                _thread.Priority = ThreadPriority.AboveNormal;
+                _thread.Start();
+            }
             _wake.Set();
         }
 
@@ -216,35 +241,82 @@ namespace MidiBottleneck
                 if (_state != PlaybackState.Paused) return;
                 _runStartStamp = Stopwatch.GetTimestamp();
                 _state = PlaybackState.Playing;
+                Volatile.Write(ref _dispatchSuspended, 0);
             }
             _wake.Set();
         }
 
         public void Stop()
         {
+            StopWorkerForTransition("stopping playback");
+        }
+
+        private void StopWorkerForTransition(string operation)
+        {
             Thread thread;
             IMidiOutput output;
-            bool workerStopped = true;
             lock (_sync)
             {
                 if (_state == PlaybackState.Playing)
                     _transportBaseTicks += Stopwatch.GetTimestamp() - _runStartStamp;
                 _state = PlaybackState.Stopped;
+                Volatile.Write(ref _dispatchSuspended, 1);
                 thread = _thread;
                 output = _output;
+                _workerExitSilenceFailure = null;
+                _silenceWhenWorkerExits = thread != null;
             }
             _wake.Set();
-            if (thread != null && thread != Thread.CurrentThread)
-                workerStopped = thread.Join(2000);
-            if (output != null)
-                MidiOutputSafety.ResetAndSilence(output);
+
+            if (thread == null)
+            {
+                if (output != null) MidiOutputSafety.ResetAndSilence(output);
+            }
+            else if (thread != Thread.CurrentThread)
+            {
+                int timeout = Volatile.Read(ref _workerStopTimeoutMilliseconds);
+                if (!thread.Join(timeout))
+                {
+                    lock (_sync)
+                    {
+                        _queueLength = 0;
+                        _outstandingEvents = 0;
+                        _currentLagMicroseconds = 0;
+                    }
+                    throw new PlaybackWorkerTimeoutException("The MIDI output call did not return within " + timeout +
+                        " ms while " + operation + ". Playback remains stopped and no replacement scheduler was started. " +
+                        "The output is not reset concurrently with its active call; a final reset and all-notes-off panic " +
+                        "will run after that call returns.", null);
+                }
+
+                Exception exitSilenceFailure;
+                lock (_sync)
+                {
+                    exitSilenceFailure = _workerExitSilenceFailure;
+                    _workerExitSilenceFailure = null;
+                }
+                if (exitSilenceFailure != null)
+                    throw new InvalidOperationException("The scheduler stopped, but MIDI reset/all-notes-off failed while " +
+                        operation + ".", exitSilenceFailure);
+            }
+
             lock (_sync)
             {
-                if (_thread == thread && workerStopped) _thread = null;
                 _queueLength = 0;
                 _outstandingEvents = 0;
                 _currentLagMicroseconds = 0;
             }
+        }
+
+        internal int WorkerStopTimeoutMilliseconds
+        {
+            get { return Volatile.Read(ref _workerStopTimeoutMilliseconds); }
+            set { Volatile.Write(ref _workerStopTimeoutMilliseconds, Math.Max(1, value)); }
+        }
+
+        internal bool HasLiveWorker
+        {
+            get { lock (_sync) return _thread != null && _thread.IsAlive; }
         }
 
         public void Unload()
@@ -279,7 +351,7 @@ namespace MidiBottleneck
         {
             lock (_sync)
             {
-                _maximumQueueLength = _queueLength;
+                _maximumQueueLength = _outstandingEvents;
                 _processedEvents = 0;
                 _droppedEvents = 0;
                 _maximumLagMicroseconds = _currentLagMicroseconds;
@@ -296,6 +368,16 @@ namespace MidiBottleneck
             lock (_sync)
             {
                 long playbackTicks = CurrentTransportTicksLocked();
+                // Source arrivals continue while an output call is blocked.
+                // This is the application's unlimited backlog, not the synth's queue.
+                if (_mode == ProcessingMode.Queue && _hasPublishedQueue &&
+                    (_state == PlaybackState.Playing || _state == PlaybackState.Paused))
+                {
+                    int due = FindFirstEventAfterTransport(_publishedNextProcess, playbackTicks);
+                    _queueLength = Math.Max(0, due - _publishedNextProcess);
+                    _outstandingEvents = _queueLength + (_publishedInService ? 1 : 0);
+                    _maximumQueueLength = Math.Max(_maximumQueueLength, _outstandingEvents);
+                }
                 long playbackUs = TicksToMicroseconds(playbackTicks);
                 PlaybackSnapshot snapshot = new PlaybackSnapshot();
                 snapshot.State = _state;
@@ -343,8 +425,26 @@ namespace MidiBottleneck
                 catch { }
             }
 
+            IMidiOutput finalSilenceOutput = null;
             lock (_sync)
             {
+                if (_thread == Thread.CurrentThread && _silenceWhenWorkerExits)
+                {
+                    finalSilenceOutput = _output;
+                    _silenceWhenWorkerExits = false;
+                }
+            }
+            Exception finalSilenceFailure = null;
+            if (finalSilenceOutput != null)
+            {
+                try { MidiOutputSafety.ResetAndSilence(finalSilenceOutput); }
+                catch (Exception ex) { finalSilenceFailure = ex; }
+            }
+
+            lock (_sync)
+            {
+                if (_thread != Thread.CurrentThread) return;
+                if (finalSilenceFailure != null) _workerExitSilenceFailure = finalSilenceFailure;
                 if (failure != null || completed)
                 {
                     if (_state == PlaybackState.Playing)
@@ -383,7 +483,7 @@ namespace MidiBottleneck
                 long now = CurrentTransportTicks();
 
                 nextArrival = FindFirstEventAfterTransport(nextArrival, now);
-                UpdateQueue(nextArrival - nextProcess, inService >= 0);
+                PublishUnlimitedQueue(nextProcess, nextArrival, inService >= 0);
 
                 if (inService >= 0 && completionTicks <= now)
                 {
@@ -397,14 +497,16 @@ namespace MidiBottleneck
                 {
                     if (IsEffectiveZeroService())
                     {
+                        PublishUnlimitedQueue(nextProcess + 1, nextArrival, true);
                         DispatchImmediateRange(ref nextProcess, nextArrival, now);
-                        UpdateQueue(nextArrival - nextProcess, false);
+                        nextArrival = FindFirstEventAfterTransport(nextArrival, CurrentTransportTicks());
+                        PublishUnlimitedQueue(nextProcess, nextArrival, false);
                         continue;
                     }
                     inService = nextProcess++;
                     long startTicks = Math.Max(EventTicks(inService), lastCompletionTicks);
                     completionTicks = checked(startTicks + ServiceTicksForEvent(inService));
-                    UpdateQueue(nextArrival - nextProcess, true);
+                    PublishUnlimitedQueue(nextProcess, nextArrival, true);
                     continue;
                 }
 
@@ -432,6 +534,7 @@ namespace MidiBottleneck
             int clusterEnd = nextArrival;
             int clusterSize = 0;
             int maximumBufferOccupancy = 0;
+            CompleteNoteTracker completeNotes = new CompleteNoteTracker();
             bool traceEnabled;
             lock (_sync) traceEnabled = _dropTrace != null;
 
@@ -468,6 +571,7 @@ namespace MidiBottleneck
                         int dueEnd = nextArrival + 1;
                         int dueLimit = Math.Min(_song.Events.Count, nextArrival + 2048);
                         while (dueEnd < dueLimit && EventTicks(dueEnd) <= now) dueEnd++;
+                        UpdateQueue(0, true);
                         DispatchImmediateRange(ref nextArrival, dueEnd, now);
                         UpdateQueue(0, false);
                         continue;
@@ -480,8 +584,26 @@ namespace MidiBottleneck
                         clusterSize = clusterEnd - nextArrival;
                     }
 
+                    MidiEvent incomingEvent = _song.Events[nextArrival];
+                    CompleteNoteEventKind noteKind = CompleteNoteTracker.Classify(incomingEvent);
+                    if (noteKind == CompleteNoteEventKind.NoteOff && completeNotes.ShouldSuppressNoteOff(incomingEvent))
+                    {
+                        consecutiveDrops++;
+                        lock (_sync) _droppedEvents++;
+                        if (traceEnabled)
+                            TraceDropped(nextArrival, now, "note-off suppressed because its paired note-on was rejected",
+                                clusterSize, consecutiveDrops, EstimateBusyUntil(completionTicks, pending),
+                                pending.Count + (inService >= 0 ? 1 : 0), maximumBufferOccupancy);
+                        nextArrival++;
+                        UpdateQueue(pending.Count, inService >= 0);
+                        continue;
+                    }
+
+                    OverflowPolicy overflowPolicy = (OverflowPolicy)Volatile.Read(ref _overflowPolicy);
                     int outstanding = pending.Count + (inService >= 0 ? 1 : 0);
-                    if (outstanding < bufferCapacity)
+                    bool safetyAdmission = overflowPolicy == OverflowPolicy.DropIncomingCompleteNotes &&
+                        noteKind != CompleteNoteEventKind.NoteOn;
+                    if (outstanding < bufferCapacity || safetyAdmission)
                     {
                         int acceptedIndex = nextArrival;
                         consecutiveDrops = 0;
@@ -497,6 +619,8 @@ namespace MidiBottleneck
                         }
                         int occupancy = pending.Count + (inService >= 0 ? 1 : 0);
                         if (occupancy > maximumBufferOccupancy) maximumBufferOccupancy = occupancy;
+                        if (noteKind == CompleteNoteEventKind.NoteOn)
+                            completeNotes.RecordNoteOn(incomingEvent, true, false);
                         if (traceEnabled)
                         {
                             long busyUntil = EstimateBusyUntil(completionTicks, pending);
@@ -508,7 +632,6 @@ namespace MidiBottleneck
                     }
                     else
                     {
-                        OverflowPolicy overflowPolicy = (OverflowPolicy)Volatile.Read(ref _overflowPolicy);
                         if (overflowPolicy == OverflowPolicy.DropOldest && pending.Count > 0)
                         {
                             int evicted = pending.Dequeue();
@@ -520,6 +643,8 @@ namespace MidiBottleneck
 
                             int acceptedIndex = nextArrival;
                             pending.Enqueue(acceptedIndex);
+                            if (noteKind == CompleteNoteEventKind.NoteOn)
+                                completeNotes.RecordNoteOn(incomingEvent, true, false);
                             if (traceEnabled)
                             {
                                 long busyUntil = EstimateBusyUntil(completionTicks, pending);
@@ -542,7 +667,12 @@ namespace MidiBottleneck
                             completionTicks = Int64.MaxValue;
 
                             int catchUp = nextArrival;
-                            while (catchUp < _song.Events.Count && EventTicks(catchUp) <= now)
+                            if (!traceEnabled)
+                            {
+                                catchUp = FindFirstEventAfterTransport(nextArrival, now);
+                                clearedCount += catchUp - nextArrival;
+                            }
+                            while (traceEnabled && catchUp < _song.Events.Count && EventTicks(catchUp) <= now)
                             {
                                 if (traceEnabled) cleared.Add(catchUp);
                                 clearedCount++;
@@ -568,8 +698,21 @@ namespace MidiBottleneck
                             catch { }
                             continue;
                         }
+                        else if (overflowPolicy == OverflowPolicy.DropIncomingCompleteNotes &&
+                            noteKind == CompleteNoteEventKind.NoteOn)
+                        {
+                            completeNotes.RecordNoteOn(incomingEvent, false, true);
+                            consecutiveDrops++;
+                            lock (_sync) _droppedEvents++;
+                            if (traceEnabled)
+                                TraceDropped(nextArrival, now, "incoming note-on rejected as a complete-note pair; buffer full (" +
+                                    bufferCapacity + " events outstanding)", clusterSize, consecutiveDrops,
+                                    EstimateBusyUntil(completionTicks, pending), outstanding, maximumBufferOccupancy);
+                        }
                         else
                         {
+                            if (noteKind == CompleteNoteEventKind.NoteOn)
+                                completeNotes.RecordNoteOn(incomingEvent, false, false);
                             consecutiveDrops++;
                             lock (_sync) _droppedEvents++;
                             if (traceEnabled)
@@ -595,7 +738,7 @@ namespace MidiBottleneck
         {
             MidiEvent midiEvent = _song.Events[eventIndex];
             _output.Send(midiEvent);
-            long actualUs = TicksToMicroseconds(actualTransportTicks);
+            long actualUs = TicksToMicroseconds(CurrentTransportTicks());
             long lag = Math.Max(0, actualUs - midiEvent.IntendedMicroseconds);
             lock (_sync)
             {
@@ -610,7 +753,7 @@ namespace MidiBottleneck
         {
             const int chunkSize = 2048;
             long stopwatchAtBatchStart = Stopwatch.GetTimestamp();
-            while (nextIndex < endExclusive && IsPlaying() && IsEffectiveZeroService())
+            if (nextIndex < endExclusive && Volatile.Read(ref _dispatchSuspended) == 0 && IsEffectiveZeroService())
             {
                 int chunkEnd = Math.Min(endExclusive, nextIndex + chunkSize);
                 int sent = 0;
@@ -621,15 +764,26 @@ namespace MidiBottleneck
                 {
                     while (nextIndex < chunkEnd)
                     {
-                        if ((sent & 63) == 0 && (!IsPlaying() || !IsEffectiveZeroService())) break;
+                        // A native call can remain blocked while Stop, Seek, or
+                        // Pause is requested.  Observe that request before every
+                        // subsequent send, without taking the scheduler lock on
+                        // the successful hot path.  Rate-model changes retain
+                        // the established 64-event check cadence.
+                        if (Volatile.Read(ref _dispatchSuspended) != 0) break;
+                        if ((sent & 63) == 0 && !IsEffectiveZeroService()) break;
                         MidiEvent midiEvent = _song.Events[nextIndex];
-                        long actualTicks = transportAtBatchStart + Stopwatch.GetTimestamp() - stopwatchAtBatchStart;
                         _output.Send(midiEvent);
+                        long elapsedTicks = Stopwatch.GetTimestamp() - stopwatchAtBatchStart;
+                        long actualTicks = transportAtBatchStart + elapsedTicks;
                         currentLag = Math.Max(0, TicksToMicroseconds(actualTicks) - midiEvent.IntendedMicroseconds);
                         if (currentLag > maximumLag) maximumLag = currentLag;
                         lastTimeline = midiEvent.IntendedMicroseconds;
                         sent++;
                         nextIndex++;
+                        // Return to admission/publication after at most 2048
+                        // sends or 8 ms of completed output work. Never wait for
+                        // an entire multi-million-event range to drain.
+                        if (elapsedTicks >= Stopwatch.Frequency / 125) break;
                     }
                 }
                 finally
@@ -654,7 +808,20 @@ namespace MidiBottleneck
             {
                 _queueLength = queue;
                 _outstandingEvents = queue + (inService ? 1 : 0);
-                if (queue > _maximumQueueLength) _maximumQueueLength = queue;
+                if (_outstandingEvents > _maximumQueueLength) _maximumQueueLength = _outstandingEvents;
+            }
+        }
+
+        private void PublishUnlimitedQueue(int nextProcess, int nextArrival, bool inService)
+        {
+            lock (_sync)
+            {
+                _publishedNextProcess = nextProcess;
+                _publishedInService = inService;
+                _hasPublishedQueue = true;
+                _queueLength = Math.Max(0, nextArrival - nextProcess);
+                _outstandingEvents = _queueLength + (inService ? 1 : 0);
+                _maximumQueueLength = Math.Max(_maximumQueueLength, _outstandingEvents);
             }
         }
 
@@ -785,14 +952,24 @@ namespace MidiBottleneck
             return MicrosecondsToTicks(_song.Events[eventIndex].IntendedMicroseconds);
         }
 
-        private static long MicrosecondsToTicks(long microseconds)
+        internal static long MicrosecondsToTicks(long microseconds)
         {
-            return (long)(((decimal)microseconds * Stopwatch.Frequency) / 1000000m);
+            const long scale = 1000000L;
+            long frequency = Stopwatch.Frequency;
+            if (frequency <= Int64.MaxValue / scale)
+                return checked((microseconds / scale) * frequency +
+                    ((microseconds % scale) * frequency) / scale);
+            return (long)(((decimal)microseconds * frequency) / scale);
         }
 
-        private static long TicksToMicroseconds(long ticks)
+        internal static long TicksToMicroseconds(long ticks)
         {
-            return (long)(((decimal)ticks * 1000000m) / Stopwatch.Frequency);
+            const long scale = 1000000L;
+            long frequency = Stopwatch.Frequency;
+            if (frequency <= Int64.MaxValue / scale)
+                return checked((ticks / frequency) * scale +
+                    ((ticks % frequency) * scale) / frequency);
+            return (long)(((decimal)ticks * scale) / frequency);
         }
 
         private void ResetStatisticsLocked()
@@ -853,5 +1030,11 @@ namespace MidiBottleneck
     {
         public readonly Exception Error;
         public PlaybackErrorEventArgs(Exception error) { Error = error; }
+    }
+
+    internal sealed class PlaybackWorkerTimeoutException : TimeoutException
+    {
+        public PlaybackWorkerTimeoutException(string message, Exception innerException)
+            : base(message, innerException) { }
     }
 }

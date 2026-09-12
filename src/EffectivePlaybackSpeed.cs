@@ -142,8 +142,16 @@ namespace MidiBottleneck
         private sealed class Sample { public long Count; public long TimeMicroseconds; }
         private readonly Queue<Sample> _samples = new Queue<Sample>();
         private const long WindowMicroseconds = 250000;
+        private double? _maximumObserved;
 
-        public void Reset() { _samples.Clear(); }
+        public void Reset()
+        {
+            _samples.Clear();
+            _maximumObserved = null;
+        }
+
+        public void RestartWindow() { _samples.Clear(); }
+        public double? MaximumObserved { get { return _maximumObserved; } }
 
         public double? Add(long processedEvents, long sampleTimeMicroseconds)
         {
@@ -160,7 +168,9 @@ namespace MidiBottleneck
             long elapsed = sampleTimeMicroseconds - first.TimeMicroseconds;
             long count = processedEvents - first.Count;
             if (elapsed < 100000 || count <= 0) return null;
-            return count * 1000000.0 / elapsed;
+            double rate = count * 1000000.0 / elapsed;
+            if (!_maximumObserved.HasValue || rate > _maximumObserved.Value) _maximumObserved = rate;
+            return rate;
         }
 
         internal static string Format(double? eventsPerSecond)
