@@ -181,7 +181,17 @@ namespace MidiBottleneck.Tests
                 }
                 if (arguments.Length == 2 && arguments[0] == "--render-channel-monitor")
                 {
-                    RenderChannelMonitor(arguments[1]);
+                    RenderChannelMonitor(arguments[1], false, false);
+                    return 0;
+                }
+                if (arguments.Length == 2 && arguments[0] == "--render-channel-monitor-stale")
+                {
+                    RenderChannelMonitor(arguments[1], true, false);
+                    return 0;
+                }
+                if (arguments.Length == 2 && arguments[0] == "--render-channel-monitor-forced")
+                {
+                    RenderChannelMonitor(arguments[1], false, true);
                     return 0;
                 }
                 if (arguments.Length == 2 && arguments[0] == "--render-analysis-auto")
@@ -204,10 +214,21 @@ namespace MidiBottleneck.Tests
                     if (String.Equals(arguments[1], "synthetic", StringComparison.OrdinalIgnoreCase))
                     {
                         string syntheticPath = CreateDenseMidiFile(5000000);
-                        try { RenderLoadingMainWindow(syntheticPath, arguments[2]); }
+                        try { RenderLoadingMainWindow(syntheticPath, arguments[2], false); }
                         finally { DeleteFileWhenAvailable(syntheticPath); }
                     }
-                    else RenderLoadingMainWindow(arguments[1], arguments[2]);
+                    else RenderLoadingMainWindow(arguments[1], arguments[2], false);
+                    return 0;
+                }
+                if (arguments.Length == 3 && arguments[0] == "--render-ui-loading-min")
+                {
+                    if (String.Equals(arguments[1], "synthetic", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string syntheticPath = CreateDenseMidiFile(5000000);
+                        try { RenderLoadingMainWindow(syntheticPath, arguments[2], true); }
+                        finally { DeleteFileWhenAvailable(syntheticPath); }
+                    }
+                    else RenderLoadingMainWindow(arguments[1], arguments[2], true);
                     return 0;
                 }
                 if (arguments.Length == 3 && arguments[0] == "--render-analysis")
@@ -253,6 +274,20 @@ namespace MidiBottleneck.Tests
                 if (arguments.Length == 3 && arguments[0] == "--render-analysis-edge-pin")
                 {
                     RenderAnalysisEdgePin(arguments[1], arguments[2]);
+                    return 0;
+                }
+                if (arguments.Length == 3 && arguments[0] == "--render-analysis-synthetic")
+                {
+                    string syntheticPath = CreateDenseMidiFile(20000);
+                    try
+                    {
+                        if (String.Equals(arguments[1], "minimum", StringComparison.OrdinalIgnoreCase))
+                            RenderAnalysisWindow(syntheticPath, arguments[2], false, true, true, false, true, null, false);
+                        else if (String.Equals(arguments[1], "busy", StringComparison.OrdinalIgnoreCase))
+                            RenderBusyAnalysisWindow(syntheticPath, arguments[2]);
+                        else RenderAutomaticAnalysisWindowFromFile(syntheticPath, arguments[2]);
+                    }
+                    finally { DeleteFileWhenAvailable(syntheticPath); }
                     return 0;
                 }
                 if (arguments.Length == 2 && arguments[0] == "--render-corrective-desktop")
@@ -317,7 +352,9 @@ namespace MidiBottleneck.Tests
                 {
                     RunFocused("background loading telemetry and allocation", TestBackgroundMidiLoading);
                     RunFocused("asynchronous Analysis cancellation and Auto label", TestAsynchronousAnalysis);
+                    RunFocused("Analysis shell detach and rebind across file replacement", TestAnalysisWindowPersistence);
                     RunFocused("dispatched MIDI channel-state lifecycle", TestChannelStateMonitor);
+                    RunFocused("bounded channel overrides", TestChannelOverrides);
                     RunFocused("read-only 16-channel monitor UI", TestChannelMonitorInterface);
                     return 0;
                 }
@@ -406,6 +443,7 @@ namespace MidiBottleneck.Tests
                 Run("None output selector and native device mapping", TestNullOutputSelection);
                 Run("None output playback and restart boundary", TestNullOutputPlayback);
                 Run("dispatched MIDI channel-state lifecycle", TestChannelStateMonitor);
+                Run("bounded channel overrides", TestChannelOverrides);
                 Run("read-only 16-channel monitor UI", TestChannelMonitorInterface);
                 Run("dense 200,000-event MIDI parsing", TestDenseMidiParser);
                 Run("cancellable parser progress and cancellation", TestCancellableMidiParser);
@@ -413,6 +451,7 @@ namespace MidiBottleneck.Tests
                 Run("background loading, stale-result rejection, and unload", TestBackgroundMidiLoading);
                 Run("workload analysis and graph data", TestWorkloadAnalysis);
                 Run("asynchronous Analysis refresh and resolution policy", TestAsynchronousAnalysis);
+                Run("Analysis shell detach and rebind across file replacement", TestAnalysisWindowPersistence);
                 Run("configured whole-file Analysis window", TestAnalysisWindowConstruction);
                 Run("selected-model Analysis interaction and seek", TestAnalysisInteraction);
                 Run("Analysis graph geometry, overlay, and coalesced message-pump updates", TestAnalysisRenderingRefinements);
@@ -1087,20 +1126,26 @@ namespace MidiBottleneck.Tests
             MidiSong song = BuildSong(new long[1000000]);
             MeasureChannelMonitorRun(warmup, false);
             MeasureChannelMonitorRun(warmup, true);
+            MeasureChannelOverrideRun(warmup);
             double[] closed = new double[5];
             double[] open = new double[5];
+            double[] overridden = new double[5];
             for (int i = 0; i < closed.Length; i++)
             {
                 closed[i] = MeasureChannelMonitorRun(song, false);
                 open[i] = MeasureChannelMonitorRun(song, true);
+                overridden[i] = MeasureChannelOverrideRun(song);
             }
             Array.Sort(closed);
             Array.Sort(open);
+            Array.Sort(overridden);
             Console.WriteLine("Channel-monitor None benchmark: architecture={0}, events={1:N0}",
                 IntPtr.Size == 8 ? "x64" : "x86", song.Events.Count);
             Console.WriteLine("  monitor closed: median={0:F1} ms; range={1:F1}–{2:F1} ms", closed[2], closed[0], closed[4]);
             Console.WriteLine("  monitor open:   median={0:F1} ms; range={1:F1}–{2:F1} ms", open[2], open[0], open[4]);
             Console.WriteLine("  open overhead:  {0:F1}%", (open[2] / closed[2] - 1.0) * 100.0);
+            Console.WriteLine("  closed + one active override: median={0:F1} ms; range={1:F1}–{2:F1} ms; overhead={3:F1}%",
+                overridden[2], overridden[0], overridden[4], (overridden[2] / closed[2] - 1.0) * 100.0);
         }
 
         private static double MeasureChannelMonitorRun(MidiSong song, bool enabled)
@@ -1118,6 +1163,24 @@ namespace MidiBottleneck.Tests
                 if (enabled)
                     Equal((long)song.Events.Count, engine.GetChannelSnapshot().Channels[0].SentEvents,
                         "channel-monitor benchmark sent count");
+                return timer.Elapsed.TotalMilliseconds;
+            }
+        }
+
+        private static double MeasureChannelOverrideRun(MidiSong song)
+        {
+            using (NullMidiOutput output = new NullMidiOutput())
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.SetChannelOverride(0, ChannelAttribute.Program, 12);
+                engine.SimulateSlowdown = false;
+                Stopwatch timer = Stopwatch.StartNew();
+                engine.Start(song, output, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 30000,
+                    "active channel-override benchmark playback");
+                timer.Stop();
+                Equal((long)song.Events.Count, engine.GetSnapshot().ProcessedEvents,
+                    "active override benchmark preserves event processing");
                 return timer.Elapsed.TotalMilliseconds;
             }
         }
@@ -1235,7 +1298,7 @@ namespace MidiBottleneck.Tests
             }
         }
 
-        private static void RenderChannelMonitor(string outputPath)
+        private static void RenderChannelMonitor(string outputPath, bool stale, bool forced)
         {
             Application.EnableVisualStyles();
             ChannelStateTracker tracker = new ChannelStateTracker();
@@ -1248,10 +1311,23 @@ namespace MidiBottleneck.Tests
             tracker.RecordSuccessful(ChannelMessage(77283000, 0x90, 60, 100));
             tracker.RecordSuccessful(ChannelMessage(77283000, 0x90, 64, 100));
             tracker.RecordDropped(ChannelMessage(77283000, 0x91, 67, 100));
+            if (stale) tracker.PauseBoundaryDirect();
+            ChannelPlaybackSnapshot snapshot = tracker.CreateSnapshot();
+            if (forced)
+            {
+                ChannelOverrideState overrides = new ChannelOverrideState();
+                overrides.SetValue(0, ChannelAttribute.Program, 40);
+                overrides.SetValue(0, ChannelAttribute.Volume, 110);
+                overrides.TakePendingMask(0);
+                tracker.RecordOverrideApplied(0, ChannelAttribute.Program, 40);
+                tracker.RecordOverrideApplied(0, ChannelAttribute.Volume, 110);
+                snapshot = tracker.CreateSnapshot();
+                overrides.ApplyToSnapshot(snapshot);
+            }
             using (ChannelMonitorForm form = new ChannelMonitorForm("example.mid"))
             {
                 form.Show(); Application.DoEvents();
-                form.UpdateSnapshot(tracker.CreateSnapshot());
+                form.UpdateSnapshot(snapshot);
                 Application.DoEvents();
                 using (Bitmap bitmap = new Bitmap(form.Width, form.Height))
                 {
@@ -1281,6 +1357,25 @@ namespace MidiBottleneck.Tests
                 form.Close();
             }
             Console.WriteLine("Rendered automatic-resolution Analysis: " + Path.GetFullPath(outputPath));
+        }
+
+        private static void RenderAutomaticAnalysisWindowFromFile(string midiPath, string outputPath)
+        {
+            Application.EnableVisualStyles();
+            MidiSong song = MidiFileParser.Load(midiPath);
+            AnalysisConfiguration configuration = DefaultAnalysisConfiguration();
+            WorkloadAnalysis analysis = WorkloadAnalyzer.Analyze(song, configuration);
+            using (DiagnosticsForm form = new DiagnosticsForm(song, analysis))
+            {
+                form.Show(); Application.DoEvents();
+                using (Bitmap bitmap = new Bitmap(form.Width, form.Height))
+                {
+                    CaptureForm(form, bitmap);
+                    bitmap.Save(outputPath);
+                }
+                form.Close();
+            }
+            Console.WriteLine("Rendered default Analysis command bar: " + Path.GetFullPath(outputPath));
         }
 
         private static void RenderMainWindowAtWidth(string outputPath, int clientWidth)
@@ -1340,13 +1435,14 @@ namespace MidiBottleneck.Tests
             Console.WriteLine("Rendered compact-to-default restoration: " + Path.GetFullPath(outputPath));
         }
 
-        private static void RenderLoadingMainWindow(string midiPath, string outputPath)
+        private static void RenderLoadingMainWindow(string midiPath, string outputPath, bool compact)
         {
             Application.EnableVisualStyles();
             using (MainForm form = new MainForm())
             {
                 form.SuppressLoadErrorDialogs = true;
                 form.Show(); Application.DoEvents();
+                if (compact) { form.Size = form.MinimumSize; Application.DoEvents(); }
                 form.BeginMidiLoad(midiPath);
                 PumpUntil(delegate
                 {
@@ -1354,6 +1450,14 @@ namespace MidiBottleneck.Tests
                 }, 10000, "loading-progress visual state");
                 if (!form.IsLoadingSong)
                     throw new Exception("the selected MIDI completed before its loading-progress state could be captured");
+                if (compact)
+                {
+                    var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+                    typeof(MainForm).GetField("_loadingFileName", flags).SetValue(form,
+                        "An exceptionally long black-MIDI workload filename for compact loading.mid");
+                    typeof(MainForm).GetMethod("UpdateLoadingFileTelemetry", flags).Invoke(form, new object[] { true });
+                    Application.DoEvents();
+                }
                 using (Bitmap bitmap = new Bitmap(form.Width, form.Height))
                 {
                     CaptureForm(form, bitmap);
@@ -2802,10 +2906,24 @@ namespace MidiBottleneck.Tests
             Equal(0, channel.KeysDown, "panic clears keys");
             Equal(0, channel.Sustain, "panic clears sustain");
             Equal(41, channel.Program, "panic retains unaffected known program");
-            tracker.ResetProviderStateDirect();
+            tracker.RecordDropped(ChannelMessage(15500, 0x91, 65, 100));
+            tracker.PauseBoundaryDirect();
             channel = tracker.CreateSnapshot().Channels[0];
-            Equal(-1, channel.Program, "provider reset invalidates effective program state");
-            Equal(-1, channel.Volume, "provider reset invalidates effective controller state");
+            Equal(41, channel.Program, "Pause retains the last observed program");
+            Equal(100, channel.Volume, "Pause retains the last observed controller state");
+            Equal(true, (channel.HistoricalAttributeMask & (1 << (int)ChannelAttribute.Program)) != 0,
+                "Pause marks retained program state historical after provider reset");
+            tracker.SeekBoundaryDirect();
+            channel = tracker.CreateSnapshot().Channels[0];
+            Equal(0L, channel.SentEvents, "Seek clears sent channel count");
+            Equal(0, channel.PeakKeysDown, "Seek clears peak keys");
+            Equal(41, channel.Program, "Seek retains the last observed program");
+            Equal(1L, tracker.CreateSnapshot().Channels[1].DroppedEvents, "Seek preserves dropped channel count");
+            tracker.StopBoundaryDirect();
+            channel = tracker.CreateSnapshot().Channels[0];
+            Equal(-1, channel.Program, "Stop clears observed program state");
+            Equal(-1, channel.Volume, "Stop clears observed controller state");
+            Equal(0L, channel.SentEvents, "Stop clears sent channel count");
 
             MidiSong liveSong = new MidiSong
             {
@@ -2826,7 +2944,11 @@ namespace MidiBottleneck.Tests
                 engine.SimulateSlowdown = false;
                 output.Open();
                 engine.Start(liveSong, output, ProcessingMode.Queue);
-                WaitFor(delegate { return engine.GetSnapshot().ProcessedEvents >= 2; }, 1000,
+                WaitFor(delegate
+                {
+                    ChannelPlaybackSnapshot value = engine.GetChannelSnapshot();
+                    return value != null && value.Channels[0].SentEvents >= 2;
+                }, 1000,
                     "channel state after successful None dispatch");
                 ChannelPlaybackSnapshot running = engine.GetChannelSnapshot();
                 Equal(1, running.Channels[0].KeysDown, "engine publishes dispatched key state");
@@ -2838,8 +2960,11 @@ namespace MidiBottleneck.Tests
                 engine.Pause();
                 ChannelPlaybackSnapshot paused = engine.GetChannelSnapshot();
                 Equal(0, paused.Channels[0].KeysDown, "Pause provider reset clears channel keys");
-                Equal(-1, paused.Channels[0].Program, "Pause provider reset invalidates channel attributes");
+                Equal(9, paused.Channels[0].Program, "Pause retains the last observed channel program");
+                Equal(true, (paused.Channels[0].HistoricalAttributeMask & (1 << (int)ChannelAttribute.Program)) != 0,
+                    "Pause identifies retained attributes as historical");
                 engine.Stop();
+                Equal(-1, engine.GetChannelSnapshot().Channels[0].Program, "Stop clears monitor observations");
             }
 
             OverflowPolicy[] policies = new OverflowPolicy[]
@@ -2898,9 +3023,19 @@ namespace MidiBottleneck.Tests
                 tracker.RecordSuccessful(ChannelMessage(1234567, 0xC0, 4));
                 tracker.RecordSuccessful(ChannelMessage(1234567, 0x90, 60, 100));
                 monitor.UpdateSnapshot(tracker.CreateSnapshot());
-                Equal("5", monitor.CellText(0, "Program"), "channel monitor displays MIDI program as 1–128");
+                Equal("5 — Electric Piano 1", monitor.CellText(0, "Program"), "channel monitor displays program with GM reference name");
                 Equal("1", monitor.CellText(0, "KeysDown"), "channel monitor displays live key count");
                 Equal("00:01.234", monitor.CellText(0, "Position"), "channel monitor displays output position");
+                tracker.PauseBoundaryDirect();
+                monitor.UpdateSnapshot(tracker.CreateSnapshot());
+                Equal(Color.DimGray, monitor.CellForeColor(0, "Program"), "retained post-reset state is visibly subdued");
+                int requestedValue = Int32.MinValue;
+                monitor.OverrideRequested += delegate(object sender, ChannelOverrideRequestEventArgs request)
+                {
+                    if (request.Channel == 0 && request.Attribute == ChannelAttribute.Volume) requestedValue = request.Value;
+                };
+                monitor.RequestOverrideForTesting(0, ChannelAttribute.Volume, 88);
+                Equal(88, requestedValue, "channel monitor exposes a bounded override request interaction");
                 monitor.Close();
             }
 
@@ -2928,6 +3063,161 @@ namespace MidiBottleneck.Tests
                 }
             }
             finally { File.Delete(path); }
+        }
+
+        private static void TestChannelOverrides()
+        {
+            foreach (ChannelAttribute attribute in (ChannelAttribute[])Enum.GetValues(typeof(ChannelAttribute)))
+            {
+                int value = attribute == ChannelAttribute.PitchBend ? -1234 : attribute == ChannelAttribute.Sustain ? 1 : 37;
+                MidiEvent message = ChannelOverrideState.CreateMessage(5, attribute, value);
+                ChannelAttribute classified;
+                int classifiedValue;
+                Equal(true, ChannelOverrideState.TryClassify(message, out classified, out classifiedValue), attribute + " override classification");
+                Equal(attribute, classified, attribute + " attribute round trip");
+                Equal(value, classifiedValue, attribute + " value round trip");
+            }
+            ChannelOverrideState classification = new ChannelOverrideState();
+            classification.SetValue(0, ChannelAttribute.Sustain, 1);
+            ChannelAttribute ignoredAttribute;
+            int ignoredValue;
+            Equal(false, classification.ShouldSuppress(ChannelMessage(0, 0xB0, 123, 0), out ignoredAttribute, out ignoredValue),
+                "provider-safety all-notes-off is never override-filtered");
+            Equal(true, classification.ShouldSuppress(ChannelMessage(0, 0xB0, 121, 0), out ignoredAttribute, out ignoredValue),
+                "source Reset All Controllers is filtered when it conflicts with a forced attribute");
+            MidiEvent ordinaryNote = ChannelMessage(0, 0x90, 60, 1);
+            int collections = GC.CollectionCount(0);
+            for (int repeat = 0; repeat < 500000; repeat++)
+                classification.ShouldSuppress(ordinaryNote, out ignoredAttribute, out ignoredValue);
+            Equal(collections, GC.CollectionCount(0), "active-override hot-path classification allocates nothing");
+
+            MidiSong filterSong = NewChannelSong("channel-overrides.mid", 0,
+                ChannelMessage(0, 0xB0, 7, 20), ChannelMessage(0, 0xB0, 7, 80), ChannelMessage(0, 0xC0, 5));
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.SetChannelMonitoring(true);
+                engine.SimulateSlowdown = false;
+                engine.SetChannelOverride(0, ChannelAttribute.Volume, 80);
+                engine.SetChannelOverride(0, ChannelAttribute.Program, 10);
+                engine.Start(filterSong, output, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1500, "override filtering completion");
+                List<byte[]> sent = output.SentPayloads();
+                Equal(3, sent.Count, "forced injections plus matching source value reach output");
+                Equal(true, ContainsMessage(sent, 0xB0, 7, 80), "volume override reaches output");
+                Equal(false, ContainsMessage(sent, 0xB0, 7, 20), "conflicting controller is filtered");
+                Equal(true, ContainsMessage(sent, 0xC0, 10), "program override reaches output");
+                Equal(false, ContainsMessage(sent, 0xC0, 5), "conflicting program is filtered");
+                Equal(3L, engine.GetSnapshot().ProcessedEvents, "suppression preserves scheduler processing accounting");
+                Equal(0L, engine.GetSnapshot().DroppedEvents, "suppression is not queue overflow");
+                MidiChannelSnapshot tracked = engine.GetChannelSnapshot().Channels[0];
+                Equal(1L, tracked.SentEvents, "only matching source output increments monitor Sent");
+                Equal(2L, tracked.OverrideSuppressedEvents, "override-filtered events use separate accounting");
+                Equal(80, tracked.ForcedVolume, "forced value is published separately");
+                Equal(0, tracked.PendingForcedAttributeMask, "successful injections are no longer pending");
+
+                int beforeAuto = output.SentPayloads().Count;
+                engine.SetChannelOverride(0, ChannelAttribute.Volume, ChannelOverrideState.AutoValue);
+                Equal(beforeAuto, output.SentPayloads().Count, "Auto sends no reconstructed source value");
+                engine.SetChannelMonitoring(false);
+                engine.SetChannelOverride(0, ChannelAttribute.Program, 11);
+                engine.SetChannelMonitoring(true);
+                Equal(11, engine.GetChannelSnapshot().Channels[0].ForcedProgram, "override survives monitor close/reopen");
+                engine.Unload();
+                Equal(ChannelOverrideState.AutoValue, engine.GetChannelOverride(0, ChannelAttribute.Program), "unload clears overrides");
+            }
+
+            MidiSong boundarySong = NewChannelSong("override-boundaries.mid", 1000000,
+                ChannelMessage(0, 0x90, 60, 100), ChannelMessage(1000000, 0x80, 60, 0));
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.SetChannelMonitoring(true);
+                engine.SimulateSlowdown = false;
+                engine.SetChannelOverride(0, ChannelAttribute.Volume, 90);
+                engine.SetChannelOverride(0, ChannelAttribute.Sustain, 1);
+                engine.Start(boundarySong, output, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.GetSnapshot().ProcessedEvents >= 1; }, 1000, "override boundary initial dispatch");
+                engine.SetChannelOverride(0, ChannelAttribute.Pan, 33);
+                WaitFor(delegate { return ContainsMessage(output.SentPayloads(), 0xB0, 10, 33); }, 1000,
+                    "live override injection through ordered worker");
+                engine.Pause();
+                Equal(0, output.SentPayloads().Count, "Pause safety reset does not reapply sustain while paused");
+                MidiChannelSnapshot paused = engine.GetChannelSnapshot().Channels[0];
+                Equal(0, paused.KeysDown, "Pause clears held keys");
+                Equal(1L, paused.SentEvents, "Pause preserves sent count");
+                Equal(1, paused.PeakKeysDown, "Pause preserves peak keys");
+                engine.Resume();
+                WaitFor(delegate { return output.SentPayloads().Count >= 2; }, 1000, "Pause/Resume reapplication");
+                Equal(true, ContainsMessage(output.SentPayloads(), 0xB0, 7, 90), "Resume reapplies volume");
+                Equal(true, ContainsMessage(output.SentPayloads(), 0xB0, 64, 127), "Resume reapplies sustain after safety boundary");
+
+                engine.Seek(500000);
+                WaitFor(delegate { return output.SentPayloads().Count >= 2; }, 1000, "Seek override reapplication");
+                MidiChannelSnapshot sought = engine.GetChannelSnapshot().Channels[0];
+                Equal(0L, sought.SentEvents, "Seek resets channel Sent");
+                Equal(0, sought.PeakKeysDown, "Seek resets peak keys");
+                Equal(true, ContainsMessage(output.SentPayloads(), 0xB0, 7, 90), "Seek reapplies forced state");
+
+                engine.Stop();
+                Equal(-1, engine.GetChannelSnapshot().Channels[0].Program, "Stop clears monitor observations");
+                FakeMidiOutput replacement = new FakeMidiOutput();
+                engine.Start(boundarySong, replacement, ProcessingMode.Queue, 500000);
+                WaitFor(delegate { return replacement.SentPayloads().Count >= 2; }, 1000, "Stop to Play reapplication");
+                Equal(true, ContainsMessage(replacement.SentPayloads(), 0xB0, 7, 90), "Stop to Play retains overrides");
+                engine.Unload();
+            }
+
+            using (PlaybackEngine noneEngine = new PlaybackEngine())
+            using (NullMidiOutput none = new NullMidiOutput())
+            {
+                noneEngine.SetChannelMonitoring(true);
+                none.Open();
+                noneEngine.Start(NewChannelSong("empty.mid", 0), none, ProcessingMode.Queue);
+                WaitFor(delegate { return noneEngine.State == PlaybackState.Completed; }, 1000, "None empty completion");
+                noneEngine.SetChannelOverride(2, ChannelAttribute.Aftertouch, 77);
+                MidiChannelSnapshot state = noneEngine.GetChannelSnapshot().Channels[2];
+                Equal(77, state.ForcedAftertouch, "None accepts logical override injection");
+                Equal(0, state.PendingForcedAttributeMask, "None completes logical injection");
+            }
+
+            using (PlaybackEngine failing = new PlaybackEngine())
+            {
+                failing.SetChannelMonitoring(true);
+                failing.Start(NewChannelSong("empty.mid", 0), new ThrowingMidiOutput(), ProcessingMode.Queue);
+                WaitFor(delegate { return failing.State == PlaybackState.Completed; }, 1000, "empty failing-output completion");
+                bool threw = false;
+                try { failing.SetChannelOverride(0, ChannelAttribute.Pan, 64); }
+                catch (InvalidOperationException) { threw = true; }
+                Equal(true, threw, "failed override injection is reported");
+                MidiChannelSnapshot failed = failing.GetChannelSnapshot().Channels[0];
+                Equal(64, failed.ForcedPan, "failed injection retains configuration");
+                Equal(true, (failed.PendingForcedAttributeMask & (1 << (int)ChannelAttribute.Pan)) != 0,
+                    "failed injection remains visibly pending");
+            }
+        }
+
+        private static MidiSong NewChannelSong(string path, long duration, params MidiEvent[] events)
+        {
+            return new MidiSong
+            {
+                FilePath = path, Format = 0, TrackCount = 1, TicksPerQuarterNote = 480,
+                Events = new List<MidiEvent>(events), DurationMicroseconds = duration
+            };
+        }
+
+        private static bool ContainsMessage(List<byte[]> messages, params byte[] expected)
+        {
+            for (int index = 0; index < messages.Count; index++)
+            {
+                byte[] actual = messages[index];
+                if (actual.Length != expected.Length) continue;
+                bool equal = true;
+                for (int offset = 0; offset < actual.Length; offset++)
+                    if (actual[offset] != expected[offset]) { equal = false; break; }
+                if (equal) return true;
+            }
+            return false;
         }
 
         private static void TestKdmApiIntegration()
@@ -3326,6 +3616,9 @@ namespace MidiBottleneck.Tests
                     form.BeginMidiLoad(first);
                     Equal("Cancel", form.OpenCommandText, "Open command becomes Cancel while loading");
                     Equal(true, form.LoadingActivityVisible, "loading activity is visible");
+                    if (form.LoadingFileAreaWidth < 240 || form.LoadingStatusAreaWidth < 210)
+                        throw new Exception("standard loading header does not preserve useful filename/status widths: " +
+                            form.LoadingFileAreaWidth + "/" + form.LoadingStatusAreaWidth);
                     if (form.LoadingFileText.IndexOf(Environment.NewLine, StringComparison.Ordinal) < 0 ||
                         form.LoadingFileText.IndexOf("committed", StringComparison.OrdinalIgnoreCase) < 0)
                         throw new Exception("loading filename area does not contain its fixed second-line elapsed/committed-memory telemetry");
@@ -3479,12 +3772,19 @@ namespace MidiBottleneck.Tests
                     CollectControls(compactLoading, compactControls);
                     GroupBox compactProcessing = FindGroupBox(compactControls, "Processing model");
                     int compactProcessingTop = compactProcessing.Top;
+                    var compactFlags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+                    BufferedStatusLabel compactFile = (BufferedStatusLabel)typeof(MainForm).GetField("_fileLabel", compactFlags).GetValue(compactLoading);
+                    BufferedStatusLabel compactStatus = (BufferedStatusLabel)typeof(MainForm).GetField("_loadingStatusLabel", compactFlags).GetValue(compactLoading);
+                    compactFile.Text = "Loading an intentionally very long black-MIDI filename.mid…" + Environment.NewLine + "12:34  •  12.4 GiB";
+                    compactStatus.Text = "Assigning event timestamps…" + Environment.NewLine + "87.5% stage  •  73.2% overall";
                     typeof(MainForm).GetMethod("SetLoadingPresentation",
-                        System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                        compactFlags)
                         .Invoke(compactLoading, new object[] { true });
                     Application.DoEvents();
-                    if (compactLoading.LoadingFileAreaWidth <= compactLoading.LoadingStatusAreaWidth)
-                        throw new Exception("compact loading does not prioritize filename/elapsed-memory width");
+                    if (compactLoading.LoadingFileAreaWidth < 145)
+                        throw new Exception("compact filename/telemetry area is not usefully visible: " + compactLoading.LoadingFileAreaWidth);
+                    if (compactLoading.LoadingStatusAreaWidth < 165)
+                        throw new Exception("compact parser stage/percentage area is not usefully visible: " + compactLoading.LoadingStatusAreaWidth);
                     if (compactLoading.LoadingProgressWidth > 125)
                         throw new Exception("compact loading bars retain an unnecessarily wide footprint");
                     Equal(compactProcessingTop, compactProcessing.Top,
@@ -3503,6 +3803,64 @@ namespace MidiBottleneck.Tests
                 DeleteFileWhenAvailable(first);
                 DeleteFileWhenAvailable(second);
                 if (dense != null) DeleteFileWhenAvailable(dense);
+            }
+        }
+
+        private static void TestAnalysisWindowPersistence()
+        {
+            string first = Path.Combine(Path.GetTempPath(), "analysis-shell-first-" + Guid.NewGuid().ToString("N") + ".mid");
+            string second = Path.Combine(Path.GetTempPath(), "analysis-shell-second-" + Guid.NewGuid().ToString("N") + ".mid");
+            File.WriteAllBytes(first, BuildTestMidi());
+            File.WriteAllBytes(second, BuildTestMidi());
+            try
+            {
+                Application.EnableVisualStyles();
+                using (MainForm main = new MainForm())
+                {
+                    main.SuppressLoadErrorDialogs = true;
+                    main.Show(); Application.DoEvents();
+                    main.BeginMidiLoad(first);
+                    PumpUntil(delegate { return !main.IsLoadingSong; }, 5000, "first Analysis-shell source load");
+                    main.ShowAnalysisForTesting();
+                    Application.DoEvents();
+                    DiagnosticsForm[] windows = main.AnalysisWindowsForTesting;
+                    Equal(1, windows.Length, "one Analysis shell opened");
+                    DiagnosticsForm shell = windows[0];
+                    shell.Location = new Point(80, 90);
+                    shell.Size = new Size(1000, 620);
+                    Point preservedLocation = shell.Location;
+                    Size preservedSize = shell.Size;
+
+                    main.BeginMidiLoad(second);
+                    Equal(false, shell.IsDisposed, "replacement keeps the Analysis window shell open");
+                    Equal(false, shell.HasAttachedSong, "replacement start detaches the old song immediately");
+                    Equal(null, shell.CurrentAnalysis, "detached shell retains no old graph result");
+                    Equal(null, shell.Graph.Analysis, "detached graph is not interactively usable");
+                    main.CancelMidiLoad();
+                    PumpFor(300);
+                    Equal(false, shell.HasAttachedSong, "cancelled replacement leaves an honest detached shell");
+                    Equal(false, shell.CalculationPending, "cancelled replacement leaves no stale Analysis work pending");
+
+                    main.BeginMidiLoad(second);
+                    PumpUntil(delegate { return !main.IsLoadingSong; }, 5000, "replacement Analysis-shell source load");
+                    Equal(true, shell.HasAttachedSong, "successful replacement rebinds the same Analysis shell");
+                    Equal(Path.GetFullPath(second), shell.SourceSong.FilePath, "rebound shell references only the new song");
+                    Equal(preservedLocation, shell.Location, "Analysis shell position survives replacement");
+                    Equal(preservedSize, shell.Size, "Analysis shell size survives replacement");
+                    PumpUntil(delegate { return !shell.CalculationPending; }, 5000, "rebound Analysis calculation");
+                    if (shell.CurrentAnalysis == null) throw new Exception("rebound Analysis shell did not produce a new result");
+                    main.BeginMidiLoad(second + ".missing");
+                    PumpUntil(delegate { return !main.IsLoadingSong; }, 5000, "failed replacement Analysis shell");
+                    Equal(false, shell.HasAttachedSong, "failed replacement leaves the Analysis shell detached");
+                    Equal(null, shell.CurrentAnalysis, "failed replacement cannot restore stale old-song Analysis");
+                    main.Close();
+                    Equal(true, shell.IsDisposed, "main form close safely closes preserved Analysis shell");
+                }
+            }
+            finally
+            {
+                DeleteFileWhenAvailable(first);
+                DeleteFileWhenAvailable(second);
             }
         }
 
@@ -3728,6 +4086,8 @@ namespace MidiBottleneck.Tests
                 form.Show();
                 Application.DoEvents();
                 Equal(null, form.Owner, "Analysis window remains unowned");
+                Equal(1, form.HeaderRowCount, "default-width global Analysis command bar uses one line");
+                Equal(true, form.HeaderControlsFit, "default-width Analysis command bar fits above the full split");
                 IntPtr handle = form.Handle;
                 if (handle == IntPtr.Zero) throw new Exception("Analysis window handle is zero");
                 List<Control> controls = new List<Control>();
@@ -3750,8 +4110,9 @@ namespace MidiBottleneck.Tests
                 Equal(1, form.HeaderRowCount, "wide Analysis ordinary controls use one line");
                 Equal(true, form.HeaderControlsFit, "wide Analysis ordinary controls fit");
                 form.Size = form.MinimumSize; Application.DoEvents();
-                if (form.HeaderRowCount < 2) throw new Exception("minimum Analysis header did not wrap");
-                Equal(true, form.HeaderControlsFit, "minimum Analysis header wraps without clipping");
+                if (form.HeaderRowCount < 1 || form.HeaderRowCount > 2)
+                    throw new Exception("minimum Analysis header has an unexpected row count: " + form.HeaderRowCount);
+                Equal(true, form.HeaderControlsFit, "minimum Analysis header fits or wraps naturally without clipping");
                 AnalysisConfiguration fasterConfiguration = DefaultAnalysisConfiguration();
                 fasterConfiguration.ProcessingMicroseconds = 10;
                 WorkloadAnalysis faster = WorkloadAnalyzer.Analyze(song, 100000, fasterConfiguration);
@@ -5807,6 +6168,16 @@ namespace MidiBottleneck.Tests
                     List<int> indices = new List<int>(_sentEvents.Count);
                     for (int i = 0; i < _sentEvents.Count; i++) indices.Add(_sentEvents[i].EventIndex);
                     return indices;
+                }
+            }
+
+            public List<byte[]> SentPayloads()
+            {
+                lock (_sync)
+                {
+                    List<byte[]> payloads = new List<byte[]>(_sentEvents.Count);
+                    for (int i = 0; i < _sentEvents.Count; i++) payloads.Add(_sentEvents[i].Data.ToArray());
+                    return payloads;
                 }
             }
         }

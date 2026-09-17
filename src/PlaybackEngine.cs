@@ -45,6 +45,7 @@ namespace MidiBottleneck
         private bool _hasPublishedQueue;
         private DropTraceRecorder _dropTrace;
         private readonly ChannelStateTracker _channelState = new ChannelStateTracker();
+        private readonly ChannelOverrideState _channelOverrides = new ChannelOverrideState();
         private volatile ChannelPlaybackSnapshot _publishedChannelState;
         private int _channelMonitoringEnabled;
         private long _lastChannelPublishStamp;
@@ -157,6 +158,7 @@ namespace MidiBottleneck
                     _channelState.ResetAllDirect();
                     _publishedChannelState = _channelState.CreateSnapshot();
                 }
+                _channelOverrides.MarkAllForcedPending();
                 _lastDispatchedMicroseconds = startMicroseconds;
                 _state = startPaused ? PlaybackState.Paused : PlaybackState.Playing;
                 Volatile.Write(ref _dispatchSuspended, startPaused ? 1 : 0);
@@ -183,7 +185,7 @@ namespace MidiBottleneck
                 previousState = _state;
             }
 
-            StopWorkerForTransition("seeking");
+            StopWorkerForTransition("seeking", ChannelTransitionBoundary.Seek);
 
             lock (_sync)
             {
@@ -227,7 +229,7 @@ namespace MidiBottleneck
             // Pause is a native-output boundary, not merely a scheduler flag.
             // Retire the worker first so Reset/Panic cannot race an active Send
             // and provider-buffered messages cannot arrive after the panic.
-            StopWorkerForTransition("pausing playback");
+            StopWorkerForTransition("pausing playback", ChannelTransitionBoundary.Pause);
 
             lock (_sync)
             {
@@ -263,10 +265,17 @@ namespace MidiBottleneck
 
         public void Stop()
         {
-            StopWorkerForTransition("stopping playback");
+            StopWorkerForTransition("stopping playback", ChannelTransitionBoundary.Stop);
         }
 
-        private void StopWorkerForTransition(string operation)
+        private enum ChannelTransitionBoundary
+        {
+            Pause,
+            Seek,
+            Stop
+        }
+
+        private void StopWorkerForTransition(string operation, ChannelTransitionBoundary channelBoundary)
         {
             Thread thread;
             IMidiOutput output;
@@ -321,9 +330,13 @@ namespace MidiBottleneck
                 _outstandingEvents = 0;
                 _currentLagMicroseconds = 0;
             }
+            _channelOverrides.MarkAllForcedPending();
+            if (channelBoundary == ChannelTransitionBoundary.Stop) _channelOverrides.ResetStatistics();
             if (Volatile.Read(ref _channelMonitoringEnabled) != 0)
             {
-                _channelState.ResetProviderStateDirect();
+                if (channelBoundary == ChannelTransitionBoundary.Pause) _channelState.PauseBoundaryDirect();
+                else if (channelBoundary == ChannelTransitionBoundary.Seek) _channelState.SeekBoundaryDirect();
+                else _channelState.StopBoundaryDirect();
                 PublishChannelState(true);
             }
         }
@@ -361,6 +374,7 @@ namespace MidiBottleneck
                     _channelState.ResetAllDirect();
                     _publishedChannelState = _channelState.CreateSnapshot();
                 }
+                _channelOverrides.Clear();
             }
         }
 
@@ -383,11 +397,17 @@ namespace MidiBottleneck
                 _droppedEvents = 0;
                 _maximumLagMicroseconds = _currentLagMicroseconds;
             }
+            _channelOverrides.ResetStatistics();
             if (Volatile.Read(ref _channelMonitoringEnabled) != 0)
             {
                 _channelState.RequestStatisticsReset();
                 ChannelPlaybackSnapshot published = _publishedChannelState;
-                if (published != null) _publishedChannelState = published.WithStatisticsReset();
+                if (published != null)
+                {
+                    ChannelPlaybackSnapshot reset = published.WithStatisticsReset();
+                    _channelOverrides.ApplyToSnapshot(reset);
+                    _publishedChannelState = reset;
+                }
             }
         }
 
@@ -397,7 +417,9 @@ namespace MidiBottleneck
             if (enabled)
             {
                 _channelState.RequestFullReset();
-                _publishedChannelState = ChannelPlaybackSnapshot.Empty();
+                ChannelPlaybackSnapshot snapshot = ChannelPlaybackSnapshot.Empty();
+                _channelOverrides.ApplyToSnapshot(snapshot);
+                _publishedChannelState = snapshot;
                 Interlocked.Exchange(ref _lastChannelPublishStamp, 0);
             }
             else _publishedChannelState = null;
@@ -406,6 +428,48 @@ namespace MidiBottleneck
         internal ChannelPlaybackSnapshot GetChannelSnapshot()
         {
             return _publishedChannelState;
+        }
+
+        internal int GetChannelOverride(int channel, ChannelAttribute attribute)
+        {
+            return _channelOverrides.GetValue(channel, attribute);
+        }
+
+        internal void SetChannelOverride(int channel, ChannelAttribute attribute, int value)
+        {
+            if (!_channelOverrides.SetValue(channel, attribute, value)) return;
+            if (value == ChannelOverrideState.AutoValue)
+            {
+                PublishChannelState(true);
+                return;
+            }
+
+            bool sentDirectly = false;
+            try
+            {
+                lock (_sync)
+                {
+                    if (_thread == null && _output != null)
+                    {
+                        MidiEvent message = ChannelOverrideState.CreateMessage(channel, attribute, value);
+                        _output.Send(message);
+                        if (Volatile.Read(ref _channelMonitoringEnabled) != 0)
+                            _channelState.RecordOverrideApplied(channel, attribute, value);
+                        // Consume the pending bit installed by SetValue. No worker
+                        // can start while the lifecycle lock is held.
+                        int pending = _channelOverrides.TakePendingMask(channel);
+                        _channelOverrides.Requeue(channel, pending & ~(1 << (int)attribute));
+                        sentDirectly = true;
+                    }
+                }
+            }
+            catch
+            {
+                PublishChannelState(true);
+                throw;
+            }
+            if (!sentDirectly) _wake.Set();
+            PublishChannelState(true);
         }
 
         internal void SetDropTrace(DropTraceRecorder recorder)
@@ -536,6 +600,7 @@ namespace MidiBottleneck
             while (IsActive())
             {
                 if (!WaitWhilePaused()) return;
+                ApplyPendingOverrides();
                 long now = CurrentTransportTicks();
 
                 nextArrival = FindFirstEventAfterTransport(nextArrival, now);
@@ -598,6 +663,7 @@ namespace MidiBottleneck
             while (IsActive())
             {
                 if (!WaitWhilePaused()) return;
+                ApplyPendingOverrides();
                 long now = CurrentTransportTicks();
                 long arrivalTicks = nextArrival < _events.Count ? EventTicks(nextArrival) : Int64.MaxValue;
 
@@ -762,6 +828,7 @@ namespace MidiBottleneck
                             SetCurrentLag(0);
                             try { _output.Panic(); }
                             catch { }
+                            _channelOverrides.MarkAllForcedPending();
                             if (trackChannels)
                             {
                                 _channelState.PanicDirect();
@@ -811,8 +878,7 @@ namespace MidiBottleneck
         private void Dispatch(int eventIndex, long actualTransportTicks)
         {
             MidiEvent midiEvent = _events[eventIndex];
-            _output.Send(midiEvent);
-            if (Volatile.Read(ref _channelMonitoringEnabled) != 0) _channelState.RecordSuccessful(midiEvent);
+            SendScheduledEvent(midiEvent, Volatile.Read(ref _channelMonitoringEnabled) != 0);
             long actualUs = TicksToMicroseconds(CurrentTransportTicks());
             long lag = Math.Max(0, actualUs - midiEvent.IntendedMicroseconds);
             lock (_sync)
@@ -855,8 +921,7 @@ namespace MidiBottleneck
                         if (Volatile.Read(ref _dispatchSuspended) != 0) break;
                         if ((sent & 63) == 0 && !IsEffectiveZeroService()) break;
                         MidiEvent midiEvent = _events[nextIndex];
-                        _output.Send(midiEvent);
-                        if (trackChannels) _channelState.RecordSuccessful(midiEvent);
+                        SendScheduledEvent(midiEvent, trackChannels);
                         long elapsedTicks = Stopwatch.GetTimestamp() - stopwatchAtBatchStart;
                         long actualTicks = transportAtBatchStart + elapsedTicks;
                         currentLag = Math.Max(0, TicksToMicroseconds(actualTicks) - midiEvent.IntendedMicroseconds);
@@ -910,8 +975,7 @@ namespace MidiBottleneck
                         if (Volatile.Read(ref _dispatchSuspended) != 0) break;
                         if ((sent & 63) == 0 && !IsEffectiveZeroService()) break;
                         MidiEvent midiEvent = events[nextIndex];
-                        _output.Send(midiEvent);
-                        if (trackChannels) _channelState.RecordSuccessful(midiEvent);
+                        SendScheduledEvent(midiEvent, trackChannels);
                         long elapsedTicks = Stopwatch.GetTimestamp() - stopwatchAtBatchStart;
                         long actualTicks = transportAtBatchStart + elapsedTicks;
                         currentLag = Math.Max(0, TicksToMicroseconds(actualTicks) - midiEvent.IntendedMicroseconds);
@@ -964,7 +1028,57 @@ namespace MidiBottleneck
             long previous = Interlocked.Read(ref _lastChannelPublishStamp);
             if (!force && previous != 0 && now - previous < Stopwatch.Frequency / 60) return;
             Interlocked.Exchange(ref _lastChannelPublishStamp, now);
-            _publishedChannelState = _channelState.CreateSnapshot();
+            ChannelPlaybackSnapshot snapshot = _channelState.CreateSnapshot();
+            _channelOverrides.ApplyToSnapshot(snapshot);
+            _publishedChannelState = snapshot;
+        }
+
+        private bool SendScheduledEvent(MidiEvent midiEvent, bool trackChannels)
+        {
+            ChannelAttribute attribute;
+            int forcedValue;
+            if (_channelOverrides.ShouldSuppress(midiEvent, out attribute, out forcedValue))
+            {
+                _channelOverrides.RecordSuppressed(midiEvent.Channel);
+                return false;
+            }
+            _output.Send(midiEvent);
+            if (trackChannels) _channelState.RecordSuccessful(midiEvent);
+            return true;
+        }
+
+        private void ApplyPendingOverrides()
+        {
+            if (!_channelOverrides.AnyOverrides || _output == null) return;
+            bool trackChannels = Volatile.Read(ref _channelMonitoringEnabled) != 0;
+            bool applied = false;
+            for (int channel = 0; channel < 16; channel++)
+            {
+                int mask = _channelOverrides.TakePendingMask(channel);
+                while (mask != 0)
+                {
+                    int bit = mask & -mask;
+                    int attributeIndex = 0;
+                    int scan = bit;
+                    while ((scan >>= 1) != 0) attributeIndex++;
+                    ChannelAttribute attribute = (ChannelAttribute)attributeIndex;
+                    int value = _channelOverrides.GetValue(channel, attribute);
+                    mask &= ~bit;
+                    if (value == ChannelOverrideState.AutoValue) continue;
+                    try
+                    {
+                        _output.Send(ChannelOverrideState.CreateMessage(channel, attribute, value));
+                        if (trackChannels) _channelState.RecordOverrideApplied(channel, attribute, value);
+                        applied = true;
+                    }
+                    catch
+                    {
+                        _channelOverrides.Requeue(channel, mask | bit);
+                        throw;
+                    }
+                }
+            }
+            if (applied) PublishChannelState(true);
         }
 
         private void PublishChannelStateBeforeWait(long targetTicks, long nowTicks)

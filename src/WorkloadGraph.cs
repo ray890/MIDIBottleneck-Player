@@ -139,6 +139,24 @@ namespace MidiBottleneck
         internal int DynamicPaintCount { get { return _dynamicPaintCount; } }
         internal string EmptyMessage { get { return _emptyMessage; } set { _emptyMessage = value ?? String.Empty; Invalidate(); } }
 
+        internal void DetachAnalysis(string emptyMessage)
+        {
+            _analysis = null;
+            _hoverTime = null;
+            _pinnedTime = null;
+            _playbackTimeline = null;
+            _midiOutputPosition = null;
+            _overlayData = null;
+            _viewStart = 0;
+            _viewEnd = 0;
+            _mouseDown = false;
+            _dragging = false;
+            _hoverUpdatePending = false;
+            _dynamicRepaintPending = false;
+            _emptyMessage = emptyMessage ?? "No MIDI file is attached.";
+            InvalidateStaticLayer();
+        }
+
         internal Rectangle GraphArea
         {
             get

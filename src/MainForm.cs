@@ -177,6 +177,7 @@ namespace MidiBottleneck
             _fileHeaderTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
             _fileHeaderTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45));
             _fileHeaderTable.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            _fileHeaderTable.SizeChanged += delegate { if (_loadingSong) ConfigureFileHeaderAllocation(true); };
             table.Controls.Add(_fileHeaderTable, 1, 0);
             table.SetColumnSpan(_fileHeaderTable, 3);
 
@@ -249,7 +250,7 @@ namespace MidiBottleneck
             _kdmApiCheck.Margin = new Padding(10, 3, 3, 3);
             _kdmApiCheck.CheckedChanged += OutputSettingChanged;
             _toolTip.SetToolTip(_kdmApiCheck, "Send directly through the application-local or installed KDMAPI provider. While checked, KDMAPI is the active output and the WinMM/None list is inactive. Changing output during playback restarts at the current source position and clears backlog/statistics.");
-            _toolTip.SetToolTip(_outputCombo, "Choose a Windows MIDI device or None (no output) for scheduler-only diagnostics. None makes no native MIDI calls. Changing output during playback restarts at the current source position and clears backlog/statistics.");
+            _toolTip.SetToolTip(_outputCombo, "Choose a Windows MIDI device or None for scheduler-only diagnostics. None processes events and simulator statistics normally but makes no native MIDI calls. Changing output during playback restarts at the current source position and clears backlog/statistics.");
             table.Controls.Add(_kdmApiCheck, 2, 1);
 
             _stateLabel = new Label();
@@ -554,7 +555,7 @@ namespace MidiBottleneck
         {
             if (String.IsNullOrWhiteSpace(path)) throw new ArgumentException("A MIDI file path is required.", "path");
             CancelMidiLoad();
-            UnloadCurrentSong();
+            UnloadCurrentSong(true);
             CancellationTokenSource cancellation = new CancellationTokenSource();
             _loadCancellation = cancellation;
             int generation = ++_loadGeneration;
@@ -623,6 +624,13 @@ namespace MidiBottleneck
                             _fileLabel.Text = Path.GetFileName(_song.FilePath);
                             _toolTip.SetToolTip(_fileLabel, _song.FilePath);
                             UpdateFileInformation();
+                            AnalysisConfiguration configuration = CurrentAnalysisConfiguration();
+                            DiagnosticsForm[] windows = _analysisWindows.ToArray();
+                            for (int index = 0; index < windows.Length; index++)
+                            {
+                                DiagnosticsForm window = windows[index];
+                                if (window != null && !window.IsDisposed) window.AttachSong(_song, configuration);
+                            }
                         }
                         UpdateSeekDisplay();
                         UpdateTransportControls();
@@ -684,21 +692,58 @@ namespace MidiBottleneck
         private void ConfigureFileHeaderAllocation(bool loading)
         {
             if (_fileHeaderTable == null) return;
-            float filePercent;
-            if (loading) filePercent = _compactLayout ? 68F : 60F;
-            else filePercent = _compactLayout ? 45F : 48F;
-            _fileHeaderTable.ColumnStyles[0].Width = filePercent;
-            _fileHeaderTable.ColumnStyles[1].Width = 100F - filePercent;
+            if (!loading)
+            {
+                _fileHeaderTable.ColumnStyles[0].SizeType = SizeType.Percent;
+                _fileHeaderTable.ColumnStyles[1].SizeType = SizeType.Percent;
+                float filePercent = _compactLayout ? 45F : 48F;
+                _fileHeaderTable.ColumnStyles[0].Width = filePercent;
+                _fileHeaderTable.ColumnStyles[1].Width = 100F - filePercent;
+                return;
+            }
+
+            // The parser side needs enough space to communicate both its stage
+            // and percentages, but it must not starve the filename/telemetry.
+            // Make the status column a measured absolute width and leave the
+            // rest to the flexible filename column instead of encoding a
+            // product rule as a dominant fixed percentage.
+            int available = Math.Max(0, _fileHeaderTable.ClientSize.Width);
+            int fileMinimum = _compactLayout ? 145 : 240;
+            int statusMinimum = _compactLayout ? 165 : 215;
+            int statusIdeal = statusMinimum;
+            if (_loadingStatusLabel != null && !String.IsNullOrEmpty(_loadingStatusLabel.Text))
+            {
+                string[] lines = _loadingStatusLabel.Text.Split(new string[] { Environment.NewLine }, StringSplitOptions.None);
+                for (int index = 0; index < lines.Length; index++)
+                    statusIdeal = Math.Max(statusIdeal, TextRenderer.MeasureText(lines[index], _loadingStatusLabel.Font).Width + 12);
+            }
+            statusIdeal = Math.Min(statusIdeal, _compactLayout ? 215 : 300);
+            int statusWidth = Math.Min(statusIdeal, Math.Max(statusMinimum, available - fileMinimum));
+            if (available < fileMinimum + statusMinimum)
+                statusWidth = Math.Max(1, available / 2);
+            _fileHeaderTable.ColumnStyles[0].SizeType = SizeType.Percent;
+            _fileHeaderTable.ColumnStyles[0].Width = 100F;
+            _fileHeaderTable.ColumnStyles[1].SizeType = SizeType.Absolute;
+            _fileHeaderTable.ColumnStyles[1].Width = statusWidth;
         }
 
 
         internal void UnloadCurrentSong()
         {
+            UnloadCurrentSong(false);
+        }
+
+        private void UnloadCurrentSong(bool preserveAnalysisShells)
+        {
             CloseChannelMonitor();
             DiagnosticsForm[] windows = _analysisWindows.ToArray();
             for (int i = 0; i < windows.Length; i++)
-                if (windows[i] != null && !windows[i].IsDisposed) windows[i].Close();
-            _analysisWindows.Clear();
+            {
+                if (windows[i] == null || windows[i].IsDisposed) continue;
+                if (preserveAnalysisShells) windows[i].DetachForSongReplacement("Loading new MIDI…");
+                else windows[i].Close();
+            }
+            if (!preserveAnalysisShells) _analysisWindows.Clear();
             _engine.Unload();
             _engineSong = null;
             _song = null;
@@ -1269,6 +1314,16 @@ namespace MidiBottleneck
             diagnostics.RequestAnalysis(configuration);
         }
 
+        internal void ShowAnalysisForTesting()
+        {
+            ShowAnalysisClicked(this, EventArgs.Empty);
+        }
+
+        internal DiagnosticsForm[] AnalysisWindowsForTesting
+        {
+            get { return _analysisWindows.ToArray(); }
+        }
+
         private void ShowChannelMonitor()
         {
             if (_song == null) return;
@@ -1283,6 +1338,21 @@ namespace MidiBottleneck
             _engine.SetChannelMonitoring(true);
             ChannelMonitorForm monitor = new ChannelMonitorForm(Path.GetFileName(_song.FilePath));
             _channelMonitor = monitor;
+            monitor.OverrideRequested += delegate(object sender, ChannelOverrideRequestEventArgs request)
+            {
+                try
+                {
+                    _engine.SetChannelOverride(request.Channel, request.Attribute, request.Value);
+                    monitor.UpdateSnapshot(_engine.GetChannelSnapshot());
+                }
+                catch (Exception ex)
+                {
+                    monitor.UpdateSnapshot(_engine.GetChannelSnapshot());
+                    MessageBox.Show(monitor,
+                        "The channel override could not be applied to the selected output. The forced value remains configured and pending.\r\n\r\n" + ex.Message,
+                        "MIDI channel override", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            };
             monitor.FormClosed += delegate
             {
                 if (Object.ReferenceEquals(_channelMonitor, monitor))

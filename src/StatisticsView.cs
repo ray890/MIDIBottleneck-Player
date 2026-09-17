@@ -179,7 +179,7 @@ namespace MidiBottleneck
                 _speedMeasurementDescription + ". Right-click to change it." :
                 cell == 0 ? "Playback timeline / MIDI output position. The output position is the source timestamp of the most recently sent MIDI event." :
                 cell == 2 ? "With immediate simulated service, this is the highest observed 250 ms rolling dispatch rate since statistics were reset—not a theoretical hardware or scheduler capacity. Nonzero service models show their theoretical configured maximum." :
-                cell == 4 ? "Events successfully dispatched through the selected output / events discarded by the simulator. With None (no output), sent means logically consumed by the no-output diagnostic sink; no physical MIDI data leaves the application." :
+                cell == 4 ? "Events successfully dispatched through the selected output / events discarded by the simulator. With None, sent means logically consumed by the no-output diagnostic sink; no physical MIDI data leaves the application." :
                 cell == 6 || cell == 7 ? "Lag is lateness through MIDI dispatch, including scheduler delay or a blocking output call. It cannot measure synthesizer rendering or audio-device latency." : String.Empty;
             if (cell >= 0 && (_captionTruncated[cell] || _valueTruncated[cell]))
             {

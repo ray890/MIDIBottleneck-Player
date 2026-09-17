@@ -7,7 +7,7 @@ namespace MidiBottleneck
     // paths remain identical, while Send itself is an allocation-free no-op.
     internal sealed class NullMidiOutput : IMidiOutput, IMidiOutputContext, IDisposable
     {
-        internal const string DisplayName = "None (no output)";
+        internal const string DisplayName = "None";
 
         public string SourceFile { get; set; }
 

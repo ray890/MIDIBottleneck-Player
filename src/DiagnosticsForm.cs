@@ -136,13 +136,22 @@ namespace MidiBottleneck
             _summary.Font = new Font("Consolas", 9F, FontStyle.Regular, GraphicsUnit.Point);
             split.Panel1.Controls.Add(_summary);
 
+            TableLayoutPanel rootLayout = new TableLayoutPanel();
+            rootLayout.Dock = DockStyle.Fill;
+            rootLayout.Margin = new Padding(0);
+            rootLayout.Padding = new Padding(4, 3, 4, 4);
+            rootLayout.ColumnCount = 1;
+            rootLayout.RowCount = 2;
+            rootLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            rootLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
             TableLayoutPanel graphLayout = new TableLayoutPanel();
             graphLayout.Dock = DockStyle.Fill;
             graphLayout.ColumnCount = 2;
-            graphLayout.RowCount = 3;
+            graphLayout.RowCount = 2;
             graphLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             graphLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            graphLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             graphLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             graphLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 92));
 
@@ -152,8 +161,7 @@ namespace MidiBottleneck
             _headerLayout.Dock = DockStyle.Fill;
             _headerLayout.WrapContents = true;
             _headerLayout.Margin = new Padding(0);
-            graphLayout.Controls.Add(_headerLayout, 0, 0);
-            graphLayout.SetColumnSpan(_headerLayout, 2);
+            rootLayout.Controls.Add(_headerLayout, 0, 0);
 
             Button resetZoom = new Button();
             resetZoom.Text = "Reset zoom";
@@ -236,7 +244,7 @@ namespace MidiBottleneck
             _graph.InspectionChanged += GraphInspectionChanged;
             _graph.SeekRequested += GraphSeekRequested;
             _graph.ViewportChanged += delegate { ScheduleResolutionRefresh(); };
-            graphLayout.Controls.Add(_graph, 0, 1);
+            graphLayout.Controls.Add(_graph, 0, 0);
             graphLayout.SetColumnSpan(_graph, 2);
 
             _inspection = new TextBox();
@@ -246,7 +254,7 @@ namespace MidiBottleneck
             _inspection.BackColor = SystemColors.Window;
             _inspection.Font = new Font("Consolas", 8.5F, FontStyle.Regular, GraphicsUnit.Point);
             _inspection.Text = "Hover over the graph to inspect a time. Click to pin; double-click to seek.";
-            graphLayout.Controls.Add(_inspection, 0, 2);
+            graphLayout.Controls.Add(_inspection, 0, 1);
 
             _seekButton = new Button();
             _seekButton.Text = "Seek to pin";
@@ -258,9 +266,10 @@ namespace MidiBottleneck
                 if (_graph.PinnedTimeMicroseconds.HasValue)
                     RaiseSeekRequested(_graph.PinnedTimeMicroseconds.Value);
             };
-            graphLayout.Controls.Add(_seekButton, 1, 2);
+            graphLayout.Controls.Add(_seekButton, 1, 1);
             split.Panel2.Controls.Add(graphLayout);
-            Controls.Add(split);
+            rootLayout.Controls.Add(split, 0, 1);
+            Controls.Add(rootLayout);
             _calculationDelayTimer = new System.Windows.Forms.Timer();
             _calculationDelayTimer.Interval = 1000;
             _calculationDelayTimer.Tick += delegate
@@ -344,6 +353,7 @@ namespace MidiBottleneck
         internal string ResolutionSelectionText { get { return Convert.ToString(_resolutionCombo.SelectedItem, CultureInfo.CurrentCulture); } }
         internal bool AutomaticResolutionSelected { get { return _resolutionMode == ResolutionSelectionMode.Auto; } }
         internal WorkloadAnalysis CurrentAnalysis { get { return _analysis; } }
+        internal bool HasAttachedSong { get { return SourceSong != null; } }
         internal int HeaderRowCount
         {
             get
@@ -462,6 +472,46 @@ namespace MidiBottleneck
                 }
                 catch (InvalidOperationException) { }
             });
+        }
+
+        internal void DetachForSongReplacement(string message)
+        {
+            _resolutionDebounceTimer.Stop();
+            CancelCurrentAnalysisWork();
+            EndBusyPeriod();
+            SourceSong = null;
+            _analysis = null;
+            _pendingConfiguration = null;
+            _analysisCache.Clear();
+            _analysisCacheOrder.Clear();
+            _latestAnalysisProgress = null;
+            _seekButton.Enabled = false;
+            _split.Enabled = false;
+            _headerLayout.Enabled = false;
+            Text = "MIDI Workload Analysis — no file";
+            _summary.Text = message ?? "No MIDI file is attached.";
+            _graph.DetachAnalysis(message ?? "No MIDI file is attached.");
+        }
+
+        internal void AttachSong(MidiSong song, AnalysisConfiguration configuration)
+        {
+            if (song == null) throw new ArgumentNullException("song");
+            _resolutionDebounceTimer.Stop();
+            CancelCurrentAnalysisWork();
+            EndBusyPeriod();
+            SourceSong = song;
+            _analysis = null;
+            _pendingConfiguration = null;
+            _analysisCache.Clear();
+            _analysisCacheOrder.Clear();
+            _latestAnalysisProgress = null;
+            _seekButton.Enabled = false;
+            _split.Enabled = true;
+            _headerLayout.Enabled = true;
+            Text = "MIDI Workload Analysis — " + System.IO.Path.GetFileName(song.FilePath);
+            _summary.Text = "Analysis will appear here when calculation completes.";
+            _graph.DetachAnalysis("Calculating workload analysis…");
+            RequestAnalysis(configuration);
         }
 
         private void ScheduleResolutionRefresh()

@@ -10,6 +10,7 @@ namespace MidiBottleneck
         public int PeakKeysDown;
         public long SentEvents;
         public long DroppedEvents;
+        public long OverrideSuppressedEvents;
         public int BankMsb;
         public int BankLsb;
         public int Program;
@@ -20,6 +21,19 @@ namespace MidiBottleneck
         public int PitchBend;
         public int ChannelPressure;
         public long LastDispatchedMicroseconds;
+        public int HistoricalAttributeMask;
+        public bool LastPositionHistorical;
+        public int ForcedAttributeMask;
+        public int PendingForcedAttributeMask;
+        public int ForcedBankMsb;
+        public int ForcedBankLsb;
+        public int ForcedProgram;
+        public int ForcedVolume;
+        public int ForcedExpression;
+        public int ForcedPan;
+        public int ForcedSustain;
+        public int ForcedPitchBend;
+        public int ForcedAftertouch;
     }
 
     internal sealed class ChannelPlaybackSnapshot
@@ -105,19 +119,37 @@ namespace MidiBottleneck
             _appliedStatisticsReset = Volatile.Read(ref _requestedStatisticsReset);
         }
 
-        internal void ResetProviderStateDirect()
+        internal void PauseBoundaryDirect()
         {
+            ApplyRequests();
             Array.Clear(_keyOccurrences, 0, _keyOccurrences.Length);
             for (int channel = 0; channel < 16; channel++)
             {
-                long sent = _channels[channel].SentEvents;
-                long dropped = _channels[channel].DroppedEvents;
-                int peak = _channels[channel].PeakKeysDown;
-                _channels[channel] = ChannelPlaybackSnapshot.Unknown(channel);
-                _channels[channel].SentEvents = sent;
-                _channels[channel].DroppedEvents = dropped;
-                _channels[channel].PeakKeysDown = peak;
+                _channels[channel].KeysDown = 0;
+                _channels[channel].HistoricalAttributeMask |= KnownAttributeMask(_channels[channel]);
+                if (_channels[channel].LastDispatchedMicroseconds >= 0)
+                    _channels[channel].LastPositionHistorical = true;
             }
+        }
+
+        internal void SeekBoundaryDirect()
+        {
+            ApplyRequests();
+            Array.Clear(_keyOccurrences, 0, _keyOccurrences.Length);
+            for (int channel = 0; channel < 16; channel++)
+            {
+                _channels[channel].KeysDown = 0;
+                _channels[channel].PeakKeysDown = 0;
+                _channels[channel].SentEvents = 0;
+                _channels[channel].HistoricalAttributeMask |= KnownAttributeMask(_channels[channel]);
+                if (_channels[channel].LastDispatchedMicroseconds >= 0)
+                    _channels[channel].LastPositionHistorical = true;
+            }
+        }
+
+        internal void StopBoundaryDirect()
+        {
+            ResetAllDirect();
         }
 
         internal void PanicDirect()
@@ -128,6 +160,7 @@ namespace MidiBottleneck
             {
                 _channels[channel].KeysDown = 0;
                 _channels[channel].Sustain = 0;
+                _channels[channel].HistoricalAttributeMask &= ~(1 << (int)ChannelAttribute.Sustain);
             }
         }
 
@@ -139,15 +172,37 @@ namespace MidiBottleneck
             MidiChannelSnapshot state = _channels[channel];
             state.SentEvents++;
             state.LastDispatchedMicroseconds = midiEvent.IntendedMicroseconds;
+            state.LastPositionHistorical = false;
             int status = midiEvent.Status & 0xF0;
             int first = midiEvent.DataLength > 1 ? midiEvent.GetDataByte(1) : 0;
             int second = midiEvent.DataLength > 2 ? midiEvent.GetDataByte(2) : 0;
             if (status == 0x90 && second > 0) NoteOn(channel, first, ref state);
             else if (status == 0x80 || status == 0x90) NoteOff(channel, first, ref state);
             else if (status == 0xB0) ApplyController(channel, first, second, ref state);
-            else if (status == 0xC0) state.Program = first;
-            else if (status == 0xD0) state.ChannelPressure = first;
-            else if (status == 0xE0) state.PitchBend = ((second << 7) | first) - 8192;
+            else if (status == 0xC0) { state.Program = first; ClearHistorical(ref state, ChannelAttribute.Program); }
+            else if (status == 0xD0) { state.ChannelPressure = first; ClearHistorical(ref state, ChannelAttribute.Aftertouch); }
+            else if (status == 0xE0) { state.PitchBend = ((second << 7) | first) - 8192; ClearHistorical(ref state, ChannelAttribute.PitchBend); }
+            _channels[channel] = state;
+        }
+
+        internal void RecordOverrideApplied(int channel, ChannelAttribute attribute, int value)
+        {
+            ApplyRequests();
+            if (channel < 0 || channel >= 16) return;
+            MidiChannelSnapshot state = _channels[channel];
+            switch (attribute)
+            {
+                case ChannelAttribute.BankMsb: state.BankMsb = value; break;
+                case ChannelAttribute.BankLsb: state.BankLsb = value; break;
+                case ChannelAttribute.Program: state.Program = value; break;
+                case ChannelAttribute.Volume: state.Volume = value; break;
+                case ChannelAttribute.Expression: state.Expression = value; break;
+                case ChannelAttribute.Pan: state.Pan = value; break;
+                case ChannelAttribute.Sustain: state.Sustain = value; break;
+                case ChannelAttribute.PitchBend: state.PitchBend = value; break;
+                case ChannelAttribute.Aftertouch: state.ChannelPressure = value; break;
+            }
+            ClearHistorical(ref state, attribute);
             _channels[channel] = state;
         }
 
@@ -207,12 +262,12 @@ namespace MidiBottleneck
         {
             switch (controller)
             {
-                case 0: state.BankMsb = value; break;
-                case 7: state.Volume = value; break;
-                case 10: state.Pan = value; break;
-                case 11: state.Expression = value; break;
-                case 32: state.BankLsb = value; break;
-                case 64: state.Sustain = value >= 64 ? 1 : 0; break;
+                case 0: state.BankMsb = value; ClearHistorical(ref state, ChannelAttribute.BankMsb); break;
+                case 7: state.Volume = value; ClearHistorical(ref state, ChannelAttribute.Volume); break;
+                case 10: state.Pan = value; ClearHistorical(ref state, ChannelAttribute.Pan); break;
+                case 11: state.Expression = value; ClearHistorical(ref state, ChannelAttribute.Expression); break;
+                case 32: state.BankLsb = value; ClearHistorical(ref state, ChannelAttribute.BankLsb); break;
+                case 64: state.Sustain = value >= 64 ? 1 : 0; ClearHistorical(ref state, ChannelAttribute.Sustain); break;
                 case 120:
                 case 123:
                     ClearChannelKeys(channel, ref state);
@@ -223,6 +278,7 @@ namespace MidiBottleneck
                     state.Sustain = 0;
                     state.PitchBend = 0;
                     state.ChannelPressure = 0;
+                    state.HistoricalAttributeMask = 0;
                     break;
             }
         }
@@ -231,6 +287,26 @@ namespace MidiBottleneck
         {
             Array.Clear(_keyOccurrences, channel * 128, 128);
             state.KeysDown = 0;
+        }
+
+        private static void ClearHistorical(ref MidiChannelSnapshot state, ChannelAttribute attribute)
+        {
+            state.HistoricalAttributeMask &= ~(1 << (int)attribute);
+        }
+
+        private static int KnownAttributeMask(MidiChannelSnapshot state)
+        {
+            int mask = 0;
+            if (state.BankMsb >= 0) mask |= 1 << (int)ChannelAttribute.BankMsb;
+            if (state.BankLsb >= 0) mask |= 1 << (int)ChannelAttribute.BankLsb;
+            if (state.Program >= 0) mask |= 1 << (int)ChannelAttribute.Program;
+            if (state.Volume >= 0) mask |= 1 << (int)ChannelAttribute.Volume;
+            if (state.Expression >= 0) mask |= 1 << (int)ChannelAttribute.Expression;
+            if (state.Pan >= 0) mask |= 1 << (int)ChannelAttribute.Pan;
+            if (state.Sustain >= 0) mask |= 1 << (int)ChannelAttribute.Sustain;
+            if (state.PitchBend != Int32.MinValue) mask |= 1 << (int)ChannelAttribute.PitchBend;
+            if (state.ChannelPressure >= 0) mask |= 1 << (int)ChannelAttribute.Aftertouch;
+            return mask;
         }
     }
 }
