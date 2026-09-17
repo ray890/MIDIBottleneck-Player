@@ -21,6 +21,7 @@ namespace MidiBottleneck
         private readonly CheckBox _playbackStatisticsCheck;
         private readonly Font _summaryHeadingFont;
         private readonly ComboBox _resolutionCombo;
+        private readonly ToolTip _toolTip;
         private readonly FlowLayoutPanel _headerLayout;
         private readonly Label _calculationStatus;
         private readonly ProgressBar _calculationProgress;
@@ -44,9 +45,18 @@ namespace MidiBottleneck
         private int _displayedProgressPermille;
         private bool _updatingAnalysis;
         private bool _suppressResolutionSelection;
+        private ResolutionSelectionMode _resolutionMode = ResolutionSelectionMode.Auto;
+        private string _autoResolutionLabel = "Auto";
         private string _lastValidResolution = "Auto";
         private string _customResolutionLabel;
         private long _customResolutionMicroseconds;
+
+        private enum ResolutionSelectionMode
+        {
+            Auto,
+            Fixed,
+            Custom
+        }
 
         private sealed class AnalysisProgressUpdate
         {
@@ -61,6 +71,7 @@ namespace MidiBottleneck
         }
 
         internal event EventHandler<WorkloadSelectionEventArgs> SeekRequested;
+        internal event EventHandler ChannelsRequested;
 
         internal MidiSong SourceSong { get; private set; }
 
@@ -168,8 +179,9 @@ namespace MidiBottleneck
             resolutionLabel.AutoSize = true;
             resolutionLabel.Margin = new Padding(3, 8, 3, 3);
             _resolutionCombo = new ComboBox();
+            _toolTip = new ToolTip();
             _resolutionCombo.DropDownStyle = ComboBoxStyle.DropDownList;
-            _resolutionCombo.Items.AddRange(new object[] { "Auto", "10 ms", "25 ms", "50 ms", "100 ms", "250 ms", "500 ms", "1 s", "Custom…" });
+            _resolutionCombo.Items.AddRange(new object[] { _autoResolutionLabel, "10 ms", "25 ms", "50 ms", "100 ms", "250 ms", "500 ms", "1 s", "Custom…" });
             _resolutionCombo.SelectedIndex = 0;
             _resolutionCombo.Width = 145;
             _resolutionCombo.Margin = new Padding(0, 4, 7, 3);
@@ -179,6 +191,15 @@ namespace MidiBottleneck
             _playbackStatisticsCheck.AutoSize = true;
             _playbackStatisticsCheck.Margin = new Padding(3, 7, 8, 3);
             _playbackStatisticsCheck.CheckedChanged += delegate { _graph.PlaybackStatisticsVisible = _playbackStatisticsCheck.Checked; };
+            Button channelsButton = new Button();
+            channelsButton.Text = "Channels…";
+            channelsButton.AutoSize = true;
+            channelsButton.Margin = new Padding(3, 3, 8, 3);
+            channelsButton.Click += delegate
+            {
+                EventHandler handler = ChannelsRequested;
+                if (handler != null) handler(this, EventArgs.Empty);
+            };
             _calculationStatus = new Label();
             _calculationStatus.Text = "Recalculating analysis…";
             _calculationStatus.AutoSize = true;
@@ -204,6 +225,7 @@ namespace MidiBottleneck
             _headerLayout.Controls.Add(resolutionLabel);
             _headerLayout.Controls.Add(_resolutionCombo);
             _headerLayout.Controls.Add(_playbackStatisticsCheck);
+            _headerLayout.Controls.Add(channelsButton);
             _headerLayout.Controls.Add(_calculationStatus);
             _headerLayout.Controls.Add(_calculationProgress);
             _headerLayout.Controls.Add(_cancelCalculationButton);
@@ -289,6 +311,8 @@ namespace MidiBottleneck
                 _summary.SelectionLength = 0;
             }
             if (_graph != null) { _graph.EmptyMessage = String.Empty; _graph.Analysis = analysis; }
+            if (_resolutionMode == ResolutionSelectionMode.Auto)
+                UpdateAutoResolutionLabel(analysis.BucketMicroseconds);
             if (_graph != null && _graph.InspectedTimeMicroseconds.HasValue)
                 UpdateInspection(_graph.InspectedTimeMicroseconds.Value, _graph.PinnedTimeMicroseconds.HasValue);
             }
@@ -317,6 +341,8 @@ namespace MidiBottleneck
         internal bool AnalysisBusy { get { return _analysisBusy; } }
         internal bool CalculationPending { get { return _analysisCancellation != null; } }
         internal long ActiveResolutionMicroseconds { get { return _analysis == null ? 0 : _analysis.BucketMicroseconds; } }
+        internal string ResolutionSelectionText { get { return Convert.ToString(_resolutionCombo.SelectedItem, CultureInfo.CurrentCulture); } }
+        internal bool AutomaticResolutionSelected { get { return _resolutionMode == ResolutionSelectionMode.Auto; } }
         internal WorkloadAnalysis CurrentAnalysis { get { return _analysis; } }
         internal int HeaderRowCount
         {
@@ -441,6 +467,12 @@ namespace MidiBottleneck
         private void ScheduleResolutionRefresh()
         {
             if (_pendingConfiguration == null || IsDisposed || _updatingAnalysis) return;
+            long proposedResolution = SelectedResolutionMicroseconds();
+            if (_analysis != null && proposedResolution == _analysis.BucketMicroseconds &&
+                String.Equals(AnalysisCacheKey(_pendingConfiguration, proposedResolution),
+                    AnalysisCacheKey(_analysis.Configuration ?? new AnalysisConfiguration(), _analysis.BucketMicroseconds),
+                    StringComparison.Ordinal))
+                return;
             BeginBusyPeriod();
             _resolutionDebounceTimer.Stop();
             _resolutionDebounceTimer.Start();
@@ -455,6 +487,12 @@ namespace MidiBottleneck
                 PromptForCustomResolution();
                 return;
             }
+            if (String.Equals(selected, _autoResolutionLabel, StringComparison.Ordinal))
+                _resolutionMode = ResolutionSelectionMode.Auto;
+            else if (!String.IsNullOrEmpty(_customResolutionLabel) && String.Equals(selected, _customResolutionLabel, StringComparison.Ordinal))
+                _resolutionMode = ResolutionSelectionMode.Custom;
+            else
+                _resolutionMode = ResolutionSelectionMode.Fixed;
             if (!String.IsNullOrEmpty(selected)) _lastValidResolution = selected;
             ScheduleResolutionRefresh();
         }
@@ -551,6 +589,7 @@ namespace MidiBottleneck
                     _resolutionCombo.Items[_resolutionCombo.Items.IndexOf(_customResolutionLabel)] = label;
                 _customResolutionLabel = label;
                 _resolutionCombo.SelectedItem = label;
+                _resolutionMode = ResolutionSelectionMode.Custom;
                 _lastValidResolution = label;
             }
             finally { _suppressResolutionSelection = false; }
@@ -568,6 +607,15 @@ namespace MidiBottleneck
         {
             _resolutionDebounceTimer.Stop();
             CancelCurrentAnalysisWork();
+            // Cancel retires the desired request as well as the worker.  Header
+            // controls disappearing can resize the graph; that layout-only
+            // resize must not recreate the cancelled configuration.
+            _pendingConfiguration = _analysis == null ? null : CloneConfiguration(_analysis.Configuration);
+            if (_analysis == null)
+            {
+                _summary.Text = "Analysis calculation cancelled.";
+                _graph.EmptyMessage = "Analysis calculation cancelled.";
+            }
             EndBusyPeriod();
         }
 
@@ -638,16 +686,35 @@ namespace MidiBottleneck
 
         private long SelectedResolutionMicroseconds()
         {
-            string selected = Convert.ToString(_resolutionCombo.SelectedItem, CultureInfo.CurrentCulture);
-            if (!String.IsNullOrEmpty(_customResolutionLabel) && String.Equals(selected, _customResolutionLabel, StringComparison.Ordinal))
+            if (_resolutionMode == ResolutionSelectionMode.Custom)
                 return _customResolutionMicroseconds;
-            long fixedResolution = ResolutionFromText(selected);
-            if (fixedResolution > 0) return fixedResolution;
+            string selected = Convert.ToString(_resolutionCombo.SelectedItem, CultureInfo.CurrentCulture);
+            if (_resolutionMode == ResolutionSelectionMode.Fixed)
+                return ResolutionFromText(selected);
             long span = _graph == null || _graph.ViewEndMicroseconds <= _graph.ViewStartMicroseconds
                 ? Math.Max(1, SourceSong.DurationMicroseconds)
                 : _graph.ViewEndMicroseconds - _graph.ViewStartMicroseconds;
             int plotWidth = _graph == null ? 600 : Math.Max(100, _graph.GraphArea.Width);
             return ChooseAutoResolution(span, plotWidth, _analysis == null ? 0 : _analysis.BucketMicroseconds);
+        }
+
+        private void UpdateAutoResolutionLabel(long acceptedResolution)
+        {
+            string label = "Auto (" + FormatResolution(acceptedResolution) + ")";
+            if (String.Equals(label, _autoResolutionLabel, StringComparison.Ordinal)) return;
+            _suppressResolutionSelection = true;
+            try
+            {
+                int index = _resolutionCombo.Items.IndexOf(_autoResolutionLabel);
+                if (index < 0) index = 0;
+                _resolutionCombo.Items[index] = label;
+                _autoResolutionLabel = label;
+                _resolutionCombo.SelectedIndex = index;
+                _lastValidResolution = label;
+                _toolTip.SetToolTip(_resolutionCombo, "Automatic graph resolution; the displayed graph currently uses " +
+                    FormatResolution(acceptedResolution) + " buckets.");
+            }
+            finally { _suppressResolutionSelection = false; }
         }
 
         private static long ResolutionFromText(string text)
@@ -929,6 +996,7 @@ namespace MidiBottleneck
                 _calculationDelayTimer.Dispose();
                 _calculationProgressTimer.Dispose();
                 _resolutionDebounceTimer.Dispose();
+                _toolTip.Dispose();
                 _summaryHeadingFont.Dispose();
                 SourceSong = null;
                 _analysis = null;

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 
@@ -12,6 +13,8 @@ namespace MidiBottleneck
         private readonly EventWaitHandle _wake = new EventWaitHandle(false, EventResetMode.ManualReset);
         private Thread _thread;
         private MidiSong _song;
+        private MidiEventReader _events;
+        private List<MidiEvent> _eventList;
         private IMidiOutput _output;
         private ProcessingMode _mode;
         private int _startEventIndex;
@@ -41,6 +44,10 @@ namespace MidiBottleneck
         private bool _publishedInService;
         private bool _hasPublishedQueue;
         private DropTraceRecorder _dropTrace;
+        private readonly ChannelStateTracker _channelState = new ChannelStateTracker();
+        private volatile ChannelPlaybackSnapshot _publishedChannelState;
+        private int _channelMonitoringEnabled;
+        private long _lastChannelPublishStamp;
 
         public event EventHandler PlaybackEnded;
         public event EventHandler<PlaybackErrorEventArgs> PlaybackFailed;
@@ -135,6 +142,9 @@ namespace MidiBottleneck
             lock (_sync)
             {
                 _song = song;
+                _events = song.GetEventReader();
+                ListMidiEventStore listStore = song.EventStore as ListMidiEventStore;
+                _eventList = listStore == null ? null : listStore.Source;
                 _output = output;
                 _mode = mode;
                 _startEventIndex = FindFirstEventAtOrAfter(song, startMicroseconds);
@@ -142,6 +152,11 @@ namespace MidiBottleneck
                 _transportBaseTicks = MicrosecondsToTicks(startMicroseconds);
                 _runStartStamp = Stopwatch.GetTimestamp();
                 ResetStatisticsLocked();
+                if (Volatile.Read(ref _channelMonitoringEnabled) != 0)
+                {
+                    _channelState.ResetAllDirect();
+                    _publishedChannelState = _channelState.CreateSnapshot();
+                }
                 _lastDispatchedMicroseconds = startMicroseconds;
                 _state = startPaused ? PlaybackState.Paused : PlaybackState.Playing;
                 Volatile.Write(ref _dispatchSuspended, startPaused ? 1 : 0);
@@ -306,6 +321,11 @@ namespace MidiBottleneck
                 _outstandingEvents = 0;
                 _currentLagMicroseconds = 0;
             }
+            if (Volatile.Read(ref _channelMonitoringEnabled) != 0)
+            {
+                _channelState.ResetProviderStateDirect();
+                PublishChannelState(true);
+            }
         }
 
         internal int WorkerStopTimeoutMilliseconds
@@ -329,11 +349,18 @@ namespace MidiBottleneck
                 IMidiOutputContext outputContext = _output as IMidiOutputContext;
                 if (outputContext != null) outputContext.SourceFile = null;
                 _song = null;
+                _events = default(MidiEventReader);
+                _eventList = null;
                 _output = null;
                 _startEventIndex = 0;
                 _lastDispatchedMicroseconds = 0;
                 _transportBaseTicks = 0;
                 ResetStatisticsLocked();
+                if (Volatile.Read(ref _channelMonitoringEnabled) != 0)
+                {
+                    _channelState.ResetAllDirect();
+                    _publishedChannelState = _channelState.CreateSnapshot();
+                }
             }
         }
 
@@ -356,6 +383,29 @@ namespace MidiBottleneck
                 _droppedEvents = 0;
                 _maximumLagMicroseconds = _currentLagMicroseconds;
             }
+            if (Volatile.Read(ref _channelMonitoringEnabled) != 0)
+            {
+                _channelState.RequestStatisticsReset();
+                ChannelPlaybackSnapshot published = _publishedChannelState;
+                if (published != null) _publishedChannelState = published.WithStatisticsReset();
+            }
+        }
+
+        internal void SetChannelMonitoring(bool enabled)
+        {
+            Volatile.Write(ref _channelMonitoringEnabled, enabled ? 1 : 0);
+            if (enabled)
+            {
+                _channelState.RequestFullReset();
+                _publishedChannelState = ChannelPlaybackSnapshot.Empty();
+                Interlocked.Exchange(ref _lastChannelPublishStamp, 0);
+            }
+            else _publishedChannelState = null;
+        }
+
+        internal ChannelPlaybackSnapshot GetChannelSnapshot()
+        {
+            return _publishedChannelState;
         }
 
         internal void SetDropTrace(DropTraceRecorder recorder)
@@ -423,6 +473,11 @@ namespace MidiBottleneck
                 failure = ex;
                 try { if (_output != null) _output.Panic(); }
                 catch { }
+                if (Volatile.Read(ref _channelMonitoringEnabled) != 0)
+                {
+                    _channelState.PanicDirect();
+                    PublishChannelState(true);
+                }
             }
 
             IMidiOutput finalSilenceOutput = null;
@@ -456,6 +511,7 @@ namespace MidiBottleneck
                 _outstandingEvents = 0;
                 _currentLagMicroseconds = 0;
             }
+            PublishChannelState(true);
 
             if (failure != null)
             {
@@ -510,14 +566,15 @@ namespace MidiBottleneck
                     continue;
                 }
 
-                if (nextArrival >= _song.Events.Count && inService < 0 && nextProcess >= nextArrival)
+                if (nextArrival >= _events.Count && inService < 0 && nextProcess >= nextArrival)
                     return;
 
                 long target = inService >= 0 ? completionTicks : Int64.MaxValue;
-                if (nextArrival < _song.Events.Count)
+                if (nextArrival < _events.Count)
                     target = Math.Min(target, EventTicks(nextArrival));
                 if (inService < 0 && nextProcess >= nextArrival)
                     SetCurrentLag(0);
+                PublishChannelStateBeforeWait(target, now);
                 WaitUntil(waiter, target);
             }
         }
@@ -542,7 +599,7 @@ namespace MidiBottleneck
             {
                 if (!WaitWhilePaused()) return;
                 long now = CurrentTransportTicks();
-                long arrivalTicks = nextArrival < _song.Events.Count ? EventTicks(nextArrival) : Int64.MaxValue;
+                long arrivalTicks = nextArrival < _events.Count ? EventTicks(nextArrival) : Int64.MaxValue;
 
                 if (inService >= 0 && completionTicks <= arrivalTicks && completionTicks <= now)
                 {
@@ -564,12 +621,12 @@ namespace MidiBottleneck
                     continue;
                 }
 
-                if (nextArrival < _song.Events.Count && arrivalTicks <= now)
+                if (nextArrival < _events.Count && arrivalTicks <= now)
                 {
                     if (!traceEnabled && inService < 0 && pending.Count == 0 && IsEffectiveZeroService())
                     {
                         int dueEnd = nextArrival + 1;
-                        int dueLimit = Math.Min(_song.Events.Count, nextArrival + 2048);
+                        int dueLimit = Math.Min(_events.Count, nextArrival + 2048);
                         while (dueEnd < dueLimit && EventTicks(dueEnd) <= now) dueEnd++;
                         UpdateQueue(0, true);
                         DispatchImmediateRange(ref nextArrival, dueEnd, now);
@@ -580,16 +637,17 @@ namespace MidiBottleneck
                     {
                         clusterTimestamp = arrivalTicks;
                         clusterEnd = nextArrival + 1;
-                        while (clusterEnd < _song.Events.Count && EventTicks(clusterEnd) == arrivalTicks) clusterEnd++;
+                        while (clusterEnd < _events.Count && EventTicks(clusterEnd) == arrivalTicks) clusterEnd++;
                         clusterSize = clusterEnd - nextArrival;
                     }
 
-                    MidiEvent incomingEvent = _song.Events[nextArrival];
+                    MidiEvent incomingEvent = _events[nextArrival];
                     CompleteNoteEventKind noteKind = CompleteNoteTracker.Classify(incomingEvent);
                     if (noteKind == CompleteNoteEventKind.NoteOff && completeNotes.ShouldSuppressNoteOff(incomingEvent))
                     {
                         consecutiveDrops++;
                         lock (_sync) _droppedEvents++;
+                        RecordChannelDrop(nextArrival);
                         if (traceEnabled)
                             TraceDropped(nextArrival, now, "note-off suppressed because its paired note-on was rejected",
                                 clusterSize, consecutiveDrops, EstimateBusyUntil(completionTicks, pending),
@@ -637,6 +695,7 @@ namespace MidiBottleneck
                             int evicted = pending.Dequeue();
                             consecutiveDrops++;
                             lock (_sync) _droppedEvents++;
+                            RecordChannelDrop(evicted);
                             if (traceEnabled)
                                 TraceDropped(evicted, now, "oldest pending event evicted on overflow", ClusterSizeAt(evicted), consecutiveDrops,
                                     EstimateBusyUntil(completionTicks, pending), outstanding - 1, maximumBufferOccupancy);
@@ -658,6 +717,10 @@ namespace MidiBottleneck
                             System.Collections.Generic.List<int> cleared = traceEnabled
                                 ? new System.Collections.Generic.List<int>(outstanding + 1) : null;
                             int clearedCount = outstanding;
+                            bool trackChannels = Volatile.Read(ref _channelMonitoringEnabled) != 0;
+                            if (trackChannels && inService >= 0) _channelState.RecordDropped(_events[inService]);
+                            if (trackChannels)
+                                foreach (int pendingIndex in pending) _channelState.RecordDropped(_events[pendingIndex]);
                             if (traceEnabled && inService >= 0) cleared.Add(inService);
                             if (traceEnabled)
                                 while (pending.Count > 0) cleared.Add(pending.Dequeue());
@@ -672,12 +735,15 @@ namespace MidiBottleneck
                                 catchUp = FindFirstEventAfterTransport(nextArrival, now);
                                 clearedCount += catchUp - nextArrival;
                             }
-                            while (traceEnabled && catchUp < _song.Events.Count && EventTicks(catchUp) <= now)
+                            while (traceEnabled && catchUp < _events.Count && EventTicks(catchUp) <= now)
                             {
                                 if (traceEnabled) cleared.Add(catchUp);
                                 clearedCount++;
                                 catchUp++;
                             }
+                            if (trackChannels)
+                                for (int skipped = nextArrival; skipped < catchUp; skipped++)
+                                    _channelState.RecordDropped(_events[skipped]);
 
                             if (traceEnabled)
                             {
@@ -696,6 +762,11 @@ namespace MidiBottleneck
                             SetCurrentLag(0);
                             try { _output.Panic(); }
                             catch { }
+                            if (trackChannels)
+                            {
+                                _channelState.PanicDirect();
+                                PublishChannelState(true);
+                            }
                             continue;
                         }
                         else if (overflowPolicy == OverflowPolicy.DropIncomingCompleteNotes &&
@@ -704,6 +775,7 @@ namespace MidiBottleneck
                             completeNotes.RecordNoteOn(incomingEvent, false, true);
                             consecutiveDrops++;
                             lock (_sync) _droppedEvents++;
+                            RecordChannelDrop(nextArrival);
                             if (traceEnabled)
                                 TraceDropped(nextArrival, now, "incoming note-on rejected as a complete-note pair; buffer full (" +
                                     bufferCapacity + " events outstanding)", clusterSize, consecutiveDrops,
@@ -715,6 +787,7 @@ namespace MidiBottleneck
                                 completeNotes.RecordNoteOn(incomingEvent, false, false);
                             consecutiveDrops++;
                             lock (_sync) _droppedEvents++;
+                            RecordChannelDrop(nextArrival);
                             if (traceEnabled)
                                 TraceDropped(nextArrival, now, "newest event dropped; buffer full (" + bufferCapacity + " events outstanding)",
                                     clusterSize, consecutiveDrops, EstimateBusyUntil(completionTicks, pending), outstanding, maximumBufferOccupancy);
@@ -724,20 +797,22 @@ namespace MidiBottleneck
                     continue;
                 }
 
-                if (nextArrival >= _song.Events.Count && inService < 0 && pending.Count == 0)
+                if (nextArrival >= _events.Count && inService < 0 && pending.Count == 0)
                     return;
 
                 long target = Math.Min(arrivalTicks, completionTicks);
                 if (inService < 0)
                     SetCurrentLag(0);
+                PublishChannelStateBeforeWait(target, now);
                 WaitUntil(waiter, target);
             }
         }
 
         private void Dispatch(int eventIndex, long actualTransportTicks)
         {
-            MidiEvent midiEvent = _song.Events[eventIndex];
+            MidiEvent midiEvent = _events[eventIndex];
             _output.Send(midiEvent);
+            if (Volatile.Read(ref _channelMonitoringEnabled) != 0) _channelState.RecordSuccessful(midiEvent);
             long actualUs = TicksToMicroseconds(CurrentTransportTicks());
             long lag = Math.Max(0, actualUs - midiEvent.IntendedMicroseconds);
             lock (_sync)
@@ -747,10 +822,17 @@ namespace MidiBottleneck
                 _currentLagMicroseconds = lag;
                 if (lag > _maximumLagMicroseconds) _maximumLagMicroseconds = lag;
             }
+            PublishChannelState(false);
         }
 
         private void DispatchImmediateRange(ref int nextIndex, int endExclusive, long transportAtBatchStart)
         {
+            if (_eventList != null)
+            {
+                DispatchImmediateListRange(ref nextIndex, endExclusive, transportAtBatchStart, _eventList);
+                return;
+            }
+
             const int chunkSize = 2048;
             long stopwatchAtBatchStart = Stopwatch.GetTimestamp();
             if (nextIndex < endExclusive && Volatile.Read(ref _dispatchSuspended) == 0 && IsEffectiveZeroService())
@@ -760,6 +842,7 @@ namespace MidiBottleneck
                 long lastTimeline = 0;
                 long currentLag = 0;
                 long maximumLag = 0;
+                bool trackChannels = Volatile.Read(ref _channelMonitoringEnabled) != 0;
                 try
                 {
                     while (nextIndex < chunkEnd)
@@ -771,8 +854,9 @@ namespace MidiBottleneck
                         // the established 64-event check cadence.
                         if (Volatile.Read(ref _dispatchSuspended) != 0) break;
                         if ((sent & 63) == 0 && !IsEffectiveZeroService()) break;
-                        MidiEvent midiEvent = _song.Events[nextIndex];
+                        MidiEvent midiEvent = _events[nextIndex];
                         _output.Send(midiEvent);
+                        if (trackChannels) _channelState.RecordSuccessful(midiEvent);
                         long elapsedTicks = Stopwatch.GetTimestamp() - stopwatchAtBatchStart;
                         long actualTicks = transportAtBatchStart + elapsedTicks;
                         currentLag = Math.Max(0, TicksToMicroseconds(actualTicks) - midiEvent.IntendedMicroseconds);
@@ -798,6 +882,59 @@ namespace MidiBottleneck
                             if (maximumLag > _maximumLagMicroseconds) _maximumLagMicroseconds = maximumLag;
                         }
                     }
+                    PublishChannelState(false);
+                }
+            }
+        }
+
+        // The reference backend retains a direct List access loop. This avoids
+        // charging today's hottest path for the abstraction used by future
+        // compact stores.
+        private void DispatchImmediateListRange(ref int nextIndex, int endExclusive, long transportAtBatchStart,
+            List<MidiEvent> events)
+        {
+            const int chunkSize = 2048;
+            long stopwatchAtBatchStart = Stopwatch.GetTimestamp();
+            if (nextIndex < endExclusive && Volatile.Read(ref _dispatchSuspended) == 0 && IsEffectiveZeroService())
+            {
+                int chunkEnd = Math.Min(endExclusive, nextIndex + chunkSize);
+                int sent = 0;
+                long lastTimeline = 0;
+                long currentLag = 0;
+                long maximumLag = 0;
+                bool trackChannels = Volatile.Read(ref _channelMonitoringEnabled) != 0;
+                try
+                {
+                    while (nextIndex < chunkEnd)
+                    {
+                        if (Volatile.Read(ref _dispatchSuspended) != 0) break;
+                        if ((sent & 63) == 0 && !IsEffectiveZeroService()) break;
+                        MidiEvent midiEvent = events[nextIndex];
+                        _output.Send(midiEvent);
+                        if (trackChannels) _channelState.RecordSuccessful(midiEvent);
+                        long elapsedTicks = Stopwatch.GetTimestamp() - stopwatchAtBatchStart;
+                        long actualTicks = transportAtBatchStart + elapsedTicks;
+                        currentLag = Math.Max(0, TicksToMicroseconds(actualTicks) - midiEvent.IntendedMicroseconds);
+                        if (currentLag > maximumLag) maximumLag = currentLag;
+                        lastTimeline = midiEvent.IntendedMicroseconds;
+                        sent++;
+                        nextIndex++;
+                        if (elapsedTicks >= Stopwatch.Frequency / 125) break;
+                    }
+                }
+                finally
+                {
+                    if (sent > 0)
+                    {
+                        lock (_sync)
+                        {
+                            _processedEvents += sent;
+                            _lastDispatchedMicroseconds = lastTimeline;
+                            _currentLagMicroseconds = currentLag;
+                            if (maximumLag > _maximumLagMicroseconds) _maximumLagMicroseconds = maximumLag;
+                        }
+                    }
+                    PublishChannelState(false);
                 }
             }
         }
@@ -810,6 +947,38 @@ namespace MidiBottleneck
                 _outstandingEvents = queue + (inService ? 1 : 0);
                 if (_outstandingEvents > _maximumQueueLength) _maximumQueueLength = _outstandingEvents;
             }
+            PublishChannelState(false);
+        }
+
+        private void RecordChannelDrop(int eventIndex)
+        {
+            if (Volatile.Read(ref _channelMonitoringEnabled) == 0) return;
+            _channelState.RecordDropped(_events[eventIndex]);
+            PublishChannelState(false);
+        }
+
+        private void PublishChannelState(bool force)
+        {
+            if (Volatile.Read(ref _channelMonitoringEnabled) == 0) return;
+            long now = Stopwatch.GetTimestamp();
+            long previous = Interlocked.Read(ref _lastChannelPublishStamp);
+            if (!force && previous != 0 && now - previous < Stopwatch.Frequency / 60) return;
+            Interlocked.Exchange(ref _lastChannelPublishStamp, now);
+            _publishedChannelState = _channelState.CreateSnapshot();
+        }
+
+        private void PublishChannelStateBeforeWait(long targetTicks, long nowTicks)
+        {
+            if (Volatile.Read(ref _channelMonitoringEnabled) == 0) return;
+            // A short burst can finish within the normal publication interval
+            // and then wait for a sparse future event. Publish that completed
+            // burst before sleeping so the monitor does not remain stale for
+            // the entire sparse gap. High-rate service loops still use the
+            // ordinary bounded publication cadence.
+            if (targetTicks > nowTicks + Stopwatch.Frequency / 60)
+                PublishChannelState(true);
+            else
+                PublishChannelState(false);
         }
 
         private void PublishUnlimitedQueue(int nextProcess, int nextArrival, bool inService)
@@ -835,7 +1004,7 @@ namespace MidiBottleneck
             DropTraceRecorder trace;
             lock (_sync) trace = _dropTrace;
             if (trace != null)
-                trace.RecordAcceptedAdmission(eventIndex, _song.Events[eventIndex], TicksToMicroseconds(decisionTicks), clusterSize, bufferOccupancy, maximumBufferOccupancy, TicksToMicroseconds(busyUntilTicks));
+                trace.RecordAcceptedAdmission(eventIndex, _events[eventIndex], TicksToMicroseconds(decisionTicks), clusterSize, bufferOccupancy, maximumBufferOccupancy, TicksToMicroseconds(busyUntilTicks));
         }
 
         private void TraceService(int eventIndex, long serviceStartTicks, long serviceEndTicks, long busyUntilTicks)
@@ -851,16 +1020,16 @@ namespace MidiBottleneck
             DropTraceRecorder trace;
             lock (_sync) trace = _dropTrace;
             if (trace != null)
-                trace.RecordDropped(eventIndex, _song.Events[eventIndex], TicksToMicroseconds(decisionTicks), reason, clusterSize, consecutiveDrops, TicksToMicroseconds(busyUntilTicks), bufferOccupancy, maximumBufferOccupancy);
+                trace.RecordDropped(eventIndex, _events[eventIndex], TicksToMicroseconds(decisionTicks), reason, clusterSize, consecutiveDrops, TicksToMicroseconds(busyUntilTicks), bufferOccupancy, maximumBufferOccupancy);
         }
 
         private int ClusterSizeAt(int eventIndex)
         {
-            long timestamp = _song.Events[eventIndex].IntendedMicroseconds;
+            long timestamp = _events[eventIndex].IntendedMicroseconds;
             int first = eventIndex;
             int last = eventIndex + 1;
-            while (first > 0 && _song.Events[first - 1].IntendedMicroseconds == timestamp) first--;
-            while (last < _song.Events.Count && _song.Events[last].IntendedMicroseconds == timestamp) last++;
+            while (first > 0 && _events[first - 1].IntendedMicroseconds == timestamp) first--;
+            while (last < _events.Count && _events[last].IntendedMicroseconds == timestamp) last++;
             return last - first;
         }
 
@@ -878,7 +1047,7 @@ namespace MidiBottleneck
             if (Volatile.Read(ref _simulateSlowdown) == 0) return 0;
             ServiceDurationMode mode = (ServiceDurationMode)Volatile.Read(ref _serviceDurationMode);
             long microseconds = ServiceDurationCalculator.CalculateMicroseconds(
-                _song.Events[eventIndex], mode, Interlocked.Read(ref _processingMicroseconds), Interlocked.Read(ref _midiBitrate));
+                _events[eventIndex], mode, Interlocked.Read(ref _processingMicroseconds), Interlocked.Read(ref _midiBitrate));
             return MicrosecondsToTicks(microseconds);
         }
 
@@ -949,7 +1118,7 @@ namespace MidiBottleneck
 
         private long EventTicks(int eventIndex)
         {
-            return MicrosecondsToTicks(_song.Events[eventIndex].IntendedMicroseconds);
+            return MicrosecondsToTicks(_events[eventIndex].IntendedMicroseconds);
         }
 
         internal static long MicrosecondsToTicks(long microseconds)
@@ -993,23 +1162,13 @@ namespace MidiBottleneck
 
         private static int FindFirstEventAtOrAfter(MidiSong song, long microseconds)
         {
-            int low = 0;
-            int high = song.Events.Count;
-            while (low < high)
-            {
-                int middle = low + ((high - low) / 2);
-                if (song.Events[middle].IntendedMicroseconds < microseconds)
-                    low = middle + 1;
-                else
-                    high = middle;
-            }
-            return low;
+            return song.EventStore.LowerBoundByTime(microseconds);
         }
 
         private int FindFirstEventAfterTransport(int startIndex, long transportTicks)
         {
             int low = Math.Max(0, startIndex);
-            int high = _song.Events.Count;
+            int high = _events.Count;
             while (low < high)
             {
                 int middle = low + ((high - low) / 2);

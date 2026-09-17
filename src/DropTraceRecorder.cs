@@ -131,7 +131,7 @@ namespace MidiBottleneck
                 text.Append(',').Append(entry.Event.Kind);
                 text.Append(',').Append(entry.Event.Channel);
                 text.Append(",0x").Append(entry.Event.Status.ToString("X2", CultureInfo.InvariantCulture)).Append(',');
-                AppendCsv(text, BitConverter.ToString(entry.Event.Data));
+                AppendCsv(text, entry.Event.Data.ToHexString());
                 text.Append(',').Append(entry.ClusterSize);
                 text.Append(',').Append(entry.ConsecutiveDrops);
                 text.Append(',').Append(entry.BufferOccupancy);

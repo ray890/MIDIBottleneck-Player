@@ -17,7 +17,7 @@ namespace MidiBottleneck
             if (mode == ServiceDurationMode.ProcessingTime)
                 return Math.Max(0, processingMicroseconds);
             if (midiEvent == null) throw new ArgumentNullException("midiEvent");
-            int byteCount = midiEvent.Data == null ? 0 : midiEvent.Data.Length;
+            int byteCount = midiEvent.DataLength;
             return CalculateBitrateMicroseconds(byteCount, midiBitrate);
         }
 

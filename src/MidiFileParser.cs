@@ -164,8 +164,7 @@ namespace MidiBottleneck
                     }
                     allEvents[eventIndex].EventIndex = eventIndex;
                     MidiEvent midiEvent = allEvents[eventIndex];
-                    if (midiEvent.Kind == MidiEventKind.NoteOn && midiEvent.Data != null &&
-                        midiEvent.Data.Length >= 3 && midiEvent.Data[2] != 0)
+                    if (midiEvent.Kind == MidiEventKind.NoteOn && midiEvent.DataLength >= 3 && midiEvent.GetDataByte(2) != 0)
                         noteCount++;
                 }
 
@@ -261,29 +260,34 @@ namespace MidiBottleneck
                 else if (status < 0xF0)
                 {
                     int dataLength = ChannelDataLength(status);
-                    byte[] data = new byte[dataLength + 1];
-                    data[0] = status;
-                    int dataOffset = 1;
+                    byte firstValue = 0;
+                    byte secondValue = 0;
+                    int dataOffset = 0;
                     if (firstData >= 0)
-                        data[dataOffset++] = (byte)firstData;
-                    while (dataOffset < data.Length)
+                    {
+                        firstValue = (byte)firstData;
+                        dataOffset++;
+                    }
+                    while (dataOffset < dataLength)
                     {
                         byte value = ReadByte(bytes, ref position);
                         if (value >= 0x80)
                             throw new InvalidDataException("Unexpected status byte inside a channel message in track " + trackIndex + ".");
-                        data[dataOffset++] = value;
+                        if (dataOffset == 0) firstValue = value;
+                        else secondValue = value;
+                        dataOffset++;
                     }
                     MidiEventKind kind = KindFromStatus(status);
+                    MidiEventData data = MidiEventData.FromShort(status, firstValue, secondValue, dataLength + 1);
                     result.Events.Add(CreateEvent(tick, trackIndex, order, kind, status & 0x0F, status, data));
                 }
                 else
                 {
                     runningStatus = 0;
                     int dataLength = SystemDataLength(status);
-                    byte[] data = new byte[dataLength + 1];
-                    data[0] = status;
-                    for (int i = 1; i < data.Length; i++)
-                        data[i] = ReadByte(bytes, ref position);
+                    byte firstValue = dataLength > 0 ? ReadByte(bytes, ref position) : (byte)0;
+                    byte secondValue = dataLength > 1 ? ReadByte(bytes, ref position) : (byte)0;
+                    MidiEventData data = MidiEventData.FromShort(status, firstValue, secondValue, dataLength + 1);
                     result.Events.Add(CreateEvent(tick, trackIndex, order, MidiEventKind.SystemMessage, -1, status, data));
                 }
 
@@ -295,7 +299,7 @@ namespace MidiBottleneck
             return result;
         }
 
-        private static MidiEvent CreateEvent(long tick, int track, int order, MidiEventKind kind, int channel, byte status, byte[] data)
+        private static MidiEvent CreateEvent(long tick, int track, int order, MidiEventKind kind, int channel, byte status, MidiEventData data)
         {
             MidiEvent midiEvent = new MidiEvent();
             midiEvent.AbsoluteTick = tick;

@@ -22,11 +22,11 @@ namespace MidiBottleneck
 
         internal static CompleteNoteEventKind Classify(MidiEvent midiEvent)
         {
-            if (midiEvent == null || midiEvent.Data == null || midiEvent.Data.Length < 3)
+            if (midiEvent == null || midiEvent.DataLength < 3)
                 return CompleteNoteEventKind.Other;
             int command = midiEvent.Status & 0xF0;
             if (command == 0x90)
-                return midiEvent.Data[2] == 0 ? CompleteNoteEventKind.NoteOff : CompleteNoteEventKind.NoteOn;
+                return midiEvent.GetDataByte(2) == 0 ? CompleteNoteEventKind.NoteOff : CompleteNoteEventKind.NoteOn;
             return command == 0x80 ? CompleteNoteEventKind.NoteOff : CompleteNoteEventKind.Other;
         }
 
@@ -54,9 +54,9 @@ namespace MidiBottleneck
 
         private static int Slot(MidiEvent midiEvent)
         {
-            if (midiEvent == null || midiEvent.Data == null || midiEvent.Data.Length < 2) return -1;
+            if (midiEvent == null || midiEvent.DataLength < 2) return -1;
             int channel = midiEvent.Status & 0x0F;
-            int key = midiEvent.Data[1] & 0x7F;
+            int key = midiEvent.GetDataByte(1) & 0x7F;
             return channel * 128 + key;
         }
     }

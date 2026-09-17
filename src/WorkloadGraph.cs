@@ -71,6 +71,7 @@ namespace MidiBottleneck
         private bool _hoverUpdatePending;
         private bool _dynamicRepaintPending;
         private int _dynamicPaintCount;
+        private int _lastResolutionPlotWidth;
 
         public event EventHandler<WorkloadSelectionEventArgs> InspectionChanged;
         public event EventHandler<WorkloadSelectionEventArgs> SeekRequested;
@@ -450,7 +451,16 @@ namespace MidiBottleneck
         {
             InvalidateStaticLayer();
             base.OnResize(e);
-            RaiseViewportChanged();
+            // Auto resolution depends on horizontal plot density, not height.
+            // Busy/status controls can alter the graph height when they hide;
+            // treating that layout-only resize as navigation restarted a
+            // calculation immediately after the user pressed Cancel.
+            int plotWidth = GraphArea.Width;
+            if (plotWidth != _lastResolutionPlotWidth)
+            {
+                _lastResolutionPlotWidth = plotWidth;
+                RaiseViewportChanged();
+            }
         }
 
         private void BucketRangeAtPixel(int x, Rectangle area, out int first, out int last)

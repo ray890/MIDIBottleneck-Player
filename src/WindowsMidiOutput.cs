@@ -165,7 +165,7 @@ namespace MidiBottleneck
         {
             if (_handle == IntPtr.Zero)
                 throw new InvalidOperationException("No MIDI output device is open.");
-            if (midiEvent == null || midiEvent.Data == null || midiEvent.Data.Length == 0)
+            if (midiEvent == null || midiEvent.DataLength == 0)
                 return;
 
             ReclaimCompletedLongMessages();
@@ -175,9 +175,7 @@ namespace MidiBottleneck
                 return;
             }
 
-            uint message = midiEvent.Data[0];
-            if (midiEvent.Data.Length > 1) message |= (uint)midiEvent.Data[1] << 8;
-            if (midiEvent.Data.Length > 2) message |= (uint)midiEvent.Data[2] << 16;
+            uint message = midiEvent.PackedShortMessage;
             uint result = _sendShort(_handle, message);
             if (result != 0 && !_usesCumulativeByteCountResults)
                 ThrowIfError(result, "sending a short MIDI message through " + _outputIdentity);

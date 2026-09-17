@@ -17,6 +17,7 @@ namespace MidiBottleneck
         private readonly KdmApiMidiOutput _kdmApiOutput = new KdmApiMidiOutput();
         private readonly NullMidiOutput _nullOutput = new NullMidiOutput();
         private readonly List<DiagnosticsForm> _analysisWindows = new List<DiagnosticsForm>();
+        private ChannelMonitorForm _channelMonitor;
         private readonly ToolTip _toolTip = new ToolTip();
         private IMidiOutput _activeOutput;
         private MidiSong _song;
@@ -56,6 +57,7 @@ namespace MidiBottleneck
         private ProgressBar _loadStageActivity;
         private Label _loadingStatusLabel;
         private TableLayoutPanel _loadingPanel;
+        private TableLayoutPanel _fileHeaderTable;
         private TableLayoutPanel _fileOutputTable;
         private GroupBox _fileOutputGroup;
         private ComboBox _outputCombo;
@@ -166,21 +168,33 @@ namespace MidiBottleneck
             _openButton.Click += OpenMidiClicked;
             table.Controls.Add(_openButton, 0, 0);
 
+            _fileHeaderTable = new TableLayoutPanel();
+            _fileHeaderTable.Dock = DockStyle.Fill;
+            _fileHeaderTable.Margin = new Padding(0);
+            _fileHeaderTable.Padding = new Padding(0);
+            _fileHeaderTable.ColumnCount = 2;
+            _fileHeaderTable.RowCount = 1;
+            _fileHeaderTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
+            _fileHeaderTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45));
+            _fileHeaderTable.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            table.Controls.Add(_fileHeaderTable, 1, 0);
+            table.SetColumnSpan(_fileHeaderTable, 3);
+
             _fileLabel = new BufferedStatusLabel();
             _fileLabel.Text = "No file loaded";
             _fileLabel.AutoEllipsis = true;
             _fileLabel.Dock = DockStyle.Fill;
             _fileLabel.TextAlign = ContentAlignment.MiddleLeft;
             _fileLabel.Margin = new Padding(3, 0, 2, 0);
-            table.Controls.Add(_fileLabel, 1, 0);
+            _fileHeaderTable.Controls.Add(_fileLabel, 0, 0);
 
             _fileInfoLabel = new Label();
             _fileInfoLabel.Text = "";
             _fileInfoLabel.AutoSize = true;
             _fileInfoLabel.TextAlign = ContentAlignment.MiddleRight;
             _fileInfoLabel.Anchor = AnchorStyles.Right;
-            table.Controls.Add(_fileInfoLabel, 2, 0);
-            table.SetColumnSpan(_fileInfoLabel, 2);
+            _fileInfoLabel.Dock = DockStyle.Fill;
+            _fileHeaderTable.Controls.Add(_fileInfoLabel, 1, 0);
 
             _loadingStatusLabel = new BufferedStatusLabel();
             _loadingStatusLabel.AutoEllipsis = true;
@@ -188,8 +202,7 @@ namespace MidiBottleneck
             _loadingStatusLabel.Margin = new Padding(2, 0, 0, 0);
             _loadingStatusLabel.TextAlign = ContentAlignment.MiddleLeft;
             _loadingStatusLabel.Visible = false;
-            table.Controls.Add(_loadingStatusLabel, 2, 0);
-            table.SetColumnSpan(_loadingStatusLabel, 2);
+            _fileHeaderTable.Controls.Add(_loadingStatusLabel, 1, 0);
 
             _loadActivity = new ProgressBar();
             _loadActivity.Style = ProgressBarStyle.Continuous;
@@ -561,7 +574,8 @@ namespace MidiBottleneck
             _loadingStatusLabel.Text = "Starting…" + Environment.NewLine + "0.0% overall";
             UpdateLoadingFileTelemetry(true);
             _toolTip.SetToolTip(_fileLabel, path + Environment.NewLine +
-                "The second line shows elapsed loading time and this MidiBottleneck process's private committed memory, not managed-heap size or total system memory.");
+                "The second line shows elapsed loading time and memory committed exclusively to this MidiBottleneck process. " +
+                "Private commit may be resident or paged out; it is not managed-heap size or working set.");
             _fileInfoLabel.Text = String.Empty;
             SetLoadingPresentation(true);
             UpdateTransportControls();
@@ -658,6 +672,7 @@ namespace MidiBottleneck
                 _loadingStatusLabel.Visible = loading;
                 _stateLabel.Visible = !loading;
                 _loadingPanel.Visible = loading;
+                ConfigureFileHeaderAllocation(loading);
             }
             finally
             {
@@ -666,9 +681,20 @@ namespace MidiBottleneck
             }
         }
 
+        private void ConfigureFileHeaderAllocation(bool loading)
+        {
+            if (_fileHeaderTable == null) return;
+            float filePercent;
+            if (loading) filePercent = _compactLayout ? 68F : 60F;
+            else filePercent = _compactLayout ? 45F : 48F;
+            _fileHeaderTable.ColumnStyles[0].Width = filePercent;
+            _fileHeaderTable.ColumnStyles[1].Width = 100F - filePercent;
+        }
+
 
         internal void UnloadCurrentSong()
         {
+            CloseChannelMonitor();
             DiagnosticsForm[] windows = _analysisWindows.ToArray();
             for (int i = 0; i < windows.Length; i++)
                 if (windows[i] != null && !windows[i].IsDisposed) windows[i].Close();
@@ -692,6 +718,9 @@ namespace MidiBottleneck
         internal int LoadingStagePermille { get { return _loadStageActivity == null ? 0 : _loadStageActivity.Value; } }
         internal string LoadingStageText { get { return _loadingStatusLabel == null ? String.Empty : _loadingStatusLabel.Text; } }
         internal string LoadingFileText { get { return _fileLabel == null ? String.Empty : _fileLabel.Text; } }
+        internal int LoadingFileAreaWidth { get { return _fileLabel == null ? 0 : _fileLabel.Width; } }
+        internal int LoadingStatusAreaWidth { get { return _loadingStatusLabel == null ? 0 : _loadingStatusLabel.Width; } }
+        internal int LoadingProgressWidth { get { return _loadingPanel == null ? 0 : _loadingPanel.Width; } }
         internal int LoadingTelemetryUpdateCount { get { return _loadingTelemetryUpdateCount; } }
         internal string OpenCommandText { get { return _openButton == null ? String.Empty : _openButton.Text; } }
 
@@ -1102,6 +1131,8 @@ namespace MidiBottleneck
                         EffectiveSpeed = EffectivePlaybackSpeed.Format(speed),
                         Lag = FormatLagMilliseconds(snapshot.CurrentLagMicroseconds) + " / " + FormatLagMilliseconds(snapshot.MaximumLagMicroseconds)
                     });
+            if (_channelMonitor != null && !_channelMonitor.IsDisposed)
+                _channelMonitor.UpdateSnapshot(_engine.GetChannelSnapshot());
         }
 
         private static long StopwatchTicksToMicroseconds(long ticks)
@@ -1207,7 +1238,7 @@ namespace MidiBottleneck
             string memory = mebibytes >= 1024
                 ? (mebibytes / 1024.0).ToString(mebibytes >= 10240 ? "N1" : "N2", CultureInfo.CurrentCulture) + " GiB"
                 : mebibytes.ToString("N0", CultureInfo.CurrentCulture) + " MiB";
-            return (compact ? String.Empty : "Elapsed ") + time + "  •  Private " + memory;
+            return compact ? time + "  •  " + memory : time + " elapsed  •  " + memory + " committed";
         }
 
         private void SeekBy(long deltaMicroseconds)
@@ -1226,6 +1257,7 @@ namespace MidiBottleneck
             {
                 PerformAnalysisSeek(seek.TimeMicroseconds);
             };
+            diagnostics.ChannelsRequested += delegate { ShowChannelMonitor(); };
             diagnostics.StartPosition = FormStartPosition.Manual;
             Rectangle working = Screen.FromControl(this).WorkingArea;
             Point proposed = new Point(Right + 12, Top);
@@ -1236,6 +1268,53 @@ namespace MidiBottleneck
             diagnostics.Show();
             diagnostics.RequestAnalysis(configuration);
         }
+
+        private void ShowChannelMonitor()
+        {
+            if (_song == null) return;
+            if (_channelMonitor != null && !_channelMonitor.IsDisposed)
+            {
+                if (_channelMonitor.WindowState == FormWindowState.Minimized)
+                    _channelMonitor.WindowState = FormWindowState.Normal;
+                _channelMonitor.Activate();
+                return;
+            }
+
+            _engine.SetChannelMonitoring(true);
+            ChannelMonitorForm monitor = new ChannelMonitorForm(Path.GetFileName(_song.FilePath));
+            _channelMonitor = monitor;
+            monitor.FormClosed += delegate
+            {
+                if (Object.ReferenceEquals(_channelMonitor, monitor))
+                {
+                    _channelMonitor = null;
+                    _engine.SetChannelMonitoring(false);
+                }
+            };
+            monitor.StartPosition = FormStartPosition.Manual;
+            Rectangle working = Screen.FromControl(this).WorkingArea;
+            Point proposed = new Point(Math.Max(working.Left, Left + 28), Math.Max(working.Top, Top + 28));
+            proposed.X = Math.Min(working.Right - monitor.Width, proposed.X);
+            proposed.Y = Math.Min(working.Bottom - monitor.Height, proposed.Y);
+            monitor.Location = proposed;
+            monitor.Show();
+            monitor.UpdateSnapshot(_engine.GetChannelSnapshot());
+        }
+
+        private void CloseChannelMonitor()
+        {
+            ChannelMonitorForm monitor = _channelMonitor;
+            _channelMonitor = null;
+            if (monitor != null && !monitor.IsDisposed) monitor.Close();
+            _engine.SetChannelMonitoring(false);
+        }
+
+        internal void ShowChannelMonitorForTesting()
+        {
+            ShowChannelMonitor();
+        }
+
+        internal ChannelMonitorForm ChannelMonitorForTesting { get { return _channelMonitor; } }
 
         private void ScheduleAnalysisRefresh()
         {
@@ -1325,7 +1404,7 @@ namespace MidiBottleneck
         internal static string FormatFileInformation(MidiSong song, bool compact)
         {
             if (song == null) return String.Empty;
-            string first = String.Format(CultureInfo.CurrentCulture, "{0:N0} events  •  {1} tracks", song.Events.Count, song.TrackCount);
+            string first = String.Format(CultureInfo.CurrentCulture, "{0:N0} events  •  {1} tracks", song.EventStore.Count, song.TrackCount);
             string second = String.Format(CultureInfo.CurrentCulture, "{0:N0} notes  •  {1}", song.NoteCount, FormatTime(song.DurationMicroseconds));
             return compact ? first + Environment.NewLine + second : first + "  •  " + second;
         }
@@ -1372,6 +1451,10 @@ namespace MidiBottleneck
                     if (Height < restoredHeight) Height = restoredHeight;
                 }
                 _rootLayout.Padding = compact ? new Padding(2) : new Padding(5);
+                _loadingPanel.Width = compact ? 118 : 180;
+                _loadingPanel.Margin = compact ? new Padding(2, 0, 1, 0) : new Padding(4, 0, 3, 0);
+                _kdmApiCheck.Margin = compact ? new Padding(4, 3, 2, 3) : new Padding(10, 3, 3, 3);
+                ConfigureFileHeaderAllocation(_loadingSong);
                 _processingTable.ColumnStyles[0].Width = compact ? 51 : 48;
                 _processingTable.ColumnStyles[1].Width = compact ? 49 : 52;
                 _statisticsView.Compact = compact;
@@ -1651,6 +1734,7 @@ namespace MidiBottleneck
             DiagnosticsForm[] analysisWindows = _analysisWindows.ToArray();
             for (int i = 0; i < analysisWindows.Length; i++)
                 if (analysisWindows[i] != null && !analysisWindows[i].IsDisposed) analysisWindows[i].Close();
+            CloseChannelMonitor();
             try { _engine.Dispose(); }
             catch (PlaybackWorkerTimeoutException ex)
             {

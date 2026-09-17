@@ -39,14 +39,14 @@ namespace MidiBottleneck
             {
                 _pending = new List<byte>(midiEvent.Data.Length + 32);
                 _pendingFragments = new List<SystemExclusiveFragment>();
-                _pending.AddRange(midiEvent.Data);
+                midiEvent.Data.AppendTo(_pending);
                 _pendingFragments.Add(CreateFragment(midiEvent));
                 return FinishIfComplete();
             }
 
             if (_pending != null)
             {
-                _pending.AddRange(midiEvent.Data);
+                midiEvent.Data.AppendTo(_pending);
                 _pendingFragments.Add(CreateFragment(midiEvent));
                 return FinishIfComplete();
             }
@@ -54,7 +54,7 @@ namespace MidiBottleneck
             if (IsComplete(midiEvent.Data))
             {
                 SystemExclusivePacket direct = new SystemExclusivePacket();
-                direct.Bytes = (byte[])midiEvent.Data.Clone();
+                direct.Bytes = midiEvent.Data.ToArray();
                 direct.Fragments = new List<SystemExclusiveFragment>();
                 direct.Fragments.Add(CreateFragment(midiEvent));
                 return direct;
@@ -87,7 +87,7 @@ namespace MidiBottleneck
         {
             SystemExclusiveFragment fragment = new SystemExclusiveFragment();
             fragment.Status = midiEvent.Status;
-            fragment.DataLength = midiEvent.Data == null ? 0 : midiEvent.Data.Length;
+            fragment.DataLength = midiEvent.Data.Length;
             fragment.EventIndex = midiEvent.EventIndex;
             fragment.Tick = midiEvent.AbsoluteTick;
             fragment.IntendedMicroseconds = midiEvent.IntendedMicroseconds;
@@ -97,6 +97,11 @@ namespace MidiBottleneck
         public static bool IsComplete(byte[] bytes)
         {
             return bytes != null && bytes.Length >= 2 && bytes[0] == 0xF0 && bytes[bytes.Length - 1] == 0xF7;
+        }
+
+        private static bool IsComplete(MidiEventData bytes)
+        {
+            return bytes.Length >= 2 && bytes[0] == 0xF0 && bytes[bytes.Length - 1] == 0xF7;
         }
     }
 }

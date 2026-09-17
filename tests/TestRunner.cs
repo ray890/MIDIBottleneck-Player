@@ -179,6 +179,16 @@ namespace MidiBottleneck.Tests
                     RenderMainWindow(arguments[1], false, true, false, true);
                     return 0;
                 }
+                if (arguments.Length == 2 && arguments[0] == "--render-channel-monitor")
+                {
+                    RenderChannelMonitor(arguments[1]);
+                    return 0;
+                }
+                if (arguments.Length == 2 && arguments[0] == "--render-analysis-auto")
+                {
+                    RenderAutomaticAnalysisWindow(arguments[1]);
+                    return 0;
+                }
                 if (arguments.Length == 3 && arguments[0] == "--render-ui-clientwidth")
                 {
                     RenderMainWindowAtWidth(arguments[1], Int32.Parse(arguments[2]));
@@ -191,7 +201,13 @@ namespace MidiBottleneck.Tests
                 }
                 if (arguments.Length == 3 && arguments[0] == "--render-ui-loading")
                 {
-                    RenderLoadingMainWindow(arguments[1], arguments[2]);
+                    if (String.Equals(arguments[1], "synthetic", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string syntheticPath = CreateDenseMidiFile(5000000);
+                        try { RenderLoadingMainWindow(syntheticPath, arguments[2]); }
+                        finally { DeleteFileWhenAvailable(syntheticPath); }
+                    }
+                    else RenderLoadingMainWindow(arguments[1], arguments[2]);
                     return 0;
                 }
                 if (arguments.Length == 3 && arguments[0] == "--render-analysis")
@@ -289,6 +305,22 @@ namespace MidiBottleneck.Tests
                     RunFocused("loading elapsed/private-memory presentation", TestBackgroundMidiLoading);
                     return 0;
                 }
+                if (arguments.Length == 1 && arguments[0] == "--test-event-store")
+                {
+                    RunFocused("indexed read-only event-store boundary", TestMidiEventStoreBoundary);
+                    RunFocused("packed short-message storage", TestPackedMidiEventData);
+                    RunFocused("tempo/running-status/SysEx parser regression", TestMidiParser);
+                    RunFocused("immediate dispatch payload/order regression", TestImmediateDispatchCadence);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-analysis-channels")
+                {
+                    RunFocused("background loading telemetry and allocation", TestBackgroundMidiLoading);
+                    RunFocused("asynchronous Analysis cancellation and Auto label", TestAsynchronousAnalysis);
+                    RunFocused("dispatched MIDI channel-state lifecycle", TestChannelStateMonitor);
+                    RunFocused("read-only 16-channel monitor UI", TestChannelMonitorInterface);
+                    return 0;
+                }
                 if (arguments.Length == 1 && arguments[0] == "--benchmark-winmm-adapter")
                 {
                     BenchmarkWinMmAdapter();
@@ -302,6 +334,11 @@ namespace MidiBottleneck.Tests
                 if (arguments.Length == 2 && arguments[0] == "--benchmark-event-store")
                 {
                     BenchmarkEventStore(Int32.Parse(arguments[1], CultureInfo.InvariantCulture));
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--benchmark-channel-monitor")
+                {
+                    BenchmarkChannelMonitorOverhead();
                     return 0;
                 }
                 if (arguments.Length == 1 && arguments[0] == "--test-finishing-ui")
@@ -319,6 +356,8 @@ namespace MidiBottleneck.Tests
                     return 0;
                 }
                 Run("tempo map, multiple tracks, running status, and SysEx", TestMidiParser);
+                Run("indexed read-only event-store boundary", TestMidiEventStoreBoundary);
+                Run("packed short-message storage", TestPackedMidiEventData);
                 Run("explicit process architecture and packed MIDIHDR ABI", TestProcessArchitecture);
                 Run("FIFO queue accumulation", TestQueueSimulation);
                 Run("queue mode playback-engine ordering regression", TestQueuePlaybackEngine);
@@ -366,6 +405,8 @@ namespace MidiBottleneck.Tests
                 Run("None output no-op and allocation-free contract", TestNullMidiOutputContract);
                 Run("None output selector and native device mapping", TestNullOutputSelection);
                 Run("None output playback and restart boundary", TestNullOutputPlayback);
+                Run("dispatched MIDI channel-state lifecycle", TestChannelStateMonitor);
+                Run("read-only 16-channel monitor UI", TestChannelMonitorInterface);
                 Run("dense 200,000-event MIDI parsing", TestDenseMidiParser);
                 Run("cancellable parser progress and cancellation", TestCancellableMidiParser);
                 Run("contiguous event-storage limit fails clearly before allocation", TestContiguousEventStorageLimit);
@@ -427,12 +468,17 @@ namespace MidiBottleneck.Tests
                 var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
                 typeof(MainForm).GetField("_loadingSong", flags).SetValue(form, true);
                 typeof(MainForm).GetMethod("SetLoadingPresentation", flags).Invoke(form, new object[] { true });
-                ((Label)typeof(MainForm).GetField("_fileLabel", flags).GetValue(form)).Text = "Loading bad apple 5.1 million TSMB2.mid…";
+                Label loadingFile = (Label)typeof(MainForm).GetField("_fileLabel", flags).GetValue(form);
+                loadingFile.Text = "Loading a very long black-MIDI filename used for compact allocation verification.mid…" +
+                    Environment.NewLine + MainForm.FormatLoadingTelemetry(3723, 12L * 1024 * 1024 * 1024, false);
                 typeof(MainForm).GetField("_loadProgress", flags).SetValue(form,
                     new MidiLoadProgress("Assigning event timestamps — long current-stage description", 16, 22, 750, 1000, 500, 1000));
                 PumpFor(150);
                 CaptureCorrectiveState(form, directory, "loading-standard");
                 form.Size = new Size(500, 500); PumpFor(150);
+                loadingFile.Text = "Loading a very long black-MIDI filename used for compact allocation verification.mid…" +
+                    Environment.NewLine + MainForm.FormatLoadingTelemetry(3723, 12L * 1024 * 1024 * 1024, true);
+                PumpFor(60);
                 CaptureCorrectiveState(form, directory, "loading-compact");
                 typeof(MainForm).GetField("_loadingSong", flags).SetValue(form, false);
                 form.Close();
@@ -896,6 +942,94 @@ namespace MidiBottleneck.Tests
                 " ms; Gen0 collections=" + (GC.CollectionCount(0) - collections));
         }
 
+        private static void TestMidiEventStoreBoundary()
+        {
+            MidiSong legacy = BuildSong(new long[] { 0, 1000, 1000, 5000 });
+            MidiEventReader legacyReader = legacy.GetEventReader();
+            Equal(4, legacyReader.Count, "legacy reader count");
+            Equal(true, Object.ReferenceEquals(legacy.Events[2], legacyReader[2]), "legacy identity remains stable");
+            Equal(0, legacyReader.LowerBoundByTime(0), "lower bound at start");
+            Equal(1, legacyReader.LowerBoundByTime(1), "lower bound between events");
+            Equal(1, legacyReader.LowerBoundByTime(1000), "lower bound at duplicate timestamp");
+            Equal(4, legacyReader.LowerBoundByTime(6000), "lower bound after end");
+
+            MidiEvent[] immutableEvents = legacy.Events.ToArray();
+            MidiSong indexed = new MidiSong
+            {
+                DurationMicroseconds = legacy.DurationMicroseconds,
+                TrackCount = legacy.TrackCount,
+                TicksPerQuarterNote = legacy.TicksPerQuarterNote
+            };
+            indexed.SetEventStore(new ArrayMidiEventStore(immutableEvents));
+            Equal(true, indexed.Events == null, "non-list backend does not expose mutable legacy list");
+            MidiEventReader indexedReader = indexed.GetEventReader();
+            Equal(4, indexedReader.Count, "indexed backend count");
+            Equal(1, indexedReader.LowerBoundByTime(1000), "indexed backend lower bound");
+            Equal(true, Object.ReferenceEquals(immutableEvents[3], indexedReader[3]), "indexed backend identity remains stable");
+
+            WorkloadAnalysis analysis = WorkloadAnalyzer.AnalyzeUncached(indexed, 1000,
+                DefaultAnalysisConfiguration(), CancellationToken.None, null);
+            Equal(4L, analysis.TotalEvents, "Analysis consumes indexed backend");
+            using (PlaybackEngine engine = new PlaybackEngine())
+            using (NullMidiOutput output = new NullMidiOutput())
+            {
+                engine.SimulateSlowdown = false;
+                engine.Start(indexed, output, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 3000,
+                    "indexed backend playback completion");
+                Equal(4L, engine.GetSnapshot().ProcessedEvents, "playback consumes indexed backend");
+            }
+
+            // Reassigning the compatibility list invalidates the prior wrapper
+            // without requiring test builders to know about the new boundary.
+            legacy.Events = new List<MidiEvent> { immutableEvents[0] };
+            Equal(1, legacy.EventStore.Count, "legacy list replacement refreshes backend");
+        }
+
+        private static void TestPackedMidiEventData()
+        {
+            MidiEvent two = new MidiEvent { Data = new byte[] { 0xC2, 0x7F } };
+            MidiEvent three = new MidiEvent { Data = new byte[] { 0x91, 0x40, 0x55 } };
+            Equal(false, two.Data.UsesHeapPayload, "two-byte message is inline");
+            Equal(false, three.Data.UsesHeapPayload, "three-byte message is inline");
+            Equal(2, two.Data.Length, "two-byte length");
+            Equal((uint)0x00554091, three.Data.PackedShortMessage, "packed short value");
+            Equal((byte)0x40, three.Data[1], "packed indexed byte");
+            byte[] reconstructed = three.Data.ToArray();
+            ByteSequence(new byte[] { 0x91, 0x40, 0x55 }, reconstructed, "explicit short reconstruction");
+
+            byte[] sysex = new byte[] { 0xF0, 0x7E, 0x7F, 0x09, 0x01, 0xF7 };
+            MidiEvent longEvent = new MidiEvent
+            {
+                Kind = MidiEventKind.SystemExclusive,
+                Status = 0xF0,
+                Data = sysex
+            };
+            Equal(true, longEvent.Data.UsesHeapPayload, "long message retains side payload");
+            byte[] packet = new SystemExclusiveAssembler().Accept(longEvent);
+            ByteSequence(sysex, packet, "long payload remains byte exact");
+            Equal(false, Object.ReferenceEquals(sysex, packet), "assembled packet owns its output buffer");
+
+            byte[] largeSysEx = new byte[300];
+            largeSysEx[0] = 0xF0;
+            largeSysEx[299] = 0xF7;
+            MidiEvent largeEvent = new MidiEvent
+            {
+                Kind = MidiEventKind.SystemExclusive,
+                Status = 0xF0,
+                Data = largeSysEx
+            };
+            Equal(300, largeEvent.DataLength, "long payload length is not limited to packed short length");
+            ByteSequence(largeSysEx, new SystemExclusiveAssembler().Accept(largeEvent), "large long payload remains exact");
+
+            using (NullMidiOutput output = new NullMidiOutput())
+            {
+                output.Send(two);
+                output.Send(three);
+                output.Send(longEvent);
+            }
+        }
+
         private static void BenchmarkEventStore(int eventCount)
         {
             if (eventCount < 1 || eventCount > 5000000) throw new ArgumentOutOfRangeException("eventCount");
@@ -916,7 +1050,7 @@ namespace MidiBottleneck.Tests
 
                 int shortPayloadArrays = 0;
                 for (int i = 0; i < song.Events.Count; i++)
-                    if (song.Events[i].Data != null && song.Events[i].Data.Length <= 3) shortPayloadArrays++;
+                    if (song.Events[i].Data.UsesHeapPayload && song.Events[i].Data.Length <= 3) shortPayloadArrays++;
 
                 AnalysisConfiguration configuration = DefaultAnalysisConfiguration();
                 configuration.SimulateSlowdown = false;
@@ -945,6 +1079,47 @@ namespace MidiBottleneck.Tests
                     playback.Elapsed.TotalMilliseconds, snapshot.ProcessedEvents, snapshot.MaximumLagMicroseconds);
             }
             finally { DeleteFileWhenAvailable(path); }
+        }
+
+        private static void BenchmarkChannelMonitorOverhead()
+        {
+            MidiSong warmup = BuildSong(new long[10000]);
+            MidiSong song = BuildSong(new long[1000000]);
+            MeasureChannelMonitorRun(warmup, false);
+            MeasureChannelMonitorRun(warmup, true);
+            double[] closed = new double[5];
+            double[] open = new double[5];
+            for (int i = 0; i < closed.Length; i++)
+            {
+                closed[i] = MeasureChannelMonitorRun(song, false);
+                open[i] = MeasureChannelMonitorRun(song, true);
+            }
+            Array.Sort(closed);
+            Array.Sort(open);
+            Console.WriteLine("Channel-monitor None benchmark: architecture={0}, events={1:N0}",
+                IntPtr.Size == 8 ? "x64" : "x86", song.Events.Count);
+            Console.WriteLine("  monitor closed: median={0:F1} ms; range={1:F1}–{2:F1} ms", closed[2], closed[0], closed[4]);
+            Console.WriteLine("  monitor open:   median={0:F1} ms; range={1:F1}–{2:F1} ms", open[2], open[0], open[4]);
+            Console.WriteLine("  open overhead:  {0:F1}%", (open[2] / closed[2] - 1.0) * 100.0);
+        }
+
+        private static double MeasureChannelMonitorRun(MidiSong song, bool enabled)
+        {
+            using (NullMidiOutput output = new NullMidiOutput())
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.SetChannelMonitoring(enabled);
+                engine.SimulateSlowdown = false;
+                Stopwatch timer = Stopwatch.StartNew();
+                engine.Start(song, output, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 30000,
+                    "channel-monitor benchmark playback");
+                timer.Stop();
+                if (enabled)
+                    Equal((long)song.Events.Count, engine.GetChannelSnapshot().Channels[0].SentEvents,
+                        "channel-monitor benchmark sent count");
+                return timer.Elapsed.TotalMilliseconds;
+            }
         }
 
         private static void RunFocused(string name, Action test)
@@ -1058,6 +1233,54 @@ namespace MidiBottleneck.Tests
                 Console.WriteLine("Rendered default minimum " + form.Width + "x" + form.Height + ": " + Path.GetFullPath(outputPath));
                 form.Close();
             }
+        }
+
+        private static void RenderChannelMonitor(string outputPath)
+        {
+            Application.EnableVisualStyles();
+            ChannelStateTracker tracker = new ChannelStateTracker();
+            tracker.RecordSuccessful(ChannelMessage(77283000, 0xB0, 0, 0));
+            tracker.RecordSuccessful(ChannelMessage(77283000, 0xB0, 32, 0));
+            tracker.RecordSuccessful(ChannelMessage(77283000, 0xC0, 40));
+            tracker.RecordSuccessful(ChannelMessage(77283000, 0xB0, 7, 104));
+            tracker.RecordSuccessful(ChannelMessage(77283000, 0xB0, 11, 127));
+            tracker.RecordSuccessful(ChannelMessage(77283000, 0xB0, 10, 64));
+            tracker.RecordSuccessful(ChannelMessage(77283000, 0x90, 60, 100));
+            tracker.RecordSuccessful(ChannelMessage(77283000, 0x90, 64, 100));
+            tracker.RecordDropped(ChannelMessage(77283000, 0x91, 67, 100));
+            using (ChannelMonitorForm form = new ChannelMonitorForm("example.mid"))
+            {
+                form.Show(); Application.DoEvents();
+                form.UpdateSnapshot(tracker.CreateSnapshot());
+                Application.DoEvents();
+                using (Bitmap bitmap = new Bitmap(form.Width, form.Height))
+                {
+                    CaptureForm(form, bitmap);
+                    bitmap.Save(outputPath);
+                }
+                form.Close();
+            }
+            Console.WriteLine("Rendered channel monitor: " + Path.GetFullPath(outputPath));
+        }
+
+        private static void RenderAutomaticAnalysisWindow(string outputPath)
+        {
+            Application.EnableVisualStyles();
+            MidiSong song = BuildSong(new long[] { 0, 30000000, 60000000, 120000000, 180000000, 240000000, 300000000 });
+            song.FilePath = "whole-file-workload-example.mid";
+            AnalysisConfiguration configuration = DefaultAnalysisConfiguration();
+            WorkloadAnalysis analysis = WorkloadAnalyzer.Analyze(song, 1000000, configuration);
+            using (DiagnosticsForm form = new DiagnosticsForm(song, analysis))
+            {
+                form.Show(); Application.DoEvents();
+                using (Bitmap bitmap = new Bitmap(form.Width, form.Height))
+                {
+                    CaptureForm(form, bitmap);
+                    bitmap.Save(outputPath);
+                }
+                form.Close();
+            }
+            Console.WriteLine("Rendered automatic-resolution Analysis: " + Path.GetFullPath(outputPath));
         }
 
         private static void RenderMainWindowAtWidth(string outputPath, int clientWidth)
@@ -1718,9 +1941,10 @@ namespace MidiBottleneck.Tests
             song.Events[2].Kind = MidiEventKind.SystemExclusive;
             song.Events[2].Status = 0xF0;
             song.Events[2].Channel = -1;
-            song.Events[2].Data = new byte[100];
-            song.Events[2].Data[0] = 0xF0;
-            song.Events[2].Data[99] = 0xF7;
+            byte[] longPayload = new byte[100];
+            longPayload[0] = 0xF0;
+            longPayload[99] = 0xF7;
+            song.Events[2].Data = longPayload;
             string path = Path.Combine(Path.GetTempPath(), "midi-bitrate-trace-" + Guid.NewGuid().ToString("N") + ".csv");
             try
             {
@@ -2527,6 +2751,185 @@ namespace MidiBottleneck.Tests
             }
         }
 
+        private static void TestChannelStateMonitor()
+        {
+            ChannelStateTracker tracker = new ChannelStateTracker();
+            tracker.RecordSuccessful(ChannelMessage(0, 0x90, 60, 100));
+            tracker.RecordSuccessful(ChannelMessage(1000, 0x90, 60, 90));
+            MidiChannelSnapshot channel = tracker.CreateSnapshot().Channels[0];
+            Equal(1, channel.KeysDown, "overlapping occurrences count one distinct key down");
+            Equal(1, channel.PeakKeysDown, "peak keys uses distinct MIDI keys");
+            tracker.RecordSuccessful(ChannelMessage(2000, 0x80, 60, 0));
+            Equal(1, tracker.CreateSnapshot().Channels[0].KeysDown,
+                "first NoteOff retains the overlapping same-key occurrence");
+            tracker.RecordSuccessful(ChannelMessage(3000, 0x90, 60, 0));
+            tracker.RecordSuccessful(ChannelMessage(4000, 0x80, 60, 0));
+            Equal(0, tracker.CreateSnapshot().Channels[0].KeysDown,
+                "velocity-zero and unmatched NoteOff never create a negative key count");
+
+            tracker.RecordSuccessful(ChannelMessage(5000, 0xB0, 0, 5));
+            tracker.RecordSuccessful(ChannelMessage(6000, 0xB0, 32, 7));
+            tracker.RecordSuccessful(ChannelMessage(7000, 0xC0, 41));
+            tracker.RecordSuccessful(ChannelMessage(8000, 0xB0, 7, 100));
+            tracker.RecordSuccessful(ChannelMessage(9000, 0xB0, 11, 80));
+            tracker.RecordSuccessful(ChannelMessage(10000, 0xB0, 10, 64));
+            tracker.RecordSuccessful(ChannelMessage(11000, 0xB0, 64, 127));
+            tracker.RecordSuccessful(ChannelMessage(12000, 0xE0, 0, 64));
+            tracker.RecordSuccessful(ChannelMessage(13000, 0xD0, 55));
+            tracker.RecordDropped(ChannelMessage(14000, 0x91, 64, 100));
+            ChannelPlaybackSnapshot controllerSnapshot = tracker.CreateSnapshot();
+            channel = controllerSnapshot.Channels[0];
+            Equal(5, channel.BankMsb, "bank MSB tracks successful dispatch");
+            Equal(7, channel.BankLsb, "bank LSB tracks successful dispatch");
+            Equal(41, channel.Program, "program tracks successful dispatch");
+            Equal(100, channel.Volume, "CC7 tracks successful dispatch");
+            Equal(80, channel.Expression, "CC11 tracks successful dispatch");
+            Equal(64, channel.Pan, "CC10 tracks successful dispatch");
+            Equal(1, channel.Sustain, "CC64 tracks successful dispatch");
+            Equal(0, channel.PitchBend, "pitch bend is centered at zero");
+            Equal(55, channel.ChannelPressure, "channel pressure tracks successful dispatch");
+            Equal(1L, controllerSnapshot.Channels[1].DroppedEvents, "dropped channel event is counted separately");
+
+            tracker.RecordSuccessful(ChannelMessage(15000, 0x90, 62, 100));
+            tracker.RequestStatisticsReset();
+            channel = tracker.CreateSnapshot().Channels[0];
+            Equal(1, channel.KeysDown, "Reset stats retains live key state");
+            Equal(1, channel.PeakKeysDown, "Reset stats rebases peak to current keys");
+            Equal(0L, channel.SentEvents, "Reset stats clears sent channel count");
+            Equal(41, channel.Program, "Reset stats retains known program");
+            tracker.PanicDirect();
+            channel = tracker.CreateSnapshot().Channels[0];
+            Equal(0, channel.KeysDown, "panic clears keys");
+            Equal(0, channel.Sustain, "panic clears sustain");
+            Equal(41, channel.Program, "panic retains unaffected known program");
+            tracker.ResetProviderStateDirect();
+            channel = tracker.CreateSnapshot().Channels[0];
+            Equal(-1, channel.Program, "provider reset invalidates effective program state");
+            Equal(-1, channel.Volume, "provider reset invalidates effective controller state");
+
+            MidiSong liveSong = new MidiSong
+            {
+                FilePath = "channel-monitor.mid",
+                Format = 0,
+                TrackCount = 1,
+                TicksPerQuarterNote = 480,
+                Events = new List<MidiEvent>(),
+                DurationMicroseconds = 1000000
+            };
+            liveSong.Events.Add(ChannelMessage(0, 0xC0, 9));
+            liveSong.Events.Add(ChannelMessage(0, 0x90, 60, 100));
+            liveSong.Events.Add(ChannelMessage(1000000, 0x80, 60, 0));
+            using (NullMidiOutput output = new NullMidiOutput())
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.SetChannelMonitoring(true);
+                engine.SimulateSlowdown = false;
+                output.Open();
+                engine.Start(liveSong, output, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.GetSnapshot().ProcessedEvents >= 2; }, 1000,
+                    "channel state after successful None dispatch");
+                ChannelPlaybackSnapshot running = engine.GetChannelSnapshot();
+                Equal(1, running.Channels[0].KeysDown, "engine publishes dispatched key state");
+                Equal(2L, running.Channels[0].SentEvents, "engine publishes successful channel-event count");
+                engine.ResetStatistics();
+                ChannelPlaybackSnapshot reset = engine.GetChannelSnapshot();
+                Equal(1, reset.Channels[0].KeysDown, "engine Reset stats retains keys down");
+                Equal(0L, reset.Channels[0].SentEvents, "engine Reset stats clears channel count");
+                engine.Pause();
+                ChannelPlaybackSnapshot paused = engine.GetChannelSnapshot();
+                Equal(0, paused.Channels[0].KeysDown, "Pause provider reset clears channel keys");
+                Equal(-1, paused.Channels[0].Program, "Pause provider reset invalidates channel attributes");
+                engine.Stop();
+            }
+
+            OverflowPolicy[] policies = new OverflowPolicy[]
+            {
+                OverflowPolicy.DropNewest,
+                OverflowPolicy.DropOldest,
+                OverflowPolicy.ClearBufferAndCatchUp,
+                OverflowPolicy.DropIncomingCompleteNotes
+            };
+            for (int policyIndex = 0; policyIndex < policies.Length; policyIndex++)
+            {
+                MidiSong overflowSong = BuildCompleteNotePolicySong();
+                using (NullMidiOutput output = new NullMidiOutput())
+                using (PlaybackEngine engine = new PlaybackEngine())
+                {
+                    engine.SetChannelMonitoring(true);
+                    engine.SimulateSlowdown = true;
+                    engine.ProcessingMicroseconds = 100000;
+                    engine.QueueLengthLimit = 1;
+                    engine.OverflowPolicy = policies[policyIndex];
+                    output.Open();
+                    engine.Start(overflowSong, output, ProcessingMode.Drop);
+                    WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 3000,
+                        policies[policyIndex] + " channel-drop completion");
+                    PlaybackSnapshot playback = engine.GetSnapshot();
+                    ChannelPlaybackSnapshot tracked = engine.GetChannelSnapshot();
+                    long trackedDropped = 0;
+                    for (int channelIndex = 0; channelIndex < 16; channelIndex++)
+                        trackedDropped += tracked.Channels[channelIndex].DroppedEvents;
+                    Equal(playback.DroppedEvents, trackedDropped,
+                        policies[policyIndex] + " channel drops equal scheduler drops");
+                }
+            }
+
+            using (PlaybackEngine failingEngine = new PlaybackEngine())
+            {
+                failingEngine.SetChannelMonitoring(true);
+                failingEngine.SimulateSlowdown = false;
+                failingEngine.Start(BuildSong(new long[] { 0 }), new ThrowingMidiOutput(), ProcessingMode.Queue);
+                WaitFor(delegate { return failingEngine.State == PlaybackState.Stopped; }, 1000,
+                    "channel output failure");
+                Equal(0L, failingEngine.GetChannelSnapshot().Channels[0].SentEvents,
+                    "failed output call is not published as dispatched");
+            }
+        }
+
+        private static void TestChannelMonitorInterface()
+        {
+            Application.EnableVisualStyles();
+            using (ChannelMonitorForm monitor = new ChannelMonitorForm("synthetic.mid"))
+            {
+                monitor.Show(); Application.DoEvents();
+                Equal(16, monitor.ChannelRowCount, "channel monitor contains exactly 16 rows");
+                Equal("—", monitor.CellText(0, "Program"), "unknown channel value uses an em dash");
+                ChannelStateTracker tracker = new ChannelStateTracker();
+                tracker.RecordSuccessful(ChannelMessage(1234567, 0xC0, 4));
+                tracker.RecordSuccessful(ChannelMessage(1234567, 0x90, 60, 100));
+                monitor.UpdateSnapshot(tracker.CreateSnapshot());
+                Equal("5", monitor.CellText(0, "Program"), "channel monitor displays MIDI program as 1–128");
+                Equal("1", monitor.CellText(0, "KeysDown"), "channel monitor displays live key count");
+                Equal("00:01.234", monitor.CellText(0, "Position"), "channel monitor displays output position");
+                monitor.Close();
+            }
+
+            string path = Path.Combine(Path.GetTempPath(), "midi-channel-monitor-" + Guid.NewGuid().ToString("N") + ".mid");
+            File.WriteAllBytes(path, BuildTestMidi());
+            try
+            {
+                using (MainForm form = new MainForm())
+                {
+                    form.SuppressLoadErrorDialogs = true;
+                    form.Show(); Application.DoEvents();
+                    form.BeginMidiLoad(path);
+                    PumpUntil(delegate { return !form.IsLoadingSong; }, 5000, "channel monitor source load");
+                    form.ShowChannelMonitorForTesting();
+                    Application.DoEvents();
+                    ChannelMonitorForm monitor = form.ChannelMonitorForTesting;
+                    if (monitor == null || monitor.IsDisposed) throw new Exception("Channels command did not open the monitor");
+                    Equal(null, monitor.Owner, "channel monitor is unowned and modeless");
+                    Equal(16, monitor.ChannelRowCount, "main form channel monitor has 16 rows");
+                    form.UnloadCurrentSong();
+                    Application.DoEvents();
+                    Equal(true, monitor.IsDisposed, "song unload closes its channel monitor");
+                    Equal(null, form.ChannelMonitorForTesting, "song unload releases channel monitor reference");
+                    form.Close();
+                }
+            }
+            finally { File.Delete(path); }
+        }
+
         private static void TestKdmApiIntegration()
         {
             using (KdmApiMidiOutput output = new KdmApiMidiOutput())
@@ -2647,6 +3050,24 @@ namespace MidiBottleneck.Tests
             {
                 Kind = data != null && data.Length > 0 && (data[0] & 0xF0) == 0x80
                     ? MidiEventKind.NoteOff : MidiEventKind.NoteOn,
+                Channel = data == null || data.Length == 0 ? -1 : data[0] & 0x0F,
+                Status = data == null || data.Length == 0 ? (byte)0 : data[0],
+                Data = data
+            };
+        }
+
+        private static MidiEvent ChannelMessage(long time, params byte[] data)
+        {
+            int command = data == null || data.Length == 0 ? 0 : data[0] & 0xF0;
+            MidiEventKind kind = command == 0x80 ? MidiEventKind.NoteOff :
+                command == 0x90 ? MidiEventKind.NoteOn :
+                command == 0xB0 ? MidiEventKind.ControlChange :
+                command == 0xC0 ? MidiEventKind.ProgramChange :
+                command == 0xE0 ? MidiEventKind.PitchBend : MidiEventKind.SystemMessage;
+            return new MidiEvent
+            {
+                IntendedMicroseconds = time,
+                Kind = kind,
                 Channel = data == null || data.Length == 0 ? -1 : data[0] & 0x0F,
                 Status = data == null || data.Length == 0 ? (byte)0 : data[0],
                 Data = data
@@ -2906,14 +3327,16 @@ namespace MidiBottleneck.Tests
                     Equal("Cancel", form.OpenCommandText, "Open command becomes Cancel while loading");
                     Equal(true, form.LoadingActivityVisible, "loading activity is visible");
                     if (form.LoadingFileText.IndexOf(Environment.NewLine, StringComparison.Ordinal) < 0 ||
-                        form.LoadingFileText.IndexOf("Private", StringComparison.Ordinal) < 0)
-                        throw new Exception("loading filename area does not contain its fixed second-line elapsed/private-memory telemetry");
+                        form.LoadingFileText.IndexOf("committed", StringComparison.OrdinalIgnoreCase) < 0)
+                        throw new Exception("loading filename area does not contain its fixed second-line elapsed/committed-memory telemetry");
                     string largeTelemetry = MainForm.FormatLoadingTelemetry(3723, 12L * 1024 * 1024 * 1024, false);
                     if (largeTelemetry.IndexOf("1:02:03", StringComparison.Ordinal) < 0 ||
-                        largeTelemetry.IndexOf("12.0 GiB", StringComparison.Ordinal) < 0)
+                        largeTelemetry.IndexOf("elapsed", StringComparison.OrdinalIgnoreCase) < 0 ||
+                        largeTelemetry.IndexOf("12.0 GiB committed", StringComparison.OrdinalIgnoreCase) < 0)
                         throw new Exception("large loading telemetry is not compact and honest: " + largeTelemetry);
                     string compactTelemetry = MainForm.FormatLoadingTelemetry(65, 1536L * 1024 * 1024, true);
-                    if (compactTelemetry.IndexOf("Elapsed", StringComparison.Ordinal) >= 0 ||
+                    if (compactTelemetry.IndexOf("elapsed", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        compactTelemetry.IndexOf("committed", StringComparison.OrdinalIgnoreCase) >= 0 ||
                         compactTelemetry.IndexOf("1:05", StringComparison.Ordinal) < 0 ||
                         compactTelemetry.IndexOf("1.50 GiB", StringComparison.Ordinal) < 0)
                         throw new Exception("compact loading telemetry is not abbreviated correctly: " + compactTelemetry);
@@ -3046,6 +3469,34 @@ namespace MidiBottleneck.Tests
                     closing.Close();
                     Equal(true, closing.IsDisposed, "window closes while a load is pending");
                 }
+
+                using (MainForm compactLoading = new MainForm())
+                {
+                    compactLoading.Show(); Application.DoEvents();
+                    compactLoading.Size = compactLoading.MinimumSize;
+                    Application.DoEvents();
+                    List<Control> compactControls = new List<Control>();
+                    CollectControls(compactLoading, compactControls);
+                    GroupBox compactProcessing = FindGroupBox(compactControls, "Processing model");
+                    int compactProcessingTop = compactProcessing.Top;
+                    typeof(MainForm).GetMethod("SetLoadingPresentation",
+                        System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                        .Invoke(compactLoading, new object[] { true });
+                    Application.DoEvents();
+                    if (compactLoading.LoadingFileAreaWidth <= compactLoading.LoadingStatusAreaWidth)
+                        throw new Exception("compact loading does not prioritize filename/elapsed-memory width");
+                    if (compactLoading.LoadingProgressWidth > 125)
+                        throw new Exception("compact loading bars retain an unnecessarily wide footprint");
+                    Equal(compactProcessingTop, compactProcessing.Top,
+                        "compact loading visibility does not move lower groups");
+                    typeof(MainForm).GetMethod("SetLoadingPresentation",
+                        System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                        .Invoke(compactLoading, new object[] { false });
+                    Application.DoEvents();
+                    Equal(compactProcessingTop, compactProcessing.Top,
+                        "compact loading restoration does not move lower groups");
+                    compactLoading.Close();
+                }
             }
             finally
             {
@@ -3073,6 +3524,9 @@ namespace MidiBottleneck.Tests
                 CollectControls(form, controls);
                 ComboBox resolution = FindComboContaining(controls, "Auto");
                 if (resolution == null) throw new Exception("Analysis Resolution selector was not found");
+                Equal(true, form.AutomaticResolutionSelected, "initial Analysis resolution remains explicit Auto mode");
+                if (!form.ResolutionSelectionText.StartsWith("Auto (", StringComparison.Ordinal))
+                    throw new Exception("accepted automatic Analysis resolution is not shown in the selector: " + form.ResolutionSelectionText);
                 resolution.SelectedItem = "25 ms";
                 PumpUntil(delegate { return form.ActiveResolutionMicroseconds == 25000 && !form.CalculationPending; }, 5000, "25 ms Analysis resolution");
                 WorkloadAnalysis cached25 = form.Graph.Analysis;
@@ -3091,6 +3545,26 @@ namespace MidiBottleneck.Tests
                 Equal(250L, form.Graph.Analysis.Configuration.ProcessingMicroseconds, "stale Analysis result rejected");
                 sharedCompleted = form.Graph.Analysis;
                 form.Close();
+            }
+            MidiSong autoSong = BuildSong(new long[] { 0, 300000000 });
+            using (DiagnosticsForm automatic = new DiagnosticsForm(autoSong))
+            {
+                automatic.Show(); Application.DoEvents();
+                automatic.RequestAnalysis(first);
+                PumpUntil(delegate { return !automatic.CalculationPending; }, 5000, "initial long-range Auto Analysis");
+                string initialAuto = automatic.ResolutionSelectionText;
+                Equal(true, automatic.AutomaticResolutionSelected, "long-range selector is Auto before zoom");
+                int center = automatic.Graph.GraphArea.Left + automatic.Graph.GraphArea.Width / 2;
+                for (int zoom = 0; zoom < 5; zoom++) automatic.Graph.ZoomAtClientX(center, 120);
+                PumpUntil(delegate
+                {
+                    return !automatic.CalculationPending &&
+                        !String.Equals(initialAuto, automatic.ResolutionSelectionText, StringComparison.Ordinal);
+                }, 5000, "accepted zoomed Auto resolution label");
+                Equal(true, automatic.AutomaticResolutionSelected, "dynamic Auto label does not change resolution mode");
+                if (!automatic.ResolutionSelectionText.StartsWith("Auto (", StringComparison.Ordinal))
+                    throw new Exception("zoomed automatic resolution lost its informative label");
+                automatic.Close();
             }
             using (DiagnosticsForm peer = new DiagnosticsForm(song))
             {
@@ -3159,9 +3633,28 @@ namespace MidiBottleneck.Tests
 
                 slow.RequestAnalysis(first);
                 PumpUntil(delegate { return slow.CalculationStatusVisible; }, 1600, "delayed Analysis status before cancel");
+                int invocationCountAtCancel = Volatile.Read(ref calculationNumber);
+                string acceptedLabelAtCancel = slow.ResolutionSelectionText;
                 slow.CancelAnalysisCalculation();
                 Equal(false, slow.CalculationStatusVisible, "cancel hides delayed Analysis status");
                 Equal(false, slow.CalculationPending, "cancel retires Analysis request");
+                // Exercise the real message pump beyond the 180 ms resolution
+                // debounce and the header-height change caused by hiding the
+                // busy controls. Layout alone must not recreate the request.
+                PumpFor(650);
+                Equal(invocationCountAtCancel, Volatile.Read(ref calculationNumber),
+                    "cancelled Analysis is not restarted by responsive-header layout");
+                Equal(false, slow.CalculationPending, "cancel remains retired after queued layout messages drain");
+                Equal(acceptedLabelAtCancel, slow.ResolutionSelectionText,
+                    "cancel retains the last accepted automatic-resolution label");
+                List<Control> slowControls = new List<Control>();
+                CollectControls(slow, slowControls);
+                ComboBox slowResolution = FindComboContaining(slowControls, "Auto");
+                slowResolution.SelectedItem = "25 ms";
+                PumpUntil(delegate { return Volatile.Read(ref calculationNumber) > invocationCountAtCancel; }, 1500,
+                    "intentional resolution change after cancellation");
+                PumpUntil(delegate { return !slow.CalculationPending; }, 3000,
+                    "intentional Analysis completion after cancellation");
                 slow.Close();
             }
             string customError;
@@ -3179,6 +3672,9 @@ namespace MidiBottleneck.Tests
                 Equal(true, custom.SetCustomResolutionMilliseconds(12.5m, out customError), "safe custom Analysis resolution accepted");
                 PumpUntil(delegate { return !custom.AnalysisBusy; }, 5000, "custom Analysis resolution");
                 Equal(12500L, custom.ActiveResolutionMicroseconds, "custom Analysis resolution applied exactly");
+                Equal(false, custom.AutomaticResolutionSelected, "Custom resolution remains distinct from Auto mode");
+                if (!custom.ResolutionSelectionText.StartsWith("Custom: ", StringComparison.Ordinal))
+                    throw new Exception("Custom Analysis interval is not shown in the selector");
                 custom.Close();
             }
             Equal(10000L, DiagnosticsForm.ChooseAutoResolution(3000000, 500, 0), "Auto selects fine resolution for short visible span");
@@ -3857,7 +4353,7 @@ namespace MidiBottleneck.Tests
                 if (midiEvent.IntendedMicroseconds > endMicroseconds) break;
                 if (midiEvent.Kind == MidiEventKind.NoteOn || midiEvent.Kind == MidiEventKind.NoteOff ||
                     midiEvent.Kind == MidiEventKind.PolyphonicAftertouch) continue;
-                string bytes = midiEvent.Data == null ? "" : BitConverter.ToString(midiEvent.Data).Replace('-', ' ');
+                string bytes = midiEvent.Data.ToHexString().Replace('-', ' ');
                 if (bytes.Length > 160) bytes = bytes.Substring(0, 160) + " … (" + midiEvent.Data.Length + " bytes)";
                 Console.WriteLine("{0,10} us tick={1,-9} track={2,-4} event={3,-9} {4,-18} {5}",
                     midiEvent.IntendedMicroseconds, midiEvent.AbsoluteTick, midiEvent.Track, midiEvent.EventIndex,
@@ -4666,7 +5162,12 @@ namespace MidiBottleneck.Tests
                 ComboBox combo = controls[i] as ComboBox;
                 if (combo == null) continue;
                 for (int item = 0; item < combo.Items.Count; item++)
-                    if (String.Equals(combo.Items[item].ToString(), itemText, StringComparison.Ordinal)) return combo;
+                {
+                    string candidate = combo.Items[item].ToString();
+                    if (String.Equals(candidate, itemText, StringComparison.Ordinal) ||
+                        (String.Equals(itemText, "Auto", StringComparison.Ordinal) &&
+                            candidate.StartsWith("Auto", StringComparison.Ordinal))) return combo;
+                }
             }
             return null;
         }
@@ -5050,6 +5551,13 @@ namespace MidiBottleneck.Tests
             public void Reset() { }
         }
 
+        private sealed class ThrowingMidiOutput : IMidiOutput
+        {
+            public void Send(MidiEvent midiEvent) { throw new InvalidOperationException("Synthetic output failure"); }
+            public void Panic() { }
+            public void Reset() { }
+        }
+
         private sealed class CallbackMidiOutput : IMidiOutput
         {
             private readonly Action<long> _callback;
@@ -5110,7 +5618,7 @@ namespace MidiBottleneck.Tests
                 while (Interlocked.CompareExchange(ref MaximumConcurrentSends, active, observed) != observed);
                 try
                 {
-                    int note = midiEvent.Data == null || midiEvent.Data.Length < 2 ? -1 : midiEvent.Data[1];
+                    int note = midiEvent.Data.Length < 2 ? -1 : midiEvent.Data[1];
                     lock (_sync)
                     {
                         _beginNotes.Add(note);
@@ -5187,7 +5695,7 @@ namespace MidiBottleneck.Tests
                 int index = Count;
                 if (index % _checkpoint == 0) _checkpointStamps[index / _checkpoint] = Stopwatch.GetTimestamp();
                 if (index >= _expectedCount || midiEvent == null || midiEvent.Order != index ||
-                    midiEvent.EventIndex != index || midiEvent.Status != 0x90 || midiEvent.Data == null ||
+                    midiEvent.EventIndex != index || midiEvent.Status != 0x90 ||
                     midiEvent.Data.Length != 3 || midiEvent.Data[0] != 0x90 ||
                     midiEvent.Data[1] != (byte)(60 + (index % 12)) || midiEvent.Data[2] != 1)
                     PayloadMismatch = true;
@@ -5220,6 +5728,26 @@ namespace MidiBottleneck.Tests
             }
             public void Panic() { _inner.Panic(); }
             public void Reset() { _inner.Reset(); }
+        }
+
+        private sealed class ArrayMidiEventStore : IMidiEventStore
+        {
+            private readonly MidiEvent[] _events;
+            internal ArrayMidiEventStore(MidiEvent[] events) { _events = events; }
+            public int Count { get { return _events.Length; } }
+            public MidiEvent GetEvent(int index) { return _events[index]; }
+            public int LowerBoundByTime(long microseconds)
+            {
+                int low = 0;
+                int high = _events.Length;
+                while (low < high)
+                {
+                    int middle = low + ((high - low) >> 1);
+                    if (_events[middle].IntendedMicroseconds < microseconds) low = middle + 1;
+                    else high = middle;
+                }
+                return low;
+            }
         }
 
         private sealed class FakeMidiOutput : IMidiOutput, IMidiOutputContext
@@ -5267,7 +5795,7 @@ namespace MidiBottleneck.Tests
                 {
                     List<int> notes = new List<int>();
                     for (int i = 0; i < _sentEvents.Count; i++)
-                        notes.Add(_sentEvents[i].Data != null && _sentEvents[i].Data.Length > 1 ? _sentEvents[i].Data[1] : -1);
+                        notes.Add(_sentEvents[i].Data.Length > 1 ? _sentEvents[i].Data[1] : -1);
                     return notes;
                 }
             }

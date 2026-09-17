@@ -296,7 +296,7 @@ namespace MidiBottleneck
         public void Send(MidiEvent midiEvent)
         {
             if (!_open) throw new InvalidOperationException("The KDMAPI output is not open.");
-            if (midiEvent == null || midiEvent.Data == null || midiEvent.Data.Length == 0) return;
+            if (midiEvent == null || midiEvent.DataLength == 0) return;
             ReclaimCompletedLongMessages();
             if (midiEvent.Kind == MidiEventKind.SystemExclusive)
             {
@@ -304,7 +304,7 @@ namespace MidiBottleneck
                 if (packet != null) SendLongPacket(packet, midiEvent);
                 return;
             }
-            _native.SendShort(PackShortMessage(midiEvent.Data));
+            _native.SendShort(midiEvent.PackedShortMessage);
         }
 
         internal static uint PackShortMessage(byte[] data)

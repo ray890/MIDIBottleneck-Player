@@ -147,6 +147,7 @@ namespace MidiBottleneck
             CancellationToken cancellationToken, Action<WorkloadAnalysisProgress> progress)
         {
             if (song == null) throw new ArgumentNullException("song");
+            MidiEventReader events = song.GetEventReader();
             SongWorkloads cache = Workloads.GetOrCreateValue(song);
             WorkloadAnalysis workload;
             while (!Monitor.TryEnter(cache, 25)) cancellationToken.ThrowIfCancellationRequested();
@@ -188,15 +189,16 @@ namespace MidiBottleneck
                 {
                     // Per-message rounding is exact; aggregate byte totals
                     // cannot substitute for the sum of rounded service times.
-                    for (int i = 0; i < song.Events.Count; i++)
+                    for (int i = 0; i < events.Count; i++)
                     {
                         if ((i & 16383) == 0)
                         {
                             cancellationToken.ThrowIfCancellationRequested();
-                            Report(progress, "Calculating serial service demand", i, song.Events.Count, 750, 0);
+                            Report(progress, "Calculating serial service demand", i, events.Count, 750, 0);
                         }
-                        int bucket = (int)Math.Min(result.Buckets.Length - 1, Math.Max(0, song.Events[i].IntendedMicroseconds / bucketMicroseconds));
-                        result.Buckets[bucket].ServiceDemandMicroseconds += EventServiceMicroseconds(song.Events[i], configuration);
+                        MidiEvent midiEvent = events[i];
+                        int bucket = (int)Math.Min(result.Buckets.Length - 1, Math.Max(0, midiEvent.IntendedMicroseconds / bucketMicroseconds));
+                        result.Buckets[bucket].ServiceDemandMicroseconds += EventServiceMicroseconds(midiEvent, configuration);
                     }
                     result.ByteServiceCapacityPerSecond = configuration.MidiBitrate / 10.0;
                 }
@@ -209,12 +211,13 @@ namespace MidiBottleneck
             CancellationToken cancellationToken, Action<WorkloadAnalysisProgress> progress)
         {
             if (song == null) throw new ArgumentNullException("song");
+            MidiEventReader events = song.GetEventReader();
             Interlocked.Increment(ref WorkloadScanCount);
             int bucketCount = CalculateBucketCount(song.DurationMicroseconds, bucketMicroseconds);
             WorkloadAnalysis result = new WorkloadAnalysis
             {
                 Configuration = configuration,
-                TotalEvents = song.Events.Count,
+                TotalEvents = events.Count,
                 DurationMicroseconds = song.DurationMicroseconds,
                 BucketMicroseconds = bucketMicroseconds,
                 Buckets = new WorkloadBucket[bucketCount]
@@ -235,25 +238,25 @@ namespace MidiBottleneck
             long[] typeEvents = new long[typeCount];
             long[] typeBytes = new long[typeCount];
             int index = 0;
-            while (index < song.Events.Count)
+            while (index < events.Count)
             {
                 if ((index & 16383) == 0)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    Report(progress, "Scanning events and clusters", index, song.Events.Count, 50, 650);
+                    Report(progress, "Scanning events and clusters", index, events.Count, 50, 650);
                 }
-                long timestamp = song.Events[index].IntendedMicroseconds;
+                long timestamp = events[index].IntendedMicroseconds;
                 int bucketIndex = (int)Math.Min(bucketCount - 1, Math.Max(0, timestamp / bucketMicroseconds));
                 int clusterEnd = index;
-                while (clusterEnd < song.Events.Count && song.Events[clusterEnd].IntendedMicroseconds == timestamp)
+                while (clusterEnd < events.Count && events[clusterEnd].IntendedMicroseconds == timestamp)
                 {
                     if ((clusterEnd & 16383) == 0)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
-                        Report(progress, "Scanning events and clusters", clusterEnd, song.Events.Count, 50, 650);
+                        Report(progress, "Scanning events and clusters", clusterEnd, events.Count, 50, 650);
                     }
-                    MidiEvent midiEvent = song.Events[clusterEnd];
-                    int bytes = midiEvent.Data == null ? 0 : midiEvent.Data.Length;
+                    MidiEvent midiEvent = events[clusterEnd];
+                    int bytes = midiEvent.DataLength;
                     result.TotalBytes += bytes;
                     result.Buckets[bucketIndex].EventCount++;
                     result.Buckets[bucketIndex].ByteCount += bytes;
@@ -277,7 +280,7 @@ namespace MidiBottleneck
                     result.Buckets[bucketIndex].LargestCluster = clusterSize;
                 index = clusterEnd;
             }
-            Report(progress, "Scanning events and clusters", song.Events.Count, song.Events.Count, 50, 650);
+            Report(progress, "Scanning events and clusters", events.Count, events.Count, 50, 650);
 
             double bucketSeconds = bucketMicroseconds / 1000000.0;
             for (int i = 0; i < result.Buckets.Length; i++)
@@ -292,7 +295,7 @@ namespace MidiBottleneck
             }
             Report(progress, "Summarizing graph buckets", result.Buckets.Length, result.Buckets.Length, 700, 50);
             if (song.DurationMicroseconds > 0)
-                result.AverageEventsPerSecond = song.Events.Count / (song.DurationMicroseconds / 1000000.0);
+                result.AverageEventsPerSecond = events.Count / (song.DurationMicroseconds / 1000000.0);
 
             result.MessageTypes = new List<MessageTypeWorkload>(typeCount);
             for (int kind = 0; kind < typeCount; kind++)
@@ -343,10 +346,11 @@ namespace MidiBottleneck
         private static void AnalyzePressure(MidiSong song, WorkloadAnalysis result, AnalysisConfiguration configuration,
             CancellationToken cancellationToken, Action<WorkloadAnalysisProgress> progress)
         {
+            MidiEventReader events = song.GetEventReader();
             if (!configuration.SimulateSlowdown ||
                 configuration.ServiceDurationMode == ServiceDurationMode.ProcessingTime && configuration.ProcessingMicroseconds == 0)
             {
-                result.PredictedMaximumOccupancy = song.Events.Count == 0 ? 0 : 1;
+                result.PredictedMaximumOccupancy = events.Count == 0 ? 0 : 1;
                 for (int bucket = 0; bucket < result.Buckets.Length; bucket++)
                     if (result.Buckets[bucket].EventCount > 0) result.Buckets[bucket].PredictedPeakOccupancy = 1;
                 Report(progress, "Queue projection (instantaneous service)", 1, 1, 750, 250);
@@ -363,26 +367,26 @@ namespace MidiBottleneck
             long completion = 0;
             int limit = Math.Max(1, configuration.QueueLengthLimit);
             CompleteNoteTracker completeNotes = new CompleteNoteTracker();
-            for (int i = 0; i < song.Events.Count; i++)
+            for (int i = 0; i < events.Count; i++)
             {
                 if ((i & 16383) == 0)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    Report(progress, "Projecting finite queue pressure", i, song.Events.Count, 750, 250);
+                    Report(progress, "Projecting finite queue pressure", i, events.Count, 750, 250);
                 }
-                long arrival = song.Events[i].IntendedMicroseconds;
+                long arrival = events[i].IntendedMicroseconds;
                 while (busy && completion <= arrival)
                 {
                     if (pending.Count > 0)
                     {
                         int next = pending.Dequeue();
-                        completion = checked(completion + EventServiceMicroseconds(song.Events[next], configuration));
+                        completion = checked(completion + EventServiceMicroseconds(events[next], configuration));
                     }
                     else busy = false;
                 }
 
                 int bucketIndex = (int)Math.Min(result.Buckets.Length - 1, Math.Max(0, arrival / result.BucketMicroseconds));
-                MidiEvent incomingEvent = song.Events[i];
+                MidiEvent incomingEvent = events[i];
                 CompleteNoteEventKind noteKind = CompleteNoteTracker.Classify(incomingEvent);
                 if (noteKind == CompleteNoteEventKind.NoteOff && completeNotes.ShouldSuppressNoteOff(incomingEvent))
                 {
@@ -397,7 +401,7 @@ namespace MidiBottleneck
                     if (!busy)
                     {
                         busy = true;
-                        completion = checked(arrival + EventServiceMicroseconds(song.Events[i], configuration));
+                        completion = checked(arrival + EventServiceMicroseconds(events[i], configuration));
                     }
                     else pending.Enqueue(i);
                     if (noteKind == CompleteNoteEventKind.NoteOn)
@@ -416,7 +420,7 @@ namespace MidiBottleneck
                     int dropped = occupancy + 1;
                     pending.Clear();
                     busy = false;
-                    while (i + 1 < song.Events.Count && song.Events[i + 1].IntendedMicroseconds <= arrival) { dropped++; i++; }
+                    while (i + 1 < events.Count && events[i + 1].IntendedMicroseconds <= arrival) { dropped++; i++; }
                     RecordDrop(result, bucketIndex, dropped);
                     result.PredictedBufferClears++;
                     result.Buckets[bucketIndex].PredictedBufferClears++;
@@ -434,28 +438,29 @@ namespace MidiBottleneck
                 if (occupancy > result.Buckets[bucketIndex].PredictedPeakOccupancy)
                     result.Buckets[bucketIndex].PredictedPeakOccupancy = occupancy;
             }
-            Report(progress, "Projecting finite queue pressure", song.Events.Count, song.Events.Count, 750, 250);
+            Report(progress, "Projecting finite queue pressure", events.Count, events.Count, 750, 250);
         }
 
         private static void AnalyzeUnlimitedPressure(MidiSong song, WorkloadAnalysis result, AnalysisConfiguration configuration,
             CancellationToken cancellationToken, Action<WorkloadAnalysisProgress> progress)
         {
+            MidiEventReader events = song.GetEventReader();
             bool busy = false;
             long completion = 0;
             int nextPending = 0;
-            for (int i = 0; i < song.Events.Count; i++)
+            for (int i = 0; i < events.Count; i++)
             {
                 if ((i & 16383) == 0)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    Report(progress, "Projecting unlimited queue pressure", i, song.Events.Count, 750, 250);
+                    Report(progress, "Projecting unlimited queue pressure", i, events.Count, 750, 250);
                 }
-                long arrival = song.Events[i].IntendedMicroseconds;
+                long arrival = events[i].IntendedMicroseconds;
                 while (busy && completion <= arrival)
                 {
                     if (nextPending < i)
                     {
-                        completion = checked(completion + EventServiceMicroseconds(song.Events[nextPending], configuration));
+                        completion = checked(completion + EventServiceMicroseconds(events[nextPending], configuration));
                         nextPending++;
                     }
                     else busy = false;
@@ -463,7 +468,7 @@ namespace MidiBottleneck
                 if (!busy)
                 {
                     busy = true;
-                    completion = checked(arrival + EventServiceMicroseconds(song.Events[i], configuration));
+                    completion = checked(arrival + EventServiceMicroseconds(events[i], configuration));
                     nextPending = i + 1;
                 }
                 int occupancy = 1 + Math.Max(0, i + 1 - nextPending);
@@ -472,7 +477,7 @@ namespace MidiBottleneck
                 if (occupancy > result.Buckets[bucketIndex].PredictedPeakOccupancy)
                     result.Buckets[bucketIndex].PredictedPeakOccupancy = occupancy;
             }
-            Report(progress, "Projecting unlimited queue pressure", song.Events.Count, song.Events.Count, 750, 250);
+            Report(progress, "Projecting unlimited queue pressure", events.Count, events.Count, 750, 250);
         }
 
         private static void RecordDrop(WorkloadAnalysis result, int bucketIndex, int count)
