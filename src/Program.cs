@@ -12,7 +12,7 @@ namespace MidiBottleneck
             Application.SetCompatibleTextRenderingDefault(false);
             Application.ThreadException += delegate(object sender, System.Threading.ThreadExceptionEventArgs e)
             {
-                MessageBox.Show(e.Exception.Message, "Unexpected error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show(e.Exception.Message, ProductIdentity.Name + " — unexpected error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             };
             using (MainForm form = new MainForm())
             {

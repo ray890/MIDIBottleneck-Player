@@ -1,5 +1,8 @@
 build/
 .reference/
-dist/*.work.exe
+dist/
+*.mid
+*.midi
+*.zip
 *.pdb
 *.user

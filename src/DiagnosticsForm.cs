@@ -99,6 +99,7 @@ namespace MidiBottleneck
         internal DiagnosticsForm(MidiSong song, WorkloadAnalysis analysis,
             Func<MidiSong, long, AnalysisConfiguration, CancellationToken, Action<WorkloadAnalysisProgress>, WorkloadAnalysis> analyzer)
         {
+            ProductIcon.Apply(this);
             _usesDefaultAnalyzer = analyzer == null;
             _analyzer = analyzer == null
                 ? new Func<MidiSong, long, AnalysisConfiguration, CancellationToken, Action<WorkloadAnalysisProgress>, WorkloadAnalysis>(
@@ -106,7 +107,7 @@ namespace MidiBottleneck
                     { return WorkloadAnalyzer.Analyze(source, bucket, configuration, token, progress); })
                 : analyzer;
             SourceSong = song;
-            Text = "MIDI Workload Analysis — " + System.IO.Path.GetFileName(song.FilePath);
+            Text = "MIDIBottleneck Player — Analysis — " + System.IO.Path.GetFileName(song.FilePath);
             StartPosition = FormStartPosition.Manual;
             ClientSize = new Size(1080, 660);
             MinimumSize = new Size(820, 520);
@@ -118,19 +119,42 @@ namespace MidiBottleneck
             split.Dock = DockStyle.Fill;
             split.FixedPanel = FixedPanel.Panel1;
             split.SplitterDistance = 390;
-            split.SplitterWidth = 5;
-            split.BackColor = Color.FromArgb(164, 168, 172);
-            split.Cursor = Cursors.VSplit;
+            split.SplitterWidth = 6;
+            split.BackColor = SystemColors.ControlDark;
+            split.Margin = new Padding(0, 4, 0, 4);
+            split.Cursor = Cursors.Default;
+            split.MouseMove += delegate(object sender, MouseEventArgs e)
+            {
+                split.Cursor = split.SplitterRectangle.Contains(e.Location) ? Cursors.VSplit : Cursors.Default;
+            };
+            split.MouseLeave += delegate { split.Cursor = Cursors.Default; };
+            split.Paint += delegate(object sender, PaintEventArgs e)
+            {
+                Rectangle divider = split.SplitterRectangle;
+                if (divider.Width <= 0 || divider.Height <= 0) return;
+                using (Pen light = new Pen(SystemColors.ControlLightLight))
+                using (Pen dark = new Pen(SystemColors.ControlDarkDark))
+                {
+                    int center = divider.Left + divider.Width / 2;
+                    int top = divider.Top + Math.Max(4, (divider.Height - 24) / 2);
+                    for (int y = top; y < top + 24; y += 6)
+                    {
+                        e.Graphics.DrawLine(dark, center - 1, y, center - 1, y + 1);
+                        e.Graphics.DrawLine(light, center, y + 1, center, y + 2);
+                    }
+                }
+            };
+            split.SplitterMoved += delegate { split.Invalidate(split.SplitterRectangle); };
             split.Panel1.BackColor = SystemColors.Control;
             split.Panel2.BackColor = SystemColors.Control;
-            split.Panel1.Padding = new Padding(6, 6, 4, 6);
-            split.Panel2.Padding = new Padding(4, 6, 6, 6);
+            split.Panel1.Padding = new Padding(0);
+            split.Panel2.Padding = new Padding(0, 0, 2, 0);
 
             _summary = new RichTextBox();
             _summary.Dock = DockStyle.Fill;
             _summary.ReadOnly = true;
-            _summary.ScrollBars = RichTextBoxScrollBars.Both;
-            _summary.WordWrap = false;
+            _summary.ScrollBars = RichTextBoxScrollBars.Vertical;
+            _summary.WordWrap = true;
             _summary.BorderStyle = BorderStyle.FixedSingle;
             _summary.BackColor = SystemColors.Window;
             _summary.Font = new Font("Consolas", 9F, FontStyle.Regular, GraphicsUnit.Point);
@@ -139,7 +163,9 @@ namespace MidiBottleneck
             TableLayoutPanel rootLayout = new TableLayoutPanel();
             rootLayout.Dock = DockStyle.Fill;
             rootLayout.Margin = new Padding(0);
-            rootLayout.Padding = new Padding(4, 3, 4, 4);
+            // SplitContainer contributes a two-pixel realized border. Pair it
+            // with two DIP root insets so report/graph edges land at four.
+            rootLayout.Padding = new Padding(2, 3, 2, 2);
             rootLayout.ColumnCount = 1;
             rootLayout.RowCount = 2;
             rootLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -148,6 +174,8 @@ namespace MidiBottleneck
 
             TableLayoutPanel graphLayout = new TableLayoutPanel();
             graphLayout.Dock = DockStyle.Fill;
+            graphLayout.Margin = new Padding(0);
+            graphLayout.Padding = new Padding(0);
             graphLayout.ColumnCount = 2;
             graphLayout.RowCount = 2;
             graphLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -166,7 +194,7 @@ namespace MidiBottleneck
             Button resetZoom = new Button();
             resetZoom.Text = "Reset zoom";
             resetZoom.AutoSize = true;
-            resetZoom.Margin = new Padding(3, 3, 6, 3);
+            resetZoom.Margin = new Padding(2, 3, 6, 3);
             resetZoom.Click += delegate { _graph.ResetZoom(); };
             Label followLabel = new Label();
             followLabel.Text = "Follow:";
@@ -240,7 +268,7 @@ namespace MidiBottleneck
 
             _graph = new WorkloadGraph();
             _graph.Dock = DockStyle.Fill;
-            _graph.Margin = new Padding(5, 4, 5, 4);
+            _graph.Margin = new Padding(0);
             _graph.InspectionChanged += GraphInspectionChanged;
             _graph.SeekRequested += GraphSeekRequested;
             _graph.ViewportChanged += delegate { ScheduleResolutionRefresh(); };
@@ -254,6 +282,7 @@ namespace MidiBottleneck
             _inspection.BackColor = SystemColors.Window;
             _inspection.Font = new Font("Consolas", 8.5F, FontStyle.Regular, GraphicsUnit.Point);
             _inspection.Text = "Hover over the graph to inspect a time. Click to pin; double-click to seek.";
+            _inspection.Margin = new Padding(0);
             graphLayout.Controls.Add(_inspection, 0, 1);
 
             _seekButton = new Button();
@@ -261,6 +290,7 @@ namespace MidiBottleneck
             _seekButton.AutoSize = true;
             _seekButton.Enabled = false;
             _seekButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            _seekButton.Margin = new Padding(3, 3, 0, 0);
             _seekButton.Click += delegate
             {
                 if (_graph.PinnedTimeMicroseconds.HasValue)
@@ -342,6 +372,13 @@ namespace MidiBottleneck
 
         internal WorkloadGraph Graph { get { return _graph; } }
         internal SplitContainer AnalysisSplit { get { return _split; } }
+        internal Control AnalysisHeader { get { return _headerLayout; } }
+        internal Control AnalysisSummary { get { return _summary; } }
+        internal Control AnalysisSeekButton { get { return _seekButton; } }
+        internal bool SummaryWordWrap { get { return _summary.WordWrap; } }
+        internal RichTextBoxScrollBars SummaryScrollBars { get { return _summary.ScrollBars; } }
+        internal bool SummaryEnabled { get { return _summary.Enabled; } }
+        internal string SummaryText { get { return _summary.Text; } }
         internal bool SeekToPinEnabled { get { return _seekButton.Enabled; } }
         internal bool CalculationStatusVisible { get { return _calculationStatus.Visible; } }
         internal bool CalculationProgressVisible { get { return _calculationProgress.Visible; } }
@@ -488,7 +525,7 @@ namespace MidiBottleneck
             _seekButton.Enabled = false;
             _split.Enabled = false;
             _headerLayout.Enabled = false;
-            Text = "MIDI Workload Analysis — no file";
+            Text = "MIDIBottleneck Player — Analysis — no file";
             _summary.Text = message ?? "No MIDI file is attached.";
             _graph.DetachAnalysis(message ?? "No MIDI file is attached.");
         }
@@ -508,7 +545,7 @@ namespace MidiBottleneck
             _seekButton.Enabled = false;
             _split.Enabled = true;
             _headerLayout.Enabled = true;
-            Text = "MIDI Workload Analysis — " + System.IO.Path.GetFileName(song.FilePath);
+            Text = "MIDIBottleneck Player — Analysis — " + System.IO.Path.GetFileName(song.FilePath);
             _summary.Text = "Analysis will appear here when calculation completes.";
             _graph.DetachAnalysis("Calculating workload analysis…");
             RequestAnalysis(configuration);
@@ -556,6 +593,7 @@ namespace MidiBottleneck
             using (Button cancel = new Button())
             {
                 dialog.Text = "Custom Analysis resolution";
+                ProductIcon.Apply(dialog);
                 dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
                 dialog.StartPosition = FormStartPosition.CenterParent;
                 dialog.ClientSize = new Size(390, 120);

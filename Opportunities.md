@@ -2,12 +2,16 @@
 
 These are evidence-backed deferred items, not commitments for the current release.
 
+## Completed archival foundation
+
+- **Atomic diagnostics archive and reconstructed Build 01–21 history** — Completed and validated on 2026-09-18. The numbered archive, original-artifact manifest, mapping, provenance index, reconstruction method, exclusions, exact/nearest-known source qualifications, and commit identifiers are under `diagnostics`. `main` contains exactly `Build 01` through `Build 21`; all twelve private snapshot refs remain protected. No remote, push, license, garbage collection, pruning, or provider redistribution was performed.
+
 ## Near-term follow-ups
 
 - **Remaining compact/segmented event-store stages** — The indexed store boundary and inline short-message payload are now production. Next stages are immutable compact value records, removal of proven post-merge redundancy, bounded segments, a segmented long-payload side store, and finally direct parser construction into segments. This is still high-value/high-scope: it must preserve exact global order, binary-search seeks, scheduler cursors, SysEx diagnostics, Analysis, cancellation, and x86 limits.
 - **Accurate large-file preflight and projected-memory warning** — The parser currently learns exact dispatchable-event count while constructing track events. A trustworthy early warning needs a cancellable count-only scan that honors running status, meta/System Exclusive rules, and malformed-input errors, plus a storage-model-specific peak-memory estimate. Reading huge inputs twice is a real UX cost; direct compact-segment construction may instead make an accurate projection available without retaining the old object graph.
 - **Drop oldest complete note** — An exact bounded implementation needs intrusive pending-queue nodes plus per-channel/key occurrence links that can unlink both members of the oldest safe note in amortized O(1). It must define a NoteOff not yet arrived, an event already in service, and live policy changes. Playback and Analysis require identical behavior without queue scans or transient rebuilds.
-- **Two-stage initial Analysis preview** — The reusable workload scan is a natural boundary, but the analyzer currently returns only one final object. A safe preview needs an explicit immutable workload-only result/callback, generation checks for both publications, honest pending/cancelled labels, and unfinished projection fields that cannot be mistaken for zero. The bounded design is in `diagnostics/AnalysisPreviewAssessment.md`; reaching into the analyzer cache from the form is not acceptable.
+- **Two-stage initial Analysis preview** — The reusable workload scan is a natural boundary, but the analyzer currently returns only one final object. A safe preview needs an explicit immutable workload-only result/callback, generation checks for both publications, honest pending/cancelled labels, and unfinished projection fields that cannot be mistaken for zero. The bounded design is in `diagnostics/Build 17 - analysis-channel-pass/AnalysisPreviewAssessment.md`; reaching into the analyzer cache from the form is not acceptable.
 
 ## Awaiting a product decision or more evidence
 

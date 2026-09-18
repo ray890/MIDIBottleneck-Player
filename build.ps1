@@ -10,6 +10,7 @@ $buildDirectory = Join-Path $projectRoot 'build'
 $distributionDirectory = Join-Path $projectRoot 'dist'
 $manifest = Join-Path $projectRoot 'app.manifest'
 $runtimeConfiguration = Join-Path $projectRoot 'app.config'
+$applicationIcon = Join-Path $projectRoot 'assets\icon\MIDIBottleneck Player.ico'
 
 if (-not (Test-Path -LiteralPath $compiler)) {
     throw "The Windows .NET Framework C# compiler was not found at $compiler"
@@ -35,11 +36,11 @@ function Get-PeMachine([string]$path) {
 }
 
 function Build-Architecture([string]$architecture, [int]$expectedMachine) {
-    $application = Join-Path $distributionDirectory ("MidiBottleneck-{0}.exe" -f $architecture)
+    $application = Join-Path $distributionDirectory ("MIDIBottleneck Player {0}.exe" -f $architecture)
     $testApplication = Join-Path $buildDirectory ("MidiBottleneck.Tests-{0}.exe" -f $architecture)
     $define = if ($architecture -eq 'x86') { 'ARCH_X86' } else { 'ARCH_X64' }
 
-    & $compiler /nologo /target:winexe "/platform:$architecture" "/define:$define" /optimize+ /warn:4 "/out:$application" "/win32manifest:$manifest" /reference:System.dll /reference:System.Core.dll /reference:System.Drawing.dll /reference:System.Windows.Forms.dll $sourceFiles
+    & $compiler /nologo /target:winexe "/platform:$architecture" "/define:$define" /optimize+ /warn:4 "/out:$application" "/win32manifest:$manifest" "/win32icon:$applicationIcon" "/resource:$applicationIcon,MidiBottleneck.ProductIcon.ico" /reference:System.dll /reference:System.Core.dll /reference:System.Drawing.dll /reference:System.Windows.Forms.dll $sourceFiles
     if ($LASTEXITCODE -ne 0) { throw "$architecture application compilation failed." }
     $machine = Get-PeMachine $application
     if ($machine -ne $expectedMachine) {
@@ -49,7 +50,7 @@ function Build-Architecture([string]$architecture, [int]$expectedMachine) {
     Copy-Item -LiteralPath $runtimeConfiguration -Destination ($application + '.config') -Force
 
     if ($Test) {
-        & $compiler /nologo /target:exe "/platform:$architecture" "/define:$define" /optimize+ /warn:4 /nowarn:0649 "/out:$testApplication" /reference:System.dll /reference:System.Core.dll /reference:System.Drawing.dll /reference:System.Windows.Forms.dll $testSources
+        & $compiler /nologo /target:exe "/platform:$architecture" "/define:$define" /optimize+ /warn:4 /nowarn:0649 "/out:$testApplication" "/resource:$applicationIcon,MidiBottleneck.ProductIcon.ico" /reference:System.dll /reference:System.Core.dll /reference:System.Drawing.dll /reference:System.Windows.Forms.dll $testSources
         if ($LASTEXITCODE -ne 0) { throw "$architecture test compilation failed." }
         Copy-Item -LiteralPath $runtimeConfiguration -Destination ($testApplication + '.config') -Force
         if ($MidiIntegration) { & $testApplication --midi-integration } else { & $testApplication }

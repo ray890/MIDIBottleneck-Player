@@ -92,6 +92,18 @@ namespace MidiBottleneck
             }
         }
 
+        internal void MarkChannelForcedPending(int channel)
+        {
+            if (!AnyOverrides || channel < 0 || channel >= 16) return;
+            lock (_changeSync)
+            {
+                int mask = 0;
+                for (int attribute = 0; attribute < AttributeCount; attribute++)
+                    if (_values[channel * AttributeCount + attribute] != AutoValue) mask |= 1 << attribute;
+                _pendingMasks[channel] |= mask;
+            }
+        }
+
         internal int TakePendingMask(int channel)
         {
             lock (_changeSync)
@@ -186,6 +198,13 @@ namespace MidiBottleneck
                 default: throw new ArgumentOutOfRangeException("attribute");
             }
             return NewMessage(channel, MidiEventKind.ControlChange, status, new byte[] { status, first, second });
+        }
+
+        internal static MidiEvent CreateControllerMessage(int channel, int controller, int value)
+        {
+            byte status = (byte)(0xB0 | channel);
+            return NewMessage(channel, MidiEventKind.ControlChange, status,
+                new byte[] { status, (byte)controller, (byte)value });
         }
 
         internal static bool TryClassify(MidiEvent midiEvent, out ChannelAttribute attribute, out int value)

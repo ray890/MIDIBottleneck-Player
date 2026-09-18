@@ -6,6 +6,7 @@ using System.Drawing;
 using System.Globalization;
 using System.Threading;
 using System.Runtime.InteropServices;
+using System.Reflection;
 using System.Windows.Forms;
 
 namespace MidiBottleneck.Tests
@@ -194,6 +195,16 @@ namespace MidiBottleneck.Tests
                     RenderChannelMonitor(arguments[1], false, true);
                     return 0;
                 }
+                if (arguments.Length == 2 && arguments[0] == "--render-build20")
+                {
+                    RenderBuild20Set(arguments[1]);
+                    return 0;
+                }
+                if (arguments.Length == 2 && arguments[0] == "--render-build21")
+                {
+                    RenderBuild21Set(arguments[1]);
+                    return 0;
+                }
                 if (arguments.Length == 2 && arguments[0] == "--render-analysis-auto")
                 {
                     RenderAutomaticAnalysisWindow(arguments[1]);
@@ -358,6 +369,23 @@ namespace MidiBottleneck.Tests
                     RunFocused("read-only 16-channel monitor UI", TestChannelMonitorInterface);
                     return 0;
                 }
+                if (arguments.Length == 1 && arguments[0] == "--test-build20")
+                {
+                    RunFocused("scrub-or-type channel override editor", TestBuild20ScrubEditor);
+                    RunFocused("managed icon on application-owned forms", TestBuild20FormIcons);
+                    RunFocused("persistent detached Analysis and channel-monitor shells", TestAnalysisWindowPersistence);
+                    RunFocused("Analysis report wrapping and splitter cursor", TestBuild19AnalysisUsability);
+                    RunFocused("measured compact-width layout and statistic captions", TestBuild20CompactLayout);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-build21")
+                {
+                    RunFocused("first grid gesture and refined scrub typing", TestBuild21ScrubHandoff);
+                    RunFocused("historical chase and channel output filtering", TestBuild21ChannelControls);
+                    RunFocused("channel monitor measured fitting", TestBuild21ChannelMonitorFit);
+                    RunFocused("normalized Analysis geometry", TestBuild21AnalysisGeometry);
+                    return 0;
+                }
                 if (arguments.Length == 1 && arguments[0] == "--benchmark-winmm-adapter")
                 {
                     BenchmarkWinMmAdapter();
@@ -445,6 +473,12 @@ namespace MidiBottleneck.Tests
                 Run("dispatched MIDI channel-state lifecycle", TestChannelStateMonitor);
                 Run("bounded channel overrides", TestChannelOverrides);
                 Run("read-only 16-channel monitor UI", TestChannelMonitorInterface);
+                Run("scrub-or-type channel override editor", TestBuild20ScrubEditor);
+                Run("managed icon on application-owned forms", TestBuild20FormIcons);
+                Run("first grid gesture and refined scrub typing", TestBuild21ScrubHandoff);
+                Run("historical chase and channel output filtering", TestBuild21ChannelControls);
+                Run("channel monitor measured fitting", TestBuild21ChannelMonitorFit);
+                Run("normalized Analysis geometry", TestBuild21AnalysisGeometry);
                 Run("dense 200,000-event MIDI parsing", TestDenseMidiParser);
                 Run("cancellable parser progress and cancellation", TestCancellableMidiParser);
                 Run("contiguous event-storage limit fails clearly before allocation", TestContiguousEventStorageLimit);
@@ -452,6 +486,7 @@ namespace MidiBottleneck.Tests
                 Run("workload analysis and graph data", TestWorkloadAnalysis);
                 Run("asynchronous Analysis refresh and resolution policy", TestAsynchronousAnalysis);
                 Run("Analysis shell detach and rebind across file replacement", TestAnalysisWindowPersistence);
+                Run("Analysis report wrapping and splitter cursor", TestBuild19AnalysisUsability);
                 Run("configured whole-file Analysis window", TestAnalysisWindowConstruction);
                 Run("selected-model Analysis interaction and seek", TestAnalysisInteraction);
                 Run("Analysis graph geometry, overlay, and coalesced message-pump updates", TestAnalysisRenderingRefinements);
@@ -467,6 +502,7 @@ namespace MidiBottleneck.Tests
                 if (Array.IndexOf(arguments, "--midi-integration") >= 0)
                     Run("MIDI SysEx output and repeated device switching", TestMidiOutputSwitching);
                 Run("WinForms interface construction", TestInterfaceConstruction);
+                Run("measured compact-width layout and statistic captions", TestBuild20CompactLayout);
                 Run("finishing layout, loading-footprint, splitter, and edge-pin contracts", TestFinishingReleaseContracts);
                 Run("playback timeline rendering path", TestPlaybackTimelineRendering);
                 Console.WriteLine("PASS: " + _passed + " tests");
@@ -3065,6 +3101,679 @@ namespace MidiBottleneck.Tests
             finally { File.Delete(path); }
         }
 
+        private static void TestBuild20ScrubEditor()
+        {
+            Application.EnableVisualStyles();
+            List<int> requested = new List<int>();
+            using (ScrubOrTypeTextBox editor = new ScrubOrTypeTextBox())
+            {
+                editor.ValueRequested += delegate(object sender, ScrubValueEventArgs e) { requested.Add(e.Value); };
+                editor.AutoRequested += delegate(object sender, ScrubValueEventArgs e) { requested.Add(e.Value); };
+                editor.Configure(40, 0, 127, 1, 1, 4, 1, 8, false, false,
+                    delegate(int value) { return (value + 1).ToString() + " — Violin"; }, "Program help");
+                Equal(0, requested.Count, "activation/configuration sends no override request");
+                if (editor.Text.IndexOf("41", StringComparison.Ordinal) < 0 || editor.Text.IndexOf("Violin", StringComparison.Ordinal) < 0)
+                    throw new Exception("flat Program display omitted its 1-based value or GM name");
+
+                editor.BeginPointerGesture(new Point(100, 100), MouseButtons.Left);
+                editor.ContinuePointerGestureForTesting(new Point(103, 100), false, true);
+                Equal(false, editor.IsScrubbing, "three pixels remains a click gesture");
+                Equal(0, requested.Count, "click threshold sends no request");
+                editor.EndPointerGesture();
+                Equal(true, editor.IsTyping, "mouse-up without a drag enters typing mode");
+                editor.EscapeForTesting();
+                Equal(false, editor.IsTyping, "Escape exits typing mode");
+
+                editor.BeginPointerGesture(new Point(100, 100), MouseButtons.Left);
+                editor.ContinuePointerGestureForTesting(new Point(104, 100), false, true);
+                Equal(true, editor.IsScrubbing, "movement beyond three pixels begins scrubbing");
+                editor.ApplyScrubDeltaForTesting(8, false);
+                Equal(42, requested[requested.Count - 1], "ordinary attributes scrub one value per pixel");
+                editor.EndPointerGesture();
+                Equal(false, editor.IsScrubbing, "mouse-up ends scrubbing");
+                Equal(false, editor.CursorIsHidden, "mouse-up restores the hidden cursor");
+                Equal(false, editor.Capture, "mouse-up releases capture");
+
+                editor.EnterTypingForTesting();
+                Equal(true, editor.CommitTextForTesting("128"), "Program accepts user-facing value 128");
+                Equal(127, requested[requested.Count - 1], "Program converts 128 to engine value 127");
+                editor.EnterTypingForTesting();
+                Equal(false, editor.CommitTextForTesting("129"), "out-of-range Program input is rejected");
+                Equal(127, editor.CurrentValue, "invalid input restores the last valid value");
+                editor.EnterTypingForTesting();
+                editor.Text = "12";
+                typeof(Control).GetMethod("OnLostFocus", BindingFlags.Instance | BindingFlags.NonPublic, null,
+                    new Type[] { typeof(EventArgs) }, null).Invoke(editor, new object[] { EventArgs.Empty });
+                Equal(11, requested[requested.Count - 1], "focus loss commits typed Program using the 1-based UI boundary");
+
+                editor.Configure(0, 0, 1, 0, 1, 1, 1, 1, false, false, delegate(int value) { return value == 0 ? "Off" : "On"; }, "Sustain");
+                editor.ApplyScrubDeltaForTesting(50, false);
+                Equal(1, requested[requested.Count - 1], "Sustain scrubbing makes one deliberate bounded transition");
+                editor.ApplyScrubDeltaForTesting(50, false);
+                Equal(1, requested[requested.Count - 1], "redundant Sustain movement does not resend On");
+
+                editor.Configure(0, -8192, 8191, 0, 16, 1, 1, 1, false, false, null, "Pitch bend");
+                editor.ApplyScrubDeltaForTesting(3, false);
+                Equal(48, requested[requested.Count - 1], "pitch bend coarse scrub uses 16 units per pixel");
+                editor.ApplyScrubDeltaForTesting(3, true);
+                Equal(51, requested[requested.Count - 1], "Shift/fine pitch bend scrub uses one unit per pixel");
+                editor.ApplyScrubDeltaForTesting(100000, false);
+                Equal(8191, requested[requested.Count - 1], "scrub clamps at maximum");
+                editor.ApplyScrubDeltaForTesting(-100000, false);
+                Equal(-8192, requested[requested.Count - 1], "scrub clamps at minimum");
+                editor.Configure(0, -8192, 8191, 0, 16, 1, 1, 1, false, false, null, "Pitch bend");
+                editor.ApplyScrubDeltaForTesting(10, false);
+                editor.ApplyScrubDeltaForTesting(10, false);
+                Equal(320, requested[requested.Count - 1], "successive relative scrub segments accumulate without a screen-edge limit");
+                editor.Configure(64, 0, 127, 0, 1, 4, 1, 8, true, false, null, "Pan");
+                editor.RequestAutoForTesting();
+                Equal(ChannelOverrideState.AutoValue, requested[requested.Count - 1], "right-click Auto requests the Auto sentinel");
+                editor.EscapeForTesting();
+                Equal(false, editor.CursorIsHidden, "Escape never leaves the cursor hidden");
+                Equal(false, editor.Capture, "Escape never leaves capture active");
+            }
+
+            using (ChannelMonitorForm monitor = new ChannelMonitorForm("build20.mid"))
+            {
+                monitor.Show(); Application.DoEvents();
+                List<int> monitorRequests = new List<int>();
+                monitor.OverrideRequested += delegate(object sender, ChannelOverrideRequestEventArgs e) { monitorRequests.Add(e.Value); };
+                ChannelStateTracker tracker = new ChannelStateTracker();
+                tracker.RecordOverrideApplied(0, ChannelAttribute.Volume, 88);
+                ChannelPlaybackSnapshot snapshot = tracker.CreateSnapshot();
+                snapshot.Channels[0].ForcedAttributeMask |= 1 << (int)ChannelAttribute.Volume;
+                snapshot.Channels[0].ForcedVolume = 88;
+                monitor.UpdateSnapshot(snapshot);
+                Equal("88", monitor.CellText(0, "Volume"), "forced cell remains concise");
+                Equal(Color.FromArgb(20, 75, 155), monitor.CellForeColor(0, "Volume"), "forced cell is blue");
+                if ((monitor.CellFontStyle(0, "Volume") & FontStyle.Bold) == 0)
+                    throw new Exception("forced cell is not bold");
+                Equal(1, monitor.EditorControlCountForTesting, "monitor hosts one reusable scrub/type editor");
+                Equal(null, monitor.GridForTesting.ContextMenuStrip, "monitor has no context menu");
+                monitor.ActivateEditorForTesting(0, "Program");
+                Equal(0, monitorRequests.Count, "editor activation itself is side-effect free");
+                int volumeColumn = monitor.GridForTesting.Columns["Volume"].Index;
+                MethodInfo cellMouseDown = typeof(DataGridView).GetMethod("OnCellMouseDown", BindingFlags.Instance | BindingFlags.NonPublic,
+                    null, new Type[] { typeof(DataGridViewCellMouseEventArgs) }, null);
+                cellMouseDown.Invoke(monitor.GridForTesting, new object[] { new DataGridViewCellMouseEventArgs(volumeColumn, 0, 4, 4,
+                    new MouseEventArgs(MouseButtons.Right, 1, 4, 4, 0)) });
+                Application.DoEvents();
+                Equal(ChannelOverrideState.AutoValue, monitorRequests[monitorRequests.Count - 1], "right-clicking a forced cell returns it to Auto through the real grid path");
+                Equal(null, monitor.GridForTesting.ContextMenuStrip, "right-click installs no context menu");
+                monitor.DetachForSongReplacement("Loading new MIDI…");
+                Equal(false, monitor.EditorForTesting.Visible, "detaching hides the reusable editor");
+                monitor.Close();
+            }
+            Equal(null, typeof(ChannelMonitorForm).GetNestedType("ChannelOverrideDialog", BindingFlags.NonPublic | BindingFlags.Public),
+                "obsolete popup editor type was removed");
+        }
+
+        private static void TestBuild21ScrubHandoff()
+        {
+            Application.EnableVisualStyles();
+            using (ChannelMonitorForm monitor = new ChannelMonitorForm("gesture.mid"))
+            {
+                List<int> requested = new List<int>();
+                monitor.OverrideRequested += delegate(object sender, ChannelOverrideRequestEventArgs e) { requested.Add(e.Value); };
+                monitor.UpdateSnapshot(ChannelPlaybackSnapshot.Empty());
+                monitor.Show(); Application.DoEvents();
+                DataGridView grid = monitor.GridForTesting;
+                int column = grid.Columns["Volume"].Index;
+                Rectangle cell = grid.GetCellDisplayRectangle(column, 0, true);
+                int x = cell.Left + Math.Min(12, Math.Max(4, cell.Width / 4));
+                int y = cell.Top + cell.Height / 2;
+                Cursor.Position = grid.PointToScreen(new Point(x, y));
+                SendMessage(grid.Handle, 0x0201, new IntPtr(1), MouseCoordinates(x, y));
+                Application.DoEvents();
+                Equal(true, monitor.EditorForTesting.GestureArmedForTesting, "first grid MouseDown arms overlay gesture");
+                Equal(true, monitor.EditorForTesting.ReadOnly, "flat editor remains read-only");
+                Equal(0, monitor.EditorForTesting.SelectionLength, "flat editor exposes no selection highlight");
+                MethodInfo gridMouseMove = typeof(Control).GetMethod("OnMouseMove", BindingFlags.Instance | BindingFlags.NonPublic);
+                MethodInfo gridMouseUp = typeof(Control).GetMethod("OnMouseUp", BindingFlags.Instance | BindingFlags.NonPublic);
+                gridMouseMove.Invoke(grid, new object[] { new MouseEventArgs(MouseButtons.Left, 0, x + 4, y, 0) });
+                Application.DoEvents();
+                Equal(true, monitor.EditorForTesting.IsScrubbing, "first grid-owned drag crosses threshold immediately");
+                Equal(0, requested.Count, "crossing threshold alone sends no override");
+                gridMouseMove.Invoke(grid, new object[] { new MouseEventArgs(MouseButtons.Left, 0, x + 12, y, 0) });
+                Application.DoEvents();
+                Equal(102, requested[requested.Count - 1], "unknown Volume seed 100 accumulates one step per four pixels");
+                gridMouseUp.Invoke(grid, new object[] { new MouseEventArgs(MouseButtons.Left, 1, x + 12, y, 0) });
+                Application.DoEvents();
+                Equal(false, monitor.EditorForTesting.IsScrubbing, "grid-owned MouseUp ends first scrub");
+                Equal(false, monitor.EditorForTesting.GestureArmedForTesting, "MouseUp clears armed state");
+                Equal(false, monitor.EditorForTesting.CursorIsHidden, "MouseUp restores cursor");
+                Equal(false, monitor.EditorForTesting.Capture, "MouseUp releases capture");
+                int afterRelease = requested.Count;
+                gridMouseMove.Invoke(grid, new object[] { new MouseEventArgs(MouseButtons.None, 0, x + 30, y, 0) });
+                Application.DoEvents();
+                Equal(afterRelease, requested.Count, "hover after release cannot continue scrub");
+
+                int panColumn = grid.Columns["Pan"].Index;
+                Rectangle panCell = grid.GetCellDisplayRectangle(panColumn, 0, true);
+                int px = panCell.Left + 5, py = panCell.Top + panCell.Height / 2;
+                SendMessage(grid.Handle, 0x0201, new IntPtr(1), MouseCoordinates(px, py));
+                SendMessage(grid.Handle, 0x0202, IntPtr.Zero, MouseCoordinates(px, py));
+                Application.DoEvents();
+                Equal(true, monitor.EditorForTesting.IsTyping, "first simple grid click enters typing");
+                int requestsBeforeArrows = requested.Count;
+                monitor.EditorForTesting.ArrowForTesting(true);
+                Equal("65", monitor.EditorForTesting.Text, "typing Up Arrow changes pending neutral Pan seed");
+                monitor.EditorForTesting.ArrowForTesting(false);
+                Equal("64", monitor.EditorForTesting.Text, "typing Down Arrow changes pending text");
+                Equal(requestsBeforeArrows, requested.Count, "typing arrows do not send before commit");
+                monitor.EditorForTesting.EscapeForTesting();
+                Equal(64, monitor.EditorForTesting.CurrentValue, "Escape restores committed editor seed");
+
+                monitor.ActivateEditorForTesting(1, "Bend");
+                Equal("—", monitor.CellText(1, "Bend"), "unknown Pitch bend cell remains visually unknown");
+                Equal(0, monitor.EditorForTesting.CurrentValue, "unknown Pitch bend editor starts centered");
+                Equal(requestsBeforeArrows, requested.Count, "activating unknown Pitch bend sends nothing");
+                string[] seedColumns = { "BankMsb", "BankLsb", "Program", "Volume", "Expression", "Pan", "Sustain", "Bend", "Aftertouch" };
+                int[] seeds = { 0, 0, 0, 100, 127, 64, 0, 0, 0 };
+                for (int seed = 0; seed < seedColumns.Length; seed++)
+                {
+                    monitor.ActivateEditorForTesting(2, seedColumns[seed]);
+                    Equal(seeds[seed], monitor.EditorForTesting.CurrentValue, seedColumns[seed] + " unknown editor seed");
+                    Equal("—", monitor.CellText(2, seedColumns[seed]), seedColumns[seed] + " cell remains unknown until a request");
+                }
+                Equal(requestsBeforeArrows, requested.Count, "opening neutral seeds sends no requests");
+                ChannelStateTracker tracker = new ChannelStateTracker();
+                tracker.RecordSuccessful(ChannelMessage(0, 0xB0, 7, 80));
+                tracker.MarkAttributeHistoricalDirect(0, ChannelAttribute.Volume);
+                monitor.UpdateSnapshot(tracker.CreateSnapshot());
+                int chased = -1;
+                monitor.HistoricalChaseRequested += delegate(object sender, ChannelChaseRequestEventArgs e) { chased = e.Value; };
+                MethodInfo cellMouseDown = typeof(DataGridView).GetMethod("OnCellMouseDown", BindingFlags.Instance | BindingFlags.NonPublic,
+                    null, new Type[] { typeof(DataGridViewCellMouseEventArgs) }, null);
+                cellMouseDown.Invoke(grid, new object[] { new DataGridViewCellMouseEventArgs(column, 0, 4, 4,
+                    new MouseEventArgs(MouseButtons.Right, 1, 4, 4, 0)) });
+                Equal(80, chased, "right-clicking historical cell requests one-value chase through grid path");
+                bool? enabledRequest = null;
+                monitor.ChannelEnabledRequested += delegate(object sender, ChannelEnabledRequestEventArgs e) { enabledRequest = e.Enabled; };
+                int channelColumn = grid.Columns["Channel"].Index;
+                cellMouseDown.Invoke(grid, new object[] { new DataGridViewCellMouseEventArgs(channelColumn, 0, 4, 4,
+                    new MouseEventArgs(MouseButtons.Left, 1, 4, 4, 0)) });
+                Equal(false, enabledRequest.Value, "clicking Channel cell requests disable");
+                monitor.Close();
+            }
+
+            using (ScrubOrTypeTextBox editor = new ScrubOrTypeTextBox())
+            {
+                List<int> requested = new List<int>();
+                editor.ValueRequested += delegate(object sender, ScrubValueEventArgs e) { requested.Add(e.Value); };
+                editor.Configure(64, 0, 127, 0, 1, 4, 1, 8, false, false, null, "Pan");
+                editor.ApplyScrubDeltaForTesting(3, false);
+                Equal(0, requested.Count, "sub-step movement accumulates without sending");
+                editor.ApplyScrubDeltaForTesting(1, false);
+                Equal(65, requested[0], "four accumulated pixels make one ordinary step");
+                editor.ApplyScrubDeltaForTesting(-2, false);
+                editor.ApplyScrubDeltaForTesting(-2, false);
+                Equal(64, requested[requested.Count - 1], "reverse movement naturally unwinds remainder");
+                editor.ApplyScrubDeltaForTesting(7, true);
+                Equal(64, requested[requested.Count - 1], "Shift uses one step per eight pixels");
+                editor.ApplyScrubDeltaForTesting(1, true);
+                Equal(65, requested[requested.Count - 1], "Shift remainder completes at eight pixels");
+                editor.Configure(0, -8192, 8191, 0, 16, 1, 1, 1, false, false, null, "Bend");
+                editor.ApplyScrubDeltaForTesting(2, false);
+                Equal(32, requested[requested.Count - 1], "Pitch bend uses 16 units per pixel");
+                editor.ApplyScrubDeltaForTesting(2, true);
+                Equal(34, requested[requested.Count - 1], "Shift Pitch bend uses one unit per pixel");
+            }
+        }
+
+        private static void TestBuild21ChannelControls()
+        {
+            MidiSong empty = NewChannelSong("controls-empty.mid", 0);
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.SetChannelMonitoring(true);
+                engine.Start(empty, output, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1000, "control empty completion");
+                engine.SetChannelOverride(0, ChannelAttribute.Volume, 80);
+                int afterForce = output.SentPayloads().Count;
+                engine.SetChannelOverride(0, ChannelAttribute.Volume, ChannelOverrideState.AutoValue);
+                Equal(afterForce, output.SentPayloads().Count, "releasing force emits no MIDI message");
+                MidiChannelSnapshot released = engine.GetChannelSnapshot().Channels[0];
+                Equal(0, released.ForcedAttributeMask & (1 << (int)ChannelAttribute.Volume), "released attribute is Auto");
+                Equal(true, (released.HistoricalAttributeMask & (1 << (int)ChannelAttribute.Volume)) != 0,
+                    "released forced value becomes historical");
+                Equal(80, released.Volume, "historical release retains last successful value");
+                engine.ChaseChannelAttribute(0, ChannelAttribute.Volume, 80);
+                Equal(afterForce + 1, output.SentPayloads().Count, "historical chase emits exactly one message");
+                MidiChannelSnapshot chased = engine.GetChannelSnapshot().Channels[0];
+                Equal(0, chased.ForcedAttributeMask & (1 << (int)ChannelAttribute.Volume), "one-value chase creates no override");
+                Equal(0, chased.HistoricalAttributeMask & (1 << (int)ChannelAttribute.Volume), "successful chase clears historical state");
+
+                foreach (ChannelAttribute attribute in (ChannelAttribute[])Enum.GetValues(typeof(ChannelAttribute)))
+                {
+                    int value = attribute == ChannelAttribute.PitchBend ? -321 : attribute == ChannelAttribute.Sustain ? 1 : 33;
+                    engine.SetChannelOverride(2, attribute, value);
+                    engine.SetChannelOverride(2, attribute, ChannelOverrideState.AutoValue);
+                    int before = output.SentPayloads().Count;
+                    engine.ChaseChannelAttribute(2, attribute, value);
+                    Equal(before + 1, output.SentPayloads().Count, attribute + " chase sends one encoded message");
+                    ChannelAttribute classified; int classifiedValue;
+                    MidiEvent sent = output.SentEvents()[output.SentEvents().Count - 1];
+                    Equal(true, ChannelOverrideState.TryClassify(sent, out classified, out classifiedValue), attribute + " chase classifies");
+                    Equal(attribute, classified, attribute + " chase attribute");
+                    Equal(value, classifiedValue, attribute + " chase value");
+                }
+                engine.Unload();
+            }
+
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.SetChannelMonitoring(true);
+                MidiSong laterSource = NewChannelSong("released-force.mid", 350000,
+                    ChannelMessage(0, 0x90, 60, 1), ChannelMessage(300000, 0xB0, 7, 20));
+                engine.Start(laterSource, output, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.GetSnapshot().ProcessedEvents >= 1; }, 1000, "released-force initial dispatch");
+                engine.SetChannelOverride(0, ChannelAttribute.Volume, 80);
+                WaitFor(delegate { return ContainsMessage(output.SentPayloads(), 0xB0, 7, 80); }, 1000, "live force application");
+                engine.SetChannelOverride(0, ChannelAttribute.Volume, ChannelOverrideState.AutoValue);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1500, "released-force source completion");
+                Equal(true, ContainsMessage(output.SentPayloads(), 0xB0, 7, 20), "source conflict passes after force release");
+                MidiChannelSnapshot state = engine.GetChannelSnapshot().Channels[0];
+                Equal(0L, state.OverrideSuppressedEvents, "released force no longer increments override filtering");
+                Equal(0, state.HistoricalAttributeMask & (1 << (int)ChannelAttribute.Volume),
+                    "successful later source value clears historical state");
+            }
+
+            MidiEvent system = new MidiEvent { Channel = -1, Status = 0xF8, Kind = MidiEventKind.SystemMessage, Data = new byte[] { 0xF8 }, IntendedMicroseconds = 0 };
+            MidiSong filtered = NewChannelSong("muted.mid", 0,
+                ChannelMessage(0, 0x90, 60, 100), ChannelMessage(0, 0xB0, 7, 50),
+                ChannelMessage(0, 0x91, 61, 100), system);
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.SetChannelMonitoring(true);
+                engine.SetChannelEnabled(0, false);
+                Equal(false, engine.IsChannelEnabled(0), "channel can be disabled before output opens");
+                engine.SetChannelOverride(0, ChannelAttribute.Volume, 90);
+                engine.Start(filtered, output, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1000, "muted playback completion");
+                List<byte[]> sent = output.SentPayloads();
+                Equal(false, ContainsMessage(sent, 0x90, 60, 100), "disabled channel source note is filtered");
+                Equal(false, ContainsMessage(sent, 0xB0, 7, 50), "disabled channel source controller is filtered");
+                Equal(true, ContainsMessage(sent, 0x91, 61, 100), "other channel remains enabled");
+                Equal(true, ContainsMessage(sent, 0xF8), "system message is unaffected by channel filter");
+                Equal(4L, engine.GetSnapshot().ProcessedEvents, "muted events retain scheduler processing accounting");
+                Equal(0L, engine.GetSnapshot().DroppedEvents, "muted events are not queue drops");
+                MidiChannelSnapshot state = engine.GetChannelSnapshot().Channels[0];
+                Equal(false, state.Enabled, "snapshot exposes disabled channel");
+                Equal(2L, state.MutedFilteredEvents, "muted-filtered count is separate");
+                Equal(0L, state.OverrideSuppressedEvents, "disabled filtering takes precedence over override filtering");
+                int beforeEnable = sent.Count;
+                engine.SetChannelEnabled(0, true);
+                Equal(true, engine.IsChannelEnabled(0), "channel re-enables independently");
+                Equal(true, ContainsMessage(output.SentPayloads(), 0xB0, 7, 90), "re-enable reapplies configured forced value");
+                if (output.SentPayloads().Count != beforeEnable + 1)
+                    throw new Exception("re-enable replayed unrelated source state");
+                engine.Unload();
+                Equal(true, engine.IsChannelEnabled(0), "unload restores every channel enabled");
+            }
+
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.SetChannelMonitoring(true);
+                MidiSong held = NewChannelSong("held-muted.mid", 1000000,
+                    ChannelMessage(0, 0x90, 64, 100), ChannelMessage(1000000, 0x80, 64, 0));
+                engine.Start(held, output, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.GetSnapshot().ProcessedEvents >= 1; }, 1000, "held note dispatch");
+                engine.SetChannelEnabled(0, false);
+                WaitFor(delegate { return !engine.IsChannelEnabled(0); }, 1000, "ordered disable boundary");
+                List<byte[]> sent = output.SentPayloads();
+                int sustain = IndexOfMessage(sent, 0xB0, 64, 0);
+                int soundOff = IndexOfMessage(sent, 0xB0, 120, 0);
+                int notesOff = IndexOfMessage(sent, 0xB0, 123, 0);
+                if (!(sustain >= 0 && soundOff > sustain && notesOff > soundOff))
+                    throw new Exception("channel disable safety messages were not ordered sustain-off, all-sound-off, all-notes-off");
+                Equal(0, engine.GetChannelSnapshot().Channels[0].KeysDown, "disable safety clears tracked held keys");
+                engine.Stop();
+                Equal(false, engine.IsChannelEnabled(0), "disabled channel persists across Stop");
+                engine.Unload();
+            }
+
+            using (PlaybackEngine noneEngine = new PlaybackEngine())
+            using (NullMidiOutput none = new NullMidiOutput())
+            {
+                none.Open();
+                noneEngine.SetChannelMonitoring(true);
+                noneEngine.Start(empty, none, ProcessingMode.Queue);
+                WaitFor(delegate { return noneEngine.State == PlaybackState.Completed; }, 1000, "None control completion");
+                noneEngine.SetChannelOverride(3, ChannelAttribute.Pan, 64);
+                noneEngine.SetChannelOverride(3, ChannelAttribute.Pan, ChannelOverrideState.AutoValue);
+                noneEngine.ChaseChannelAttribute(3, ChannelAttribute.Pan, 64);
+                Equal(0, noneEngine.GetChannelSnapshot().Channels[3].HistoricalAttributeMask & (1 << (int)ChannelAttribute.Pan),
+                    "None accepts logical one-value chase");
+            }
+
+            using (PlaybackEngine failing = new PlaybackEngine())
+            {
+                ToggleFailureOutput output = new ToggleFailureOutput();
+                failing.SetChannelMonitoring(true);
+                failing.Start(empty, output, ProcessingMode.Queue);
+                WaitFor(delegate { return failing.State == PlaybackState.Completed; }, 1000, "toggle output completion");
+                failing.SetChannelOverride(0, ChannelAttribute.Pan, 70);
+                failing.SetChannelOverride(0, ChannelAttribute.Pan, ChannelOverrideState.AutoValue);
+                output.Throw = true;
+                bool threw = false;
+                try { failing.ChaseChannelAttribute(0, ChannelAttribute.Pan, 70); }
+                catch (InvalidOperationException) { threw = true; }
+                Equal(true, threw, "failed direct chase is reported");
+                Equal(true, (failing.GetChannelSnapshot().Channels[0].HistoricalAttributeMask & (1 << (int)ChannelAttribute.Pan)) != 0,
+                    "failed chase preserves historical state");
+                try { failing.SetChannelEnabled(0, false); }
+                catch (InvalidOperationException) { }
+                Equal(true, failing.IsChannelEnabled(0), "failed disable safety leaves channel enabled");
+            }
+        }
+
+        private static void TestBuild21ChannelMonitorFit()
+        {
+            Application.EnableVisualStyles();
+            using (ChannelMonitorForm monitor = new ChannelMonitorForm("fit.mid"))
+            {
+                ChannelStateTracker tracker = new ChannelStateTracker();
+                tracker.RecordSuccessful(ChannelMessage(0, 0xC0, 24));
+                monitor.UpdateSnapshot(tracker.CreateSnapshot());
+                monitor.Show(); Application.DoEvents(); Application.DoEvents();
+                DataGridView grid = monitor.GridForTesting;
+                Console.WriteLine("      Channel Monitor fit: outer {0}x{1}; client {2}x{3}",
+                    monitor.Width, monitor.Height, monitor.ClientSize.Width, monitor.ClientSize.Height);
+                Rectangle last = grid.GetCellDisplayRectangle(0, 15, true);
+                if (last.Height <= 0 || last.Bottom > grid.ClientSize.Height)
+                    throw new Exception("initial monitor does not show all 16 rows");
+                int blank = grid.ClientSize.Height - last.Bottom;
+                if (blank > SystemInformation.HorizontalScrollBarHeight + 8)
+                    throw new Exception("monitor leaves unnecessary blank row area: " + blank + " px");
+                Rectangle working = Screen.FromControl(monitor).WorkingArea;
+                if (monitor.Width > working.Width || monitor.Height > working.Height)
+                    throw new Exception("initial monitor size exceeds working area");
+                if (String.IsNullOrEmpty(grid.Rows[0].Cells["Program"].ToolTipText) ||
+                    grid.Rows[0].Cells["Program"].ToolTipText.IndexOf("Acoustic Guitar", StringComparison.Ordinal) < 0)
+                    throw new Exception("ellipsized Program value is not available through tooltip");
+                int before = monitor.Width;
+                grid.Columns["Program"].Width += 20;
+                Application.DoEvents(); Application.DoEvents();
+                if (monitor.Width <= before) throw new Exception("column resize did not auto-fit monitor width");
+                monitor.Width += 10; Application.DoEvents();
+                Equal(false, monitor.AutoFitEnabledForTesting, "manual form resize disables session auto-fit");
+                int manual = monitor.Width;
+                grid.Columns["Program"].Width += 20; Application.DoEvents(); Application.DoEvents();
+                Equal(manual, monitor.Width, "column changes stop resizing form after manual resize");
+                monitor.Close();
+            }
+        }
+
+        private static void TestBuild21AnalysisGeometry()
+        {
+            Application.EnableVisualStyles();
+            MidiSong song = BuildSong(new long[] { 0, 100000, 200000 });
+            WorkloadAnalysis analysis = WorkloadAnalyzer.Analyze(song, 100000, DefaultAnalysisConfiguration());
+            using (DiagnosticsForm form = new DiagnosticsForm(song, analysis))
+            {
+                form.Show(); Application.DoEvents();
+                AssertAnalysisGaps(form, "default");
+                form.Size = form.MinimumSize; Application.DoEvents();
+                AssertAnalysisGaps(form, "minimum");
+                form.DetachForSongReplacement("Loading new MIDI…"); Application.DoEvents();
+                AssertAnalysisGaps(form, "detached");
+                Rectangle splitter = form.AnalysisSplit.SplitterRectangle;
+                if (splitter.Width < 4 || splitter.Width > 8) throw new Exception("Analysis splitter hit target is not restrained");
+                form.Close();
+            }
+        }
+
+        private static void AssertAnalysisGaps(DiagnosticsForm form, string state)
+        {
+            Control header = form.AnalysisHeader;
+            Control summary = form.AnalysisSummary;
+            Control graph = form.Graph;
+            Control seek = form.AnalysisSeekButton;
+            SplitContainer split = form.AnalysisSplit;
+            Point headerBottom = form.PointToClient(header.PointToScreen(new Point(0, header.Height)));
+            Point splitTop = form.PointToClient(split.PointToScreen(Point.Empty));
+            Point summaryLeftBottom = form.PointToClient(summary.PointToScreen(new Point(0, summary.Height)));
+            Point graphRight = form.PointToClient(graph.PointToScreen(new Point(graph.Width, 0)));
+            Point seekRight = form.PointToClient(seek.PointToScreen(new Point(seek.Width, 0)));
+            if (Math.Abs((splitTop.Y - headerBottom.Y) - 4) > 1) throw new Exception(state + " Analysis header gap is " + (splitTop.Y - headerBottom.Y));
+            if (Math.Abs(summaryLeftBottom.X - 4) > 1) throw new Exception(state + " Analysis report left gap is " + summaryLeftBottom.X);
+            if (Math.Abs((form.ClientSize.Height - summaryLeftBottom.Y) - 4) > 1) throw new Exception(state + " Analysis report bottom gap is " + (form.ClientSize.Height - summaryLeftBottom.Y));
+            if (Math.Abs((form.ClientSize.Width - graphRight.X) - 4) > 1) throw new Exception(state + " Analysis graph right gap is " + (form.ClientSize.Width - graphRight.X));
+            if (Math.Abs((form.ClientSize.Width - seekRight.X) - 4) > 1) throw new Exception(state + " Analysis seek right gap is " + (form.ClientSize.Width - seekRight.X));
+            Rectangle divider = split.SplitterRectangle;
+            Rectangle report = summary.Bounds;
+            Rectangle graphBounds = graph.Bounds;
+            if (divider.Left - report.Right > 1 || graphBounds.Left - divider.Right > 1)
+                throw new Exception(state + " Analysis splitter has excess surrounding whitespace");
+        }
+
+        private static IntPtr MouseCoordinates(int x, int y)
+        {
+            return new IntPtr((y << 16) | (x & 0xFFFF));
+        }
+
+        private static int IndexOfMessage(List<byte[]> messages, params byte[] expected)
+        {
+            for (int index = 0; index < messages.Count; index++)
+            {
+                byte[] candidate = messages[index];
+                if (candidate.Length != expected.Length) continue;
+                bool match = true;
+                for (int b = 0; b < expected.Length; b++) if (candidate[b] != expected[b]) { match = false; break; }
+                if (match) return index;
+            }
+            return -1;
+        }
+
+        private static void TestBuild19AnalysisUsability()
+        {
+            Application.EnableVisualStyles();
+            MidiSong song = BuildSong(new long[] { 0, 100000, 200000 });
+            WorkloadAnalysis analysis = WorkloadAnalyzer.Analyze(song, 100000, DefaultAnalysisConfiguration());
+            using (DiagnosticsForm form = new DiagnosticsForm(song, analysis))
+            {
+                form.Show(); Application.DoEvents();
+                Equal(true, form.SummaryWordWrap, "Analysis report wraps long lines");
+                Equal(RichTextBoxScrollBars.Vertical, form.SummaryScrollBars, "Analysis report uses only a vertical scrollbar");
+                SplitContainer split = form.AnalysisSplit;
+                MethodInfo mouseMove = typeof(Control).GetMethod("OnMouseMove", BindingFlags.Instance | BindingFlags.NonPublic);
+                mouseMove.Invoke(split, new object[] { new MouseEventArgs(MouseButtons.None, 0, 1, 10, 0) });
+                Equal(Cursors.Default, split.Cursor, "Analysis outer border does not advertise splitter dragging");
+                Rectangle splitter = split.SplitterRectangle;
+                mouseMove.Invoke(split, new object[] { new MouseEventArgs(MouseButtons.None, 0, splitter.Left + splitter.Width / 2, splitter.Top + 10, 0) });
+                Equal(Cursors.VSplit, split.Cursor, "actual Analysis splitter uses the resize cursor");
+                form.DetachForSongReplacement("MIDI loading cancelled. No MIDI file is loaded.");
+                Equal(false, form.SummaryEnabled, "detached Analysis report is disabled");
+                form.AttachSong(song, DefaultAnalysisConfiguration());
+                Equal(true, form.SummaryEnabled, "successful reattachment enables the Analysis report");
+                form.Close();
+            }
+        }
+
+        private static void TestBuild20FormIcons()
+        {
+            Application.EnableVisualStyles();
+            MidiSong song = BuildSong(new long[] { 0, 100000 });
+            WorkloadAnalysis analysis = WorkloadAnalyzer.Analyze(song, 100000, DefaultAnalysisConfiguration());
+            using (MainForm main = new MainForm())
+            using (DiagnosticsForm diagnostics = new DiagnosticsForm(song, analysis))
+            using (ChannelMonitorForm monitor = new ChannelMonitorForm("icons.mid"))
+            using (AboutProductDialog about = new AboutProductDialog())
+            {
+                Form[] forms = new Form[] { main, diagnostics, monitor, about };
+                for (int i = 0; i < forms.Length; i++)
+                    if (forms[i].Icon == null || forms[i].Icon.Handle == IntPtr.Zero)
+                        throw new Exception(forms[i].GetType().Name + " has no managed Form.Icon");
+            }
+            if (ProductIcon.Value == null || ProductIcon.Value.Handle == IntPtr.Zero)
+                throw new Exception("shared managed icon became invalid after forms were disposed");
+        }
+
+        private static void TestBuild20CompactLayout()
+        {
+            Application.EnableVisualStyles();
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); Application.DoEvents();
+                form.ClientSize = new Size(416, form.ClientSize.Height); Application.DoEvents();
+                if (Math.Abs(form.ClientSize.Width - 416) > 1) throw new Exception("compact client minimum is not 416 pixels at 96 DPI");
+                Type type = typeof(MainForm); BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                NumericUpDown queue = (NumericUpDown)type.GetField("_queueLimitValue", flags).GetValue(form);
+                NumericUpDown value = (NumericUpDown)type.GetField("_processingValue", flags).GetValue(form);
+                Label eventsUnit = (Label)type.GetField("_eventsLabel", flags).GetValue(form);
+                Equal(77, queue.Width, "compact Queue measured numeric width");
+                queue.Value = queue.Maximum;
+                AssertNumericFullyVisible(queue, "compact Queue maximum");
+                if (eventsUnit.Visible && eventsUnit.Right > eventsUnit.Parent.ClientSize.Width)
+                    throw new Exception("compact events unit is visible while clipped");
+                ComboBox mode = (ComboBox)type.GetField("_serviceModeCombo", flags).GetValue(form);
+                mode.SelectedIndex = 1; Application.DoEvents();
+                Equal(89, value.Width, "compact bitrate measured numeric width");
+                value.Value = value.Maximum;
+                AssertNumericFullyVisible(value, "compact bitrate maximum");
+                mode.SelectedIndex = 0; Application.DoEvents();
+                Equal(77, value.Width, "compact processing-time measured numeric width");
+                value.Value = value.Maximum;
+                AssertNumericFullyVisible(value, "compact processing-time maximum");
+                form.ClientSize = new Size(640, form.ClientSize.Height); Application.DoEvents();
+                Equal(true, eventsUnit.Visible, "events unit returns when its complete cluster fits");
+                Equal(100, queue.Width, "standard Queue width restored");
+                Equal(100, value.Width, "standard processing-time width restored");
+                form.Close();
+            }
+            using (StatisticsView statistics = new StatisticsView())
+            {
+                statistics.Compact = true;
+                statistics.Size = new Size(404, statistics.Height);
+                statistics.SetValues(new string[] { "01:23:45.678 / 01:23:44.999", "1,097,842 / 1,500,000", "9,500,000 events/s", "8,750,000 events/s", "10,385,604 / 38", "100.2%", "12,345.678 ms", "1,234.567 ms" });
+                using (Bitmap bitmap = new Bitmap(statistics.Width, statistics.Height)) statistics.DrawToBitmap(bitmap, statistics.ClientRectangle);
+                string first = statistics.SelectedCaptionAt(0);
+                if (first != "Timeline/output:" && first != "Timeline:" && first != "Time:") throw new Exception("invalid measured Timeline caption");
+                if (statistics.ValueWasTruncated(1)) throw new Exception("Queue readout was truncated instead of abbreviating its caption");
+            }
+        }
+
+        private static void RenderBuild20Set(string outputDirectory)
+        {
+            Directory.CreateDirectory(outputDirectory);
+            RenderMainWindow(Path.Combine(outputDirectory, "main-standard.png"), false, false, false);
+            RenderMainWindow(Path.Combine(outputDirectory, "main-compact.png"), false, true, false);
+            RenderChannelMonitor(Path.Combine(outputDirectory, "channel-monitor-forced.png"), false, true);
+
+            Application.EnableVisualStyles();
+            using (MainForm compact = new MainForm())
+            {
+                compact.Show(); Application.DoEvents();
+                compact.ClientSize = new Size(416, compact.ClientSize.Height); Application.DoEvents();
+                BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                NumericUpDown queue = (NumericUpDown)typeof(MainForm).GetField("_queueLimitValue", flags).GetValue(compact);
+                NumericUpDown value = (NumericUpDown)typeof(MainForm).GetField("_processingValue", flags).GetValue(compact);
+                ComboBox mode = (ComboBox)typeof(MainForm).GetField("_serviceModeCombo", flags).GetValue(compact);
+                queue.Value = queue.Maximum;
+                mode.SelectedIndex = 1; Application.DoEvents();
+                value.Value = value.Maximum;
+                StatisticsView statistics = FindStatisticsView(compact);
+                statistics.SetValues(new string[] { "01:23:45.678 / 01:23:44.999", "1,097,842 / 1,500,000", "9,500,000 events/s", "8,750,000 events/s", "10,385,604 / 38", "100.2%", "12,345.678 ms", "1,234.567 ms" });
+                using (Bitmap bitmap = new Bitmap(compact.Width, compact.Height))
+                {
+                    CaptureForm(compact, bitmap); bitmap.Save(Path.Combine(outputDirectory, "main-compact-maximum-values.png"));
+                }
+                compact.Close();
+            }
+
+            using (ChannelMonitorForm monitor = new ChannelMonitorForm("scrub-editor.mid"))
+            {
+                monitor.Show(); Application.DoEvents();
+                ChannelStateTracker tracker = new ChannelStateTracker();
+                tracker.RecordOverrideApplied(0, ChannelAttribute.Program, 40);
+                monitor.UpdateSnapshot(tracker.CreateSnapshot());
+                monitor.ActivateEditorForTesting(0, "Program"); Application.DoEvents();
+                monitor.EditorForTesting.EnterTypingForTesting(); Application.DoEvents();
+                using (Bitmap bitmap = new Bitmap(monitor.Width, monitor.Height))
+                {
+                    CaptureForm(monitor, bitmap); bitmap.Save(Path.Combine(outputDirectory, "channel-scrub-editor.png"));
+                }
+                monitor.Close();
+            }
+            using (AboutProductDialog about = new AboutProductDialog())
+            {
+                about.Show(); Application.DoEvents();
+                using (Bitmap bitmap = new Bitmap(about.Width, about.Height))
+                {
+                    CaptureForm(about, bitmap); bitmap.Save(Path.Combine(outputDirectory, "about.png"));
+                }
+                about.Close();
+            }
+            string synthetic = CreateDenseMidiFile(20000);
+            try { RenderAutomaticAnalysisWindowFromFile(synthetic, Path.Combine(outputDirectory, "analysis.png")); }
+            finally { DeleteFileWhenAvailable(synthetic); }
+        }
+
+        private static void RenderBuild21Set(string outputDirectory)
+        {
+            Directory.CreateDirectory(outputDirectory);
+            Application.EnableVisualStyles();
+            ChannelStateTracker tracker = new ChannelStateTracker();
+            tracker.RecordSuccessful(ChannelMessage(12345000, 0xC0, 24));
+            tracker.RecordSuccessful(ChannelMessage(12345000, 0xB0, 7, 100));
+            tracker.RecordSuccessful(ChannelMessage(12345000, 0xB0, 10, 64));
+            tracker.MarkAttributeHistoricalDirect(0, ChannelAttribute.Program);
+            tracker.RecordOverrideApplied(0, ChannelAttribute.Volume, 110);
+            ChannelPlaybackSnapshot snapshot = tracker.CreateSnapshot();
+            ChannelOverrideState overrides = new ChannelOverrideState();
+            overrides.SetValue(0, ChannelAttribute.Volume, 110);
+            overrides.TakePendingMask(0);
+            overrides.ApplyToSnapshot(snapshot);
+            ChannelRoutingState routing = new ChannelRoutingState();
+            routing.SetEnabled(1, false);
+            routing.RecordFiltered(1); routing.RecordFiltered(1); routing.RecordFiltered(1);
+            routing.ApplyToSnapshot(snapshot);
+
+            using (ChannelMonitorForm monitor = new ChannelMonitorForm("build21-channel-states.mid"))
+            {
+                monitor.UpdateSnapshot(snapshot);
+                monitor.Show(); Application.DoEvents(); Application.DoEvents();
+                using (Bitmap bitmap = new Bitmap(monitor.Width, monitor.Height))
+                {
+                    CaptureForm(monitor, bitmap); bitmap.Save(Path.Combine(outputDirectory, "channel-monitor-states.png"));
+                }
+                monitor.ActivateEditorForTesting(2, "Bend"); Application.DoEvents();
+                using (Bitmap bitmap = new Bitmap(monitor.Width, monitor.Height))
+                {
+                    CaptureForm(monitor, bitmap); bitmap.Save(Path.Combine(outputDirectory, "channel-scrub-flat.png"));
+                }
+                monitor.EditorForTesting.EnterTypingForTesting(); Application.DoEvents();
+                using (Bitmap bitmap = new Bitmap(monitor.Width, monitor.Height))
+                {
+                    CaptureForm(monitor, bitmap); bitmap.Save(Path.Combine(outputDirectory, "channel-scrub-typing.png"));
+                }
+                monitor.Close();
+            }
+
+            MidiSong song = BuildSong(new long[] { 0, 100000, 200000, 400000 });
+            song.FilePath = "build21-analysis.mid";
+            WorkloadAnalysis analysis = WorkloadAnalyzer.Analyze(song, 100000, DefaultAnalysisConfiguration());
+            using (DiagnosticsForm form = new DiagnosticsForm(song, analysis))
+            {
+                form.Show(); Application.DoEvents();
+                using (Bitmap bitmap = new Bitmap(form.Width, form.Height))
+                {
+                    CaptureForm(form, bitmap); bitmap.Save(Path.Combine(outputDirectory, "analysis-default.png"));
+                }
+                form.Size = form.MinimumSize; Application.DoEvents();
+                using (Bitmap bitmap = new Bitmap(form.Width, form.Height))
+                {
+                    CaptureForm(form, bitmap); bitmap.Save(Path.Combine(outputDirectory, "analysis-narrow.png"));
+                }
+                form.Close();
+            }
+        }
+
         private static void TestChannelOverrides()
         {
             foreach (ChannelAttribute attribute in (ChannelAttribute[])Enum.GetValues(typeof(ChannelAttribute)))
@@ -3127,8 +3836,8 @@ namespace MidiBottleneck.Tests
                 Equal(ChannelOverrideState.AutoValue, engine.GetChannelOverride(0, ChannelAttribute.Program), "unload clears overrides");
             }
 
-            MidiSong boundarySong = NewChannelSong("override-boundaries.mid", 1000000,
-                ChannelMessage(0, 0x90, 60, 100), ChannelMessage(1000000, 0x80, 60, 0));
+            MidiSong boundarySong = NewChannelSong("override-boundaries.mid", 5000000,
+                ChannelMessage(0, 0x90, 60, 100), ChannelMessage(5000000, 0x80, 60, 0));
             using (PlaybackEngine engine = new PlaybackEngine())
             {
                 FakeMidiOutput output = new FakeMidiOutput();
@@ -3826,6 +4535,10 @@ namespace MidiBottleneck.Tests
                     DiagnosticsForm[] windows = main.AnalysisWindowsForTesting;
                     Equal(1, windows.Length, "one Analysis shell opened");
                     DiagnosticsForm shell = windows[0];
+                    main.ShowChannelMonitorForTesting();
+                    Application.DoEvents();
+                    ChannelMonitorForm monitor = main.ChannelMonitorForTesting;
+                    if (monitor == null || monitor.IsDisposed) throw new Exception("channel monitor shell did not open");
                     shell.Location = new Point(80, 90);
                     shell.Size = new Size(1000, 620);
                     Point preservedLocation = shell.Location;
@@ -3836,10 +4549,17 @@ namespace MidiBottleneck.Tests
                     Equal(false, shell.HasAttachedSong, "replacement start detaches the old song immediately");
                     Equal(null, shell.CurrentAnalysis, "detached shell retains no old graph result");
                     Equal(null, shell.Graph.Analysis, "detached graph is not interactively usable");
+                    Equal(false, monitor.IsDisposed, "replacement keeps the channel monitor shell open");
+                    Equal(true, monitor.IsDetached, "replacement start detaches the channel monitor");
+                    Equal("Loading new MIDI…", monitor.DetachedMessage, "channel monitor shows the loading state");
                     main.CancelMidiLoad();
                     PumpFor(300);
                     Equal(false, shell.HasAttachedSong, "cancelled replacement leaves an honest detached shell");
                     Equal(false, shell.CalculationPending, "cancelled replacement leaves no stale Analysis work pending");
+                    Equal("MIDI loading cancelled. No MIDI file is loaded.", shell.SummaryText,
+                        "cancelled replacement updates detached Analysis state");
+                    Equal("MIDI loading cancelled. No MIDI file is loaded.", monitor.DetachedMessage,
+                        "cancelled replacement updates detached channel-monitor state");
 
                     main.BeginMidiLoad(second);
                     PumpUntil(delegate { return !main.IsLoadingSong; }, 5000, "replacement Analysis-shell source load");
@@ -3847,14 +4567,21 @@ namespace MidiBottleneck.Tests
                     Equal(Path.GetFullPath(second), shell.SourceSong.FilePath, "rebound shell references only the new song");
                     Equal(preservedLocation, shell.Location, "Analysis shell position survives replacement");
                     Equal(preservedSize, shell.Size, "Analysis shell size survives replacement");
+                    Equal(false, monitor.IsDetached, "successful replacement rebinds the existing channel monitor");
+                    Equal(false, monitor.IsDisposed, "successful replacement reuses the channel monitor window");
                     PumpUntil(delegate { return !shell.CalculationPending; }, 5000, "rebound Analysis calculation");
                     if (shell.CurrentAnalysis == null) throw new Exception("rebound Analysis shell did not produce a new result");
                     main.BeginMidiLoad(second + ".missing");
                     PumpUntil(delegate { return !main.IsLoadingSong; }, 5000, "failed replacement Analysis shell");
                     Equal(false, shell.HasAttachedSong, "failed replacement leaves the Analysis shell detached");
                     Equal(null, shell.CurrentAnalysis, "failed replacement cannot restore stale old-song Analysis");
+                    Equal("MIDI loading failed. No MIDI file is loaded.", shell.SummaryText,
+                        "failed replacement updates detached Analysis state");
+                    Equal("MIDI loading failed. No MIDI file is loaded.", monitor.DetachedMessage,
+                        "failed replacement updates detached channel-monitor state");
                     main.Close();
                     Equal(true, shell.IsDisposed, "main form close safely closes preserved Analysis shell");
+                    Equal(true, monitor.IsDisposed, "main form close safely closes preserved channel monitor shell");
                 }
             }
             finally
@@ -4101,7 +4828,7 @@ namespace MidiBottleneck.Tests
                 if (split.Panel1.Padding.Left > 7 || split.Panel2.Padding.Right > 7)
                     throw new Exception("Analysis splitter retains excessive horizontal padding");
                 if (!summary.Text.Contains("Scope                 Whole file")) throw new Exception("Analysis scope is not identified");
-                if (!summary.Text.Contains("Graph resolution      100 ms")) throw new Exception("Analysis aggregation interval is not identified");
+                if (!summary.Text.Contains("Graph resolution")) throw new Exception("Analysis aggregation interval is not identified");
                 if (!summary.Text.Contains("Predicted drops")) throw new Exception("Analysis prediction summary is absent");
                 if (!summary.Text.Contains("Maximum rate")) throw new Exception("Analysis maximum rate is absent");
                 if (!summary.Text.Contains("SMF format") || !summary.Text.Contains("PPQN") || !summary.Text.Contains("Musical note-ons"))
@@ -5135,7 +5862,7 @@ namespace MidiBottleneck.Tests
                 if (!form.IsHandleCreated) throw new Exception("main window handle was not created");
                 if (handle == IntPtr.Zero) throw new Exception("main window handle is zero");
                 if (form.Controls.Count == 0) throw new Exception("main window has no controls");
-                Equal("MIDI Event Bottleneck Simulator", form.Text, "window title");
+                Equal(ProductIdentity.Name, form.Text, "window title");
                 StatisticsView statistics = FindStatisticsView(form);
                 if (statistics == null) throw new Exception("statistics view was not found");
                 Equal(true, statistics.UsesDoubleBuffer, "statistics double buffering");
@@ -5198,7 +5925,7 @@ namespace MidiBottleneck.Tests
                 form.Size = new Size(620, 590);
                 Application.DoEvents();
                 Equal(true, statistics.Compact, "compact layout breakpoint");
-                Equal(465, form.MinimumSize.Width, "compact-layout minimum width");
+                Equal(432, form.MinimumSize.Width, "compact-layout minimum width at 96 DPI");
                 Equal(form.RealizedRequiredWindowHeight, form.MinimumSize.Height,
                     "compact minimum height follows realized content");
                 int compactMinimumHeight = form.MinimumSize.Height;
@@ -5211,7 +5938,7 @@ namespace MidiBottleneck.Tests
                 for (int captionIndex = 0; captionIndex < expectedCompactCaptions.Length; captionIndex++)
                     Equal(expectedCompactCaptions[captionIndex], StatisticsView.CompactCaptionAt(captionIndex),
                         "compact statistic caption " + captionIndex);
-                int[] compactWidths = new int[] { 620, 580, 540, 500, 465 };
+                int[] compactWidths = new int[] { 620, 580, 540, 500, 465, 440, 432 };
                 for (int widthIndex = 0; widthIndex < compactWidths.Length; widthIndex++)
                 {
                     form.Size = new Size(compactWidths[widthIndex], compactMinimumHeight);
@@ -5225,7 +5952,7 @@ namespace MidiBottleneck.Tests
                 Console.WriteLine("      Compact metrics: outer " + form.Width + "x" + form.Height +
                     "; client " + form.ClientSize.Width + "x" + form.ClientSize.Height +
                     "; non-client " + compactNonClientWidth + "x" + compactNonClientHeight);
-                if (form.ClientSize.Width < 440 || form.ClientSize.Width > 455)
+                if (form.ClientSize.Width < 415 || form.ClientSize.Width > 417)
                     throw new Exception("accepted compact client width is outside the verified usable experiment: " + form.ClientSize.Width);
                 AssertProcessingClusters(form, "compact processing-time minimum");
                 if (statistics.Bottom > form.ClientSize.Height) throw new Exception("compact statistics are clipped");
@@ -5613,9 +6340,11 @@ namespace MidiBottleneck.Tests
                         child.Bounds + " within " + numeric.ClientRectangle);
             }
             string maximum = numeric.Maximum.ToString("N0");
-            int textWidth = TextRenderer.MeasureText(maximum, numeric.Font).Width;
-            if (numeric.ClientSize.Width < textWidth + SystemInformation.VerticalScrollBarWidth + 6)
-                throw new Exception(name + " is too narrow for its maximum value and spinner buttons");
+            int textWidth = TextRenderer.MeasureText(maximum, numeric.Font, Size.Empty,
+                TextFormatFlags.NoPadding | TextFormatFlags.SingleLine).Width;
+            if (numeric.ClientSize.Width < textWidth + SystemInformation.VerticalScrollBarWidth + 5)
+                throw new Exception(name + " is too narrow for its maximum value and spinner buttons: client " +
+                    numeric.ClientSize.Width + ", text " + textWidth + ", spinner " + SystemInformation.VerticalScrollBarWidth);
         }
 
         private static void AssertComboFullyVisible(ComboBox combo, string longestText, string name)
@@ -5919,6 +6648,17 @@ namespace MidiBottleneck.Tests
             public void Reset() { }
         }
 
+        private sealed class ToggleFailureOutput : IMidiOutput
+        {
+            internal bool Throw;
+            public void Send(MidiEvent midiEvent)
+            {
+                if (Throw) throw new InvalidOperationException("Synthetic output failure");
+            }
+            public void Panic() { }
+            public void Reset() { }
+        }
+
         private sealed class CallbackMidiOutput : IMidiOutput
         {
             private readonly Action<long> _callback;
@@ -6179,6 +6919,11 @@ namespace MidiBottleneck.Tests
                     for (int i = 0; i < _sentEvents.Count; i++) payloads.Add(_sentEvents[i].Data.ToArray());
                     return payloads;
                 }
+            }
+
+            public List<MidiEvent> SentEvents()
+            {
+                lock (_sync) return new List<MidiEvent>(_sentEvents);
             }
         }
 

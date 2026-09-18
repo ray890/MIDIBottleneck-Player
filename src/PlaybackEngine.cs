@@ -46,12 +46,15 @@ namespace MidiBottleneck
         private DropTraceRecorder _dropTrace;
         private readonly ChannelStateTracker _channelState = new ChannelStateTracker();
         private readonly ChannelOverrideState _channelOverrides = new ChannelOverrideState();
+        private readonly ChannelRoutingState _channelRouting = new ChannelRoutingState();
+        private readonly Queue<ChannelControlRequest> _channelControlRequests = new Queue<ChannelControlRequest>();
         private volatile ChannelPlaybackSnapshot _publishedChannelState;
         private int _channelMonitoringEnabled;
         private long _lastChannelPublishStamp;
 
         public event EventHandler PlaybackEnded;
         public event EventHandler<PlaybackErrorEventArgs> PlaybackFailed;
+        internal event EventHandler<ChannelControlErrorEventArgs> ChannelControlFailed;
 
         public PlaybackState State { get { lock (_sync) return _state; } }
 
@@ -156,7 +159,10 @@ namespace MidiBottleneck
                 if (Volatile.Read(ref _channelMonitoringEnabled) != 0)
                 {
                     _channelState.ResetAllDirect();
-                    _publishedChannelState = _channelState.CreateSnapshot();
+                    ChannelPlaybackSnapshot channelSnapshot = _channelState.CreateSnapshot();
+                    _channelOverrides.ApplyToSnapshot(channelSnapshot);
+                    _channelRouting.ApplyToSnapshot(channelSnapshot);
+                    _publishedChannelState = channelSnapshot;
                 }
                 _channelOverrides.MarkAllForcedPending();
                 _lastDispatchedMicroseconds = startMicroseconds;
@@ -329,9 +335,14 @@ namespace MidiBottleneck
                 _queueLength = 0;
                 _outstandingEvents = 0;
                 _currentLagMicroseconds = 0;
+                _channelControlRequests.Clear();
             }
             _channelOverrides.MarkAllForcedPending();
-            if (channelBoundary == ChannelTransitionBoundary.Stop) _channelOverrides.ResetStatistics();
+            if (channelBoundary == ChannelTransitionBoundary.Stop)
+            {
+                _channelOverrides.ResetStatistics();
+                _channelRouting.ResetStatistics();
+            }
             if (Volatile.Read(ref _channelMonitoringEnabled) != 0)
             {
                 if (channelBoundary == ChannelTransitionBoundary.Pause) _channelState.PauseBoundaryDirect();
@@ -369,12 +380,17 @@ namespace MidiBottleneck
                 _lastDispatchedMicroseconds = 0;
                 _transportBaseTicks = 0;
                 ResetStatisticsLocked();
+                _channelOverrides.Clear();
+                _channelRouting.Clear();
+                _channelControlRequests.Clear();
                 if (Volatile.Read(ref _channelMonitoringEnabled) != 0)
                 {
                     _channelState.ResetAllDirect();
-                    _publishedChannelState = _channelState.CreateSnapshot();
+                    ChannelPlaybackSnapshot channelSnapshot = _channelState.CreateSnapshot();
+                    _channelOverrides.ApplyToSnapshot(channelSnapshot);
+                    _channelRouting.ApplyToSnapshot(channelSnapshot);
+                    _publishedChannelState = channelSnapshot;
                 }
-                _channelOverrides.Clear();
             }
         }
 
@@ -398,6 +414,7 @@ namespace MidiBottleneck
                 _maximumLagMicroseconds = _currentLagMicroseconds;
             }
             _channelOverrides.ResetStatistics();
+            _channelRouting.ResetStatistics();
             if (Volatile.Read(ref _channelMonitoringEnabled) != 0)
             {
                 _channelState.RequestStatisticsReset();
@@ -406,6 +423,7 @@ namespace MidiBottleneck
                 {
                     ChannelPlaybackSnapshot reset = published.WithStatisticsReset();
                     _channelOverrides.ApplyToSnapshot(reset);
+                    _channelRouting.ApplyToSnapshot(reset);
                     _publishedChannelState = reset;
                 }
             }
@@ -419,6 +437,7 @@ namespace MidiBottleneck
                 _channelState.RequestFullReset();
                 ChannelPlaybackSnapshot snapshot = ChannelPlaybackSnapshot.Empty();
                 _channelOverrides.ApplyToSnapshot(snapshot);
+                _channelRouting.ApplyToSnapshot(snapshot);
                 _publishedChannelState = snapshot;
                 Interlocked.Exchange(ref _lastChannelPublishStamp, 0);
             }
@@ -440,6 +459,8 @@ namespace MidiBottleneck
             if (!_channelOverrides.SetValue(channel, attribute, value)) return;
             if (value == ChannelOverrideState.AutoValue)
             {
+                if (Volatile.Read(ref _channelMonitoringEnabled) != 0)
+                    _channelState.MarkAttributeHistoricalDirect(channel, attribute);
                 PublishChannelState(true);
                 return;
             }
@@ -449,7 +470,7 @@ namespace MidiBottleneck
             {
                 lock (_sync)
                 {
-                    if (_thread == null && _output != null)
+                    if (_thread == null && _output != null && _channelRouting.IsEnabled(channel))
                     {
                         MidiEvent message = ChannelOverrideState.CreateMessage(channel, attribute, value);
                         _output.Send(message);
@@ -470,6 +491,90 @@ namespace MidiBottleneck
             }
             if (!sentDirectly) _wake.Set();
             PublishChannelState(true);
+        }
+
+        internal bool IsChannelEnabled(int channel) { return _channelRouting.IsEnabled(channel); }
+
+        internal void SetChannelEnabled(int channel, bool enabled)
+        {
+            SubmitChannelControl(new ChannelControlRequest(ChannelControlKind.SetEnabled, channel,
+                ChannelAttribute.BankMsb, enabled ? 1 : 0));
+        }
+
+        internal void ChaseChannelAttribute(int channel, ChannelAttribute attribute, int value)
+        {
+            if (!_channelRouting.IsEnabled(channel))
+                throw new InvalidOperationException("Enable this MIDI channel before sending a historical value.");
+            SubmitChannelControl(new ChannelControlRequest(ChannelControlKind.Chase, channel, attribute, value));
+        }
+
+        private void SubmitChannelControl(ChannelControlRequest request)
+        {
+            bool queued;
+            lock (_sync)
+            {
+                queued = _thread != null;
+                if (queued) _channelControlRequests.Enqueue(request);
+                else
+                {
+                    ExecuteChannelControl(request);
+                    if (request.Kind == ChannelControlKind.SetEnabled && request.Value != 0)
+                        ApplyPendingOverrides();
+                }
+            }
+            if (queued) _wake.Set();
+            PublishChannelState(true);
+        }
+
+        private void ApplyPendingChannelControls()
+        {
+            while (true)
+            {
+                ChannelControlRequest request;
+                lock (_sync)
+                {
+                    if (_channelControlRequests.Count == 0) return;
+                    request = _channelControlRequests.Dequeue();
+                }
+                try { ExecuteChannelControl(request); }
+                catch (Exception ex)
+                {
+                    EventHandler<ChannelControlErrorEventArgs> handler = ChannelControlFailed;
+                    if (handler != null) handler(this, new ChannelControlErrorEventArgs(request.Channel, request.Attribute, ex));
+                }
+                PublishChannelState(true);
+            }
+        }
+
+        private void ExecuteChannelControl(ChannelControlRequest request)
+        {
+            if (request.Kind == ChannelControlKind.SetEnabled)
+            {
+                bool enabled = request.Value != 0;
+                if (enabled)
+                {
+                    if (_channelRouting.SetEnabled(request.Channel, true))
+                        _channelOverrides.MarkChannelForcedPending(request.Channel);
+                    return;
+                }
+                if (!_channelRouting.IsEnabled(request.Channel)) return;
+                if (_output != null)
+                {
+                    _output.Send(ChannelOverrideState.CreateControllerMessage(request.Channel, 64, 0));
+                    _output.Send(ChannelOverrideState.CreateControllerMessage(request.Channel, 120, 0));
+                    _output.Send(ChannelOverrideState.CreateControllerMessage(request.Channel, 123, 0));
+                }
+                _channelRouting.SetEnabled(request.Channel, false);
+                if (Volatile.Read(ref _channelMonitoringEnabled) != 0)
+                    _channelState.SilenceChannelDirect(request.Channel);
+                return;
+            }
+            if (_output == null) throw new InvalidOperationException("No MIDI output session is available.");
+            if (!_channelRouting.IsEnabled(request.Channel))
+                throw new InvalidOperationException("Enable this MIDI channel before sending a historical value.");
+            _output.Send(ChannelOverrideState.CreateMessage(request.Channel, request.Attribute, request.Value));
+            if (Volatile.Read(ref _channelMonitoringEnabled) != 0)
+                _channelState.RecordManualChaseApplied(request.Channel, request.Attribute, request.Value);
         }
 
         internal void SetDropTrace(DropTraceRecorder recorder)
@@ -599,6 +704,7 @@ namespace MidiBottleneck
 
             while (IsActive())
             {
+                ApplyPendingChannelControls();
                 if (!WaitWhilePaused()) return;
                 ApplyPendingOverrides();
                 long now = CurrentTransportTicks();
@@ -662,6 +768,7 @@ namespace MidiBottleneck
 
             while (IsActive())
             {
+                ApplyPendingChannelControls();
                 if (!WaitWhilePaused()) return;
                 ApplyPendingOverrides();
                 long now = CurrentTransportTicks();
@@ -1030,11 +1137,17 @@ namespace MidiBottleneck
             Interlocked.Exchange(ref _lastChannelPublishStamp, now);
             ChannelPlaybackSnapshot snapshot = _channelState.CreateSnapshot();
             _channelOverrides.ApplyToSnapshot(snapshot);
+            _channelRouting.ApplyToSnapshot(snapshot);
             _publishedChannelState = snapshot;
         }
 
         private bool SendScheduledEvent(MidiEvent midiEvent, bool trackChannels)
         {
+            if (_channelRouting.ShouldFilter(midiEvent))
+            {
+                _channelRouting.RecordFiltered(midiEvent.Channel);
+                return false;
+            }
             ChannelAttribute attribute;
             int forcedValue;
             if (_channelOverrides.ShouldSuppress(midiEvent, out attribute, out forcedValue))
@@ -1055,6 +1168,11 @@ namespace MidiBottleneck
             for (int channel = 0; channel < 16; channel++)
             {
                 int mask = _channelOverrides.TakePendingMask(channel);
+                if (!_channelRouting.IsEnabled(channel))
+                {
+                    _channelOverrides.Requeue(channel, mask);
+                    continue;
+                }
                 while (mask != 0)
                 {
                     int bit = mask & -mask;
@@ -1180,6 +1298,7 @@ namespace MidiBottleneck
                 lock (_sync) state = _state;
                 if (state == PlaybackState.Playing) return true;
                 if (state != PlaybackState.Paused) return false;
+                ApplyPendingChannelControls();
                 _wake.Reset();
                 lock (_sync) state = _state;
                 if (state == PlaybackState.Paused) _wake.WaitOne();
@@ -1296,6 +1415,37 @@ namespace MidiBottleneck
         {
             Unload();
             _wake.Dispose();
+        }
+    }
+
+    internal enum ChannelControlKind
+    {
+        SetEnabled,
+        Chase
+    }
+
+    internal sealed class ChannelControlRequest
+    {
+        internal readonly ChannelControlKind Kind;
+        internal readonly int Channel;
+        internal readonly ChannelAttribute Attribute;
+        internal readonly int Value;
+
+        internal ChannelControlRequest(ChannelControlKind kind, int channel, ChannelAttribute attribute, int value)
+        {
+            Kind = kind; Channel = channel; Attribute = attribute; Value = value;
+        }
+    }
+
+    internal sealed class ChannelControlErrorEventArgs : EventArgs
+    {
+        internal readonly int Channel;
+        internal readonly ChannelAttribute Attribute;
+        internal readonly Exception Error;
+
+        internal ChannelControlErrorEventArgs(int channel, ChannelAttribute attribute, Exception error)
+        {
+            Channel = channel; Attribute = attribute; Error = error;
         }
     }
 

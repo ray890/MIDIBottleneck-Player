@@ -11,6 +11,8 @@ namespace MidiBottleneck
         public long SentEvents;
         public long DroppedEvents;
         public long OverrideSuppressedEvents;
+        public long MutedFilteredEvents;
+        public bool Enabled;
         public int BankMsb;
         public int BankLsb;
         public int Program;
@@ -57,6 +59,7 @@ namespace MidiBottleneck
             return new MidiChannelSnapshot
             {
                 Channel = channel,
+                Enabled = true,
                 BankMsb = -1,
                 BankLsb = -1,
                 Program = -1,
@@ -162,6 +165,32 @@ namespace MidiBottleneck
                 _channels[channel].Sustain = 0;
                 _channels[channel].HistoricalAttributeMask &= ~(1 << (int)ChannelAttribute.Sustain);
             }
+        }
+
+        internal void SilenceChannelDirect(int channel)
+        {
+            ApplyRequests();
+            if (channel < 0 || channel >= 16) return;
+            MidiChannelSnapshot state = _channels[channel];
+            ClearChannelKeys(channel, ref state);
+            state.Sustain = 0;
+            ClearHistorical(ref state, ChannelAttribute.Sustain);
+            _channels[channel] = state;
+        }
+
+        internal void MarkAttributeHistoricalDirect(int channel, ChannelAttribute attribute)
+        {
+            ApplyRequests();
+            if (channel < 0 || channel >= 16) return;
+            MidiChannelSnapshot state = _channels[channel];
+            if ((KnownAttributeMask(state) & (1 << (int)attribute)) != 0)
+                state.HistoricalAttributeMask |= 1 << (int)attribute;
+            _channels[channel] = state;
+        }
+
+        internal void RecordManualChaseApplied(int channel, ChannelAttribute attribute, int value)
+        {
+            RecordOverrideApplied(channel, attribute, value);
         }
 
         internal void RecordSuccessful(MidiEvent midiEvent)

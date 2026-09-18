@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -12,6 +13,16 @@ namespace MidiBottleneck
 {
     internal sealed class MainForm : Form
     {
+        private const int WmSysCommand = 0x0112;
+        private const int SystemMenuAbout = 0x1F20;
+        private const uint MfString = 0x0000;
+        private const uint MfSeparator = 0x0800;
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetSystemMenu(IntPtr window, bool revert);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern bool AppendMenu(IntPtr menu, uint flags, UIntPtr identifier, string text);
         private readonly PlaybackEngine _engine = new PlaybackEngine();
         private readonly WindowsMidiOutput _output = new WindowsMidiOutput();
         private readonly KdmApiMidiOutput _kdmApiOutput = new KdmApiMidiOutput();
@@ -99,7 +110,8 @@ namespace MidiBottleneck
 
         public MainForm()
         {
-            Text = "MIDI Event Bottleneck Simulator";
+            ProductIcon.Apply(this);
+            Text = ProductIdentity.Name;
             StartPosition = FormStartPosition.CenterScreen;
             MinimumSize = new Size(560, 565);
             ClientSize = new Size(790, 526);
@@ -115,6 +127,7 @@ namespace MidiBottleneck
 
             _engine.PlaybackEnded += EnginePlaybackEnded;
             _engine.PlaybackFailed += EnginePlaybackFailed;
+            _engine.ChannelControlFailed += EngineChannelControlFailed;
             _uiTimer = new System.Windows.Forms.Timer();
             _uiTimer.Interval = 16;
             _uiTimer.Tick += delegate { RefreshStatistics(); };
@@ -122,8 +135,34 @@ namespace MidiBottleneck
             _analysisRefreshTimer = new System.Windows.Forms.Timer();
             _analysisRefreshTimer.Interval = 200;
             _analysisRefreshTimer.Tick += RefreshOpenAnalyses;
-            ClientSizeChanged += delegate { UpdateResponsiveLayout(); };
+            ClientSizeChanged += delegate { UpdateResponsiveLayout(); UpdateCompactUnitVisibility(); };
             UpdateResponsiveLayout();
+        }
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            IntPtr menu = GetSystemMenu(Handle, false);
+            if (menu != IntPtr.Zero)
+            {
+                AppendMenu(menu, MfSeparator, UIntPtr.Zero, null);
+                AppendMenu(menu, MfString, (UIntPtr)SystemMenuAbout, "About " + ProductIdentity.Name + "…");
+            }
+        }
+
+        protected override void WndProc(ref Message message)
+        {
+            if (message.Msg == WmSysCommand)
+            {
+                int command = message.WParam.ToInt32() & 0xFFF0;
+                if (command == SystemMenuAbout) { ShowAboutDialog(); return; }
+            }
+            base.WndProc(ref message);
+        }
+
+        private void ShowAboutDialog()
+        {
+            using (AboutProductDialog dialog = new AboutProductDialog()) dialog.ShowDialog(this);
         }
 
         private void BuildInterface()
@@ -575,7 +614,7 @@ namespace MidiBottleneck
             _loadingStatusLabel.Text = "Starting…" + Environment.NewLine + "0.0% overall";
             UpdateLoadingFileTelemetry(true);
             _toolTip.SetToolTip(_fileLabel, path + Environment.NewLine +
-                "The second line shows elapsed loading time and memory committed exclusively to this MidiBottleneck process. " +
+                "The second line shows elapsed loading time and memory committed exclusively to this MIDIBottleneck Player process. " +
                 "Private commit may be resident or paged out; it is not managed-heap size or working set.");
             _fileInfoLabel.Text = String.Empty;
             SetLoadingPresentation(true);
@@ -608,6 +647,7 @@ namespace MidiBottleneck
                         {
                             _fileLabel.Text = "No file loaded";
                             _toolTip.SetToolTip(_fileLabel, String.Empty);
+                            SetDetachedWindowsMessage("MIDI loading cancelled. No MIDI file is loaded.");
                         }
                         else if (task.IsFaulted)
                         {
@@ -616,6 +656,7 @@ namespace MidiBottleneck
                             _lastLoadError = task.Exception.GetBaseException();
                             if (!_suppressLoadErrorDialogs)
                                 MessageBox.Show(this, _lastLoadError.Message, "Unable to load MIDI file", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            SetDetachedWindowsMessage("MIDI loading failed. No MIDI file is loaded.");
                         }
                         else
                         {
@@ -630,6 +671,12 @@ namespace MidiBottleneck
                             {
                                 DiagnosticsForm window = windows[index];
                                 if (window != null && !window.IsDisposed) window.AttachSong(_song, configuration);
+                            }
+                            if (_channelMonitor != null && !_channelMonitor.IsDisposed)
+                            {
+                                _engine.SetChannelMonitoring(true);
+                                _channelMonitor.AttachSong(Path.GetFileName(_song.FilePath));
+                                _channelMonitor.UpdateSnapshot(_engine.GetChannelSnapshot());
                             }
                         }
                         UpdateSeekDisplay();
@@ -666,7 +713,18 @@ namespace MidiBottleneck
                 _fileInfoLabel.Text = String.Empty;
                 _fileInfoLabel.Visible = true;
             }
+            SetDetachedWindowsMessage("MIDI loading cancelled. No MIDI file is loaded.");
             UpdateTransportControls();
+        }
+
+        private void SetDetachedWindowsMessage(string message)
+        {
+            DiagnosticsForm[] windows = _analysisWindows.ToArray();
+            for (int index = 0; index < windows.Length; index++)
+                if (windows[index] != null && !windows[index].IsDisposed)
+                    windows[index].DetachForSongReplacement(message);
+            if (_channelMonitor != null && !_channelMonitor.IsDisposed)
+                _channelMonitor.DetachForSongReplacement(message);
         }
 
         private void SetLoadingPresentation(bool loading)
@@ -735,7 +793,13 @@ namespace MidiBottleneck
 
         private void UnloadCurrentSong(bool preserveAnalysisShells)
         {
-            CloseChannelMonitor();
+            if (preserveAnalysisShells)
+            {
+                if (_channelMonitor != null && !_channelMonitor.IsDisposed)
+                    _channelMonitor.DetachForSongReplacement("Loading new MIDI…");
+                _engine.SetChannelMonitoring(false);
+            }
+            else CloseChannelMonitor();
             DiagnosticsForm[] windows = _analysisWindows.ToArray();
             for (int i = 0; i < windows.Length; i++)
             {
@@ -995,7 +1059,7 @@ namespace MidiBottleneck
                 if (_engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate)
                 {
                     _serviceValueLabel.Text = _compactLayout ? "Bitrate:" : "MIDI bitrate:";
-                    _processingValue.Width = 110;
+                    _processingValue.Width = _compactLayout ? 89 : 110;
                     _processingValue.DecimalPlaces = 0;
                     _processingValue.Minimum = 1;
                     _processingValue.Maximum = 100000000;
@@ -1008,7 +1072,7 @@ namespace MidiBottleneck
                 else
                 {
                     _serviceValueLabel.Text = _compactLayout ? "Time/event:" : "Processing time per event:";
-                    _processingValue.Width = 100;
+                    _processingValue.Width = _compactLayout ? 77 : 100;
                     _processingValue.Minimum = 0;
                     _serviceUnitLabel.Text = "µs";
                     _dinPresetButton.Visible = false;
@@ -1326,7 +1390,7 @@ namespace MidiBottleneck
 
         private void ShowChannelMonitor()
         {
-            if (_song == null) return;
+            if (_song == null && (_channelMonitor == null || _channelMonitor.IsDisposed)) return;
             if (_channelMonitor != null && !_channelMonitor.IsDisposed)
             {
                 if (_channelMonitor.WindowState == FormWindowState.Minimized)
@@ -1336,7 +1400,7 @@ namespace MidiBottleneck
             }
 
             _engine.SetChannelMonitoring(true);
-            ChannelMonitorForm monitor = new ChannelMonitorForm(Path.GetFileName(_song.FilePath));
+            ChannelMonitorForm monitor = new ChannelMonitorForm(_song == null ? null : Path.GetFileName(_song.FilePath));
             _channelMonitor = monitor;
             monitor.OverrideRequested += delegate(object sender, ChannelOverrideRequestEventArgs request)
             {
@@ -1348,10 +1412,26 @@ namespace MidiBottleneck
                 catch (Exception ex)
                 {
                     monitor.UpdateSnapshot(_engine.GetChannelSnapshot());
-                    MessageBox.Show(monitor,
-                        "The channel override could not be applied to the selected output. The forced value remains configured and pending.\r\n\r\n" + ex.Message,
-                        "MIDI channel override", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    request.Error = ex;
                 }
+            };
+            monitor.HistoricalChaseRequested += delegate(object sender, ChannelChaseRequestEventArgs request)
+            {
+                try
+                {
+                    _engine.ChaseChannelAttribute(request.Channel, request.Attribute, request.Value);
+                    monitor.UpdateSnapshot(_engine.GetChannelSnapshot());
+                }
+                catch (Exception ex) { request.Error = ex; }
+            };
+            monitor.ChannelEnabledRequested += delegate(object sender, ChannelEnabledRequestEventArgs request)
+            {
+                try
+                {
+                    _engine.SetChannelEnabled(request.Channel, request.Enabled);
+                    monitor.UpdateSnapshot(_engine.GetChannelSnapshot());
+                }
+                catch (Exception ex) { request.Error = ex; }
             };
             monitor.FormClosed += delegate
             {
@@ -1368,7 +1448,8 @@ namespace MidiBottleneck
             proposed.Y = Math.Min(working.Bottom - monitor.Height, proposed.Y);
             monitor.Location = proposed;
             monitor.Show();
-            monitor.UpdateSnapshot(_engine.GetChannelSnapshot());
+            if (_song == null) monitor.DetachForSongReplacement("No MIDI file is loaded.");
+            else monitor.UpdateSnapshot(_engine.GetChannelSnapshot());
         }
 
         private void CloseChannelMonitor()
@@ -1496,14 +1577,14 @@ namespace MidiBottleneck
                 {
                     if (_lastCompactHeight > 0)
                     {
-                        MinimumSize = new Size(465, _lastCompactHeight);
+                        MinimumSize = new Size(CalculateCompactMinimumWindowWidth(), _lastCompactHeight);
                         MaximumSize = new Size(10000, _lastCompactHeight);
                     }
                     else
                     {
                         // The first compact layout has not been measured yet.
                         MaximumSize = Size.Empty;
-                        MinimumSize = new Size(465, 100);
+                        MinimumSize = new Size(CalculateCompactMinimumWindowWidth(), 100);
                     }
                     // After the first realized compact layout its content height
                     // is stable for this DPI/font.  Apply it while layout is
@@ -1534,16 +1615,20 @@ namespace MidiBottleneck
                     ? (compact ? "Bitrate:" : "MIDI bitrate:")
                     : (compact ? "Time/event:" : "Processing time per event:");
                 _serviceModeCombo.Width = compact ? 170 : 210;
-                _overflowPolicyCombo.Width = compact ? 140 : 235;
+                _overflowPolicyCombo.Width = compact ? 132 : 235;
+                _overflowCluster.Margin = compact ? new Padding(0) : new Padding(4, 0, 0, 0);
+                _serviceCluster.Margin = compact ? new Padding(0) : new Padding(4, 0, 0, 0);
                 _overflowLabel.Margin = compact ? new Padding(0, 5, 3, 2) : new Padding(0, 6, 4, 3);
-                _queueLimitValue.Width = compact ? 92 : 100;
-                _processingValue.Width = _engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate ? 110 : 100;
+                _queueLimitValue.Width = compact ? 77 : 100;
+                _processingValue.Width = compact
+                    ? (_engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate ? 89 : 77)
+                    : (_engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate ? 110 : 100);
                 _queueLimitCheck.Margin = compact ? new Padding(0, 4, 3, 2) : new Padding(0, 5, 4, 3);
                 _queueLimitValue.Margin = compact ? new Padding(0, 1, 3, 1) : new Padding(0, 2, 4, 2);
                 _simulateSlowdownCheck.Margin = compact ? new Padding(0, 0, 2, 0) : new Padding(0, 2, 3, 2);
                 _eventsLabel.Margin = compact ? new Padding(0, 5, 1, 2) : new Padding(0, 6, 2, 3);
-                _serviceModeLabel.Margin = compact ? new Padding(0, 5, 3, 2) : new Padding(0, 6, 4, 3);
-                _serviceModeCombo.Margin = compact ? new Padding(0, 1, 3, 1) : new Padding(0, 2, 3, 2);
+                _serviceModeLabel.Margin = compact ? new Padding(0, 5, 1, 2) : new Padding(0, 6, 4, 3);
+                _serviceModeCombo.Margin = compact ? new Padding(0, 1, 0, 1) : new Padding(0, 2, 3, 2);
                 _serviceValueLabel.Margin = compact ? new Padding(0, 5, 3, 2) : new Padding(0, 6, 4, 3);
                 _processingValue.Margin = compact ? new Padding(0, 1, 3, 1) : new Padding(0, 2, 3, 2);
                 _serviceUnitLabel.Margin = compact ? new Padding(0, 5, 2, 2) : new Padding(0, 6, 3, 3);
@@ -1556,6 +1641,7 @@ namespace MidiBottleneck
                 _processingSlider.AutoSize = false;
                 _processingSlider.Height = compact ? 32 : 36;
                 _dinPresetButton.Visible = !_compactLayout && _engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate;
+                UpdateCompactUnitVisibility();
                 _timelineView.MinimumSize = new Size(300, compact ? 20 : 38);
                 _timelineView.Height = compact ? 20 : 38;
                 _timelineView.Margin = compact ? new Padding(1, 0, 1, 0) : new Padding(3);
@@ -1632,7 +1718,7 @@ namespace MidiBottleneck
             if (_compactLayout)
             {
                 _lastCompactHeight = requiredHeight;
-                Size compactMinimum = new Size(465, requiredHeight);
+                Size compactMinimum = new Size(CalculateCompactMinimumWindowWidth(), requiredHeight);
                 Size compactMaximum = new Size(10000, requiredHeight);
                 if (MinimumSize != compactMinimum) MinimumSize = compactMinimum;
                 if (MaximumSize != compactMaximum) MaximumSize = compactMaximum;
@@ -1660,6 +1746,40 @@ namespace MidiBottleneck
             int requiredClientHeight = contentBottom + _rootLayout.Padding.Bottom;
             int nonClientHeight = Math.Max(0, Height - ClientSize.Height);
             return Math.Max(1, requiredClientHeight + nonClientHeight);
+        }
+
+        private int CalculateCompactMinimumWindowWidth()
+        {
+            float dpi = 96F;
+            if (IsHandleCreated)
+            {
+                using (Graphics graphics = CreateGraphics()) dpi = graphics.DpiX;
+            }
+            int requiredClientWidth = (int)Math.Ceiling(416F * dpi / 96F);
+            int nonClientWidth = Math.Max(0, Width - ClientSize.Width);
+            return requiredClientWidth + nonClientWidth;
+        }
+
+        private void UpdateCompactUnitVisibility()
+        {
+            if (_eventsLabel == null || _processingTable == null || _queueCluster == null) return;
+            if (!_compactLayout)
+            {
+                _eventsLabel.Visible = true;
+                return;
+            }
+            int available = _processingTable.GetColumnWidths().Length == 0
+                ? _processingTable.ClientSize.Width / 2
+                : _processingTable.GetColumnWidths()[0];
+            int required = 0;
+            for (int i = 0; i < _queueCluster.Controls.Count; i++)
+            {
+                Control child = _queueCluster.Controls[i];
+                Size preferred = child.GetPreferredSize(Size.Empty);
+                int width = Object.ReferenceEquals(child, _queueLimitValue) ? child.Width : preferred.Width;
+                required += width + child.Margin.Horizontal;
+            }
+            _eventsLabel.Visible = available >= required;
         }
 
         internal int RealizedRequiredWindowHeight { get { return CalculateRequiredWindowHeight(); } }
@@ -1755,6 +1875,7 @@ namespace MidiBottleneck
             using (Button cancel = new Button())
             {
                 dialog.Text = "Effective playback speed window";
+                ProductIcon.Apply(dialog);
                 dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
                 dialog.StartPosition = FormStartPosition.CenterParent;
                 dialog.ClientSize = new Size(330, 105);
@@ -1794,6 +1915,19 @@ namespace MidiBottleneck
                     MessageBox.Show(this, e.Error.Message, "Playback error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 });
             }
+        }
+
+        private void EngineChannelControlFailed(object sender, ChannelControlErrorEventArgs e)
+        {
+            if (!IsHandleCreated) return;
+            BeginInvoke((MethodInvoker)delegate
+            {
+                if (_channelMonitor != null && !_channelMonitor.IsDisposed)
+                {
+                    _channelMonitor.UpdateSnapshot(_engine.GetChannelSnapshot());
+                    _channelMonitor.ShowControlError(e.Channel, e.Attribute, e.Error.Message);
+                }
+            });
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)

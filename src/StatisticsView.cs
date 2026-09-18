@@ -13,12 +13,16 @@ namespace MidiBottleneck
             "Events sent / dropped:", "Effective speed:",
             "Maximum lag:", "Current lag:"
         };
-        private static readonly string[] CompactCaptions = new string[]
+        private static readonly string[][] CompactCaptionChoices = new string[][]
         {
-            "Timeline/output:", "Queue now/max:",
-            "Max rate:", "Output rate:",
-            "Sent/dropped:", "Effective speed:",
-            "Max lag:", "Current lag:"
+            new string[] { "Timeline/output:", "Timeline:", "Time:" },
+            new string[] { "Queue now/max:", "Queue:" },
+            new string[] { "Max rate:", "Rate:" },
+            new string[] { "Output rate:", "Output:" },
+            new string[] { "Sent/dropped:", "Events:" },
+            new string[] { "Effective speed:", "Speed:" },
+            new string[] { "Max lag:" },
+            new string[] { "Current lag:" }
         };
 
         private readonly string[] _values = new string[8];
@@ -28,6 +32,7 @@ namespace MidiBottleneck
         private readonly bool[] _captionTruncated = new bool[8];
         private readonly bool[] _valueTruncated = new bool[8];
         private readonly int[] _lastValueWidths = new int[8];
+        private readonly string[] _selectedCaptions = new string[8];
         private bool _compact;
         private bool _queueLimited;
         private long _occupied;
@@ -105,7 +110,8 @@ namespace MidiBottleneck
         internal double QueuePressureRatio { get { return _queueLimited ? _occupied / (double)Math.Max(1, _limit) : 0; } }
         internal int ColumnCount { get { return 2; } }
         internal static string CaptionAt(int index) { return Captions[index]; }
-        internal static string CompactCaptionAt(int index) { return CompactCaptions[index]; }
+        internal static string CompactCaptionAt(int index) { return CompactCaptionChoices[index][0]; }
+        internal string SelectedCaptionAt(int index) { return _selectedCaptions[index] ?? (_compact ? CompactCaptionChoices[index][0] : Captions[index]); }
         internal bool ValueWasTruncated(int index) { return _valueTruncated[index]; }
         internal int ValueAllocationWidth(int index) { return _lastValueWidths[index]; }
         internal string SpeedMeasurementDescription
@@ -132,19 +138,29 @@ namespace MidiBottleneck
 
         private void DrawCell(Graphics graphics, int left, int index, int row, int width, int rowHeight)
         {
-            int gap = _compact ? 3 : 6;
+            int gap = _compact ? 2 : 6;
             TextFormatFlags vertical = TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding;
-            string captionText = _compact ? CompactCaptions[index] : Captions[index];
+            string captionText = _compact ? CompactCaptionChoices[index][0] : Captions[index];
             int measuredValue = TextRenderer.MeasureText(graphics, _values[index], _valueFont, Size.Empty,
-                vertical).Width + 2;
-            int measuredCaption = TextRenderer.MeasureText(graphics, captionText, _captionFont, Size.Empty,
-                vertical).Width + 2;
-            int innerWidth = Math.Max(1, width - 6);
-            int minimumCaption = _compact ? 45 : 60;
+                vertical).Width;
+            int innerWidth = Math.Max(1, width - 4);
+            int minimumCaption = _compact ? 16 : 60;
             int valueWidth = Math.Min(measuredValue, Math.Max(24, innerWidth - minimumCaption - gap));
             _lastValueWidths[index] = valueWidth;
             int captionWidth = Math.Max(1, innerWidth - valueWidth - gap);
-            Rectangle caption = new Rectangle(left + 3, row * rowHeight, captionWidth, rowHeight);
+            if (_compact)
+            {
+                string[] choices = CompactCaptionChoices[index];
+                captionText = choices[choices.Length - 1];
+                for (int choice = 0; choice < choices.Length; choice++)
+                {
+                    int measured = TextRenderer.MeasureText(graphics, choices[choice], _captionFont, Size.Empty, vertical).Width;
+                    if (measured <= captionWidth) { captionText = choices[choice]; break; }
+                }
+            }
+            _selectedCaptions[index] = captionText;
+            int measuredCaption = TextRenderer.MeasureText(graphics, captionText, _captionFont, Size.Empty, vertical).Width;
+            Rectangle caption = new Rectangle(left + 2, row * rowHeight, captionWidth, rowHeight);
             Rectangle value = new Rectangle(caption.Right + gap, row * rowHeight, valueWidth, rowHeight);
             _captionTruncated[index] = measuredCaption > caption.Width;
             _valueTruncated[index] = measuredValue > value.Width;
