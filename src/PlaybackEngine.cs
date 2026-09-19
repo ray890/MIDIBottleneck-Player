@@ -330,13 +330,16 @@ namespace MidiBottleneck
                         operation + ".", exitSilenceFailure);
             }
 
+            List<ChannelControlRequest> retiredControls;
             lock (_sync)
             {
                 _queueLength = 0;
                 _outstandingEvents = 0;
                 _currentLagMicroseconds = 0;
-                _channelControlRequests.Clear();
+                retiredControls = DrainChannelControlRequestsLocked();
             }
+            CompleteRetiredChannelControls(retiredControls,
+                new OperationCanceledException("The channel-control request was retired by the " + operation + " boundary."));
             _channelOverrides.MarkAllForcedPending();
             if (channelBoundary == ChannelTransitionBoundary.Stop)
             {
@@ -503,26 +506,45 @@ namespace MidiBottleneck
 
         internal void ChaseChannelAttribute(int channel, ChannelAttribute attribute, int value)
         {
+            ChaseChannelAttribute(channel, attribute, value, null);
+        }
+
+        internal void ChaseChannelAttribute(int channel, ChannelAttribute attribute, int value, Action<Exception> completion)
+        {
             if (!_channelRouting.IsEnabled(channel))
-                throw new InvalidOperationException("Enable this MIDI channel before sending a historical value.");
-            SubmitChannelControl(new ChannelControlRequest(ChannelControlKind.Chase, channel, attribute, value));
+            {
+                InvalidOperationException error = new InvalidOperationException("Enable this MIDI channel before sending a historical value.");
+                if (completion != null) { completion(error); return; }
+                throw error;
+            }
+            SubmitChannelControl(new ChannelControlRequest(ChannelControlKind.Chase, channel, attribute, value, completion));
         }
 
         private void SubmitChannelControl(ChannelControlRequest request)
         {
             bool queued;
+            Exception immediateError = null;
             lock (_sync)
             {
                 queued = _thread != null;
                 if (queued) _channelControlRequests.Enqueue(request);
                 else
                 {
-                    ExecuteChannelControl(request);
-                    if (request.Kind == ChannelControlKind.SetEnabled && request.Value != 0)
-                        ApplyPendingOverrides();
+                    try
+                    {
+                        ExecuteChannelControl(request);
+                        if (request.Kind == ChannelControlKind.SetEnabled && request.Value != 0)
+                            ApplyPendingOverrides();
+                    }
+                    catch (Exception ex) { immediateError = ex; }
                 }
             }
             if (queued) _wake.Set();
+            else
+            {
+                request.Complete(immediateError);
+                if (immediateError != null && !request.HasCompletion) throw immediateError;
+            }
             PublishChannelState(true);
         }
 
@@ -536,14 +558,31 @@ namespace MidiBottleneck
                     if (_channelControlRequests.Count == 0) return;
                     request = _channelControlRequests.Dequeue();
                 }
+                Exception error = null;
                 try { ExecuteChannelControl(request); }
                 catch (Exception ex)
                 {
+                    error = ex;
                     EventHandler<ChannelControlErrorEventArgs> handler = ChannelControlFailed;
                     if (handler != null) handler(this, new ChannelControlErrorEventArgs(request.Channel, request.Attribute, ex));
                 }
+                request.Complete(error);
                 PublishChannelState(true);
             }
+        }
+
+        private List<ChannelControlRequest> DrainChannelControlRequestsLocked()
+        {
+            if (_channelControlRequests.Count == 0) return null;
+            List<ChannelControlRequest> requests = new List<ChannelControlRequest>(_channelControlRequests.Count);
+            while (_channelControlRequests.Count > 0) requests.Add(_channelControlRequests.Dequeue());
+            return requests;
+        }
+
+        private static void CompleteRetiredChannelControls(List<ChannelControlRequest> requests, Exception error)
+        {
+            if (requests == null) return;
+            for (int i = 0; i < requests.Count; i++) requests[i].Complete(error);
         }
 
         private void ExecuteChannelControl(ChannelControlRequest request)
@@ -665,6 +704,7 @@ namespace MidiBottleneck
                 catch (Exception ex) { finalSilenceFailure = ex; }
             }
 
+            List<ChannelControlRequest> abandonedControls;
             lock (_sync)
             {
                 if (_thread != Thread.CurrentThread) return;
@@ -679,7 +719,10 @@ namespace MidiBottleneck
                 _queueLength = 0;
                 _outstandingEvents = 0;
                 _currentLagMicroseconds = 0;
+                abandonedControls = DrainChannelControlRequestsLocked();
             }
+            CompleteRetiredChannelControls(abandonedControls, failure ??
+                new OperationCanceledException("Playback ended before the channel-control request reached the output boundary."));
             PublishChannelState(true);
 
             if (failure != null)
@@ -1430,10 +1473,29 @@ namespace MidiBottleneck
         internal readonly int Channel;
         internal readonly ChannelAttribute Attribute;
         internal readonly int Value;
+        private readonly Action<Exception> _completion;
+        private int _completed;
 
         internal ChannelControlRequest(ChannelControlKind kind, int channel, ChannelAttribute attribute, int value)
+            : this(kind, channel, attribute, value, null)
         {
-            Kind = kind; Channel = channel; Attribute = attribute; Value = value;
+        }
+
+        internal ChannelControlRequest(ChannelControlKind kind, int channel, ChannelAttribute attribute, int value,
+            Action<Exception> completion)
+        {
+            Kind = kind; Channel = channel; Attribute = attribute; Value = value; _completion = completion;
+        }
+
+        internal bool HasCompletion { get { return _completion != null; } }
+
+        internal void Complete(Exception error)
+        {
+            if (Interlocked.Exchange(ref _completed, 1) != 0) return;
+            Action<Exception> completion = _completion;
+            if (completion == null) return;
+            try { completion(error); }
+            catch { }
         }
     }
 

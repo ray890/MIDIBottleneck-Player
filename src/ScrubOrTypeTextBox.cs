@@ -39,6 +39,7 @@ namespace MidiBottleneck
         private bool _ignoreWarpMove;
         private bool _forced;
         private bool _historical;
+        private int _typingStartValue;
         private string _lastError;
         private Func<int, string> _displayFormatter;
 
@@ -151,12 +152,13 @@ namespace MidiBottleneck
         }
 
         internal void EnterTypingForTesting() { EnterTypingMode(); }
-        internal bool CommitTextForTesting(string value) { Text = value; return CommitTypedValue(); }
+        internal bool CommitTextForTesting(string value) { Text = value; return CommitTypedValue(true); }
+        internal bool CommitFocusLossForTesting(string value) { Text = value; return CommitTypedValue(false); }
         internal void EscapeForTesting() { AbandonInteraction(); }
         internal void RequestAutoForTesting() { if (_forced) RequestAuto(); }
         internal void FinishHostInteraction(bool commitTypedValue)
         {
-            if (_typing && commitTypedValue) CommitTypedValue();
+            if (_typing && commitTypedValue) CommitTypedValue(false);
             else if (_typing) AbandonInteraction();
             EndGesture(false);
         }
@@ -197,7 +199,7 @@ namespace MidiBottleneck
         {
             if (e.KeyCode == Keys.Enter && _typing)
             {
-                CommitTypedValue(); e.SuppressKeyPress = true; return;
+                CommitTypedValue(true); e.SuppressKeyPress = true; return;
             }
             if (e.KeyCode == Keys.Escape)
             {
@@ -214,7 +216,7 @@ namespace MidiBottleneck
 
         protected override void OnLostFocus(EventArgs e)
         {
-            if (_typing) CommitTypedValue();
+            if (_typing) CommitTypedValue(false);
             if (_scrubbing || _gestureArmed) EndGesture(false);
             base.OnLostFocus(e);
         }
@@ -297,6 +299,7 @@ namespace MidiBottleneck
         {
             EndGesture(false);
             _typing = true;
+            _typingStartValue = _value;
             ReadOnly = false;
             TabStop = true;
             Cursor = Cursors.IBeam;
@@ -317,7 +320,7 @@ namespace MidiBottleneck
             _lastError = null;
         }
 
-        private bool CommitTypedValue()
+        private bool CommitTypedValue(bool explicitCommit)
         {
             if (!_typing) return true;
             int parsed;
@@ -327,7 +330,8 @@ namespace MidiBottleneck
                 ExitTypingMode();
                 return false;
             }
-            RequestValue(parsed);
+            if (explicitCommit || parsed != _typingStartValue) RequestValue(parsed);
+            else _lastError = null;
             ExitTypingMode();
             return String.IsNullOrEmpty(_lastError);
         }
@@ -405,7 +409,6 @@ namespace MidiBottleneck
             try { if (handler != null) handler(this, request); }
             catch (Exception ex) { request.Error = ex; }
             _lastError = request.Error == null ? null : "Could not send historical value: " + request.Error.Message;
-            if (request.Error == null) _historical = false;
             if (!String.IsNullOrEmpty(_lastError)) _toolTip.Show(_lastError, this, 0, Height, 2500);
             SetFlatText();
         }

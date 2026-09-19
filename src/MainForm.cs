@@ -1419,10 +1419,22 @@ namespace MidiBottleneck
             {
                 try
                 {
-                    _engine.ChaseChannelAttribute(request.Channel, request.Attribute, request.Value);
-                    monitor.UpdateSnapshot(_engine.GetChannelSnapshot());
+                    _engine.ChaseChannelAttribute(request.Channel, request.Attribute, request.Value, delegate(Exception error)
+                    {
+                        if (monitor.IsDisposed || !monitor.IsHandleCreated) return;
+                        try
+                        {
+                            monitor.BeginInvoke((MethodInvoker)delegate
+                            {
+                                if (monitor.IsDisposed) return;
+                                monitor.UpdateSnapshot(_engine.GetChannelSnapshot());
+                                request.Complete(error);
+                            });
+                        }
+                        catch (InvalidOperationException) { }
+                    });
                 }
-                catch (Exception ex) { request.Error = ex; }
+                catch (Exception ex) { request.Error = ex; request.Complete(ex); }
             };
             monitor.ChannelEnabledRequested += delegate(object sender, ChannelEnabledRequestEventArgs request)
             {

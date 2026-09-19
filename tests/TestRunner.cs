@@ -386,6 +386,13 @@ namespace MidiBottleneck.Tests
                     RunFocused("normalized Analysis geometry", TestBuild21AnalysisGeometry);
                     return 0;
                 }
+                if (arguments.Length == 1 && arguments[0] == "--test-build22")
+                {
+                    RunFocused("unchanged typing and refined Channel Monitor fitting", TestBuild21ScrubHandoff);
+                    RunFocused("active-worker historical chase acknowledgement", TestBuild22HistoricalChaseAcknowledgement);
+                    RunFocused("channel monitor measured fitting", TestBuild21ChannelMonitorFit);
+                    return 0;
+                }
                 if (arguments.Length == 1 && arguments[0] == "--benchmark-winmm-adapter")
                 {
                     BenchmarkWinMmAdapter();
@@ -477,6 +484,7 @@ namespace MidiBottleneck.Tests
                 Run("managed icon on application-owned forms", TestBuild20FormIcons);
                 Run("first grid gesture and refined scrub typing", TestBuild21ScrubHandoff);
                 Run("historical chase and channel output filtering", TestBuild21ChannelControls);
+                Run("active-worker historical chase acknowledgement", TestBuild22HistoricalChaseAcknowledgement);
                 Run("channel monitor measured fitting", TestBuild21ChannelMonitorFit);
                 Run("normalized Analysis geometry", TestBuild21AnalysisGeometry);
                 Run("dense 200,000-event MIDI parsing", TestDenseMidiParser);
@@ -3109,7 +3117,7 @@ namespace MidiBottleneck.Tests
             {
                 editor.ValueRequested += delegate(object sender, ScrubValueEventArgs e) { requested.Add(e.Value); };
                 editor.AutoRequested += delegate(object sender, ScrubValueEventArgs e) { requested.Add(e.Value); };
-                editor.Configure(40, 0, 127, 1, 1, 4, 1, 8, false, false,
+                editor.Configure(40, 0, 127, 1, 1, 8, 1, 16, false, false,
                     delegate(int value) { return (value + 1).ToString() + " — Violin"; }, "Program help");
                 Equal(0, requested.Count, "activation/configuration sends no override request");
                 if (editor.Text.IndexOf("41", StringComparison.Ordinal) < 0 || editor.Text.IndexOf("Violin", StringComparison.Ordinal) < 0)
@@ -3127,8 +3135,8 @@ namespace MidiBottleneck.Tests
                 editor.BeginPointerGesture(new Point(100, 100), MouseButtons.Left);
                 editor.ContinuePointerGestureForTesting(new Point(104, 100), false, true);
                 Equal(true, editor.IsScrubbing, "movement beyond three pixels begins scrubbing");
-                editor.ApplyScrubDeltaForTesting(8, false);
-                Equal(42, requested[requested.Count - 1], "ordinary attributes scrub one value per pixel");
+                editor.ApplyScrubDeltaForTesting(16, false);
+                Equal(42, requested[requested.Count - 1], "ordinary attributes scrub one step per eight pixels");
                 editor.EndPointerGesture();
                 Equal(false, editor.IsScrubbing, "mouse-up ends scrubbing");
                 Equal(false, editor.CursorIsHidden, "mouse-up restores the hidden cursor");
@@ -3165,7 +3173,7 @@ namespace MidiBottleneck.Tests
                 editor.ApplyScrubDeltaForTesting(10, false);
                 editor.ApplyScrubDeltaForTesting(10, false);
                 Equal(320, requested[requested.Count - 1], "successive relative scrub segments accumulate without a screen-edge limit");
-                editor.Configure(64, 0, 127, 0, 1, 4, 1, 8, true, false, null, "Pan");
+                editor.Configure(64, 0, 127, 0, 1, 8, 1, 16, true, false, null, "Pan");
                 editor.RequestAutoForTesting();
                 Equal(ChannelOverrideState.AutoValue, requested[requested.Count - 1], "right-click Auto requests the Auto sentinel");
                 editor.EscapeForTesting();
@@ -3236,7 +3244,7 @@ namespace MidiBottleneck.Tests
                 Equal(0, requested.Count, "crossing threshold alone sends no override");
                 gridMouseMove.Invoke(grid, new object[] { new MouseEventArgs(MouseButtons.Left, 0, x + 12, y, 0) });
                 Application.DoEvents();
-                Equal(102, requested[requested.Count - 1], "unknown Volume seed 100 accumulates one step per four pixels");
+                Equal(101, requested[requested.Count - 1], "unknown Volume seed 100 accumulates one step per eight pixels");
                 gridMouseUp.Invoke(grid, new object[] { new MouseEventArgs(MouseButtons.Left, 1, x + 12, y, 0) });
                 Application.DoEvents();
                 Equal(false, monitor.EditorForTesting.IsScrubbing, "grid-owned MouseUp ends first scrub");
@@ -3261,13 +3269,46 @@ namespace MidiBottleneck.Tests
                 monitor.EditorForTesting.ArrowForTesting(false);
                 Equal("64", monitor.EditorForTesting.Text, "typing Down Arrow changes pending text");
                 Equal(requestsBeforeArrows, requested.Count, "typing arrows do not send before commit");
+                grid.Focus(); Application.DoEvents();
+                Equal(requestsBeforeArrows, requested.Count, "unchanged click/type focus loss sends no override");
+                Equal(false, monitor.EditorForTesting.IsTyping, "unchanged focus loss exits typing mode");
+
+                monitor.ActivateEditorForTesting(0, "Pan");
+                monitor.EditorForTesting.EnterTypingForTesting();
+                monitor.EditorForTesting.Text = "65";
+                grid.Focus(); Application.DoEvents();
+                Equal(65, requested[requested.Count - 1], "changed focus loss commits the edited value");
+
+                monitor.ActivateEditorForTesting(1, "Pan");
+                monitor.EditorForTesting.EnterTypingForTesting();
+                int beforeExplicitEnter = requested.Count;
+                typeof(Control).GetMethod("OnKeyDown", BindingFlags.Instance | BindingFlags.NonPublic,
+                    null, new Type[] { typeof(KeyEventArgs) }, null).Invoke(monitor.EditorForTesting,
+                    new object[] { new KeyEventArgs(Keys.Enter) });
+                Equal(beforeExplicitEnter + 1, requested.Count, "Enter explicitly commits an unchanged neutral seed");
+                Equal(64, requested[requested.Count - 1], "explicit Enter commits the displayed Pan seed");
+
+                monitor.ActivateEditorForTesting(2, "Pan");
+                monitor.EditorForTesting.EnterTypingForTesting();
+                int beforeArrowCommit = requested.Count;
+                monitor.EditorForTesting.ArrowForTesting(true);
+                grid.Focus(); Application.DoEvents();
+                Equal(beforeArrowCommit + 1, requested.Count, "Up Arrow followed by focus loss commits a deliberate edit");
+                Equal(65, requested[requested.Count - 1], "Up Arrow commits the incremented pending value");
+
+                monitor.ActivateEditorForTesting(3, "Pan");
+                monitor.EditorForTesting.EnterTypingForTesting();
+                monitor.EditorForTesting.Text = "70";
+                int beforeEscape = requested.Count;
                 monitor.EditorForTesting.EscapeForTesting();
+                Equal(beforeEscape, requested.Count, "Escape abandons typed changes without sending");
                 Equal(64, monitor.EditorForTesting.CurrentValue, "Escape restores committed editor seed");
 
+                int requestsBeforeSeeds = requested.Count;
                 monitor.ActivateEditorForTesting(1, "Bend");
                 Equal("—", monitor.CellText(1, "Bend"), "unknown Pitch bend cell remains visually unknown");
                 Equal(0, monitor.EditorForTesting.CurrentValue, "unknown Pitch bend editor starts centered");
-                Equal(requestsBeforeArrows, requested.Count, "activating unknown Pitch bend sends nothing");
+                Equal(requestsBeforeSeeds, requested.Count, "activating unknown Pitch bend sends nothing");
                 string[] seedColumns = { "BankMsb", "BankLsb", "Program", "Volume", "Expression", "Pan", "Sustain", "Bend", "Aftertouch" };
                 int[] seeds = { 0, 0, 0, 100, 127, 64, 0, 0, 0 };
                 for (int seed = 0; seed < seedColumns.Length; seed++)
@@ -3276,7 +3317,7 @@ namespace MidiBottleneck.Tests
                     Equal(seeds[seed], monitor.EditorForTesting.CurrentValue, seedColumns[seed] + " unknown editor seed");
                     Equal("—", monitor.CellText(2, seedColumns[seed]), seedColumns[seed] + " cell remains unknown until a request");
                 }
-                Equal(requestsBeforeArrows, requested.Count, "opening neutral seeds sends no requests");
+                Equal(requestsBeforeSeeds, requested.Count, "opening neutral seeds sends no requests");
                 ChannelStateTracker tracker = new ChannelStateTracker();
                 tracker.RecordSuccessful(ChannelMessage(0, 0xB0, 7, 80));
                 tracker.MarkAttributeHistoricalDirect(0, ChannelAttribute.Volume);
@@ -3301,18 +3342,18 @@ namespace MidiBottleneck.Tests
             {
                 List<int> requested = new List<int>();
                 editor.ValueRequested += delegate(object sender, ScrubValueEventArgs e) { requested.Add(e.Value); };
-                editor.Configure(64, 0, 127, 0, 1, 4, 1, 8, false, false, null, "Pan");
-                editor.ApplyScrubDeltaForTesting(3, false);
+                editor.Configure(64, 0, 127, 0, 1, 8, 1, 16, false, false, null, "Pan");
+                editor.ApplyScrubDeltaForTesting(7, false);
                 Equal(0, requested.Count, "sub-step movement accumulates without sending");
                 editor.ApplyScrubDeltaForTesting(1, false);
-                Equal(65, requested[0], "four accumulated pixels make one ordinary step");
-                editor.ApplyScrubDeltaForTesting(-2, false);
-                editor.ApplyScrubDeltaForTesting(-2, false);
+                Equal(65, requested[0], "eight accumulated pixels make one ordinary step");
+                editor.ApplyScrubDeltaForTesting(-4, false);
+                editor.ApplyScrubDeltaForTesting(-4, false);
                 Equal(64, requested[requested.Count - 1], "reverse movement naturally unwinds remainder");
-                editor.ApplyScrubDeltaForTesting(7, true);
-                Equal(64, requested[requested.Count - 1], "Shift uses one step per eight pixels");
+                editor.ApplyScrubDeltaForTesting(15, true);
+                Equal(64, requested[requested.Count - 1], "Shift uses one step per sixteen pixels");
                 editor.ApplyScrubDeltaForTesting(1, true);
-                Equal(65, requested[requested.Count - 1], "Shift remainder completes at eight pixels");
+                Equal(65, requested[requested.Count - 1], "Shift remainder completes at sixteen pixels");
                 editor.Configure(0, -8192, 8191, 0, 16, 1, 1, 1, false, false, null, "Bend");
                 editor.ApplyScrubDeltaForTesting(2, false);
                 Equal(32, requested[requested.Count - 1], "Pitch bend uses 16 units per pixel");
@@ -3469,6 +3510,88 @@ namespace MidiBottleneck.Tests
                 try { failing.SetChannelEnabled(0, false); }
                 catch (InvalidOperationException) { }
                 Equal(true, failing.IsChannelEnabled(0), "failed disable safety leaves channel enabled");
+            }
+        }
+
+        private static void TestBuild22HistoricalChaseAcknowledgement()
+        {
+            MidiSong activeSong = NewChannelSong("active-chase.mid", 3000000,
+                ChannelMessage(0, 0xB0, 7, 80), ChannelMessage(1000, 0x90, 60, 100),
+                ChannelMessage(2500000, 0x90, 61, 100));
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                AcknowledgingMidiOutput output = new AcknowledgingMidiOutput(2);
+                engine.SetChannelMonitoring(true);
+                engine.SimulateSlowdown = false;
+                engine.Start(activeSong, output, ProcessingMode.Queue);
+                if (!output.Entered.WaitOne(1500)) throw new Exception("active chase did not reach the blocked source send");
+                engine.SetChannelOverride(0, ChannelAttribute.Volume, 80);
+                engine.SetChannelOverride(0, ChannelAttribute.Volume, ChannelOverrideState.AutoValue);
+                Equal(true, (engine.GetChannelSnapshot().Channels[0].HistoricalAttributeMask &
+                    (1 << (int)ChannelAttribute.Volume)) != 0, "active chase begins from a historical value");
+                ManualResetEvent completed = new ManualResetEvent(false);
+                Exception completionError = null;
+                engine.ChaseChannelAttribute(0, ChannelAttribute.Volume, 80, delegate(Exception error)
+                {
+                    completionError = error;
+                    completed.Set();
+                });
+                Equal(false, completed.WaitOne(60), "queued chase is not acknowledged while an earlier output call is blocked");
+                Equal(true, (engine.GetChannelSnapshot().Channels[0].HistoricalAttributeMask &
+                    (1 << (int)ChannelAttribute.Volume)) != 0, "historical state remains until output confirms the chase");
+                output.Release.Set();
+                if (!completed.WaitOne(1500)) throw new Exception("active chase acknowledgement did not complete");
+                Equal(null, completionError, "active chase completion reports success");
+                Equal(2, output.CountPayload(0xB0, 7, 80), "active chase sends exactly one additional CC7 value");
+                Equal(0, engine.GetChannelSnapshot().Channels[0].HistoricalAttributeMask &
+                    (1 << (int)ChannelAttribute.Volume), "confirmed chase clears historical state");
+                engine.Stop();
+                completed.Dispose();
+            }
+
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                AcknowledgingMidiOutput output = new AcknowledgingMidiOutput(0);
+                engine.SetChannelMonitoring(true);
+                engine.Start(NewChannelSong("paused-chase.mid", 2000000,
+                    ChannelMessage(1500000, 0x90, 64, 100)), output, ProcessingMode.Queue, 0, true);
+                ManualResetEvent completed = new ManualResetEvent(false);
+                Exception completionError = null;
+                engine.ChaseChannelAttribute(2, ChannelAttribute.Program, 24, delegate(Exception error)
+                {
+                    completionError = error; completed.Set();
+                });
+                if (!completed.WaitOne(1500)) throw new Exception("paused-worker chase did not complete");
+                Equal(null, completionError, "paused-worker chase succeeds without resuming playback");
+                Equal(1, output.CountPayload(0xC2, 24), "paused-worker chase sends the exact Program payload");
+                Equal(PlaybackState.Paused, engine.State, "manual chase does not resume a paused worker");
+                engine.Stop();
+                completed.Dispose();
+            }
+
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                AcknowledgingMidiOutput output = new AcknowledgingMidiOutput(2);
+                engine.SetChannelMonitoring(true);
+                engine.SimulateSlowdown = false;
+                engine.Start(activeSong, output, ProcessingMode.Queue);
+                if (!output.Entered.WaitOne(1500)) throw new Exception("failed chase did not reach blocked source send");
+                engine.SetChannelOverride(0, ChannelAttribute.Volume, 80);
+                engine.SetChannelOverride(0, ChannelAttribute.Volume, ChannelOverrideState.AutoValue);
+                output.FailMatchingControl = true;
+                ManualResetEvent completed = new ManualResetEvent(false);
+                Exception completionError = null;
+                engine.ChaseChannelAttribute(0, ChannelAttribute.Volume, 80, delegate(Exception error)
+                {
+                    completionError = error; completed.Set();
+                });
+                output.Release.Set();
+                if (!completed.WaitOne(1500)) throw new Exception("failed active chase acknowledgement did not complete");
+                if (completionError == null) throw new Exception("failed active chase was reported as successful");
+                Equal(true, (engine.GetChannelSnapshot().Channels[0].HistoricalAttributeMask &
+                    (1 << (int)ChannelAttribute.Volume)) != 0, "failed chase preserves historical state");
+                engine.Stop();
+                completed.Dispose();
             }
         }
 
@@ -6848,6 +6971,54 @@ namespace MidiBottleneck.Tests
                     else high = middle;
                 }
                 return low;
+            }
+        }
+
+        private sealed class AcknowledgingMidiOutput : IMidiOutput
+        {
+            internal readonly ManualResetEvent Entered = new ManualResetEvent(false);
+            internal readonly ManualResetEvent Release = new ManualResetEvent(false);
+            internal volatile bool FailMatchingControl;
+            private readonly int _blockSendNumber;
+            private readonly object _sync = new object();
+            private readonly List<byte[]> _payloads = new List<byte[]>();
+            private int _sendNumber;
+
+            internal AcknowledgingMidiOutput(int blockSendNumber) { _blockSendNumber = blockSendNumber; }
+
+            public void Send(MidiEvent midiEvent)
+            {
+                int sendNumber = Interlocked.Increment(ref _sendNumber);
+                if (sendNumber == _blockSendNumber)
+                {
+                    Entered.Set();
+                    Release.WaitOne();
+                }
+                byte[] payload = midiEvent.Data.ToArray();
+                if (FailMatchingControl && payload.Length == 3 && payload[0] == 0xB0 && payload[1] == 7 && payload[2] == 80)
+                    throw new InvalidOperationException("Synthetic channel-control failure.");
+                lock (_sync) _payloads.Add((byte[])payload.Clone());
+            }
+
+            public void Reset() { }
+            public void Panic() { }
+
+            internal int CountPayload(params byte[] expected)
+            {
+                int count = 0;
+                lock (_sync)
+                {
+                    for (int i = 0; i < _payloads.Count; i++)
+                    {
+                        byte[] payload = _payloads[i];
+                        if (payload.Length != expected.Length) continue;
+                        bool matches = true;
+                        for (int b = 0; b < payload.Length; b++)
+                            if (payload[b] != expected[b]) { matches = false; break; }
+                        if (matches) count++;
+                    }
+                }
+                return count;
             }
         }
 

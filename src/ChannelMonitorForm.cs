@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.Globalization;
+using System.Threading;
 using System.Windows.Forms;
 
 namespace MidiBottleneck
@@ -34,8 +35,15 @@ namespace MidiBottleneck
         internal readonly ChannelAttribute Attribute;
         internal readonly int Value;
         internal Exception Error;
-        internal ChannelChaseRequestEventArgs(int channel, ChannelAttribute attribute, int value)
-        { Channel = channel; Attribute = attribute; Value = value; }
+        private readonly Action<Exception> _completion;
+        private int _completed;
+        internal ChannelChaseRequestEventArgs(int channel, ChannelAttribute attribute, int value, Action<Exception> completion)
+        { Channel = channel; Attribute = attribute; Value = value; _completion = completion; }
+        internal void Complete(Exception error)
+        {
+            if (Interlocked.Exchange(ref _completed, 1) != 0) return;
+            if (_completion != null) _completion(error);
+        }
     }
 
     internal sealed class ChannelMonitorForm : Form
@@ -54,6 +62,7 @@ namespace MidiBottleneck
         private bool _fittingWindow;
         private bool _detectManualResize;
         private bool _autoFitWindow = true;
+        private bool _fitScheduled;
 
         internal event EventHandler<ChannelOverrideRequestEventArgs> OverrideRequested;
         internal event EventHandler<ChannelEnabledRequestEventArgs> ChannelEnabledRequested;
@@ -85,14 +94,15 @@ namespace MidiBottleneck
             _grid.AllowUserToAddRows = false;
             _grid.AllowUserToDeleteRows = false;
             _grid.AllowUserToResizeRows = false;
+            _grid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
             _grid.MultiSelect = false;
             _grid.SelectionMode = DataGridViewSelectionMode.CellSelect;
             _grid.RowHeadersVisible = false;
             _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
             _grid.BackgroundColor = SystemColors.Window;
             AddColumn("Channel", "Ch", 48, "Click to enable or disable this MIDI channel. Disabled source events still use queue/service work but are filtered before output.", null);
-            AddColumn("KeysDown", "Keys down", 72, "Distinct MIDI keys currently held according to successfully dispatched Note On/Off messages. This is not synthesizer polyphony.", null);
-            AddColumn("PeakKeys", "Peak keys", 68, "Highest Keys down value since Reset stats.", null);
+            AddColumn("KeysDown", "Polyphony", 72, "MIDI-observed held-key polyphony from successfully dispatched Note On/Off messages. This is not necessarily the synthesizer's internal voice count.", null);
+            AddColumn("PeakKeys", "Peak polyphony", 90, "Highest MIDI-observed held-key polyphony since Reset stats.", null);
             AddColumn("Sent", "Sent", 76, "Successfully dispatched source channel messages. Override injections are not source events.", null);
             AddColumn("Dropped", "Dropped", 68, "Channel messages rejected by the selected finite-queue overflow policy.", null);
             AddColumn("Suppressed", "Override filtered", 108, "Source messages suppressed only at the ordered output boundary because they conflicted with a forced channel value. These are not queue-overflow drops.", null);
@@ -106,7 +116,7 @@ namespace MidiBottleneck
             AddColumn("Sustain", "Sustain", 68, "Latest Sustain Pedal (CC64) state. Panic safety always sends sustain off before a forced On is reapplied at the next playback boundary." + editHelp, ChannelAttribute.Sustain);
             AddColumn("Bend", "Pitch bend", 76, "Latest pitch bend, centered at 0. Drag by 16 units per pixel or hold Shift for single-unit changes." + editHelp, ChannelAttribute.PitchBend);
             AddColumn("Aftertouch", "Aftertouch", 72, "Latest MIDI channel pressure/channel aftertouch." + editHelp, ChannelAttribute.Aftertouch);
-            AddColumn("Position", "MIDI output position", 108, "Source timestamp of the most recent successfully dispatched channel message.", null);
+            AddColumn("Position", "Position", 72, "Source timestamp of the most recent successfully dispatched channel message.", null);
             for (int channel = 0; channel < 16; channel++)
             {
                 int row = _grid.Rows.Add();
@@ -142,12 +152,13 @@ namespace MidiBottleneck
             _explanation.AutoSize = true;
             _explanation.ForeColor = Color.DimGray;
             _explanation.Margin = new Padding(1, 5, 1, 1);
-            _explanation.Text = "Dispatched MIDI state; Keys down is not synth voice count. Click a Ch cell to enable/disable. Attribute cells scrub or type; right-click releases force or chases one historical value. Blue bold is forced; gray italic is historical.";
+            _explanation.Text = "Dispatched MIDI state. Click a Ch cell to enable/disable. Attribute cells scrub or type; right-click releases force or chases one historical value. Blue bold is forced; gray italic is historical.";
             layout.Controls.Add(_gridHost, 0, 0);
             layout.Controls.Add(_explanation, 0, 1);
             Controls.Add(layout);
             Shown += delegate
             {
+                ApplyHeaderPreferredColumnWidths();
                 FitWindowToGrid(true);
                 BeginInvoke((MethodInvoker)delegate { _detectManualResize = true; });
             };
@@ -401,8 +412,8 @@ namespace MidiBottleneck
             _editor.Configure(current, ChannelOverrideState.Minimum(attribute), ChannelOverrideState.Maximum(attribute),
                 attribute == ChannelAttribute.Program ? 1 : 0,
                 attribute == ChannelAttribute.PitchBend ? 16 : 1,
-                attribute == ChannelAttribute.PitchBend ? 1 : 4,
-                1, attribute == ChannelAttribute.PitchBend ? 1 : 8, forced, historical,
+                attribute == ChannelAttribute.PitchBend ? 1 : 8,
+                1, attribute == ChannelAttribute.PitchBend ? 1 : 16, forced, historical,
                 delegate(int value) { return FormatAttribute(attribute, value); }, AttributeHelp(attribute));
             _editor.Visible = true;
             _editor.BringToFront();
@@ -465,14 +476,14 @@ namespace MidiBottleneck
             switch (attribute)
             {
                 case ChannelAttribute.BankMsb:
-                case ChannelAttribute.BankLsb: return "0–127. Bank interpretation is synthesizer-specific. Drag one step per four pixels, or one per eight with Shift.";
-                case ChannelAttribute.Program: return "Program 1–128 with a General MIDI reference name; actual sounds may differ. Drag one step per four pixels, or one per eight with Shift.";
-                case ChannelAttribute.Volume: return "MIDI channel volume, 0–127. Drag one step per four pixels, or one per eight with Shift.";
-                case ChannelAttribute.Expression: return "MIDI expression, 0–127. Drag one step per four pixels, or one per eight with Shift.";
-                case ChannelAttribute.Pan: return "0 left, 64 center, 127 right. Drag one step per four pixels, or one per eight with Shift.";
+                case ChannelAttribute.BankLsb: return "0–127. Bank interpretation is synthesizer-specific. Drag one step per eight pixels, or one per sixteen with Shift.";
+                case ChannelAttribute.Program: return "Program 1–128 with a General MIDI reference name; actual sounds may differ. Drag one step per eight pixels, or one per sixteen with Shift.";
+                case ChannelAttribute.Volume: return "MIDI channel volume, 0–127. Drag one step per eight pixels, or one per sixteen with Shift.";
+                case ChannelAttribute.Expression: return "MIDI expression, 0–127. Drag one step per eight pixels, or one per sixteen with Shift.";
+                case ChannelAttribute.Pan: return "0 left, 64 center, 127 right. Drag one step per eight pixels, or one per sixteen with Shift.";
                 case ChannelAttribute.Sustain: return "Off/On. Note-safety cleanup still sends sustain off before reapplying On.";
                 case ChannelAttribute.PitchBend: return "−8192 through +8191. Drag by 16 units per pixel; hold Shift for one unit per pixel.";
-                default: return "0–127 channel-wide pressure; drag one step per four pixels or one per eight with Shift. The synthesizer may map or ignore it.";
+                default: return "0–127 channel-wide pressure; drag one step per eight pixels or one per sixteen with Shift. The synthesizer may map or ignore it.";
             }
         }
 
@@ -487,11 +498,25 @@ namespace MidiBottleneck
         private Exception RaiseHistoricalChaseRequested(int channel, ChannelAttribute attribute, int value)
         {
             EventHandler<ChannelChaseRequestEventArgs> handler = HistoricalChaseRequested;
-            ChannelChaseRequestEventArgs request = new ChannelChaseRequestEventArgs(channel, attribute, value);
+            ChannelChaseRequestEventArgs request = new ChannelChaseRequestEventArgs(channel, attribute, value,
+                delegate(Exception error) { CompleteHistoricalChase(channel, attribute, error); });
             if (handler != null) handler(this, request);
+            else request.Error = new InvalidOperationException("No playback session is available.");
             if (request.Error != null)
-                ShowFeedback(_grid.Rows[channel].Cells[ColumnName(attribute)], request.Error.Message);
+                request.Complete(request.Error);
             return request.Error;
+        }
+
+        private void CompleteHistoricalChase(int channel, ChannelAttribute attribute, Exception error)
+        {
+            if (IsDisposed) return;
+            if (InvokeRequired)
+            {
+                try { BeginInvoke((MethodInvoker)delegate { CompleteHistoricalChase(channel, attribute, error); }); }
+                catch (InvalidOperationException) { }
+                return;
+            }
+            if (error != null) ShowFeedback(_grid.Rows[channel].Cells[ColumnName(attribute)], error.Message);
         }
 
         private Exception RaiseChannelEnabledRequested(int channel, bool enabled)
@@ -529,8 +554,38 @@ namespace MidiBottleneck
 
         private void ScheduleFitToGrid()
         {
-            if (!_autoFitWindow || !IsHandleCreated || IsDisposed) return;
-            BeginInvoke((MethodInvoker)delegate { if (!IsDisposed && _autoFitWindow) FitWindowToGrid(false); });
+            if (!_autoFitWindow || !IsHandleCreated || IsDisposed || _fittingWindow || _fitScheduled) return;
+            _fitScheduled = true;
+            BeginInvoke((MethodInvoker)delegate
+            {
+                _fitScheduled = false;
+                if (!IsDisposed && _autoFitWindow) FitWindowToGrid(true);
+            });
+        }
+
+        private void ApplyHeaderPreferredColumnWidths()
+        {
+            if (!IsHandleCreated) return;
+            _fittingWindow = true;
+            _grid.SuspendLayout();
+            try
+            {
+                foreach (DataGridViewColumn column in _grid.Columns)
+                {
+                    if (String.Equals(column.Name, "Program", StringComparison.Ordinal))
+                    {
+                        column.Width = 158;
+                        continue;
+                    }
+                    int preferred = column.GetPreferredWidth(DataGridViewAutoSizeColumnMode.ColumnHeader, true);
+                    column.Width = Math.Max(34, preferred);
+                }
+            }
+            finally
+            {
+                _grid.ResumeLayout();
+                _fittingWindow = false;
+            }
         }
 
         private void FitWindowToGrid(bool includeHeight)
@@ -539,16 +594,19 @@ namespace MidiBottleneck
             int columns = 0;
             for (int i = 0; i < _grid.Columns.Count; i++)
                 if (_grid.Columns[i].Visible) columns += _grid.Columns[i].Width;
-            int gridWidth = columns + 2 + SystemInformation.VerticalScrollBarWidth;
+            int gridWidth = columns + 3;
             int rowsHeight = _grid.ColumnHeadersHeight + _grid.Rows.GetRowsHeight(DataGridViewElementStates.Visible) + 3;
-            int clientWidth = gridWidth + 12;
-            int clientHeight = includeHeight
-                ? rowsHeight + _explanation.PreferredHeight + _explanation.Margin.Vertical + 12
-                : ClientSize.Height;
             Rectangle working = Screen.FromControl(this).WorkingArea;
             Size nonClient = new Size(Width - ClientSize.Width, Height - ClientSize.Height);
-            clientWidth = Math.Min(clientWidth, Math.Max(420, working.Width - nonClient.Width));
-            clientHeight = Math.Min(clientHeight, Math.Max(300, working.Height - nonClient.Height));
+            int maximumClientWidth = Math.Max(1, working.Width - nonClient.Width);
+            int maximumClientHeight = Math.Max(1, working.Height - nonClient.Height);
+            int clientWidth = Math.Min(Math.Max(420, gridWidth + 12), maximumClientWidth);
+            int explanationWidth = Math.Max(1, clientWidth - 14 - _explanation.Margin.Horizontal);
+            _explanation.MaximumSize = new Size(explanationWidth, 0);
+            _explanation.PerformLayout();
+            int horizontalScrollHeight = clientWidth < gridWidth + 12 ? SystemInformation.HorizontalScrollBarHeight : 0;
+            int desiredHeight = rowsHeight + horizontalScrollHeight + _explanation.PreferredHeight + _explanation.Margin.Vertical + 12;
+            int clientHeight = includeHeight ? Math.Min(Math.Max(300, desiredHeight), maximumClientHeight) : ClientSize.Height;
             _fittingWindow = true;
             try
             {
