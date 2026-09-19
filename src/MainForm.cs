@@ -1419,7 +1419,7 @@ namespace MidiBottleneck
             {
                 try
                 {
-                    _engine.ChaseChannelAttribute(request.Channel, request.Attribute, request.Value, delegate(Exception error)
+                    _engine.ChaseLatestSourceChannelAttribute(request.Channel, request.Attribute, delegate(Exception error)
                     {
                         // Retire the logical request even if its originating
                         // monitor closed while the ordered send was pending.

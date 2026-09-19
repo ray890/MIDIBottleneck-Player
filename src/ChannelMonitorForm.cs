@@ -106,7 +106,7 @@ namespace MidiBottleneck
             AddColumn("Sent", "Sent", 76, "Successfully dispatched source channel messages. Override injections are not source events.", null);
             AddColumn("Dropped", "Dropped", 68, "Channel messages rejected by the selected finite-queue overflow policy.", null);
             AddColumn("Suppressed", "Override filtered", 108, "Source messages filtered before scheduler admission because they conflict with a forced channel value. They consume no queue/service work and are not queue-overflow drops.", null);
-            string editHelp = " Click to type or drag horizontally. Right-click releases a forced value to historical Auto; right-click a historical value to send that one value once.";
+            string editHelp = " Click to type or drag horizontally. Right-click releases a forced value to historical Auto; right-click a historical value to restore the latest source value for that attribute.";
             AddColumn("BankMsb", "Bank MSB", 72, "Latest successfully dispatched Bank Select MSB (CC0)." + editHelp, ChannelAttribute.BankMsb);
             AddColumn("BankLsb", "Bank LSB", 72, "Latest successfully dispatched Bank Select LSB (CC32)." + editHelp, ChannelAttribute.BankLsb);
             AddColumn("Program", "Program", 158, "Latest Program Change, displayed as 1–128 with a General MIDI reference name. The actual sound can differ with non-GM banks, soundfonts, and synthesizers." + editHelp, ChannelAttribute.Program);
@@ -152,7 +152,7 @@ namespace MidiBottleneck
             _explanation.AutoSize = true;
             _explanation.ForeColor = Color.DimGray;
             _explanation.Margin = new Padding(1, 5, 1, 1);
-            _explanation.Text = "Dispatched MIDI state. Click a Ch cell to enable/disable. Attribute cells scrub or type; right-click releases force or chases one historical value. Blue bold is forced; gray italic is historical.";
+            _explanation.Text = "Dispatched MIDI state. Click a Ch cell to enable/disable. Attribute cells scrub or type; right-click releases force or restores one latest source value. Blue bold is forced; gray italic is historical.";
             layout.Controls.Add(_gridHost, 0, 0);
             layout.Controls.Add(_explanation, 0, 1);
             Controls.Add(layout);
@@ -333,7 +333,7 @@ namespace MidiBottleneck
                 ? (pending
                     ? "Forced override is configured but has not yet been applied successfully to the current output session."
                     : "Forced override is active. Conflicting source messages are filtered at the ordered output boundary.")
-                : historical ? "Historical last-sent value; it is not enforced and may no longer be effective. Right-click to send only this value once." : String.Empty;
+                : historical ? "Historical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position." : String.Empty;
             if (!String.IsNullOrEmpty(value) && value != "—")
                 cell.ToolTipText = String.IsNullOrEmpty(cell.ToolTipText) ? value : value + Environment.NewLine + cell.ToolTipText;
         }
@@ -375,7 +375,7 @@ namespace MidiBottleneck
                 else if (IsHistorical(e.RowIndex, attribute))
                 {
                     if (!_lastChannels[e.RowIndex].Enabled)
-                        ShowFeedback(_grid.Rows[e.RowIndex].Cells[e.ColumnIndex], "Enable the channel before sending a historical value.");
+                        ShowFeedback(_grid.Rows[e.RowIndex].Cells[e.ColumnIndex], "Enable the channel before restoring its source value.");
                     else
                         RaiseHistoricalChaseRequested(e.RowIndex, attribute, ObservedValue(_lastChannels[e.RowIndex], attribute));
                 }
@@ -439,7 +439,7 @@ namespace MidiBottleneck
         {
             if (_editorChannel < 0) return;
             if (_lastChannels != null && !_lastChannels[_editorChannel].Enabled)
-                e.Error = new InvalidOperationException("Enable this MIDI channel before sending a historical value.");
+                e.Error = new InvalidOperationException("Enable this MIDI channel before restoring its source value.");
             else
                 e.Error = RaiseHistoricalChaseRequested(_editorChannel, _editorAttribute, e.Value);
             if (e.Error == null) HideEditor();

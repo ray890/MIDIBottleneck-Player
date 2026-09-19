@@ -404,6 +404,11 @@ namespace MidiBottleneck.Tests
                     RunFocused("single-source product metadata", TestBuild23ProductMetadata);
                     return 0;
                 }
+                if (arguments.Length == 1 && arguments[0] == "--test-build21-source-chase")
+                {
+                    RunFocused("latest source-value chase through realized Channel Monitor", TestBuild21SourceValueChase);
+                    return 0;
+                }
                 if (arguments.Length == 1 && arguments[0] == "--test-build23-filtering")
                 {
                     RunFocused("pre-admission channel and override filtering", TestBuild23PreAdmissionFiltering);
@@ -502,6 +507,7 @@ namespace MidiBottleneck.Tests
                 Run("historical chase and channel output filtering", TestBuild21ChannelControls);
                 Run("active-worker historical chase acknowledgement", TestBuild22HistoricalChaseAcknowledgement);
                 Run("real Channel Monitor historical-chase route", TestBuild23HistoricalChaseUiRoute);
+                Run("latest source-value chase through realized Channel Monitor", TestBuild21SourceValueChase);
                 Run("single-source product metadata", TestBuild23ProductMetadata);
                 Run("pre-admission channel and override filtering", TestBuild23PreAdmissionFiltering);
                 Run("channel monitor measured fitting", TestBuild21ChannelMonitorFit);
@@ -3399,7 +3405,7 @@ namespace MidiBottleneck.Tests
                 Equal(true, (released.HistoricalAttributeMask & (1 << (int)ChannelAttribute.Volume)) != 0,
                     "released forced value becomes historical");
                 Equal(80, released.Volume, "historical release retains last successful value");
-                engine.ChaseChannelAttribute(0, ChannelAttribute.Volume, 80);
+                engine.SendExplicitChannelAttribute(0, ChannelAttribute.Volume, 80);
                 Equal(afterForce + 1, output.SentPayloads().Count, "historical chase emits exactly one message");
                 MidiChannelSnapshot chased = engine.GetChannelSnapshot().Channels[0];
                 Equal(0, chased.ForcedAttributeMask & (1 << (int)ChannelAttribute.Volume), "one-value chase creates no override");
@@ -3411,7 +3417,7 @@ namespace MidiBottleneck.Tests
                     engine.SetChannelOverride(2, attribute, value);
                     engine.SetChannelOverride(2, attribute, ChannelOverrideState.AutoValue);
                     int before = output.SentPayloads().Count;
-                    engine.ChaseChannelAttribute(2, attribute, value);
+                    engine.SendExplicitChannelAttribute(2, attribute, value);
                     Equal(before + 1, output.SentPayloads().Count, attribute + " chase sends one encoded message");
                     ChannelAttribute classified; int classifiedValue;
                     MidiEvent sent = output.SentEvents()[output.SentEvents().Count - 1];
@@ -3506,7 +3512,7 @@ namespace MidiBottleneck.Tests
                 WaitFor(delegate { return noneEngine.State == PlaybackState.Completed; }, 1000, "None control completion");
                 noneEngine.SetChannelOverride(3, ChannelAttribute.Pan, 64);
                 noneEngine.SetChannelOverride(3, ChannelAttribute.Pan, ChannelOverrideState.AutoValue);
-                noneEngine.ChaseChannelAttribute(3, ChannelAttribute.Pan, 64);
+                noneEngine.SendExplicitChannelAttribute(3, ChannelAttribute.Pan, 64);
                 Equal(0, noneEngine.GetChannelSnapshot().Channels[3].HistoricalAttributeMask & (1 << (int)ChannelAttribute.Pan),
                     "None accepts logical one-value chase");
             }
@@ -3521,7 +3527,7 @@ namespace MidiBottleneck.Tests
                 failing.SetChannelOverride(0, ChannelAttribute.Pan, ChannelOverrideState.AutoValue);
                 output.Throw = true;
                 bool threw = false;
-                try { failing.ChaseChannelAttribute(0, ChannelAttribute.Pan, 70); }
+                try { failing.SendExplicitChannelAttribute(0, ChannelAttribute.Pan, 70); }
                 catch (InvalidOperationException) { threw = true; }
                 Equal(true, threw, "failed direct chase is reported");
                 Equal(true, (failing.GetChannelSnapshot().Channels[0].HistoricalAttributeMask & (1 << (int)ChannelAttribute.Pan)) != 0,
@@ -3550,7 +3556,7 @@ namespace MidiBottleneck.Tests
                     (1 << (int)ChannelAttribute.Volume)) != 0, "active chase begins from a historical value");
                 ManualResetEvent completed = new ManualResetEvent(false);
                 Exception completionError = null;
-                engine.ChaseChannelAttribute(0, ChannelAttribute.Volume, 80, delegate(Exception error)
+                engine.SendExplicitChannelAttribute(0, ChannelAttribute.Volume, 80, delegate(Exception error)
                 {
                     completionError = error;
                     completed.Set();
@@ -3576,7 +3582,7 @@ namespace MidiBottleneck.Tests
                     ChannelMessage(1500000, 0x90, 64, 100)), output, ProcessingMode.Queue, 0, true);
                 ManualResetEvent completed = new ManualResetEvent(false);
                 Exception completionError = null;
-                engine.ChaseChannelAttribute(2, ChannelAttribute.Program, 24, delegate(Exception error)
+                engine.SendExplicitChannelAttribute(2, ChannelAttribute.Program, 24, delegate(Exception error)
                 {
                     completionError = error; completed.Set();
                 });
@@ -3600,7 +3606,7 @@ namespace MidiBottleneck.Tests
                 output.FailMatchingControl = true;
                 ManualResetEvent completed = new ManualResetEvent(false);
                 Exception completionError = null;
-                engine.ChaseChannelAttribute(0, ChannelAttribute.Volume, 80, delegate(Exception error)
+                engine.SendExplicitChannelAttribute(0, ChannelAttribute.Volume, 80, delegate(Exception error)
                 {
                     completionError = error; completed.Set();
                 });
@@ -3714,7 +3720,7 @@ namespace MidiBottleneck.Tests
                 WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1000, "WinMM-shaped chase fixture");
                 engine.SetChannelOverride(0, ChannelAttribute.Volume, 80);
                 engine.SetChannelOverride(0, ChannelAttribute.Volume, ChannelOverrideState.AutoValue);
-                engine.ChaseChannelAttribute(0, ChannelAttribute.Volume, 80);
+                engine.SendExplicitChannelAttribute(0, ChannelAttribute.Volume, 80);
                 Equal(2, CountPackedMessage(winmmMessages, 0x005007B0u), "WinMM-shaped boundary receives forced value and one chase");
             }
 
@@ -3728,7 +3734,7 @@ namespace MidiBottleneck.Tests
                 WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1000, "KDMAPI-shaped chase fixture");
                 engine.SetChannelOverride(0, ChannelAttribute.Volume, 80);
                 engine.SetChannelOverride(0, ChannelAttribute.Volume, ChannelOverrideState.AutoValue);
-                engine.ChaseChannelAttribute(0, ChannelAttribute.Volume, 80);
+                engine.SendExplicitChannelAttribute(0, ChannelAttribute.Volume, 80);
                 Equal(2, CountPackedMessage(native.ShortMessages, 0x005007B0u), "KDMAPI-shaped boundary receives forced value and one chase");
             }
 
@@ -3752,6 +3758,140 @@ namespace MidiBottleneck.Tests
                 WaitFor(delegate { return closingOutput.CountPayload(0xB0, 7, 80) == 2; }, 1500,
                     "closed-monitor ordered chase completion");
                 engine.Stop(); main.Close();
+            }
+        }
+
+        private static void TestBuild21SourceValueChase()
+        {
+            Application.EnableVisualStyles();
+            MidiSong song = NewChannelSong("source-value-chase.mid", 2000000,
+                ChannelMessage(0, 0xC1, 2),
+                ChannelMessage(0, 0x91, 60, 100),
+                ChannelMessage(1500000, 0xC1, 8));
+
+            int indexedValue;
+            Equal(true, song.GetChannelSourceValueIndex().TryGetLatest(1, ChannelAttribute.Program, 1000000, out indexedValue),
+                "source index finds Program before transport");
+            Equal(2, indexedValue, "source index returns wire Program 2 rather than a later or forced value");
+
+            AcknowledgingMidiOutput output = new AcknowledgingMidiOutput(4);
+            using (MainForm main = new MainForm())
+            {
+                BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                typeof(MainForm).GetField("_song", flags).SetValue(main, song);
+                PlaybackEngine engine = (PlaybackEngine)typeof(MainForm).GetField("_engine", flags).GetValue(main);
+                main.Show();
+                main.ShowChannelMonitorForTesting();
+                ChannelMonitorForm monitor = main.ChannelMonitorForTesting;
+                PumpFor(50);
+                engine.SimulateSlowdown = false;
+                engine.Start(song, output, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.GetSnapshot().ProcessedEvents >= 2; }, 1000,
+                    "source-value fixture initial Program and note");
+
+                engine.SetChannelOverride(1, ChannelAttribute.Program, 5);
+                PumpUntil(delegate { return output.CountPayload(0xC1, 5) == 1; }, 1000,
+                    "forced displayed Program 6 reaches output");
+                engine.SetChannelOverride(1, ChannelAttribute.Program, ChannelOverrideState.AutoValue);
+                PumpUntil(delegate
+                {
+                    MidiChannelSnapshot state = engine.GetChannelSnapshot().Channels[1];
+                    return state.Program == 5 && (state.HistoricalAttributeMask &
+                        (1 << (int)ChannelAttribute.Program)) != 0;
+                }, 1000, "former forced Program remains gray historical");
+                monitor.UpdateSnapshot(engine.GetChannelSnapshot());
+                Equal("6 — Electric Piano 2", monitor.CellText(1, "Program"),
+                    "historical display retains former forced Program 6");
+
+                RightClickCell(monitor.GridForTesting, 1, "Program");
+                if (!output.Entered.WaitOne(1000)) throw new Exception("source-value chase did not reach ordered output boundary");
+                PumpFor(50);
+                Equal(1, output.CountPayload(0xC1, 2), "source Program remains the only C1 02 while chase send is blocked");
+                Equal(true, (engine.GetChannelSnapshot().Channels[1].HistoricalAttributeMask &
+                    (1 << (int)ChannelAttribute.Program)) != 0,
+                    "cell remains historical until source-value send is acknowledged");
+
+                output.Release.Set();
+                PumpUntil(delegate { return output.CountPayload(0xC1, 2) == 2; }, 1500,
+                    "exact C1 02 source-value chase payload");
+                PumpUntil(delegate
+                {
+                    MidiChannelSnapshot state = engine.GetChannelSnapshot().Channels[1];
+                    return state.Program == 2 && (state.HistoricalAttributeMask &
+                        (1 << (int)ChannelAttribute.Program)) == 0;
+                }, 1000, "acknowledged source Program becomes current");
+                Equal(1, output.CountPayload(0xC1, 5), "chase never resends historical C1 05");
+                Equal(ChannelOverrideState.AutoValue, engine.GetChannelOverride(1, ChannelAttribute.Program),
+                    "source-value chase creates no force");
+
+                PumpUntil(delegate { return output.CountPayload(0xC1, 8) == 1; }, 2500,
+                    "later source Program supersedes restored value");
+                PumpUntil(delegate { return engine.GetChannelSnapshot().Channels[1].Program == 8; }, 1000,
+                    "monitor accepts later source Program");
+                engine.Stop(); main.Close();
+            }
+
+            MidiSong pausedSong = NewChannelSong("paused-source-chase.mid", 2000000,
+                ChannelMessage(0, 0xC2, 24), ChannelMessage(1500000, 0x92, 64, 100));
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput pausedOutput = new FakeMidiOutput();
+                engine.SetChannelMonitoring(true);
+                engine.Start(pausedSong, pausedOutput, ProcessingMode.Queue, 1000000, true);
+                engine.ChaseLatestSourceChannelAttribute(2, ChannelAttribute.Program);
+                WaitFor(delegate { return ContainsMessage(pausedOutput.SentPayloads(), 0xC2, 24); }, 1000,
+                    "paused source-value chase acknowledgement");
+                Equal(24, engine.GetChannelSnapshot().Channels[2].Program,
+                    "paused chase records the acknowledged latest source Program");
+                Equal(PlaybackState.Paused, engine.State, "source-value chase does not resume paused playback");
+                engine.SetChannelEnabled(2, false);
+                ManualResetEvent rejectedDone = new ManualResetEvent(false);
+                Exception rejectedError = null;
+                engine.ChaseLatestSourceChannelAttribute(2, ChannelAttribute.Program, delegate(Exception error)
+                {
+                    rejectedError = error; rejectedDone.Set();
+                });
+                if (!rejectedDone.WaitOne(1000)) throw new Exception("disabled-channel source chase did not complete");
+                Equal(true, rejectedError is InvalidOperationException,
+                    "source-value chase is rejected at the ordered disabled-channel boundary");
+                rejectedDone.Dispose();
+                engine.Stop();
+            }
+
+            using (PlaybackEngine engine = new PlaybackEngine())
+            using (NullMidiOutput none = new NullMidiOutput())
+            {
+                none.Open();
+                engine.SetChannelMonitoring(true);
+                engine.Start(pausedSong, none, ProcessingMode.Queue, 1000000, true);
+                engine.ChaseLatestSourceChannelAttribute(2, ChannelAttribute.Program);
+                WaitFor(delegate { return engine.GetChannelSnapshot().Channels[2].Program == 24; }, 1000,
+                    "None source-value chase acknowledgement");
+                Equal(24, engine.GetChannelSnapshot().Channels[2].Program,
+                    "None acknowledges the logical source-value chase");
+                engine.Stop();
+            }
+
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                ToggleFailureOutput failure = new ToggleFailureOutput();
+                engine.SetChannelMonitoring(true);
+                MidiSong failureSong = NewChannelSong("failed-source-chase.mid", 0,
+                    ChannelMessage(0, 0xC2, 24));
+                engine.Start(failureSong, failure, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1000,
+                    "failure fixture source completion");
+                engine.SetChannelOverride(2, ChannelAttribute.Program, 5);
+                engine.SetChannelOverride(2, ChannelAttribute.Program, ChannelOverrideState.AutoValue);
+                failure.Throw = true;
+                bool failed = false;
+                try { engine.ChaseLatestSourceChannelAttribute(2, ChannelAttribute.Program); }
+                catch (InvalidOperationException) { failed = true; }
+                Equal(true, failed, "failed source-value chase is reported");
+                Equal(true, (engine.GetChannelSnapshot().Channels[2].HistoricalAttributeMask &
+                    (1 << (int)ChannelAttribute.Program)) != 0,
+                    "failed source-value chase remains historical and retryable");
+                engine.Stop();
             }
         }
 
@@ -4219,28 +4359,28 @@ namespace MidiBottleneck.Tests
             Directory.CreateDirectory(outputDirectory);
             Application.EnableVisualStyles();
             ChannelStateTracker tracker = new ChannelStateTracker();
-            tracker.RecordSuccessful(ChannelMessage(12345000, 0xB0, 7, 80));
-            tracker.MarkAttributeHistoricalDirect(0, ChannelAttribute.Volume);
-            using (ChannelMonitorForm historical = new ChannelMonitorForm("build23-one-value-chase.mid"))
+            tracker.RecordOverrideApplied(1, ChannelAttribute.Program, 5);
+            tracker.MarkAttributeHistoricalDirect(1, ChannelAttribute.Program);
+            using (ChannelMonitorForm historical = new ChannelMonitorForm("build21-source-value-chase.mid"))
             {
                 historical.UpdateSnapshot(tracker.CreateSnapshot());
                 historical.Show(); PumpFor(80);
                 using (Bitmap bitmap = new Bitmap(historical.Width, historical.Height))
                 {
                     CaptureForm(historical, bitmap);
-                    bitmap.Save(Path.Combine(outputDirectory, "channel-historical-before-chase.png"));
+                    bitmap.Save(Path.Combine(outputDirectory, "program-6-historical-before-source-chase.png"));
                 }
                 historical.Close();
             }
-            tracker.RecordManualChaseApplied(0, ChannelAttribute.Volume, 80);
-            using (ChannelMonitorForm chased = new ChannelMonitorForm("build23-one-value-chase.mid"))
+            tracker.RecordManualChaseApplied(1, ChannelAttribute.Program, 2);
+            using (ChannelMonitorForm chased = new ChannelMonitorForm("build21-source-value-chase.mid"))
             {
                 chased.UpdateSnapshot(tracker.CreateSnapshot());
                 chased.Show(); PumpFor(80);
                 using (Bitmap bitmap = new Bitmap(chased.Width, chased.Height))
                 {
                     CaptureForm(chased, bitmap);
-                    bitmap.Save(Path.Combine(outputDirectory, "channel-current-after-chase.png"));
+                    bitmap.Save(Path.Combine(outputDirectory, "program-3-current-after-source-chase.png"));
                 }
                 chased.Close();
             }
@@ -4250,7 +4390,7 @@ namespace MidiBottleneck.Tests
                 using (Bitmap bitmap = new Bitmap(about.Width, about.Height))
                 {
                     CaptureForm(about, bitmap);
-                    bitmap.Save(Path.Combine(outputDirectory, "about-build23.png"));
+                    bitmap.Save(Path.Combine(outputDirectory, "about-build21.png"));
                 }
                 about.Close();
             }

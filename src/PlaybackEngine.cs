@@ -508,19 +508,49 @@ namespace MidiBottleneck
                 ChannelAttribute.BankMsb, enabled ? 1 : 0));
         }
 
-        internal void ChaseChannelAttribute(int channel, ChannelAttribute attribute, int value)
+        internal void ChaseLatestSourceChannelAttribute(int channel, ChannelAttribute attribute)
         {
-            ChaseChannelAttribute(channel, attribute, value, null);
+            ChaseLatestSourceChannelAttribute(channel, attribute, null);
         }
 
-        internal void ChaseChannelAttribute(int channel, ChannelAttribute attribute, int value, Action<Exception> completion)
+        internal void ChaseLatestSourceChannelAttribute(int channel, ChannelAttribute attribute, Action<Exception> completion)
         {
             if (!_channelRouting.IsEnabled(channel))
             {
-                InvalidOperationException error = new InvalidOperationException("Enable this MIDI channel before sending a historical value.");
+                InvalidOperationException error = new InvalidOperationException("Enable this MIDI channel before restoring its source value.");
                 if (completion != null) { completion(error); return; }
                 throw error;
             }
+            MidiSong song;
+            long positionMicroseconds;
+            lock (_sync)
+            {
+                song = _song;
+                positionMicroseconds = song == null ? 0 : TicksToMicroseconds(CurrentTransportTicksLocked());
+            }
+            int value;
+            if (song == null || !song.GetChannelSourceValueIndex().TryGetLatest(channel, attribute,
+                ClampPosition(song, positionMicroseconds), out value))
+            {
+                InvalidOperationException error = new InvalidOperationException(
+                    "No source MIDI value for this channel attribute exists at the current position.");
+                if (completion != null) { completion(error); return; }
+                throw error;
+            }
+            SubmitChannelControl(new ChannelControlRequest(ChannelControlKind.Chase, channel, attribute, value, completion));
+        }
+
+        // Ordered explicit control primitive used by deterministic adapter tests.
+        // User-facing historical chase resolves through the immutable source
+        // index above and never supplies the gray historical value here.
+        internal void SendExplicitChannelAttribute(int channel, ChannelAttribute attribute, int value)
+        {
+            SubmitChannelControl(new ChannelControlRequest(ChannelControlKind.Chase, channel, attribute, value));
+        }
+
+        internal void SendExplicitChannelAttribute(int channel, ChannelAttribute attribute, int value,
+            Action<Exception> completion)
+        {
             SubmitChannelControl(new ChannelControlRequest(ChannelControlKind.Chase, channel, attribute, value, completion));
         }
 
@@ -614,7 +644,7 @@ namespace MidiBottleneck
             }
             if (_output == null) throw new InvalidOperationException("No MIDI output session is available.");
             if (!_channelRouting.IsEnabled(request.Channel))
-                throw new InvalidOperationException("Enable this MIDI channel before sending a historical value.");
+                throw new InvalidOperationException("Enable this MIDI channel before restoring its source value.");
             _output.Send(ChannelOverrideState.CreateMessage(request.Channel, request.Attribute, request.Value));
             if (Volatile.Read(ref _channelMonitoringEnabled) != 0)
                 _channelState.RecordManualChaseApplied(request.Channel, request.Attribute, request.Value);

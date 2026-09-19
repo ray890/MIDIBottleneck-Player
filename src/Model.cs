@@ -187,6 +187,8 @@ namespace MidiBottleneck
         public long DurationMicroseconds;
 
         private IMidiEventStore _eventStore;
+        private ChannelSourceValueIndex _channelSourceValues;
+        private readonly object _channelSourceValuesSync = new object();
 
         internal IMidiEventStore EventStore
         {
@@ -194,7 +196,10 @@ namespace MidiBottleneck
             {
                 ListMidiEventStore listStore = _eventStore as ListMidiEventStore;
                 if (Events != null && (listStore == null || !Object.ReferenceEquals(listStore.Source, Events)))
+                {
                     _eventStore = new ListMidiEventStore(Events);
+                    _channelSourceValues = null;
+                }
                 if (_eventStore == null)
                 {
                     Events = new List<MidiEvent>();
@@ -213,8 +218,26 @@ namespace MidiBottleneck
         {
             if (eventStore == null) throw new ArgumentNullException("eventStore");
             _eventStore = eventStore;
+            _channelSourceValues = null;
             ListMidiEventStore listStore = eventStore as ListMidiEventStore;
             Events = listStore == null ? null : listStore.Source;
+        }
+
+        internal void SetChannelSourceValueIndex(ChannelSourceValueIndex index)
+        {
+            _channelSourceValues = index;
+        }
+
+        internal ChannelSourceValueIndex GetChannelSourceValueIndex()
+        {
+            ChannelSourceValueIndex index = _channelSourceValues;
+            if (index != null) return index;
+            lock (_channelSourceValuesSync)
+            {
+                if (_channelSourceValues == null)
+                    _channelSourceValues = ChannelSourceValueIndex.Build(EventStore);
+                return _channelSourceValues;
+            }
         }
     }
 

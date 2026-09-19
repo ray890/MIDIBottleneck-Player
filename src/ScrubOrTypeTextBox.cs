@@ -408,7 +408,7 @@ namespace MidiBottleneck
             EventHandler<ScrubValueEventArgs> handler = ChaseRequested;
             try { if (handler != null) handler(this, request); }
             catch (Exception ex) { request.Error = ex; }
-            _lastError = request.Error == null ? null : "Could not send historical value: " + request.Error.Message;
+            _lastError = request.Error == null ? null : "Could not restore source value: " + request.Error.Message;
             if (!String.IsNullOrEmpty(_lastError)) _toolTip.Show(_lastError, this, 0, Height, 2500);
             SetFlatText();
         }
