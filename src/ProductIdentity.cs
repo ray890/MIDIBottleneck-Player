@@ -1,11 +1,35 @@
+using System;
+using System.Reflection;
+
 namespace MidiBottleneck
 {
     internal static class ProductIdentity
     {
         internal const string Name = "MIDIBottleneck Player";
-        internal const int BuildNumber = 21;
-        internal const string ReleaseDate = "2026-09-18";
-        internal const string Version = "1.0.22.0";
-        internal const string InformationalVersion = "Build 22 (2026-09-18)";
+
+        private static Assembly RuntimeAssembly
+        {
+            get { return Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly(); }
+        }
+
+        internal static string Version
+        {
+            get
+            {
+                AssemblyFileVersionAttribute value = (AssemblyFileVersionAttribute)Attribute.GetCustomAttribute(
+                    RuntimeAssembly, typeof(AssemblyFileVersionAttribute));
+                return value == null ? RuntimeAssembly.GetName().Version.ToString() : value.Version;
+            }
+        }
+
+        internal static string InformationalVersion
+        {
+            get
+            {
+                AssemblyInformationalVersionAttribute value = (AssemblyInformationalVersionAttribute)Attribute.GetCustomAttribute(
+                    RuntimeAssembly, typeof(AssemblyInformationalVersionAttribute));
+                return value == null ? Version : value.InformationalVersion;
+            }
+        }
     }
 }

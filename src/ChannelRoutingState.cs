@@ -9,6 +9,10 @@ namespace MidiBottleneck
     {
         private readonly long[] _mutedFiltered = new long[16];
         private int _disabledMask;
+        private int _filterGeneration;
+
+        internal bool AnyDisabled { get { return Volatile.Read(ref _disabledMask) != 0; } }
+        internal int FilterGeneration { get { return Volatile.Read(ref _filterGeneration); } }
 
         internal bool IsEnabled(int channel)
         {
@@ -24,7 +28,11 @@ namespace MidiBottleneck
                 int previous = Volatile.Read(ref _disabledMask);
                 int next = enabled ? previous & ~(1 << channel) : previous | (1 << channel);
                 if (next == previous) return false;
-                if (Interlocked.CompareExchange(ref _disabledMask, next, previous) == previous) return true;
+                if (Interlocked.CompareExchange(ref _disabledMask, next, previous) == previous)
+                {
+                    Interlocked.Increment(ref _filterGeneration);
+                    return true;
+                }
             }
         }
 
@@ -60,6 +68,7 @@ namespace MidiBottleneck
         internal void Clear()
         {
             Volatile.Write(ref _disabledMask, 0);
+            Interlocked.Increment(ref _filterGeneration);
             ResetStatistics();
         }
 

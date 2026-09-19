@@ -18,7 +18,7 @@ namespace MidiBottleneck
             ClientSize = new Size(390, 165);
             Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
             Label name = new Label { Text = ProductIdentity.Name, Font = new Font(Font, FontStyle.Bold), AutoSize = true, Location = new Point(18, 18) };
-            Label build = new Label { Text = "Build " + ProductIdentity.BuildNumber + " • " + ProductIdentity.ReleaseDate, AutoSize = true, Location = new Point(18, 50) };
+            Label build = new Label { Text = ProductIdentity.InformationalVersion + " • version " + ProductIdentity.Version, AutoSize = true, Location = new Point(18, 50) };
             Label description = new Label
             {
                 Text = "A MIDI workload, queue, timing, and bottleneck laboratory.",

@@ -1421,6 +1421,9 @@ namespace MidiBottleneck
                 {
                     _engine.ChaseChannelAttribute(request.Channel, request.Attribute, request.Value, delegate(Exception error)
                     {
+                        // Retire the logical request even if its originating
+                        // monitor closed while the ordered send was pending.
+                        request.Complete(error);
                         if (monitor.IsDisposed || !monitor.IsHandleCreated) return;
                         try
                         {
@@ -1428,7 +1431,6 @@ namespace MidiBottleneck
                             {
                                 if (monitor.IsDisposed) return;
                                 monitor.UpdateSnapshot(_engine.GetChannelSnapshot());
-                                request.Complete(error);
                             });
                         }
                         catch (InvalidOperationException) { }

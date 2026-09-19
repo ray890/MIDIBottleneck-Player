@@ -205,6 +205,11 @@ namespace MidiBottleneck.Tests
                     RenderBuild21Set(arguments[1]);
                     return 0;
                 }
+                if (arguments.Length == 2 && arguments[0] == "--render-build23")
+                {
+                    RenderBuild23Set(arguments[1]);
+                    return 0;
+                }
                 if (arguments.Length == 2 && arguments[0] == "--render-analysis-auto")
                 {
                     RenderAutomaticAnalysisWindow(arguments[1]);
@@ -393,6 +398,17 @@ namespace MidiBottleneck.Tests
                     RunFocused("channel monitor measured fitting", TestBuild21ChannelMonitorFit);
                     return 0;
                 }
+                if (arguments.Length == 1 && arguments[0] == "--test-build23-local")
+                {
+                    RunFocused("real Channel Monitor historical-chase route", TestBuild23HistoricalChaseUiRoute);
+                    RunFocused("single-source product metadata", TestBuild23ProductMetadata);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-build23-filtering")
+                {
+                    RunFocused("pre-admission channel and override filtering", TestBuild23PreAdmissionFiltering);
+                    return 0;
+                }
                 if (arguments.Length == 1 && arguments[0] == "--benchmark-winmm-adapter")
                 {
                     BenchmarkWinMmAdapter();
@@ -485,6 +501,9 @@ namespace MidiBottleneck.Tests
                 Run("first grid gesture and refined scrub typing", TestBuild21ScrubHandoff);
                 Run("historical chase and channel output filtering", TestBuild21ChannelControls);
                 Run("active-worker historical chase acknowledgement", TestBuild22HistoricalChaseAcknowledgement);
+                Run("real Channel Monitor historical-chase route", TestBuild23HistoricalChaseUiRoute);
+                Run("single-source product metadata", TestBuild23ProductMetadata);
+                Run("pre-admission channel and override filtering", TestBuild23PreAdmissionFiltering);
                 Run("channel monitor measured fitting", TestBuild21ChannelMonitorFit);
                 Run("normalized Analysis geometry", TestBuild21AnalysisGeometry);
                 Run("dense 200,000-event MIDI parsing", TestDenseMidiParser);
@@ -3440,7 +3459,7 @@ namespace MidiBottleneck.Tests
                 Equal(false, ContainsMessage(sent, 0xB0, 7, 50), "disabled channel source controller is filtered");
                 Equal(true, ContainsMessage(sent, 0x91, 61, 100), "other channel remains enabled");
                 Equal(true, ContainsMessage(sent, 0xF8), "system message is unaffected by channel filter");
-                Equal(4L, engine.GetSnapshot().ProcessedEvents, "muted events retain scheduler processing accounting");
+                Equal(2L, engine.GetSnapshot().ProcessedEvents, "muted events do not enter scheduler processing accounting");
                 Equal(0L, engine.GetSnapshot().DroppedEvents, "muted events are not queue drops");
                 MidiChannelSnapshot state = engine.GetChannelSnapshot().Channels[0];
                 Equal(false, state.Enabled, "snapshot exposes disabled channel");
@@ -3593,6 +3612,304 @@ namespace MidiBottleneck.Tests
                 engine.Stop();
                 completed.Dispose();
             }
+        }
+
+        private static void TestBuild23HistoricalChaseUiRoute()
+        {
+            Application.EnableVisualStyles();
+            MidiSong song = NewChannelSong("ui-chase.mid", 4000000,
+                ChannelMessage(0, 0xB0, 7, 80),
+                ChannelMessage(1000, 0x90, 60, 100),
+                ChannelMessage(3500000, 0x90, 61, 100));
+            AcknowledgingMidiOutput output = new AcknowledgingMidiOutput(2);
+            using (MainForm main = new MainForm())
+            {
+                BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                typeof(MainForm).GetField("_song", flags).SetValue(main, song);
+                PlaybackEngine engine = (PlaybackEngine)typeof(MainForm).GetField("_engine", flags).GetValue(main);
+                main.Show();
+                main.ShowChannelMonitorForTesting();
+                ChannelMonitorForm monitor = main.ChannelMonitorForTesting;
+                PumpFor(60);
+                engine.SimulateSlowdown = false;
+                engine.Start(song, output, ProcessingMode.Queue);
+                if (!output.Entered.WaitOne(1500)) throw new Exception("UI chase fixture did not reach the blocked source send");
+
+                engine.SetChannelOverride(0, ChannelAttribute.Volume, 80);
+                engine.SetChannelOverride(0, ChannelAttribute.Volume, ChannelOverrideState.AutoValue);
+                PumpUntil(delegate
+                {
+                    ChannelPlaybackSnapshot snapshot = engine.GetChannelSnapshot();
+                    return snapshot != null && (snapshot.Channels[0].HistoricalAttributeMask &
+                        (1 << (int)ChannelAttribute.Volume)) != 0;
+                }, 1000, "historical Volume appearance");
+                PumpUntil(delegate { return (monitor.CellFontStyle(0, "Volume") & FontStyle.Italic) != 0; },
+                    1000, "historical Volume cell paint");
+
+                DataGridView grid = monitor.GridForTesting;
+                Rectangle cell = grid.GetCellDisplayRectangle(grid.Columns["Volume"].Index, 0, true);
+                int x = cell.Left + Math.Max(2, cell.Width / 2);
+                int y = cell.Top + Math.Max(2, cell.Height / 2);
+                SendMessage(grid.Handle, 0x0204, new IntPtr(2), MouseCoordinates(x, y));
+                SendMessage(grid.Handle, 0x0205, IntPtr.Zero, MouseCoordinates(x, y));
+                PumpFor(80);
+                Equal(1, output.CountPayload(0xB0, 7, 80), "right-click remains pending behind the blocked output call");
+                Equal(true, (engine.GetChannelSnapshot().Channels[0].HistoricalAttributeMask &
+                    (1 << (int)ChannelAttribute.Volume)) != 0, "UI chase remains historical until ordered output succeeds");
+
+                output.Release.Set();
+                PumpUntil(delegate { return output.CountPayload(0xB0, 7, 80) >= 2; }, 1500,
+                    "right-click chase output delivery");
+                PumpFor(40);
+                int acceptedVolumeMessages = output.CountPayload(0xB0, 7, 80);
+                int historicalMask = engine.GetChannelSnapshot().Channels[0].HistoricalAttributeMask;
+                Console.WriteLine("      UI chase diagnostic: CC7=80 count {0}, historical mask 0x{1:X}",
+                    acceptedVolumeMessages, historicalMask);
+                Equal(2, acceptedVolumeMessages, "right-click sends exactly one additional CC7 value");
+                Equal(0, historicalMask & (1 << (int)ChannelAttribute.Volume),
+                    "right-click chase acknowledgement clears historical state");
+                Equal(ChannelOverrideState.AutoValue, engine.GetChannelOverride(0, ChannelAttribute.Volume),
+                    "one-value chase creates no force");
+                engine.Stop();
+                main.Close();
+            }
+
+            using (MainForm main = new MainForm())
+            {
+                MidiSong failureSong = NewChannelSong("ui-chase-failure.mid", 3000000,
+                    ChannelMessage(0, 0xB0, 7, 75), ChannelMessage(2500000, 0x90, 64, 100));
+                ToggleFailureOutput failingOutput = new ToggleFailureOutput();
+                BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                typeof(MainForm).GetField("_song", flags).SetValue(main, failureSong);
+                PlaybackEngine engine = (PlaybackEngine)typeof(MainForm).GetField("_engine", flags).GetValue(main);
+                main.Show(); main.ShowChannelMonitorForTesting(); PumpFor(40);
+                engine.Start(failureSong, failingOutput, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.GetSnapshot().ProcessedEvents >= 1; }, 1000, "UI failed-chase initial state");
+                engine.Pause(); PumpFor(50);
+                PumpUntil(delegate { return (main.ChannelMonitorForTesting.CellFontStyle(0, "Volume") & FontStyle.Italic) != 0; },
+                    1000, "failed-chase historical cell paint");
+                failingOutput.Throw = true;
+                RightClickCell(main.ChannelMonitorForTesting.GridForTesting, 0, "Volume");
+                PumpFor(200);
+                Equal(true, (engine.GetChannelSnapshot().Channels[0].HistoricalAttributeMask &
+                    (1 << (int)ChannelAttribute.Volume)) != 0,
+                    "full UI failed chase retains historical state");
+                Equal(ChannelOverrideState.AutoValue, engine.GetChannelOverride(0, ChannelAttribute.Volume),
+                    "failed UI chase creates no override");
+                failingOutput.Throw = false;
+                engine.Stop(); main.Close();
+            }
+
+            // The production adapters receive the same packed message at their
+            // deterministic native boundaries. No installed provider is opened.
+            List<uint> winmmMessages = new List<uint>();
+            using (WindowsMidiOutput winmm = new WindowsMidiOutput(delegate(IntPtr handle, uint message)
+            {
+                winmmMessages.Add(message); return 0;
+            }))
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.SetChannelMonitoring(true);
+                engine.Start(BuildSong(new long[0]), winmm, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1000, "WinMM-shaped chase fixture");
+                engine.SetChannelOverride(0, ChannelAttribute.Volume, 80);
+                engine.SetChannelOverride(0, ChannelAttribute.Volume, ChannelOverrideState.AutoValue);
+                engine.ChaseChannelAttribute(0, ChannelAttribute.Volume, 80);
+                Equal(2, CountPackedMessage(winmmMessages, 0x005007B0u), "WinMM-shaped boundary receives forced value and one chase");
+            }
+
+            FakeKdmApiNative native = new FakeKdmApiNative();
+            using (KdmApiMidiOutput kdmapi = new KdmApiMidiOutput(native))
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                kdmapi.Open();
+                engine.SetChannelMonitoring(true);
+                engine.Start(BuildSong(new long[0]), kdmapi, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1000, "KDMAPI-shaped chase fixture");
+                engine.SetChannelOverride(0, ChannelAttribute.Volume, 80);
+                engine.SetChannelOverride(0, ChannelAttribute.Volume, ChannelOverrideState.AutoValue);
+                engine.ChaseChannelAttribute(0, ChannelAttribute.Volume, 80);
+                Equal(2, CountPackedMessage(native.ShortMessages, 0x005007B0u), "KDMAPI-shaped boundary receives forced value and one chase");
+            }
+
+            // Closing the modeless shell cannot strand the ordered request.
+            AcknowledgingMidiOutput closingOutput = new AcknowledgingMidiOutput(2);
+            using (MainForm main = new MainForm())
+            {
+                BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                typeof(MainForm).GetField("_song", flags).SetValue(main, song);
+                PlaybackEngine engine = (PlaybackEngine)typeof(MainForm).GetField("_engine", flags).GetValue(main);
+                main.Show(); main.ShowChannelMonitorForTesting(); PumpFor(40);
+                engine.Start(song, closingOutput, ProcessingMode.Queue);
+                if (!closingOutput.Entered.WaitOne(1500)) throw new Exception("closing-monitor chase fixture did not block");
+                engine.SetChannelOverride(0, ChannelAttribute.Volume, 80);
+                engine.SetChannelOverride(0, ChannelAttribute.Volume, ChannelOverrideState.AutoValue);
+                PumpUntil(delegate { return (main.ChannelMonitorForTesting.CellFontStyle(0, "Volume") & FontStyle.Italic) != 0; },
+                    1000, "closing-monitor historical cell paint");
+                RightClickCell(main.ChannelMonitorForTesting.GridForTesting, 0, "Volume");
+                main.ChannelMonitorForTesting.Close(); PumpFor(20);
+                closingOutput.Release.Set();
+                WaitFor(delegate { return closingOutput.CountPayload(0xB0, 7, 80) == 2; }, 1500,
+                    "closed-monitor ordered chase completion");
+                engine.Stop(); main.Close();
+            }
+        }
+
+        private static void TestBuild23ProductMetadata()
+        {
+            Assembly assembly = Assembly.GetExecutingAssembly();
+            AssemblyFileVersionAttribute file = (AssemblyFileVersionAttribute)Attribute.GetCustomAttribute(
+                assembly, typeof(AssemblyFileVersionAttribute));
+            AssemblyInformationalVersionAttribute information = (AssemblyInformationalVersionAttribute)Attribute.GetCustomAttribute(
+                assembly, typeof(AssemblyInformationalVersionAttribute));
+            Equal(file.Version, ProductIdentity.Version, "runtime product version comes from assembly metadata");
+            Equal(information.InformationalVersion, ProductIdentity.InformationalVersion,
+                "runtime informational identity comes from assembly metadata");
+            using (AboutProductDialog about = new AboutProductDialog())
+            {
+                about.Show(); Application.DoEvents();
+                string expected = information.InformationalVersion + " • version " + file.Version;
+                bool found = false;
+                foreach (Control control in about.Controls)
+                    if (String.Equals(control.Text, expected, StringComparison.Ordinal)) found = true;
+                Equal(true, found, "realized About text matches executing assembly metadata");
+                about.Close();
+            }
+        }
+
+        private static void TestBuild23PreAdmissionFiltering()
+        {
+            List<MidiEvent> immediateEvents = new List<MidiEvent>();
+            for (int i = 0; i < 1000; i++) immediateEvents.Add(ChannelMessage(0, 0x90, (byte)(i & 0x7F), 100));
+            for (int i = 0; i < 500; i++) immediateEvents.Add(ChannelMessage(0, 0xB1, 7, 20));
+            for (int i = 0; i < 500; i++) immediateEvents.Add(ChannelMessage(0, 0xB1, 7, 80));
+            immediateEvents.Add(new MidiEvent { Channel = -1, Status = 0xF8, Kind = MidiEventKind.SystemMessage,
+                Data = new byte[] { 0xF8 }, IntendedMicroseconds = 0 });
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.SetChannelMonitoring(true);
+                engine.SimulateSlowdown = false;
+                engine.SetChannelEnabled(0, false);
+                engine.SetChannelOverride(1, ChannelAttribute.Volume, 80);
+                engine.Start(NewChannelSong("pre-admission-immediate.mid", 0, immediateEvents.ToArray()), output, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000, "pre-admission immediate completion");
+                PlaybackSnapshot result = engine.GetSnapshot();
+                Equal(501L, result.ProcessedEvents, "only eligible source events enter immediate dispatch statistics");
+                Equal(0L, result.DroppedEvents, "source filtering is not queue overflow");
+                Equal(501L, result.MaximumQueueLength, "unlimited queue pressure excludes pre-admission filtered events");
+                MidiChannelSnapshot muted = engine.GetChannelSnapshot().Channels[0];
+                MidiChannelSnapshot overridden = engine.GetChannelSnapshot().Channels[1];
+                Equal(1000L, muted.MutedFilteredEvents, "muted source count is retained separately");
+                Equal(500L, overridden.OverrideSuppressedEvents, "override-filtered source count is retained separately");
+                Equal(true, ContainsMessage(output.SentPayloads(), 0xF8), "channel-free system event remains eligible");
+            }
+
+            List<MidiEvent> finiteEvents = new List<MidiEvent>();
+            for (int i = 0; i < 100; i++) finiteEvents.Add(ChannelMessage(0, 0x90, (byte)(i & 0x7F), 100));
+            finiteEvents.Add(ChannelMessage(0, 0x91, 60, 100));
+            finiteEvents.Add(ChannelMessage(0, 0x91, 61, 100));
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.SetChannelMonitoring(true);
+                engine.SimulateSlowdown = true;
+                engine.ProcessingMicroseconds = 1000;
+                engine.QueueLengthLimit = 2;
+                engine.OverflowPolicy = OverflowPolicy.DropNewest;
+                engine.SetChannelEnabled(0, false);
+                engine.Start(NewChannelSong("pre-admission-finite.mid", 0, finiteEvents.ToArray()), output, ProcessingMode.Drop);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000, "pre-admission finite completion");
+                WaitFor(delegate { return engine.GetChannelSnapshot().Channels[0].MutedFilteredEvents == 100; }, 1000,
+                    "pre-admission finite channel snapshot publication");
+                PlaybackSnapshot result = engine.GetSnapshot();
+                Equal(2L, result.ProcessedEvents, "finite queue services only two eligible events");
+                Equal(0L, result.DroppedEvents, "filtered arrivals cannot cause finite-queue overflow");
+                Equal(2L, result.MaximumQueueLength, "finite queue occupancy excludes muted arrivals");
+                Equal(100L, engine.GetChannelSnapshot().Channels[0].MutedFilteredEvents, "finite muted count");
+            }
+
+            List<MidiEvent> backlogEvents = new List<MidiEvent>();
+            for (int i = 0; i < 100; i++)
+                backlogEvents.Add(ChannelMessage(0, (byte)((i & 1) == 0 ? 0x90 : 0x91), (byte)(i & 0x7F), 100));
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.SetChannelMonitoring(true);
+                engine.SimulateSlowdown = true;
+                engine.ProcessingMicroseconds = 5000;
+                engine.Start(NewChannelSong("live-muted-backlog.mid", 0, backlogEvents.ToArray()), output, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.GetSnapshot().OutstandingEvents >= 80; }, 1000, "live mute backlog admission");
+                engine.SetChannelEnabled(0, false);
+                WaitFor(delegate { return !engine.IsChannelEnabled(0); }, 1000, "live mute ordered boundary");
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2500, "live mute backlog completion");
+                PlaybackSnapshot result = engine.GetSnapshot();
+                MidiChannelSnapshot channel = engine.GetChannelSnapshot().Channels[0];
+                Equal(100L, result.ProcessedEvents + channel.MutedFilteredEvents,
+                    "live boundary accounts every source event exactly once as sent or muted");
+                Equal(0L, result.DroppedEvents, "live retirement is not a queue drop");
+                Equal(0L, result.OutstandingEvents, "live-retired backlog leaves no stale queue occupancy");
+            }
+
+            List<MidiEvent> overrideBacklog = new List<MidiEvent>();
+            for (int i = 0; i < 60; i++) overrideBacklog.Add(ChannelMessage(0, 0xB2, 7, 20));
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.SetChannelMonitoring(true);
+                engine.SimulateSlowdown = true;
+                engine.ProcessingMicroseconds = 5000;
+                engine.Start(NewChannelSong("live-override-backlog.mid", 0, overrideBacklog.ToArray()), output, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.GetSnapshot().OutstandingEvents >= 50; }, 1000, "live override backlog admission");
+                engine.SetChannelOverride(2, ChannelAttribute.Volume, 80);
+                WaitFor(delegate { return ContainsMessage(output.SentPayloads(), 0xB2, 7, 80); }, 1000, "ordered override injection");
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2500, "live override backlog completion");
+                PlaybackSnapshot result = engine.GetSnapshot();
+                MidiChannelSnapshot channel = engine.GetChannelSnapshot().Channels[2];
+                Equal(60L, result.ProcessedEvents + channel.OverrideSuppressedEvents,
+                    "live override boundary accounts every source event exactly once");
+                Equal(0L, result.DroppedEvents, "live override retirement is not queue overflow");
+            }
+
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.SetChannelMonitoring(true);
+                engine.SetChannelEnabled(0, false);
+                engine.Start(NewChannelSong("filtered-failure.mid", 0, ChannelMessage(0, 0x90, 60, 100)),
+                    new ThrowingMidiOutput(), ProcessingMode.Queue);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1000,
+                    "fully filtered source never enters failing output");
+                WaitFor(delegate { return engine.GetChannelSnapshot().Channels[0].MutedFilteredEvents == 1; }, 1000,
+                    "fully filtered channel snapshot publication");
+                Equal(0L, engine.GetSnapshot().ProcessedEvents, "fully filtered source is not reported sent");
+                Equal(1L, engine.GetChannelSnapshot().Channels[0].MutedFilteredEvents, "fully filtered failure count");
+            }
+
+            using (PlaybackEngine engine = new PlaybackEngine())
+            using (NullMidiOutput none = new NullMidiOutput())
+            {
+                none.Open(); engine.SetChannelMonitoring(true); engine.SetChannelEnabled(0, false);
+                engine.Start(NewChannelSong("filtered-none.mid", 0, ChannelMessage(0, 0x90, 60, 100),
+                    ChannelMessage(0, 0x91, 61, 100)), none, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1000, "None filtered completion");
+                Equal(1L, engine.GetSnapshot().ProcessedEvents, "None follows identical pre-admission filter semantics");
+            }
+        }
+
+        private static void RightClickCell(DataGridView grid, int rowIndex, string columnName)
+        {
+            Rectangle cell = grid.GetCellDisplayRectangle(grid.Columns[columnName].Index, rowIndex, true);
+            int x = cell.Left + Math.Max(2, cell.Width / 2);
+            int y = cell.Top + Math.Max(2, cell.Height / 2);
+            SendMessage(grid.Handle, 0x0204, new IntPtr(2), MouseCoordinates(x, y));
+            SendMessage(grid.Handle, 0x0205, IntPtr.Zero, MouseCoordinates(x, y));
+        }
+
+        private static int CountPackedMessage(IList<uint> messages, uint expected)
+        {
+            int count = 0;
+            for (int i = 0; i < messages.Count; i++) if (messages[i] == expected) count++;
+            return count;
         }
 
         private static void TestBuild21ChannelMonitorFit()
@@ -3897,6 +4214,48 @@ namespace MidiBottleneck.Tests
             }
         }
 
+        private static void RenderBuild23Set(string outputDirectory)
+        {
+            Directory.CreateDirectory(outputDirectory);
+            Application.EnableVisualStyles();
+            ChannelStateTracker tracker = new ChannelStateTracker();
+            tracker.RecordSuccessful(ChannelMessage(12345000, 0xB0, 7, 80));
+            tracker.MarkAttributeHistoricalDirect(0, ChannelAttribute.Volume);
+            using (ChannelMonitorForm historical = new ChannelMonitorForm("build23-one-value-chase.mid"))
+            {
+                historical.UpdateSnapshot(tracker.CreateSnapshot());
+                historical.Show(); PumpFor(80);
+                using (Bitmap bitmap = new Bitmap(historical.Width, historical.Height))
+                {
+                    CaptureForm(historical, bitmap);
+                    bitmap.Save(Path.Combine(outputDirectory, "channel-historical-before-chase.png"));
+                }
+                historical.Close();
+            }
+            tracker.RecordManualChaseApplied(0, ChannelAttribute.Volume, 80);
+            using (ChannelMonitorForm chased = new ChannelMonitorForm("build23-one-value-chase.mid"))
+            {
+                chased.UpdateSnapshot(tracker.CreateSnapshot());
+                chased.Show(); PumpFor(80);
+                using (Bitmap bitmap = new Bitmap(chased.Width, chased.Height))
+                {
+                    CaptureForm(chased, bitmap);
+                    bitmap.Save(Path.Combine(outputDirectory, "channel-current-after-chase.png"));
+                }
+                chased.Close();
+            }
+            using (AboutProductDialog about = new AboutProductDialog())
+            {
+                about.Show(); PumpFor(80);
+                using (Bitmap bitmap = new Bitmap(about.Width, about.Height))
+                {
+                    CaptureForm(about, bitmap);
+                    bitmap.Save(Path.Combine(outputDirectory, "about-build23.png"));
+                }
+                about.Close();
+            }
+        }
+
         private static void TestChannelOverrides()
         {
             foreach (ChannelAttribute attribute in (ChannelAttribute[])Enum.GetValues(typeof(ChannelAttribute)))
@@ -3940,7 +4299,7 @@ namespace MidiBottleneck.Tests
                 Equal(false, ContainsMessage(sent, 0xB0, 7, 20), "conflicting controller is filtered");
                 Equal(true, ContainsMessage(sent, 0xC0, 10), "program override reaches output");
                 Equal(false, ContainsMessage(sent, 0xC0, 5), "conflicting program is filtered");
-                Equal(3L, engine.GetSnapshot().ProcessedEvents, "suppression preserves scheduler processing accounting");
+                Equal(1L, engine.GetSnapshot().ProcessedEvents, "suppressed source events do not enter scheduler processing accounting");
                 Equal(0L, engine.GetSnapshot().DroppedEvents, "suppression is not queue overflow");
                 MidiChannelSnapshot tracked = engine.GetChannelSnapshot().Channels[0];
                 Equal(1L, tracked.SentEvents, "only matching source output increments monitor Sent");
@@ -6149,6 +6508,13 @@ namespace MidiBottleneck.Tests
                 PlaybackEngine responsiveEngine = (PlaybackEngine)typeof(MainForm).GetField("_engine", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(form);
                 long processingBeforeResize = responsiveEngine.ProcessingMicroseconds;
                 ServiceDurationMode modeBeforeResize = responsiveEngine.ServiceDurationMode;
+                // This is an isolated wall-clock layout benchmark near the end
+                // of a large single-process suite. Collect prior test fixtures
+                // before starting the clock so an unrelated generation-2 pause
+                // is not reported as a responsive-layout regression.
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                GC.Collect();
                 Stopwatch responsiveTimer = Stopwatch.StartNew();
                 long slowestTransition = 0;
                 for (int transition = 0; transition < 10; transition++)

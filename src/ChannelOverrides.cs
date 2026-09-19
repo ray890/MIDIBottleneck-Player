@@ -26,6 +26,7 @@ namespace MidiBottleneck
         private readonly long[] _suppressed = new long[16];
         private readonly object _changeSync = new object();
         private int _anyOverrides;
+        private int _filterGeneration;
 
         internal ChannelOverrideState()
         {
@@ -33,6 +34,7 @@ namespace MidiBottleneck
         }
 
         internal bool AnyOverrides { get { return Volatile.Read(ref _anyOverrides) != 0; } }
+        internal int FilterGeneration { get { return Volatile.Read(ref _filterGeneration); } }
 
         internal int GetValue(int channel, ChannelAttribute attribute)
         {
@@ -49,6 +51,7 @@ namespace MidiBottleneck
                 Volatile.Write(ref _values[index], value);
                 if (value != AutoValue) _pendingMasks[channel] |= 1 << (int)attribute;
                 RecalculateAnyOverridesLocked();
+                unchecked { _filterGeneration++; }
                 return true;
             }
         }
@@ -62,6 +65,7 @@ namespace MidiBottleneck
                 Array.Clear(_statusMasks, 0, _statusMasks.Length);
                 Array.Clear(_suppressed, 0, _suppressed.Length);
                 Volatile.Write(ref _anyOverrides, 0);
+                unchecked { _filterGeneration++; }
             }
         }
 

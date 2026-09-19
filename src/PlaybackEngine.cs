@@ -43,6 +43,7 @@ namespace MidiBottleneck
         private int _publishedNextProcess;
         private bool _publishedInService;
         private bool _hasPublishedQueue;
+        private int _usesPreAdmissionFilterAccounting;
         private DropTraceRecorder _dropTrace;
         private readonly ChannelStateTracker _channelState = new ChannelStateTracker();
         private readonly ChannelOverrideState _channelOverrides = new ChannelOverrideState();
@@ -153,6 +154,7 @@ namespace MidiBottleneck
                 _mode = mode;
                 _startEventIndex = FindFirstEventAtOrAfter(song, startMicroseconds);
                 _hasPublishedQueue = false;
+                Volatile.Write(ref _usesPreAdmissionFilterAccounting, 0);
                 _transportBaseTicks = MicrosecondsToTicks(startMicroseconds);
                 _runStartStamp = Stopwatch.GetTimestamp();
                 ResetStatisticsLocked();
@@ -198,6 +200,7 @@ namespace MidiBottleneck
                 _transportBaseTicks = MicrosecondsToTicks(targetMicroseconds);
                 _startEventIndex = FindFirstEventAtOrAfter(song, targetMicroseconds);
                 _hasPublishedQueue = false;
+                Volatile.Write(ref _usesPreAdmissionFilterAccounting, 0);
                 ResetStatisticsLocked();
                 _lastDispatchedMicroseconds = targetMicroseconds;
                 _thread = null;
@@ -244,6 +247,7 @@ namespace MidiBottleneck
                 _transportBaseTicks = MicrosecondsToTicks(pausedMicroseconds);
                 _startEventIndex = FindFirstEventAtOrAfter(song, pausedMicroseconds);
                 _hasPublishedQueue = false;
+                Volatile.Write(ref _usesPreAdmissionFilterAccounting, 0);
                 _state = PlaybackState.Paused;
                 Volatile.Write(ref _dispatchSuspended, 1);
                 _silenceWhenWorkerExits = false;
@@ -629,6 +633,7 @@ namespace MidiBottleneck
                 // Source arrivals continue while an output call is blocked.
                 // This is the application's unlimited backlog, not the synth's queue.
                 if (_mode == ProcessingMode.Queue && _hasPublishedQueue &&
+                    Volatile.Read(ref _usesPreAdmissionFilterAccounting) == 0 &&
                     (_state == PlaybackState.Playing || _state == PlaybackState.Paused))
                 {
                     int due = FindFirstEventAfterTransport(_publishedNextProcess, playbackTicks);
@@ -744,6 +749,11 @@ namespace MidiBottleneck
             int inService = -1;
             long completionTicks = 0;
             long lastCompletionTicks = 0;
+            long eligiblePending = 0;
+            FilteredSourceEvents filtered = new FilteredSourceEvents();
+            int routingGeneration = _channelRouting.FilterGeneration;
+            int overrideGeneration = _channelOverrides.FilterGeneration;
+            if (HasActiveSourceFilters()) Volatile.Write(ref _usesPreAdmissionFilterAccounting, 1);
 
             while (IsActive())
             {
@@ -752,8 +762,21 @@ namespace MidiBottleneck
                 ApplyPendingOverrides();
                 long now = CurrentTransportTicks();
 
-                nextArrival = FindFirstEventAfterTransport(nextArrival, now);
-                PublishUnlimitedQueue(nextProcess, nextArrival, inService >= 0);
+                int currentRoutingGeneration = _channelRouting.FilterGeneration;
+                int currentOverrideGeneration = _channelOverrides.FilterGeneration;
+                if (currentRoutingGeneration != routingGeneration || currentOverrideGeneration != overrideGeneration)
+                {
+                    if (HasActiveSourceFilters()) Volatile.Write(ref _usesPreAdmissionFilterAccounting, 1);
+                    RetireUnlimitedFilteredBacklog(nextProcess, nextArrival, filtered, ref eligiblePending,
+                        ref inService, ref completionTicks, ref lastCompletionTicks, now);
+                    routingGeneration = currentRoutingGeneration;
+                    overrideGeneration = currentOverrideGeneration;
+                }
+
+                int due = FindFirstEventAfterTransport(nextArrival, now);
+                AdmitUnlimitedRange(nextArrival, due, filtered, ref eligiblePending);
+                nextArrival = due;
+                PublishUnlimitedQueue(nextProcess, eligiblePending, inService >= 0);
 
                 if (inService >= 0 && completionTicks <= now)
                 {
@@ -763,30 +786,35 @@ namespace MidiBottleneck
                     continue;
                 }
 
-                if (inService < 0 && nextProcess < nextArrival)
+                if (inService < 0 && eligiblePending > 0)
                 {
                     if (IsEffectiveZeroService())
                     {
-                        PublishUnlimitedQueue(nextProcess + 1, nextArrival, true);
-                        DispatchImmediateRange(ref nextProcess, nextArrival, now);
-                        nextArrival = FindFirstEventAfterTransport(nextArrival, CurrentTransportTicks());
-                        PublishUnlimitedQueue(nextProcess, nextArrival, false);
+                        PublishUnlimitedQueue(nextProcess, Math.Max(0, eligiblePending - 1), true);
+                        DispatchImmediateFilteredRange(ref nextProcess, nextArrival, now, filtered, ref eligiblePending);
+                        long afterDispatch = CurrentTransportTicks();
+                        due = FindFirstEventAfterTransport(nextArrival, afterDispatch);
+                        AdmitUnlimitedRange(nextArrival, due, filtered, ref eligiblePending);
+                        nextArrival = due;
+                        PublishUnlimitedQueue(nextProcess, eligiblePending, false);
                         continue;
                     }
-                    inService = nextProcess++;
+                    inService = TakeNextEligible(ref nextProcess, nextArrival, filtered);
+                    if (inService < 0) { eligiblePending = 0; continue; }
+                    eligiblePending--;
                     long startTicks = Math.Max(EventTicks(inService), lastCompletionTicks);
                     completionTicks = checked(startTicks + ServiceTicksForEvent(inService));
-                    PublishUnlimitedQueue(nextProcess, nextArrival, true);
+                    PublishUnlimitedQueue(nextProcess, eligiblePending, true);
                     continue;
                 }
 
-                if (nextArrival >= _events.Count && inService < 0 && nextProcess >= nextArrival)
+                if (nextArrival >= _events.Count && inService < 0 && eligiblePending == 0)
                     return;
 
                 long target = inService >= 0 ? completionTicks : Int64.MaxValue;
                 if (nextArrival < _events.Count)
                     target = Math.Min(target, EventTicks(nextArrival));
-                if (inService < 0 && nextProcess >= nextArrival)
+                if (inService < 0 && eligiblePending == 0)
                     SetCurrentLag(0);
                 PublishChannelStateBeforeWait(target, now);
                 WaitUntil(waiter, target);
@@ -806,6 +834,10 @@ namespace MidiBottleneck
             int clusterSize = 0;
             int maximumBufferOccupancy = 0;
             CompleteNoteTracker completeNotes = new CompleteNoteTracker();
+            FilteredSourceEvents filtered = new FilteredSourceEvents();
+            int routingGeneration = _channelRouting.FilterGeneration;
+            int overrideGeneration = _channelOverrides.FilterGeneration;
+            if (HasActiveSourceFilters()) Volatile.Write(ref _usesPreAdmissionFilterAccounting, 1);
             bool traceEnabled;
             lock (_sync) traceEnabled = _dropTrace != null;
 
@@ -815,6 +847,16 @@ namespace MidiBottleneck
                 if (!WaitWhilePaused()) return;
                 ApplyPendingOverrides();
                 long now = CurrentTransportTicks();
+
+                int currentRoutingGeneration = _channelRouting.FilterGeneration;
+                int currentOverrideGeneration = _channelOverrides.FilterGeneration;
+                if (currentRoutingGeneration != routingGeneration || currentOverrideGeneration != overrideGeneration)
+                {
+                    if (HasActiveSourceFilters()) Volatile.Write(ref _usesPreAdmissionFilterAccounting, 1);
+                    RetireDropFilteredBacklog(filtered, pending, ref inService, ref completionTicks, now);
+                    routingGeneration = currentRoutingGeneration;
+                    overrideGeneration = currentOverrideGeneration;
+                }
                 long arrivalTicks = nextArrival < _events.Count ? EventTicks(nextArrival) : Int64.MaxValue;
 
                 if (inService >= 0 && completionTicks <= arrivalTicks && completionTicks <= now)
@@ -839,7 +881,13 @@ namespace MidiBottleneck
 
                 if (nextArrival < _events.Count && arrivalTicks <= now)
                 {
-                    if (!traceEnabled && inService < 0 && pending.Count == 0 && IsEffectiveZeroService())
+                    if (HasActiveSourceFilters() && MarkNewSourceFiltered(nextArrival, filtered))
+                    {
+                        nextArrival++;
+                        UpdateQueue(pending.Count, inService >= 0);
+                        continue;
+                    }
+                    if (!traceEnabled && !HasActiveSourceFilters() && inService < 0 && pending.Count == 0 && IsEffectiveZeroService())
                     {
                         int dueEnd = nextArrival + 1;
                         int dueLimit = Math.Min(_events.Count, nextArrival + 2048);
@@ -1153,6 +1201,55 @@ namespace MidiBottleneck
             }
         }
 
+        private void DispatchImmediateFilteredRange(ref int nextIndex, int endExclusive, long transportAtBatchStart,
+            FilteredSourceEvents filtered, ref long eligiblePending)
+        {
+            const int chunkSize = 2048;
+            long stopwatchAtBatchStart = Stopwatch.GetTimestamp();
+            if (nextIndex >= endExclusive || Volatile.Read(ref _dispatchSuspended) != 0 || !IsEffectiveZeroService()) return;
+            int examined = 0;
+            int sent = 0;
+            long lastTimeline = 0;
+            long currentLag = 0;
+            long maximumLag = 0;
+            bool trackChannels = Volatile.Read(ref _channelMonitoringEnabled) != 0;
+            try
+            {
+                while (nextIndex < endExclusive && examined < chunkSize)
+                {
+                    if (Volatile.Read(ref _dispatchSuspended) != 0) break;
+                    if ((examined & 63) == 0 && !IsEffectiveZeroService()) break;
+                    int eventIndex = nextIndex++;
+                    examined++;
+                    if (filtered.Any && filtered.Contains(eventIndex)) continue;
+                    MidiEvent midiEvent = _eventList == null ? _events[eventIndex] : _eventList[eventIndex];
+                    SendScheduledEvent(midiEvent, trackChannels);
+                    if (eligiblePending > 0) eligiblePending--;
+                    long elapsedTicks = Stopwatch.GetTimestamp() - stopwatchAtBatchStart;
+                    long actualTicks = transportAtBatchStart + elapsedTicks;
+                    currentLag = Math.Max(0, TicksToMicroseconds(actualTicks) - midiEvent.IntendedMicroseconds);
+                    if (currentLag > maximumLag) maximumLag = currentLag;
+                    lastTimeline = midiEvent.IntendedMicroseconds;
+                    sent++;
+                    if (elapsedTicks >= Stopwatch.Frequency / 125) break;
+                }
+            }
+            finally
+            {
+                if (sent > 0)
+                {
+                    lock (_sync)
+                    {
+                        _processedEvents += sent;
+                        _lastDispatchedMicroseconds = lastTimeline;
+                        _currentLagMicroseconds = currentLag;
+                        if (maximumLag > _maximumLagMicroseconds) _maximumLagMicroseconds = maximumLag;
+                    }
+                }
+                PublishChannelState(false);
+            }
+        }
+
         private void UpdateQueue(long queue, bool inService)
         {
             lock (_sync)
@@ -1186,21 +1283,119 @@ namespace MidiBottleneck
 
         private bool SendScheduledEvent(MidiEvent midiEvent, bool trackChannels)
         {
+            _output.Send(midiEvent);
+            if (trackChannels) _channelState.RecordSuccessful(midiEvent);
+            return true;
+        }
+
+        private void RetireDropFilteredBacklog(FilteredSourceEvents filtered, Queue<int> pending,
+            ref int inService, ref long completionTicks, long now)
+        {
+            bool changed = false;
+            if (inService >= 0 && MarkSourceFiltered(inService, filtered))
+            {
+                inService = -1;
+                completionTicks = Int64.MaxValue;
+                changed = true;
+            }
+            int pendingCount = pending.Count;
+            for (int i = 0; i < pendingCount; i++)
+            {
+                int eventIndex = pending.Dequeue();
+                if (MarkSourceFiltered(eventIndex, filtered)) changed = true;
+                else pending.Enqueue(eventIndex);
+            }
+            if (inService < 0 && pending.Count > 0)
+            {
+                inService = pending.Dequeue();
+                completionTicks = checked(now + ServiceTicksForEvent(inService));
+            }
+            if (changed)
+            {
+                UpdateQueue(pending.Count, inService >= 0);
+                PublishChannelState(true);
+            }
+        }
+
+        private bool HasActiveSourceFilters()
+        {
+            return _channelRouting.AnyDisabled || _channelOverrides.AnyOverrides;
+        }
+
+        private bool MarkSourceFiltered(int eventIndex, FilteredSourceEvents filtered)
+        {
+            if (filtered.Contains(eventIndex)) return true;
+            return MarkNewSourceFiltered(eventIndex, filtered);
+        }
+
+        private bool MarkNewSourceFiltered(int eventIndex, FilteredSourceEvents filtered)
+        {
+            MidiEvent midiEvent = _events[eventIndex];
             if (_channelRouting.ShouldFilter(midiEvent))
             {
+                filtered.Add(eventIndex);
                 _channelRouting.RecordFiltered(midiEvent.Channel);
-                return false;
+                Volatile.Write(ref _usesPreAdmissionFilterAccounting, 1);
+                return true;
             }
             ChannelAttribute attribute;
             int forcedValue;
             if (_channelOverrides.ShouldSuppress(midiEvent, out attribute, out forcedValue))
             {
+                filtered.Add(eventIndex);
                 _channelOverrides.RecordSuppressed(midiEvent.Channel);
-                return false;
+                Volatile.Write(ref _usesPreAdmissionFilterAccounting, 1);
+                return true;
             }
-            _output.Send(midiEvent);
-            if (trackChannels) _channelState.RecordSuccessful(midiEvent);
-            return true;
+            return false;
+        }
+
+        private void AdmitUnlimitedRange(int startInclusive, int endExclusive, FilteredSourceEvents filtered,
+            ref long eligiblePending)
+        {
+            if (startInclusive >= endExclusive) return;
+            if (!HasActiveSourceFilters())
+            {
+                eligiblePending += endExclusive - startInclusive;
+                return;
+            }
+            for (int index = startInclusive; index < endExclusive; index++)
+                if (!MarkNewSourceFiltered(index, filtered)) eligiblePending++;
+            PublishChannelState(false);
+        }
+
+        private void RetireUnlimitedFilteredBacklog(int nextProcess, int nextArrival, FilteredSourceEvents filtered,
+            ref long eligiblePending, ref int inService, ref long completionTicks, ref long lastCompletionTicks,
+            long now)
+        {
+            bool changed = false;
+            if (inService >= 0 && MarkSourceFiltered(inService, filtered))
+            {
+                inService = -1;
+                completionTicks = 0;
+                lastCompletionTicks = now;
+                changed = true;
+            }
+            for (int index = nextProcess; index < nextArrival; index++)
+            {
+                if (filtered.Contains(index)) continue;
+                if (MarkSourceFiltered(index, filtered))
+                {
+                    if (eligiblePending > 0) eligiblePending--;
+                    changed = true;
+                }
+            }
+            if (changed) PublishChannelState(true);
+        }
+
+        private int TakeNextEligible(ref int nextProcess, int nextArrival, FilteredSourceEvents filtered)
+        {
+            while (nextProcess < nextArrival)
+            {
+                int candidate = nextProcess++;
+                if (!filtered.Contains(candidate)) return candidate;
+            }
+            return -1;
         }
 
         private void ApplyPendingOverrides()
@@ -1256,14 +1451,14 @@ namespace MidiBottleneck
                 PublishChannelState(false);
         }
 
-        private void PublishUnlimitedQueue(int nextProcess, int nextArrival, bool inService)
+        private void PublishUnlimitedQueue(int nextProcess, long eligiblePending, bool inService)
         {
             lock (_sync)
             {
                 _publishedNextProcess = nextProcess;
                 _publishedInService = inService;
                 _hasPublishedQueue = true;
-                _queueLength = Math.Max(0, nextArrival - nextProcess);
+                _queueLength = Math.Max(0, eligiblePending);
                 _outstandingEvents = _queueLength + (inService ? 1 : 0);
                 _maximumQueueLength = Math.Max(_maximumQueueLength, _outstandingEvents);
             }
@@ -1458,6 +1653,40 @@ namespace MidiBottleneck
         {
             Unload();
             _wake.Dispose();
+        }
+
+        // Sparse segmented bits retain exact decisions made at admission or a
+        // live control boundary without allocating per-event objects or a
+        // whole-song bitmap merely because one channel was briefly muted.
+        private sealed class FilteredSourceEvents
+        {
+            private const int SegmentShift = 15;
+            private const int SegmentEventCount = 1 << SegmentShift;
+            private const int WordsPerSegment = SegmentEventCount / 32;
+            private readonly Dictionary<int, uint[]> _segments = new Dictionary<int, uint[]>();
+
+            internal bool Any { get { return _segments.Count != 0; } }
+
+            internal bool Contains(int eventIndex)
+            {
+                uint[] words;
+                if (!_segments.TryGetValue(eventIndex >> SegmentShift, out words)) return false;
+                int within = eventIndex & (SegmentEventCount - 1);
+                return (words[within >> 5] & (1u << (within & 31))) != 0;
+            }
+
+            internal void Add(int eventIndex)
+            {
+                int segment = eventIndex >> SegmentShift;
+                uint[] words;
+                if (!_segments.TryGetValue(segment, out words))
+                {
+                    words = new uint[WordsPerSegment];
+                    _segments.Add(segment, words);
+                }
+                int within = eventIndex & (SegmentEventCount - 1);
+                words[within >> 5] |= 1u << (within & 31);
+            }
         }
     }
 

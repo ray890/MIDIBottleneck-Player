@@ -100,12 +100,12 @@ namespace MidiBottleneck
             _grid.RowHeadersVisible = false;
             _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
             _grid.BackgroundColor = SystemColors.Window;
-            AddColumn("Channel", "Ch", 48, "Click to enable or disable this MIDI channel. Disabled source events still use queue/service work but are filtered before output.", null);
+            AddColumn("Channel", "Ch", 48, "Click to enable or disable this MIDI channel. Disabled source events are filtered before scheduler admission and do not consume queue/service work.", null);
             AddColumn("KeysDown", "Polyphony", 72, "MIDI-observed held-key polyphony from successfully dispatched Note On/Off messages. This is not necessarily the synthesizer's internal voice count.", null);
             AddColumn("PeakKeys", "Peak polyphony", 90, "Highest MIDI-observed held-key polyphony since Reset stats.", null);
             AddColumn("Sent", "Sent", 76, "Successfully dispatched source channel messages. Override injections are not source events.", null);
             AddColumn("Dropped", "Dropped", 68, "Channel messages rejected by the selected finite-queue overflow policy.", null);
-            AddColumn("Suppressed", "Override filtered", 108, "Source messages suppressed only at the ordered output boundary because they conflicted with a forced channel value. These are not queue-overflow drops.", null);
+            AddColumn("Suppressed", "Override filtered", 108, "Source messages filtered before scheduler admission because they conflict with a forced channel value. They consume no queue/service work and are not queue-overflow drops.", null);
             string editHelp = " Click to type or drag horizontally. Right-click releases a forced value to historical Auto; right-click a historical value to send that one value once.";
             AddColumn("BankMsb", "Bank MSB", 72, "Latest successfully dispatched Bank Select MSB (CC0)." + editHelp, ChannelAttribute.BankMsb);
             AddColumn("BankLsb", "Bank LSB", 72, "Latest successfully dispatched Bank Select LSB (CC32)." + editHelp, ChannelAttribute.BankLsb);

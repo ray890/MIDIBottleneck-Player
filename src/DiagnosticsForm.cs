@@ -1018,6 +1018,7 @@ namespace MidiBottleneck
                 if (analysis.PredictedBufferClears > 0)
                     text.AppendLine("Predicted clears      " + analysis.PredictedBufferClears.ToString("N0", CultureInfo.CurrentCulture));
                 text.AppendLine("Projection is simulator output, not a hardware measurement.");
+                text.AppendLine("Live channel mutes/overrides are not applied to this static source-file projection.");
             }
             text.AppendLine();
             text.AppendLine("EVENT CLUSTERS");
