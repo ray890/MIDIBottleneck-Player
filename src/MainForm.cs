@@ -15,18 +15,28 @@ namespace MidiBottleneck
     {
         private const int WmSysCommand = 0x0112;
         private const int SystemMenuAbout = 0x1F20;
+        private const int SystemMenuAlwaysOnTop = 0x1F30;
         private const uint MfString = 0x0000;
         private const uint MfSeparator = 0x0800;
+        private const uint MfChecked = 0x0008;
+        private const uint MfUnchecked = 0x0000;
 
         [DllImport("user32.dll")]
         private static extern IntPtr GetSystemMenu(IntPtr window, bool revert);
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
         private static extern bool AppendMenu(IntPtr menu, uint flags, UIntPtr identifier, string text);
+
+        [DllImport("user32.dll")]
+        private static extern uint CheckMenuItem(IntPtr menu, uint identifier, uint flags);
+
+        [DllImport("user32.dll")]
+        private static extern bool DrawMenuBar(IntPtr window);
         private readonly PlaybackEngine _engine = new PlaybackEngine();
         private readonly WindowsMidiOutput _output = new WindowsMidiOutput();
         private readonly KdmApiMidiOutput _kdmApiOutput = new KdmApiMidiOutput();
         private readonly NullMidiOutput _nullOutput = new NullMidiOutput();
+        private readonly HashSet<Control> _midiDropTargets = new HashSet<Control>();
         private readonly List<DiagnosticsForm> _analysisWindows = new List<DiagnosticsForm>();
         private ChannelMonitorForm _channelMonitor;
         private readonly ToolTip _toolTip = new ToolTip();
@@ -121,6 +131,7 @@ namespace MidiBottleneck
             _engine.SimulateSlowdown = false;
 
             BuildInterface();
+            ConfigureMidiDrop(this);
             LoadOutputDevices();
             SetProcessingMicroseconds(100);
             UpdateTransportControls();
@@ -147,6 +158,9 @@ namespace MidiBottleneck
             {
                 AppendMenu(menu, MfSeparator, UIntPtr.Zero, null);
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuAbout, "About " + ProductIdentity.Name + "…");
+                AppendMenu(menu, MfSeparator, UIntPtr.Zero, null);
+                AppendMenu(menu, MfString, (UIntPtr)SystemMenuAlwaysOnTop, "Always on top");
+                UpdateAlwaysOnTopMenuCheck();
             }
         }
 
@@ -156,6 +170,7 @@ namespace MidiBottleneck
             {
                 int command = message.WParam.ToInt32() & 0xFFF0;
                 if (command == SystemMenuAbout) { ShowAboutDialog(); return; }
+                if (command == SystemMenuAlwaysOnTop) { ToggleAlwaysOnTop(); return; }
             }
             base.WndProc(ref message);
         }
@@ -164,6 +179,74 @@ namespace MidiBottleneck
         {
             using (AboutProductDialog dialog = new AboutProductDialog()) dialog.ShowDialog(this);
         }
+
+        private void ToggleAlwaysOnTop()
+        {
+            TopMost = !TopMost;
+            UpdateAlwaysOnTopMenuCheck();
+        }
+
+        private void UpdateAlwaysOnTopMenuCheck()
+        {
+            if (!IsHandleCreated) return;
+            IntPtr menu = GetSystemMenu(Handle, false);
+            if (menu == IntPtr.Zero) return;
+            CheckMenuItem(menu, (uint)SystemMenuAlwaysOnTop, TopMost ? MfChecked : MfUnchecked);
+            DrawMenuBar(Handle);
+        }
+
+        private void ConfigureMidiDrop(Control control)
+        {
+            if (control == null || !_midiDropTargets.Add(control)) return;
+            control.AllowDrop = true;
+            control.DragEnter += MidiFileDragEnter;
+            control.DragDrop += MidiFileDragDrop;
+            control.ControlAdded += MidiDropControlAdded;
+            for (int index = 0; index < control.Controls.Count; index++)
+                ConfigureMidiDrop(control.Controls[index]);
+        }
+
+        private void MidiDropControlAdded(object sender, ControlEventArgs e)
+        {
+            ConfigureMidiDrop(e.Control);
+        }
+
+        private void MidiFileDragEnter(object sender, DragEventArgs e)
+        {
+            string path;
+            e.Effect = TryGetDroppedMidiPath(e.Data, out path) ? DragDropEffects.Copy : DragDropEffects.None;
+        }
+
+        private void MidiFileDragDrop(object sender, DragEventArgs e)
+        {
+            string path;
+            if (!TryGetDroppedMidiPath(e.Data, out path)) return;
+            BeginMidiLoad(path);
+        }
+
+        internal static bool TryGetDroppedMidiPath(IDataObject data, out string path)
+        {
+            path = null;
+            if (data == null || !data.GetDataPresent(DataFormats.FileDrop, false)) return false;
+            try
+            {
+                string[] files = data.GetData(DataFormats.FileDrop, false) as string[];
+                if (files == null || files.Length != 1 || String.IsNullOrWhiteSpace(files[0]) || !File.Exists(files[0])) return false;
+                string extension = Path.GetExtension(files[0]);
+                if (!String.Equals(extension, ".mid", StringComparison.OrdinalIgnoreCase) &&
+                    !String.Equals(extension, ".midi", StringComparison.OrdinalIgnoreCase)) return false;
+                path = Path.GetFullPath(files[0]);
+                return true;
+            }
+            catch (Exception exception)
+            {
+                if (exception is OutOfMemoryException || exception is StackOverflowException || exception is ThreadAbortException) throw;
+                return false;
+            }
+        }
+
+        internal bool AlwaysOnTopForTesting { get { return TopMost; } }
+        internal static int AlwaysOnTopSystemCommandForTesting { get { return SystemMenuAlwaysOnTop; } }
 
         private void BuildInterface()
         {

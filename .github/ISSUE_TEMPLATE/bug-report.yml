@@ -1,0 +1,30 @@
+name: Deterministic bug report
+description: Report a reproducible player, simulator, Analysis, or UI defect.
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: input
+    id: build
+    attributes:
+      label: MIDIBottleneck build and architecture
+      placeholder: Build 22, x64
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Include output selection, rate model, queue settings, and exact actions.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and observed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: input
+    attributes:
+      label: Test input
+      description: Describe the MIDI. Do not attach files you cannot redistribute or logs with personal paths.

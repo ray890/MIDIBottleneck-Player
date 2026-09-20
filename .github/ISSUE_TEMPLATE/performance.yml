@@ -1,0 +1,23 @@
+name: Performance report
+description: Report a repeatable loading, Analysis, scheduler, or UI performance issue.
+title: "[Performance] "
+labels: [performance]
+body:
+  - type: input
+    id: build
+    attributes:
+      label: Build, architecture, Windows version
+    validations:
+      required: true
+  - type: textarea
+    id: workload
+    attributes:
+      label: Workload and settings
+      description: Give event counts, time interval, output mode, slowdown/queue settings, warm-up, and repetitions where known.
+    validations:
+      required: true
+  - type: textarea
+    id: measurements
+    attributes:
+      label: Measurements
+      description: Prefer median/range and distinguish load time, source waiting, managed work, native calls, lag, and memory metric.

@@ -1017,6 +1017,12 @@ namespace MidiBottleneck
                 text.AppendLine("Predicted drops       " + analysis.PredictedDroppedEvents.ToString("N0", CultureInfo.CurrentCulture));
                 if (analysis.PredictedBufferClears > 0)
                     text.AppendLine("Predicted clears      " + analysis.PredictedBufferClears.ToString("N0", CultureInfo.CurrentCulture));
+                text.AppendLine("Source end            " + FormatClock(song.DurationMicroseconds));
+                text.AppendLine("Predicted completion  " + FormatClock(analysis.PredictedOutputCompletionMicroseconds));
+                long predictedOverrun = Math.Max(0, analysis.PredictedOutputCompletionMicroseconds - song.DurationMicroseconds);
+                if (predictedOverrun > 0)
+                    text.AppendLine("Predicted overrun     " + FormatClock(predictedOverrun) + " after source end");
+                text.AppendLine("Completion is modeled accepted-event service, not synthesizer or audible-tail completion.");
                 text.AppendLine("Projection is simulator output, not a hardware measurement.");
                 text.AppendLine("Live channel mutes/overrides are not applied to this static source-file projection.");
             }

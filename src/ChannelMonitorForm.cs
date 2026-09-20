@@ -33,12 +33,11 @@ namespace MidiBottleneck
     {
         internal readonly int Channel;
         internal readonly ChannelAttribute Attribute;
-        internal readonly int Value;
         internal Exception Error;
         private readonly Action<Exception> _completion;
         private int _completed;
-        internal ChannelChaseRequestEventArgs(int channel, ChannelAttribute attribute, int value, Action<Exception> completion)
-        { Channel = channel; Attribute = attribute; Value = value; _completion = completion; }
+        internal ChannelChaseRequestEventArgs(int channel, ChannelAttribute attribute, Action<Exception> completion)
+        { Channel = channel; Attribute = attribute; _completion = completion; }
         internal void Complete(Exception error)
         {
             if (Interlocked.Exchange(ref _completed, 1) != 0) return;
@@ -377,7 +376,7 @@ namespace MidiBottleneck
                     if (!_lastChannels[e.RowIndex].Enabled)
                         ShowFeedback(_grid.Rows[e.RowIndex].Cells[e.ColumnIndex], "Enable the channel before restoring its source value.");
                     else
-                        RaiseHistoricalChaseRequested(e.RowIndex, attribute, ObservedValue(_lastChannels[e.RowIndex], attribute));
+                        RaiseHistoricalChaseRequested(e.RowIndex, attribute);
                 }
                 HideEditor();
                 return;
@@ -441,7 +440,7 @@ namespace MidiBottleneck
             if (_lastChannels != null && !_lastChannels[_editorChannel].Enabled)
                 e.Error = new InvalidOperationException("Enable this MIDI channel before restoring its source value.");
             else
-                e.Error = RaiseHistoricalChaseRequested(_editorChannel, _editorAttribute, e.Value);
+                e.Error = RaiseHistoricalChaseRequested(_editorChannel, _editorAttribute);
             if (e.Error == null) HideEditor();
         }
 
@@ -495,10 +494,10 @@ namespace MidiBottleneck
             return request.Error;
         }
 
-        private Exception RaiseHistoricalChaseRequested(int channel, ChannelAttribute attribute, int value)
+        private Exception RaiseHistoricalChaseRequested(int channel, ChannelAttribute attribute)
         {
             EventHandler<ChannelChaseRequestEventArgs> handler = HistoricalChaseRequested;
-            ChannelChaseRequestEventArgs request = new ChannelChaseRequestEventArgs(channel, attribute, value,
+            ChannelChaseRequestEventArgs request = new ChannelChaseRequestEventArgs(channel, attribute,
                 delegate(Exception error) { CompleteHistoricalChase(channel, attribute, error); });
             if (handler != null) handler(this, request);
             else request.Error = new InvalidOperationException("No playback session is available.");

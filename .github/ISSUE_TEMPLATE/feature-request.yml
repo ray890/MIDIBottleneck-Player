@@ -1,0 +1,17 @@
+name: Feature request
+description: Propose a focused enhancement.
+title: "[Feature] "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: usecase
+    attributes:
+      label: Use case
+      description: Describe the workflow or problem, not only a preferred implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Correctness and compatibility constraints
+      description: Note ordering, timing, queue, output, x86/x64, or UI behavior that must be preserved.

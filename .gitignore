@@ -1,6 +1,24 @@
 build/
+release-package/
 .reference/
 dist/
+unpublishables/
+
+# The full local diagnostic archive is retained only in private safety refs.
+# Keep the small publication-safe provenance set trackable.
+/diagnostics/*
+!/diagnostics/BuildIndex.md
+!/diagnostics/PublicCommitMapping.csv
+!/diagnostics/Shared/
+/diagnostics/Shared/*
+!/diagnostics/Shared/GitHubPublicationPlan.md
+!/diagnostics/Shared/GitHubReadiness.md
+!/diagnostics/Shared/PublicationGate.md
+.vs/
+TestResults/
+*.exe
+*.dll
+*.log
 *.mid
 *.midi
 *.zip

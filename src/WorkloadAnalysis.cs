@@ -71,6 +71,7 @@ namespace MidiBottleneck
         public int PredictedMaximumOccupancy;
         public long PredictedDroppedEvents;
         public int PredictedBufferClears;
+        public long PredictedOutputCompletionMicroseconds;
         public double EventServiceCapacityPerSecond;
         public double ByteServiceCapacityPerSecond;
 
@@ -351,6 +352,8 @@ namespace MidiBottleneck
                 configuration.ServiceDurationMode == ServiceDurationMode.ProcessingTime && configuration.ProcessingMicroseconds == 0)
             {
                 result.PredictedMaximumOccupancy = events.Count == 0 ? 0 : 1;
+                result.PredictedOutputCompletionMicroseconds = events.Count == 0
+                    ? 0 : events[events.Count - 1].IntendedMicroseconds;
                 for (int bucket = 0; bucket < result.Buckets.Length; bucket++)
                     if (result.Buckets[bucket].EventCount > 0) result.Buckets[bucket].PredictedPeakOccupancy = 1;
                 Report(progress, "Queue projection (instantaneous service)", 1, 1, 750, 250);
@@ -365,6 +368,8 @@ namespace MidiBottleneck
             Queue<int> pending = new Queue<int>(Math.Min(Math.Max(4, configuration.QueueLengthLimit), 1000000));
             bool busy = false;
             long completion = 0;
+            long lastCompleted = 0;
+            long pendingServiceMicroseconds = 0;
             int limit = Math.Max(1, configuration.QueueLengthLimit);
             CompleteNoteTracker completeNotes = new CompleteNoteTracker();
             for (int i = 0; i < events.Count; i++)
@@ -377,10 +382,13 @@ namespace MidiBottleneck
                 long arrival = events[i].IntendedMicroseconds;
                 while (busy && completion <= arrival)
                 {
+                    lastCompleted = completion;
                     if (pending.Count > 0)
                     {
                         int next = pending.Dequeue();
-                        completion = checked(completion + EventServiceMicroseconds(events[next], configuration));
+                        long nextService = EventServiceMicroseconds(events[next], configuration);
+                        pendingServiceMicroseconds = checked(pendingServiceMicroseconds - nextService);
+                        completion = checked(completion + nextService);
                     }
                     else busy = false;
                 }
@@ -403,14 +411,23 @@ namespace MidiBottleneck
                         busy = true;
                         completion = checked(arrival + EventServiceMicroseconds(events[i], configuration));
                     }
-                    else pending.Enqueue(i);
+                    else
+                    {
+                        pending.Enqueue(i);
+                        pendingServiceMicroseconds = checked(pendingServiceMicroseconds +
+                            EventServiceMicroseconds(events[i], configuration));
+                    }
                     if (noteKind == CompleteNoteEventKind.NoteOn)
                         completeNotes.RecordNoteOn(incomingEvent, true, false);
                 }
                 else if (configuration.OverflowPolicy == OverflowPolicy.DropOldest && pending.Count > 0)
                 {
-                    pending.Dequeue();
+                    int removed = pending.Dequeue();
+                    pendingServiceMicroseconds = checked(pendingServiceMicroseconds -
+                        EventServiceMicroseconds(events[removed], configuration));
                     pending.Enqueue(i);
+                    pendingServiceMicroseconds = checked(pendingServiceMicroseconds +
+                        EventServiceMicroseconds(events[i], configuration));
                     if (noteKind == CompleteNoteEventKind.NoteOn)
                         completeNotes.RecordNoteOn(incomingEvent, true, false);
                     RecordDrop(result, bucketIndex, 1);
@@ -419,6 +436,7 @@ namespace MidiBottleneck
                 {
                     int dropped = occupancy + 1;
                     pending.Clear();
+                    pendingServiceMicroseconds = 0;
                     busy = false;
                     while (i + 1 < events.Count && events[i + 1].IntendedMicroseconds <= arrival) { dropped++; i++; }
                     RecordDrop(result, bucketIndex, dropped);
@@ -438,6 +456,8 @@ namespace MidiBottleneck
                 if (occupancy > result.Buckets[bucketIndex].PredictedPeakOccupancy)
                     result.Buckets[bucketIndex].PredictedPeakOccupancy = occupancy;
             }
+            result.PredictedOutputCompletionMicroseconds = busy
+                ? checked(completion + pendingServiceMicroseconds) : lastCompleted;
             Report(progress, "Projecting finite queue pressure", events.Count, events.Count, 750, 250);
         }
 
@@ -447,6 +467,8 @@ namespace MidiBottleneck
             MidiEventReader events = song.GetEventReader();
             bool busy = false;
             long completion = 0;
+            long lastCompleted = 0;
+            long pendingServiceMicroseconds = 0;
             int nextPending = 0;
             for (int i = 0; i < events.Count; i++)
             {
@@ -458,9 +480,12 @@ namespace MidiBottleneck
                 long arrival = events[i].IntendedMicroseconds;
                 while (busy && completion <= arrival)
                 {
+                    lastCompleted = completion;
                     if (nextPending < i)
                     {
-                        completion = checked(completion + EventServiceMicroseconds(events[nextPending], configuration));
+                        long nextService = EventServiceMicroseconds(events[nextPending], configuration);
+                        pendingServiceMicroseconds = checked(pendingServiceMicroseconds - nextService);
+                        completion = checked(completion + nextService);
                         nextPending++;
                     }
                     else busy = false;
@@ -471,12 +496,17 @@ namespace MidiBottleneck
                     completion = checked(arrival + EventServiceMicroseconds(events[i], configuration));
                     nextPending = i + 1;
                 }
+                else
+                    pendingServiceMicroseconds = checked(pendingServiceMicroseconds +
+                        EventServiceMicroseconds(events[i], configuration));
                 int occupancy = 1 + Math.Max(0, i + 1 - nextPending);
                 int bucketIndex = (int)Math.Min(result.Buckets.Length - 1, Math.Max(0, arrival / result.BucketMicroseconds));
                 if (occupancy > result.PredictedMaximumOccupancy) result.PredictedMaximumOccupancy = occupancy;
                 if (occupancy > result.Buckets[bucketIndex].PredictedPeakOccupancy)
                     result.Buckets[bucketIndex].PredictedPeakOccupancy = occupancy;
             }
+            result.PredictedOutputCompletionMicroseconds = busy
+                ? checked(completion + pendingServiceMicroseconds) : lastCompleted;
             Report(progress, "Projecting unlimited queue pressure", events.Count, events.Count, 750, 250);
         }
 

@@ -15,6 +15,15 @@ namespace MidiBottleneck.Tests
     {
         private static int _passed;
 
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetSystemMenu(IntPtr window, bool revert);
+
+        [DllImport("user32.dll")]
+        private static extern uint GetMenuState(IntPtr menu, uint identifier, uint flags);
+
+        [DllImport("user32.dll")]
+        private static extern int GetMenuItemCount(IntPtr menu);
+
         [STAThread]
         private static int Main(string[] arguments)
         {
@@ -208,6 +217,11 @@ namespace MidiBottleneck.Tests
                 if (arguments.Length == 2 && arguments[0] == "--render-build23")
                 {
                     RenderBuild23Set(arguments[1]);
+                    return 0;
+                }
+                if (arguments.Length == 2 && arguments[0] == "--render-build22-new")
+                {
+                    RenderBuild22NewSet(arguments[1]);
                     return 0;
                 }
                 if (arguments.Length == 2 && arguments[0] == "--render-analysis-auto")
@@ -409,6 +423,13 @@ namespace MidiBottleneck.Tests
                     RunFocused("latest source-value chase through realized Channel Monitor", TestBuild21SourceValueChase);
                     return 0;
                 }
+                if (arguments.Length == 1 && arguments[0] == "--test-build22-new")
+                {
+                    RunFocused("main-window MIDI file drag and drop", TestBuild22MidiFileDrop);
+                    RunFocused("Analysis predicted output completion", TestAnalysisPredictedCompletion);
+                    RunFocused("Always-on-top native system-menu command", TestBuild22AlwaysOnTopMenu);
+                    return 0;
+                }
                 if (arguments.Length == 1 && arguments[0] == "--test-build23-filtering")
                 {
                     RunFocused("pre-admission channel and override filtering", TestBuild23PreAdmissionFiltering);
@@ -508,6 +529,9 @@ namespace MidiBottleneck.Tests
                 Run("active-worker historical chase acknowledgement", TestBuild22HistoricalChaseAcknowledgement);
                 Run("real Channel Monitor historical-chase route", TestBuild23HistoricalChaseUiRoute);
                 Run("latest source-value chase through realized Channel Monitor", TestBuild21SourceValueChase);
+                Run("main-window MIDI file drag and drop", TestBuild22MidiFileDrop);
+                Run("Analysis predicted output completion", TestAnalysisPredictedCompletion);
+                Run("Always-on-top native system-menu command", TestBuild22AlwaysOnTopMenu);
                 Run("single-source product metadata", TestBuild23ProductMetadata);
                 Run("pre-admission channel and override filtering", TestBuild23PreAdmissionFiltering);
                 Run("channel monitor measured fitting", TestBuild21ChannelMonitorFit);
@@ -718,6 +742,8 @@ namespace MidiBottleneck.Tests
                 Equal(exact.TotalBytes, reused.TotalBytes, "exact reused bytes");
                 Equal(exact.PredictedMaximumOccupancy, reused.PredictedMaximumOccupancy, "exact reused projection");
                 Equal(exact.PredictedDroppedEvents, reused.PredictedDroppedEvents, "exact reused drops");
+                Equal(exact.PredictedOutputCompletionMicroseconds, reused.PredictedOutputCompletionMicroseconds,
+                    "exact reused output completion");
                 for (int i = 0; i < exact.Buckets.Length; i++)
                 {
                     Equal(exact.Buckets[i].ServiceDemandMicroseconds, reused.Buckets[i].ServiceDemandMicroseconds, "exact per-event rounded demand");
@@ -3347,13 +3373,19 @@ namespace MidiBottleneck.Tests
                 tracker.RecordSuccessful(ChannelMessage(0, 0xB0, 7, 80));
                 tracker.MarkAttributeHistoricalDirect(0, ChannelAttribute.Volume);
                 monitor.UpdateSnapshot(tracker.CreateSnapshot());
-                int chased = -1;
-                monitor.HistoricalChaseRequested += delegate(object sender, ChannelChaseRequestEventArgs e) { chased = e.Value; };
+                int chasedChannel = -1;
+                ChannelAttribute chasedAttribute = ChannelAttribute.BankMsb;
+                monitor.HistoricalChaseRequested += delegate(object sender, ChannelChaseRequestEventArgs e)
+                {
+                    chasedChannel = e.Channel;
+                    chasedAttribute = e.Attribute;
+                };
                 MethodInfo cellMouseDown = typeof(DataGridView).GetMethod("OnCellMouseDown", BindingFlags.Instance | BindingFlags.NonPublic,
                     null, new Type[] { typeof(DataGridViewCellMouseEventArgs) }, null);
                 cellMouseDown.Invoke(grid, new object[] { new DataGridViewCellMouseEventArgs(column, 0, 4, 4,
                     new MouseEventArgs(MouseButtons.Right, 1, 4, 4, 0)) });
-                Equal(80, chased, "right-clicking historical cell requests one-value chase through grid path");
+                Equal(0, chasedChannel, "right-clicking historical cell requests source chase for the correct channel");
+                Equal(ChannelAttribute.Volume, chasedAttribute, "right-clicking historical cell requests source chase for the correct attribute");
                 bool? enabledRequest = null;
                 monitor.ChannelEnabledRequested += delegate(object sender, ChannelEnabledRequestEventArgs e) { enabledRequest = e.Enabled; };
                 int channelColumn = grid.Columns["Channel"].Index;
@@ -3432,14 +3464,18 @@ namespace MidiBottleneck.Tests
             {
                 FakeMidiOutput output = new FakeMidiOutput();
                 engine.SetChannelMonitoring(true);
-                MidiSong laterSource = NewChannelSong("released-force.mid", 350000,
-                    ChannelMessage(0, 0x90, 60, 1), ChannelMessage(300000, 0xB0, 7, 20));
+                // Keep the conflicting source value well beyond the control boundary.
+                // A short 300 ms gap made this assertion depend on full-suite thread
+                // scheduling: correctly pre-admitted work could be filtered before
+                // the test released the force and, by design, is never replayed.
+                MidiSong laterSource = NewChannelSong("released-force.mid", 1100000,
+                    ChannelMessage(0, 0x90, 60, 1), ChannelMessage(1000000, 0xB0, 7, 20));
                 engine.Start(laterSource, output, ProcessingMode.Queue);
                 WaitFor(delegate { return engine.GetSnapshot().ProcessedEvents >= 1; }, 1000, "released-force initial dispatch");
                 engine.SetChannelOverride(0, ChannelAttribute.Volume, 80);
                 WaitFor(delegate { return ContainsMessage(output.SentPayloads(), 0xB0, 7, 80); }, 1000, "live force application");
                 engine.SetChannelOverride(0, ChannelAttribute.Volume, ChannelOverrideState.AutoValue);
-                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1500, "released-force source completion");
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2500, "released-force source completion");
                 Equal(true, ContainsMessage(output.SentPayloads(), 0xB0, 7, 20), "source conflict passes after force release");
                 MidiChannelSnapshot state = engine.GetChannelSnapshot().Channels[0];
                 Equal(0L, state.OverrideSuppressedEvents, "released force no longer increments override filtering");
@@ -4396,6 +4432,50 @@ namespace MidiBottleneck.Tests
             }
         }
 
+        private static void RenderBuild22NewSet(string outputDirectory)
+        {
+            Directory.CreateDirectory(outputDirectory);
+            Application.EnableVisualStyles();
+            MidiSong song = BuildSong(new long[] { 0, 0, 0, 100000 });
+            song.FilePath = "build22-analysis-completion.mid";
+            song.DurationMicroseconds = 100000;
+            AnalysisConfiguration configuration = DefaultAnalysisConfiguration();
+            configuration.ProcessingMicroseconds = 100000;
+            WorkloadAnalysis analysis = WorkloadAnalyzer.Analyze(song, 100000, configuration);
+            using (DiagnosticsForm form = new DiagnosticsForm(song, analysis))
+            {
+                form.Size = new Size(1180, 760);
+                form.Show(); PumpFor(80);
+                List<Control> controls = new List<Control>();
+                CollectControls(form, controls);
+                RichTextBox report = FindControl<RichTextBox>(controls);
+                int queueProjection = report.Text.IndexOf("QUEUE PROJECTION", StringComparison.Ordinal);
+                if (queueProjection >= 0)
+                {
+                    report.SelectionStart = queueProjection;
+                    report.SelectionLength = 0;
+                    report.ScrollToCaret();
+                    PumpFor(30);
+                }
+                using (Bitmap bitmap = new Bitmap(form.Width, form.Height))
+                {
+                    CaptureForm(form, bitmap);
+                    bitmap.Save(Path.Combine(outputDirectory, "analysis-queue-completion.png"));
+                }
+                form.Close();
+            }
+            using (AboutProductDialog about = new AboutProductDialog())
+            {
+                about.Show(); PumpFor(40);
+                using (Bitmap bitmap = new Bitmap(about.Width, about.Height))
+                {
+                    CaptureForm(about, bitmap);
+                    bitmap.Save(Path.Combine(outputDirectory, "about-build22.png"));
+                }
+                about.Close();
+            }
+        }
+
         private static void TestChannelOverrides()
         {
             foreach (ChannelAttribute attribute in (ChannelAttribute[])Enum.GetValues(typeof(ChannelAttribute)))
@@ -4470,7 +4550,10 @@ namespace MidiBottleneck.Tests
                 engine.Start(boundarySong, output, ProcessingMode.Queue);
                 WaitFor(delegate { return engine.GetSnapshot().ProcessedEvents >= 1; }, 1000, "override boundary initial dispatch");
                 engine.SetChannelOverride(0, ChannelAttribute.Pan, 33);
-                WaitFor(delegate { return ContainsMessage(output.SentPayloads(), 0xB0, 10, 33); }, 1000,
+                // The worker is waiting on the same wake handle as its playback
+                // timer.  Keep this deadline above occasional full-suite x86 GC
+                // pauses; an isolated request normally completes immediately.
+                WaitFor(delegate { return ContainsMessage(output.SentPayloads(), 0xB0, 10, 33); }, 2500,
                     "live override injection through ordered worker");
                 engine.Pause();
                 Equal(0, output.SentPayloads().Count, "Pause safety reset does not reapply sustain while paused");
@@ -5421,6 +5504,203 @@ namespace MidiBottleneck.Tests
             Equal(3125L, (long)Math.Round(bitrateAnalysis.ByteServiceCapacityPerSecond), "analysis byte service capacity");
             Equal(4480L, bitrateAnalysis.Buckets[0].ServiceDemandMicroseconds + bitrateAnalysis.Buckets[1].ServiceDemandMicroseconds,
                 "analysis byte-proportional service demand");
+        }
+
+        private static void TestAnalysisPredictedCompletion()
+        {
+            AnalysisConfiguration immediate = DefaultAnalysisConfiguration();
+            immediate.SimulateSlowdown = false;
+            MidiSong empty = BuildSong(new long[0]);
+            Equal(0L, WorkloadAnalyzer.Analyze(empty, 100000, immediate).PredictedOutputCompletionMicroseconds,
+                "empty song has no predicted output completion work");
+
+            MidiSong sparse = BuildSong(new long[] { 0, 50000 });
+            sparse.DurationMicroseconds = 200000;
+            WorkloadAnalysis immediateResult = WorkloadAnalyzer.Analyze(sparse, 100000, immediate);
+            Equal(50000L, immediateResult.PredictedOutputCompletionMicroseconds,
+                "instantaneous service completes at the last dispatchable event rather than formal source end");
+            AnalysisConfiguration zeroProcessing = DefaultAnalysisConfiguration();
+            zeroProcessing.ProcessingMicroseconds = 0;
+            Equal(50000L, WorkloadAnalyzer.Analyze(sparse, 100000, zeroProcessing).PredictedOutputCompletionMicroseconds,
+                "slowdown-enabled zero processing time remains instantaneous");
+
+            AnalysisConfiguration unlimited = DefaultAnalysisConfiguration();
+            unlimited.ProcessingMicroseconds = 100000;
+            MidiSong burst = BuildSong(new long[] { 0, 0, 0 });
+            WorkloadAnalysis unlimitedResult = WorkloadAnalyzer.Analyze(burst, 100000, unlimited);
+            Equal(300000L, unlimitedResult.PredictedOutputCompletionMicroseconds,
+                "unlimited projection drains all accepted work after the final arrival");
+
+            AnalysisConfiguration bitrate = DefaultAnalysisConfiguration();
+            bitrate.ServiceDurationMode = ServiceDurationMode.MidiBitrate;
+            bitrate.MidiBitrate = 31250;
+            WorkloadAnalysis bitrateResult = WorkloadAnalyzer.Analyze(burst, 100000, bitrate);
+            Equal(2880L, bitrateResult.PredictedOutputCompletionMicroseconds,
+                "bitrate projection uses exact rounded per-message serial service");
+
+            AnalysisConfiguration finite = DefaultAnalysisConfiguration();
+            finite.ProcessingMicroseconds = 100000;
+            finite.QueueLengthLimitEnabled = true;
+            finite.QueueLengthLimit = 2;
+            finite.OverflowPolicy = OverflowPolicy.DropNewest;
+            MidiSong finiteSong = BuildSong(new long[] { 0, 0, 100000, 100000, 100000 });
+            WorkloadAnalysis finiteResult = WorkloadAnalyzer.Analyze(finiteSong, 100000, finite);
+            Equal(300000L, finiteResult.PredictedOutputCompletionMicroseconds,
+                "finite projection drains only accepted events");
+            Equal(2L, finiteResult.PredictedDroppedEvents, "finite completion excludes dropped events from service");
+
+            AnalysisConfiguration dropOldest = DefaultAnalysisConfiguration();
+            dropOldest.ProcessingMicroseconds = 100000;
+            dropOldest.QueueLengthLimitEnabled = true;
+            dropOldest.QueueLengthLimit = 2;
+            dropOldest.OverflowPolicy = OverflowPolicy.DropOldest;
+            WorkloadAnalysis dropOldestResult = WorkloadAnalyzer.Analyze(BuildSong(new long[] { 0, 0, 0, 0, 0 }), 100000, dropOldest);
+            Equal(200000L, dropOldestResult.PredictedOutputCompletionMicroseconds,
+                "drop-oldest completion includes the in-service and final retained pending event");
+            Equal(3L, dropOldestResult.PredictedDroppedEvents, "drop-oldest replacement count");
+
+            AnalysisConfiguration clear = DefaultAnalysisConfiguration();
+            clear.ProcessingMicroseconds = 100000;
+            clear.QueueLengthLimitEnabled = true;
+            clear.QueueLengthLimit = 1;
+            clear.OverflowPolicy = OverflowPolicy.ClearBufferAndCatchUp;
+            MidiSong clearSong = BuildSong(new long[] { 0, 0, 200000 });
+            WorkloadAnalysis clearResult = WorkloadAnalyzer.Analyze(clearSong, 100000, clear);
+            Equal(300000L, clearResult.PredictedOutputCompletionMicroseconds,
+                "clear-buffer completion excludes cleared work and includes later accepted work");
+            Equal(1, clearResult.PredictedBufferClears, "clear-buffer projection records its clear boundary");
+
+            string summary = (string)typeof(DiagnosticsForm).GetMethod("BuildSummary",
+                BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, new object[] { finiteSong, finiteResult });
+            if (!summary.Contains("Source end") || !summary.Contains("Predicted completion") ||
+                !summary.Contains("Predicted overrun") || !summary.Contains("not synthesizer or audible-tail completion"))
+                throw new Exception("Analysis report does not distinguish source end, modeled completion, overrun, and native limitations");
+        }
+
+        private static void TestBuild22MidiFileDrop()
+        {
+            string first = Path.Combine(Path.GetTempPath(), "midi-drop-first-" + Guid.NewGuid().ToString("N") + ".mid");
+            string second = Path.Combine(Path.GetTempPath(), "midi-drop-second-" + Guid.NewGuid().ToString("N") + ".MIDI");
+            string invalid = Path.Combine(Path.GetTempPath(), "midi-drop-invalid-" + Guid.NewGuid().ToString("N") + ".txt");
+            string dense = null;
+            File.WriteAllBytes(first, BuildTestMidi());
+            File.WriteAllBytes(second, BuildTestMidi());
+            File.WriteAllText(invalid, "not MIDI");
+            try
+            {
+                Application.EnableVisualStyles();
+                using (MainForm form = new MainForm())
+                {
+                    form.SuppressLoadErrorDialogs = true;
+                    form.Show(); PumpFor(40);
+                    BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                    Control[] targets = new Control[]
+                    {
+                        (Control)typeof(MainForm).GetField("_fileLabel", flags).GetValue(form),
+                        (Control)typeof(MainForm).GetField("_outputCombo", flags).GetValue(form),
+                        (Control)typeof(MainForm).GetField("_processingValue", flags).GetValue(form),
+                        (Control)typeof(MainForm).GetField("_timelineView", flags).GetValue(form),
+                        (Control)typeof(MainForm).GetField("_statisticsView", flags).GetValue(form)
+                    };
+                    for (int index = 0; index < targets.Length; index++)
+                    {
+                        Equal(true, targets[index].AllowDrop, "main child drop target " + index + " is enabled");
+                        Equal(DragDropEffects.Copy, RaiseFileDrag(targets[index], new string[] { first }, false),
+                            "valid file advertises Copy over child target " + index);
+                    }
+                    Equal(DragDropEffects.None, RaiseFileDrag(targets[0], new string[] { first, second }, false),
+                        "multiple files are rejected");
+                    Equal(DragDropEffects.None, RaiseFileDrag(targets[0], new string[] { invalid }, false),
+                        "unsupported file is rejected");
+                    Equal(DragDropEffects.None, RaiseTextDrag(targets[0], "file:///" + first),
+                        "text and URL drops are rejected");
+
+                    RaiseFileDrag(targets[4], new string[] { first }, true);
+                    PumpUntil(delegate { return !form.IsLoadingSong; }, 5000, "first dropped MIDI load");
+                    Equal(Path.GetFullPath(first), Path.GetFullPath(form.CurrentSong.FilePath), "dropped MIDI uses normal load lifecycle");
+
+                    RaiseFileDrag(targets[1], new string[] { second }, true);
+                    PumpUntil(delegate { return !form.IsLoadingSong; }, 5000, "loaded-song drop replacement");
+                    Equal(Path.GetFullPath(second), Path.GetFullPath(form.CurrentSong.FilePath), "drop replaces loaded song safely");
+                    RaiseFileDrag(targets[0], new string[] { invalid }, true);
+                    Equal(Path.GetFullPath(second), Path.GetFullPath(form.CurrentSong.FilePath), "invalid drop leaves current song intact");
+
+                    dense = CreateDenseMidiFile(300000);
+                    RaiseFileDrag(targets[2], new string[] { dense }, true);
+                    Equal(true, form.IsLoadingSong, "dense dropped MIDI begins asynchronous load");
+                    RaiseFileDrag(targets[3], new string[] { first }, true);
+                    PumpUntil(delegate { return !form.IsLoadingSong; }, 8000, "drop replacement during active load");
+                    Equal(Path.GetFullPath(first), Path.GetFullPath(form.CurrentSong.FilePath),
+                        "new drop retires active load generation and wins");
+
+                    form.ClientSize = new Size(416, 389); PumpFor(40);
+                    for (int index = 0; index < targets.Length; index++)
+                        Equal(DragDropEffects.Copy, RaiseFileDrag(targets[index], new string[] { first }, false),
+                            "compact child target accepts MIDI " + index);
+                    form.Close();
+                }
+            }
+            finally
+            {
+                DeleteFileWhenAvailable(first);
+                DeleteFileWhenAvailable(second);
+                DeleteFileWhenAvailable(invalid);
+                DeleteFileWhenAvailable(dense);
+            }
+        }
+
+        private static DragDropEffects RaiseFileDrag(Control target, string[] files, bool drop)
+        {
+            DataObject data = new DataObject();
+            data.SetData(DataFormats.FileDrop, files);
+            DragEventArgs arguments = new DragEventArgs(data, 0, 0, 0, DragDropEffects.Copy, DragDropEffects.None);
+            MethodInfo method = typeof(Control).GetMethod(drop ? "OnDragDrop" : "OnDragEnter", BindingFlags.Instance | BindingFlags.NonPublic);
+            method.Invoke(target, new object[] { arguments });
+            if (!drop) Application.DoEvents();
+            return arguments.Effect;
+        }
+
+        private static DragDropEffects RaiseTextDrag(Control target, string text)
+        {
+            DataObject data = new DataObject();
+            data.SetData(DataFormats.Text, text);
+            DragEventArgs arguments = new DragEventArgs(data, 0, 0, 0, DragDropEffects.Copy, DragDropEffects.None);
+            typeof(Control).GetMethod("OnDragEnter", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(target, new object[] { arguments });
+            return arguments.Effect;
+        }
+
+        private static void TestBuild22AlwaysOnTopMenu()
+        {
+            Application.EnableVisualStyles();
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(40);
+                Equal(false, form.AlwaysOnTopForTesting, "Always on top defaults off");
+                IntPtr menu = GetSystemMenu(form.Handle, false);
+                int initialCount = GetMenuItemCount(menu);
+                uint initialState = GetMenuState(menu, (uint)MainForm.AlwaysOnTopSystemCommandForTesting, 0);
+                Equal(0U, initialState & 0x0008U, "Always on top menu starts unchecked");
+
+                SendMessage(form.Handle, 0x0112, (IntPtr)MainForm.AlwaysOnTopSystemCommandForTesting, IntPtr.Zero);
+                Application.DoEvents();
+                Equal(true, form.AlwaysOnTopForTesting, "system-menu command enables TopMost");
+                uint checkedState = GetMenuState(menu, (uint)MainForm.AlwaysOnTopSystemCommandForTesting, 0);
+                Equal(0x0008U, checkedState & 0x0008U, "Always on top menu check follows enabled state");
+
+                typeof(Control).GetMethod("RecreateHandle", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .Invoke(form, null);
+                Application.DoEvents();
+                menu = GetSystemMenu(form.Handle, false);
+                Equal(initialCount, GetMenuItemCount(menu), "handle recreation does not duplicate system-menu entries");
+                checkedState = GetMenuState(menu, (uint)MainForm.AlwaysOnTopSystemCommandForTesting, 0);
+                Equal(0x0008U, checkedState & 0x0008U, "handle recreation preserves Always-on-top check");
+
+                SendMessage(form.Handle, 0x0112, (IntPtr)MainForm.AlwaysOnTopSystemCommandForTesting, IntPtr.Zero);
+                Application.DoEvents();
+                Equal(false, form.AlwaysOnTopForTesting, "second system-menu command disables TopMost");
+                form.Close();
+            }
         }
 
         private static void TestAnalysisWindowConstruction()
@@ -6673,7 +6953,11 @@ namespace MidiBottleneck.Tests
                 // guard still catches cumulative layout regressions, while
                 // allowing normal variation in twenty realized native-control
                 // resize/paint cycles on a loaded desktop.
-                if (slowestTransition >= 250 || responsiveTimer.ElapsedMilliseconds > 2800)
+                // Focused runs remain around 190 ms / 2.7 s on this host.  Keep
+                // a modest loaded-desktop allowance for the same realized path
+                // near the end of the all-in-one x86 suite without discarding
+                // either the per-crossing or cumulative regression guard.
+                if (slowestTransition >= 300 || responsiveTimer.ElapsedMilliseconds > 3500)
                     throw new Exception("responsive breakpoint transitions took " + responsiveTimer.ElapsedMilliseconds +
                         " ms total; slowest crossing " + slowestTransition + " ms");
                 Equal(processingBeforeResize, responsiveEngine.ProcessingMicroseconds, "resize does not reapply processing model");
