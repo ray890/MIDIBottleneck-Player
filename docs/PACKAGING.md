@@ -23,7 +23,7 @@ The output is exactly:
 - `MIDIBottleneck-Player-v<version>-x64.zip`
 - `SHA256SUMS.txt`
 
-Each ZIP contains its matching executable and `.exe.config`, plus `README.md` and `LICENSE`. The x64 configuration is required by the current contiguous event store because .NET Framework must read `gcAllowVeryLargeObjects` before managed startup. That setting affects only 64-bit processes; the x86 config is retained for an explicit, symmetric package layout.
+The x86 ZIP contains its executable, `README.md`, and `LICENSE`. The x64 ZIP additionally contains `MIDIBottleneck Player x64.exe.config`. The x64 configuration is required by the current contiguous event store because .NET Framework must read `gcAllowVeryLargeObjects` before managed startup. That setting affects only 64-bit processes, so the x86 distribution deliberately has no sidecar.
 
 The script allowlists every input and never sweeps `dist/`. Inspect the ZIP entries and verify `SHA256SUMS.txt` before upload.
 

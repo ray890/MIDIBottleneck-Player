@@ -14,6 +14,7 @@ MIDIBottleneck Player is a Windows MIDI player and deterministic workload simula
 - Offers a **None** output for measuring the scheduler without opening a MIDI device.
 - Simulates a configurable per-event processing cost or MIDI serial bitrate.
 - Models unlimited and finite queues with several overflow policies.
+- Includes a per-note interval gate for deterministic pitch-by-pitch transition limiting.
 - Shows live throughput, queue, lag, effective-speed, and channel statistics.
 - Provides whole-file Analysis graphs for event density, bitrate, queue pressure, and predicted output completion.
 - Loads files asynchronously with cancellation, progress, elapsed time, and process-private committed memory.
@@ -33,7 +34,7 @@ Windows 7 SP1 has not been tested. Windows XP and cross-platform support are pos
 ## Quick start
 
 1. Download the x64 or x86 ZIP from the [latest release](https://github.com/ray890/MIDIBottleneck-Player/releases/latest).
-2. Extract the complete ZIP. Keep the executable and its adjacent `.exe.config` together.
+2. Extract the complete ZIP. The x64 executable must remain beside its included `.exe.config`; the x86 package has no configuration sidecar.
 3. Run `MIDIBottleneck Player x64.exe` on a typical modern system, or the x86 build when a 32-bit MIDI environment requires it.
 4. Choose a MIDI output, then open or drag one `.mid`/`.midi` file onto the window.
 5. Leave **Simulate slowdown** and **Queue length limit** off for ordinary uncapped playback, or enable the model you want to study.
@@ -49,6 +50,8 @@ Windows 7 SP1 has not been tested. Windows XP and cross-platform support are pos
 The processing model can apply a fixed time per event or MIDI serial bitrate. A finite queue can then use drop-newest, drop-oldest, clear-and-catch-up, or complete-note-aware overflow behavior. The queue count includes the item in service and can temporarily exceed its configured soft ceiling when a protected NoteOff or non-note message must be retained for output safety.
 
 Analysis uses the immutable source file and selected simulator settings. Live Channel Monitor mutes and overrides intentionally do not rewrite the static Analysis projection.
+
+The optional **Per-note interval gate** is available from the title-bar system menu. It uses the nonzero processing-time value as a global pitch interval, while temporarily locking the competing slowdown and queue controls. Static Analysis clearly identifies that this live-only gate is not included in its ordinary queue projection.
 
 ## Documentation
 

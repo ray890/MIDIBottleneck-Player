@@ -7,7 +7,8 @@ This is a public product roadmap, not a promise of dates. Correctness, determini
 - **Compact segmented event storage** — replace per-event reference objects and the single contiguous final array in measured stages while preserving exact order, seeking, Analysis, SysEx, and diagnostics.
 - **Large-file preflight** — provide cancellable exact event counting and a storage-aware memory estimate without misleading file-size guesses.
 - **Drop oldest complete note** — add a bounded data structure that can remove the oldest safe complete note without scanning a large queue on every overflow.
-- **Per-note interval gate** — evaluate the specified per-pitch transition model as an isolated feature with exact reset, statistics, and Analysis disclosure.
+
+Build 24 completed the first live per-note interval gate with deterministic pitch ownership, lifecycle reset, separate accounting, and explicit Analysis disclosure.
 
 ## Needs a product decision or more evidence
 

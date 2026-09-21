@@ -244,7 +244,8 @@ namespace MidiBottleneck
     internal enum ProcessingMode
     {
         Queue,
-        Drop
+        Drop,
+        PerNoteIntervalGate
     }
 
     internal enum OverflowPolicy
@@ -272,6 +273,7 @@ namespace MidiBottleneck
         public long MaximumQueueLength;
         public long ProcessedEvents;
         public long DroppedEvents;
+        public long GateFilteredEvents;
         public long PlaybackMicroseconds;
         public long IntendedTimelineMicroseconds;
         public long LastDispatchedTimelineMicroseconds;
@@ -283,6 +285,7 @@ namespace MidiBottleneck
         public bool QueueLengthLimitEnabled;
         public int QueueLengthLimit;
         public OverflowPolicy OverflowPolicy;
+        public ProcessingMode ProcessingMode;
     }
 
     internal interface IMidiOutput

@@ -8,6 +8,7 @@ namespace MidiBottleneck
     internal sealed class ChannelRoutingState
     {
         private readonly long[] _mutedFiltered = new long[16];
+        private readonly int[] _disableGeneration = new int[16];
         private int _disabledMask;
         private int _filterGeneration;
 
@@ -30,6 +31,7 @@ namespace MidiBottleneck
                 if (next == previous) return false;
                 if (Interlocked.CompareExchange(ref _disabledMask, next, previous) == previous)
                 {
+                    if (!enabled) Interlocked.Increment(ref _disableGeneration[channel]);
                     Interlocked.Increment(ref _filterGeneration);
                     return true;
                 }
@@ -40,6 +42,12 @@ namespace MidiBottleneck
         {
             int channel = midiEvent == null ? -1 : midiEvent.Channel;
             return channel >= 0 && channel < 16 && (Volatile.Read(ref _disabledMask) & (1 << channel)) != 0;
+        }
+
+        internal int DisableGeneration(int channel)
+        {
+            ValidateChannel(channel);
+            return Volatile.Read(ref _disableGeneration[channel]);
         }
 
         internal void RecordFiltered(int channel)

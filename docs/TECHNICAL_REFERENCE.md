@@ -24,6 +24,10 @@ The unlimited queue uses contiguous indices into the sorted event store, so back
 
 Muted channel events and source attribute changes conflicting with forced overrides are filtered before scheduler admission. They consume no simulated service, queue space, output rate, or sent count and are reported separately from overflow drops. An event already executing inside a native call cannot be recalled.
 
+The live per-note interval gate uses fixed 128-pitch state, with ownership global by pitch and channel-specific while active. It allocates no per-event gate objects. Each pitch emits at most one transition at a boundary; simultaneous pitches are emitted in ascending pitch order. A NoteOff accepted before its pending NoteOn executes is scheduled for the following boundary. Disabled-channel and override routing filters run first, while controllers, program changes, bend, pressure, SysEx, and system messages keep their established path. Gate rejections are counted separately from queue overflow.
+
+The gate deliberately has no generic simulated queue. Enabling/disabling it or changing its live interval retires and silences the scheduler, then restarts at the same transport position while preserving playing versus paused state. All pitch ownership is recreated from later eligible source events; no notes are chased or replayed.
+
 ## Output boundaries
 
 All outputs implement the same MIDI-output abstraction:
@@ -43,6 +47,8 @@ Whole-file Analysis separates reusable file/resolution workload scanning from co
 Auto resolution is explicit state. Its visible label reports the resolution of the accepted graph, not a pending request. Cancellation retires the active/pending generation, and layout-only height changes do not re-arm the cancelled request.
 
 Queue Projection drains accepted modeled work after the last arrival to calculate predicted output completion. Rejected events add no later service. Static Analysis intentionally excludes live Channel Monitor mutes and overrides.
+
+The first per-note gate implementation is live-playback-only. Analysis labels this explicitly and continues to show the immutable source/configuration queue projection; it does not present that projection as a gate simulation.
 
 ## UI publication cadence
 

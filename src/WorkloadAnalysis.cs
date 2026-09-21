@@ -41,6 +41,7 @@ namespace MidiBottleneck
         public bool QueueLengthLimitEnabled;
         public int QueueLengthLimit;
         public OverflowPolicy OverflowPolicy;
+        public bool PerNoteIntervalGateEnabled;
     }
 
     internal sealed class MessageTypeWorkload
@@ -98,7 +99,8 @@ namespace MidiBottleneck
                 Configuration.MidiBitrate == configuration.MidiBitrate &&
                 Configuration.QueueLengthLimitEnabled == configuration.QueueLengthLimitEnabled &&
                 Configuration.QueueLengthLimit == configuration.QueueLengthLimit &&
-                Configuration.OverflowPolicy == configuration.OverflowPolicy) return this;
+                Configuration.OverflowPolicy == configuration.OverflowPolicy &&
+                Configuration.PerNoteIntervalGateEnabled == configuration.PerNoteIntervalGateEnabled) return this;
             WorkloadAnalysis copy = (WorkloadAnalysis)MemberwiseClone();
             copy.Configuration = configuration;
             return copy;

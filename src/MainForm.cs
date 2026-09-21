@@ -16,6 +16,7 @@ namespace MidiBottleneck
         private const int WmSysCommand = 0x0112;
         private const int SystemMenuAbout = 0x1F20;
         private const int SystemMenuAlwaysOnTop = 0x1F30;
+        private const int SystemMenuPerNoteIntervalGate = 0x1F40;
         private const uint MfString = 0x0000;
         private const uint MfSeparator = 0x0800;
         private const uint MfChecked = 0x0008;
@@ -70,6 +71,8 @@ namespace MidiBottleneck
         private int _lastDefaultRequiredHeight;
         private bool _suppressLoadErrorDialogs;
         private Exception _lastLoadError;
+        private bool _perNoteIntervalGateEnabled;
+        private ServiceDurationMode _serviceModeBeforePerNoteGate = ServiceDurationMode.ProcessingTime;
 
         private Label _fileLabel;
         private Label _fileInfoLabel;
@@ -160,7 +163,9 @@ namespace MidiBottleneck
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuAbout, "About " + ProductIdentity.Name + "…");
                 AppendMenu(menu, MfSeparator, UIntPtr.Zero, null);
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuAlwaysOnTop, "Always on top");
+                AppendMenu(menu, MfString, (UIntPtr)SystemMenuPerNoteIntervalGate, "Per-note interval gate");
                 UpdateAlwaysOnTopMenuCheck();
+                UpdatePerNoteIntervalGateMenuCheck();
             }
         }
 
@@ -171,6 +176,7 @@ namespace MidiBottleneck
                 int command = message.WParam.ToInt32() & 0xFFF0;
                 if (command == SystemMenuAbout) { ShowAboutDialog(); return; }
                 if (command == SystemMenuAlwaysOnTop) { ToggleAlwaysOnTop(); return; }
+                if (command == SystemMenuPerNoteIntervalGate) { TogglePerNoteIntervalGate(); return; }
             }
             base.WndProc(ref message);
         }
@@ -193,6 +199,86 @@ namespace MidiBottleneck
             if (menu == IntPtr.Zero) return;
             CheckMenuItem(menu, (uint)SystemMenuAlwaysOnTop, TopMost ? MfChecked : MfUnchecked);
             DrawMenuBar(Handle);
+        }
+
+        private void UpdatePerNoteIntervalGateMenuCheck()
+        {
+            if (!IsHandleCreated) return;
+            IntPtr menu = GetSystemMenu(Handle, false);
+            if (menu == IntPtr.Zero) return;
+            CheckMenuItem(menu, (uint)SystemMenuPerNoteIntervalGate,
+                _perNoteIntervalGateEnabled ? MfChecked : MfUnchecked);
+            DrawMenuBar(Handle);
+        }
+
+        private void TogglePerNoteIntervalGate()
+        {
+            if (!_perNoteIntervalGateEnabled && _engine.ProcessingMicroseconds <= 0)
+            {
+                MessageBox.Show(this,
+                    "Set Processing time per event to a value greater than zero before enabling the per-note interval gate.",
+                    "Per-note interval gate", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            PlaybackState previousState = _engine.State;
+            bool wasActive = previousState == PlaybackState.Playing || previousState == PlaybackState.Paused;
+            if (!_perNoteIntervalGateEnabled)
+            {
+                _serviceModeBeforePerNoteGate = _engine.ServiceDurationMode;
+                _perNoteIntervalGateEnabled = true;
+                _engine.ServiceDurationMode = ServiceDurationMode.ProcessingTime;
+                _updatingProcessingControls = true;
+                try { _serviceModeCombo.SelectedIndex = 0; }
+                finally { _updatingProcessingControls = false; }
+                ConfigureServiceControls();
+            }
+            else
+            {
+                _perNoteIntervalGateEnabled = false;
+                _engine.ServiceDurationMode = _serviceModeBeforePerNoteGate;
+                _updatingProcessingControls = true;
+                try { _serviceModeCombo.SelectedIndex = _engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate ? 1 : 0; }
+                finally { _updatingProcessingControls = false; }
+                ConfigureServiceControls();
+            }
+
+            if (wasActive) TryRestartForProcessingModeChange(previousState);
+            UpdatePerNoteIntervalGateMenuCheck();
+            UpdateTransportControls();
+            RefreshStatistics();
+            ScheduleAnalysisRefresh();
+        }
+
+        private void RestartForProcessingModeChange(PlaybackState previousState)
+        {
+            if (_song == null || _activeOutput == null) return;
+            PlaybackSnapshot before = _engine.GetSnapshot();
+            long restartPosition = before.IntendedTimelineMicroseconds;
+            _engine.Stop();
+            _selectedPositionMicroseconds = restartPosition;
+            _engine.Start(_song, _activeOutput, SelectedProcessingMode(), restartPosition,
+                previousState == PlaybackState.Paused);
+            _engineSong = _song;
+            ResetLiveMeasurements();
+        }
+
+        private bool TryRestartForProcessingModeChange(PlaybackState previousState)
+        {
+            try
+            {
+                RestartForProcessingModeChange(previousState);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _outputError = ex.Message;
+                UpdateTransportControls();
+                RefreshStatistics();
+                MessageBox.Show(this, ex.Message, "Unable to change per-note interval gate",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
+            }
         }
 
         private void ConfigureMidiDrop(Control control)
@@ -247,6 +333,17 @@ namespace MidiBottleneck
 
         internal bool AlwaysOnTopForTesting { get { return TopMost; } }
         internal static int AlwaysOnTopSystemCommandForTesting { get { return SystemMenuAlwaysOnTop; } }
+        internal bool PerNoteIntervalGateForTesting { get { return _perNoteIntervalGateEnabled; } }
+        internal static int PerNoteIntervalGateSystemCommandForTesting { get { return SystemMenuPerNoteIntervalGate; } }
+        internal bool PerNoteGateControlsLockedForTesting
+        {
+            get
+            {
+                return !_serviceModeCombo.Enabled && !_simulateSlowdownCheck.Enabled &&
+                    !_queueLimitCheck.Enabled && !_queueLimitValue.Enabled &&
+                    !_overflowPolicyCombo.Enabled && _processingValue.Enabled && _processingSlider.Enabled;
+            }
+        }
 
         private void BuildInterface()
         {
@@ -957,7 +1054,7 @@ namespace MidiBottleneck
                 if (_selectedPositionMicroseconds >= _song.DurationMicroseconds)
                     _selectedPositionMicroseconds = 0;
                 IMidiOutput selectedOutput = OpenSelectedOutput();
-                _engine.Start(_song, selectedOutput, _queueLimitCheck.Checked ? ProcessingMode.Drop : ProcessingMode.Queue, _selectedPositionMicroseconds);
+                _engine.Start(_song, selectedOutput, SelectedProcessingMode(), _selectedPositionMicroseconds);
                 _activeOutput = selectedOutput;
                 _engineSong = _song;
                 _outputError = null;
@@ -1015,7 +1112,7 @@ namespace MidiBottleneck
                 ResetLiveMeasurements();
 
                 IMidiOutput replacement = OpenSelectedOutput();
-                _engine.Start(_song, replacement, _queueLimitCheck.Checked ? ProcessingMode.Drop : ProcessingMode.Queue,
+                _engine.Start(_song, replacement, SelectedProcessingMode(),
                     restartPosition, previousState == PlaybackState.Paused);
                 _activeOutput = replacement;
                 _engineSong = _song;
@@ -1065,6 +1162,12 @@ namespace MidiBottleneck
             RefreshStatistics();
         }
 
+        private ProcessingMode SelectedProcessingMode()
+        {
+            if (_perNoteIntervalGateEnabled) return ProcessingMode.PerNoteIntervalGate;
+            return _queueLimitCheck.Checked ? ProcessingMode.Drop : ProcessingMode.Queue;
+        }
+
         private void ProcessingValueChanged(object sender, EventArgs e)
         {
             if (_updatingProcessingControls) return;
@@ -1098,11 +1201,14 @@ namespace MidiBottleneck
         {
             if (microseconds < 0) microseconds = 0;
             if (microseconds > 1000000) microseconds = 1000000;
+            if (_perNoteIntervalGateEnabled && microseconds == 0) microseconds = 1;
+            long previousMicroseconds = _engine.ProcessingMicroseconds;
+            PlaybackState previousState = _engine.State;
             _engine.ProcessingMicroseconds = microseconds;
             _updatingProcessingControls = true;
             try
             {
-                if (!fromNumeric)
+                if (!fromNumeric || _processingValue.Value != microseconds)
                 {
                     _processingValue.DecimalPlaces = 0;
                     _processingValue.Increment = 1m;
@@ -1114,6 +1220,9 @@ namespace MidiBottleneck
             }
             finally { _updatingProcessingControls = false; }
             UpdateProcessingSummary(microseconds);
+            if (_perNoteIntervalGateEnabled && previousMicroseconds != microseconds &&
+                (previousState == PlaybackState.Playing || previousState == PlaybackState.Paused))
+                TryRestartForProcessingModeChange(previousState);
             RefreshStatistics();
             ScheduleAnalysisRefresh();
         }
@@ -1121,7 +1230,9 @@ namespace MidiBottleneck
         private void UpdateProcessingSummary(long microseconds)
         {
             _toolTip.SetToolTip(_processingSlider,
-                "Click or drag to set the rate. Fine adjustment to 5,000 µs; logarithmic above. A live edit applies to the next event that begins service.");
+                _perNoteIntervalGateEnabled
+                    ? "Sets the nonzero interval for the per-note gate. A live edit safely silences and restarts the scheduler at the same position."
+                    : "Click or drag to set the rate. Fine adjustment to 5,000 µs; logarithmic above. A live edit applies to the next event that begins service.");
         }
 
         private void ServiceModeChanged(object sender, EventArgs e)
@@ -1156,7 +1267,7 @@ namespace MidiBottleneck
                 {
                     _serviceValueLabel.Text = _compactLayout ? "Time/event:" : "Processing time per event:";
                     _processingValue.Width = _compactLayout ? 77 : 100;
-                    _processingValue.Minimum = 0;
+                    _processingValue.Minimum = _perNoteIntervalGateEnabled ? 1 : 0;
                     _serviceUnitLabel.Text = "µs";
                     _dinPresetButton.Visible = false;
                 }
@@ -1235,12 +1346,15 @@ namespace MidiBottleneck
             bool active = _engine.State == PlaybackState.Playing || _engine.State == PlaybackState.Paused;
             bool slowdown = _simulateSlowdownCheck.Checked;
             bool limited = _queueLimitCheck.Checked;
-            _queueLimitValue.Enabled = limited && !active;
-            _overflowPolicyCombo.Enabled = limited;
-            _serviceModeCombo.Enabled = slowdown;
-            _processingValue.Enabled = slowdown;
-            _processingSlider.Enabled = slowdown;
-            _dinPresetButton.Enabled = slowdown && _engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate;
+            bool gate = _perNoteIntervalGateEnabled;
+            _simulateSlowdownCheck.Enabled = !gate;
+            _queueLimitCheck.Enabled = !gate && !active;
+            _queueLimitValue.Enabled = !gate && limited && !active;
+            _overflowPolicyCombo.Enabled = !gate && limited;
+            _serviceModeCombo.Enabled = !gate && slowdown;
+            _processingValue.Enabled = gate || slowdown;
+            _processingSlider.Enabled = gate || slowdown;
+            _dinPresetButton.Enabled = !gate && slowdown && _engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate;
         }
 
         private static int BitrateToSlider(long bitrate)
@@ -1283,7 +1397,9 @@ namespace MidiBottleneck
                 : (double?)null;
             double? outputRate = snapshot.State == PlaybackState.Playing
                 ? _outputRate.Add(snapshot.ProcessedEvents, sampleTime) : (double?)null;
-            string configuredRate = FormatMaximumRate(snapshot, _outputRate.MaximumObserved, _compactLayout);
+            string configuredRate = _perNoteIntervalGateEnabled
+                ? (_compactLayout ? "Per-note gate" : "Per-note interval gate")
+                : FormatMaximumRate(snapshot, _outputRate.MaximumObserved, _compactLayout);
             if (snapshot.DroppedEvents > _lastDroppedEvents)
                 _overflowVisibleUntilMicroseconds = sampleTime + 800000;
             _lastDroppedEvents = snapshot.DroppedEvents;
@@ -1295,12 +1411,12 @@ namespace MidiBottleneck
                 _compactLayout && outputRate.HasValue
                     ? outputRate.Value.ToString("N0", CultureInfo.CurrentCulture) + " events/s"
                     : RollingOutputRate.Format(outputRate),
-                snapshot.ProcessedEvents.ToString("N0", CultureInfo.CurrentCulture) + " / " + snapshot.DroppedEvents.ToString("N0", CultureInfo.CurrentCulture),
+                FormatEventCounts(snapshot, _compactLayout),
                 EffectivePlaybackSpeed.Format(speed),
                 FormatLagMilliseconds(snapshot.MaximumLagMicroseconds),
                 FormatLagMilliseconds(snapshot.CurrentLagMicroseconds)
             });
-            _statisticsView.SetQueuePressure(_queueLimitCheck.Checked, snapshot.OutstandingEvents,
+            _statisticsView.SetQueuePressure(_queueLimitCheck.Checked && !_perNoteIntervalGateEnabled, snapshot.OutstandingEvents,
                 Decimal.ToInt64(_queueLimitValue.Value), sampleTime < _overflowVisibleUntilMicroseconds);
             string stateText = snapshot.State.ToString();
             if (!String.Equals(_stateLabel.Text, stateText, StringComparison.Ordinal))
@@ -1318,7 +1434,7 @@ namespace MidiBottleneck
                         State = snapshot.State.ToString(),
                         TimelineAndOutput = FormatTime(snapshot.IntendedTimelineMicroseconds) + " / " + FormatTime(snapshot.LastDispatchedTimelineMicroseconds),
                         Queue = snapshot.OutstandingEvents.ToString("N0", CultureInfo.CurrentCulture) + " / " + snapshot.MaximumQueueLength.ToString("N0", CultureInfo.CurrentCulture),
-                        Events = snapshot.ProcessedEvents.ToString("N0", CultureInfo.CurrentCulture) + " / " + snapshot.DroppedEvents.ToString("N0", CultureInfo.CurrentCulture),
+                        Events = FormatEventCounts(snapshot, false),
                         OutputRate = RollingOutputRate.Format(outputRate),
                         EffectiveSpeed = EffectivePlaybackSpeed.Format(speed),
                         Lag = FormatLagMilliseconds(snapshot.CurrentLagMicroseconds) + " / " + FormatLagMilliseconds(snapshot.MaximumLagMicroseconds)
@@ -1340,7 +1456,6 @@ namespace MidiBottleneck
             _playButton.Text = state == PlaybackState.Playing ? "Pause" : state == PlaybackState.Paused ? "Resume" : "Play";
             _stopButton.Enabled = active || state == PlaybackState.Completed;
             _outputCombo.Enabled = !_kdmApiCheck.Checked && _outputCombo.Items.Count > 0;
-            _queueLimitCheck.Enabled = !active;
             UpdatePolicyControlState();
             bool canSeek = _song != null && !_loadingSong;
             _timelineView.Enabled = canSeek;
@@ -1595,6 +1710,7 @@ namespace MidiBottleneck
             configuration.QueueLengthLimitEnabled = _queueLimitCheck.Checked;
             configuration.QueueLengthLimit = Decimal.ToInt32(_queueLimitValue.Value);
             configuration.OverflowPolicy = (OverflowPolicy)Math.Max(0, _overflowPolicyCombo.SelectedIndex);
+            configuration.PerNoteIntervalGateEnabled = _perNoteIntervalGateEnabled;
             return configuration;
         }
 
@@ -1923,6 +2039,8 @@ namespace MidiBottleneck
         internal static string FormatMaximumRate(PlaybackSnapshot snapshot, double? observedRate, bool compact)
         {
             if (snapshot == null) return "—";
+            if (snapshot.ProcessingMode == ProcessingMode.PerNoteIntervalGate)
+                return compact ? "Per-note gate" : "Per-note interval gate";
             bool immediate = !snapshot.SimulateSlowdown ||
                 (snapshot.ServiceDurationMode == ServiceDurationMode.ProcessingTime && snapshot.ProcessingMicroseconds == 0);
             if (immediate) return FormatObservedMaximumRate(observedRate, compact);
@@ -1930,6 +2048,18 @@ namespace MidiBottleneck
                 return snapshot.MidiBitrate.ToString("N0", CultureInfo.CurrentCulture) + " bit/s";
             return (1000000.0 / Math.Max(1, snapshot.ProcessingMicroseconds)).ToString(compact ? "N0" : "N1",
                 CultureInfo.CurrentCulture) + (compact ? " events/s" : " events/sec");
+        }
+
+        internal static string FormatEventCounts(PlaybackSnapshot snapshot, bool compact)
+        {
+            if (snapshot == null) return "—";
+            string value = snapshot.ProcessedEvents.ToString("N0", CultureInfo.CurrentCulture) + " / " +
+                snapshot.DroppedEvents.ToString("N0", CultureInfo.CurrentCulture);
+            if (snapshot.ProcessingMode == ProcessingMode.PerNoteIntervalGate && snapshot.GateFilteredEvents != 0)
+                value += compact
+                    ? " (+" + snapshot.GateFilteredEvents.ToString("N0", CultureInfo.CurrentCulture) + " gate)"
+                    : " (+" + snapshot.GateFilteredEvents.ToString("N0", CultureInfo.CurrentCulture) + " gate-filtered)";
+            return value;
         }
 
         private void ShowEffectiveSpeedMenu(object sender, MouseEventArgs e)

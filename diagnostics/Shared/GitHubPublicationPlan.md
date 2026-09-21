@@ -18,10 +18,10 @@ No complete missing handoff tree was recovered during the bounded protected-snap
 - first-party icon assets and manifests;
 - build and explicit allowlist packaging scripts;
 - README, GPL license, contribution/security policy, issue and pull-request templates;
-- build, packaging, compatibility, provenance, and Build 01–22 release notes;
+- build, packaging, compatibility, provenance, and versioned release notes;
 - a concise public build index.
 
-The clean release package contains only the two MIDIBottleneck executables, their matching configurations, `LICENSE`, `README.md`, and `SHA256SUMS.txt`.
+Current releases use two explicit architecture ZIPs plus `SHA256SUMS.txt`. Each ZIP contains its executable, `LICENSE`, and `README.md`; x64 additionally includes its required `.exe.config`, while x86 deliberately has no ineffective configuration sidecar.
 
 ## Repository presentation
 
@@ -54,3 +54,5 @@ The local gate passed on 2026-09-20; see [PublicationGate.md](PublicationGate.md
 The sanitized `main`, explicit `v1.0.1`–`v1.0.22` tags, and 22 Release pages were published without exposing local snapshot/safety refs. Build 22's seven original loose assets were downloaded again, validated against `SHA256SUMS.txt`, and launch-smoked. A new public clone passed 91/91 deterministic tests on x86 and x64 and `git fsck` reported no structural problem.
 
 Build 23 replaces the loose current-release layout with explicit x86/x64 ZIPs and a top-level checksum file. This record remains the publication procedure and provenance evidence; it is no longer an authentication-blocker notice.
+
+Build 24 retains that layout and removes the x86 configuration sidecar after focused architecture verification. The x64 sidecar remains required until segmented storage eliminates the possible greater-than-2-GB contiguous reference array.

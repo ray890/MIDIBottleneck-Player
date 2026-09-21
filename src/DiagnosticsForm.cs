@@ -852,7 +852,8 @@ namespace MidiBottleneck
                 MidiBitrate = source.MidiBitrate,
                 QueueLengthLimitEnabled = source.QueueLengthLimitEnabled,
                 QueueLengthLimit = source.QueueLengthLimit,
-                OverflowPolicy = source.OverflowPolicy
+                OverflowPolicy = source.OverflowPolicy,
+                PerNoteIntervalGateEnabled = source.PerNoteIntervalGateEnabled
             };
         }
 
@@ -1011,6 +1012,11 @@ namespace MidiBottleneck
                 text.AppendLine();
                 text.AppendLine("QUEUE PROJECTION");
                 text.AppendLine("Queue length limit    " + (configuration.QueueLengthLimitEnabled ? configuration.QueueLengthLimit.ToString("N0", CultureInfo.CurrentCulture) + " event slots" : "Unlimited"));
+                if (configuration.PerNoteIntervalGateEnabled)
+                {
+                    text.AppendLine("Per-note interval gate Live playback only");
+                    text.AppendLine("Gate projection       Not included in this static source/configuration Analysis");
+                }
                 if (configuration.QueueLengthLimitEnabled)
                     text.AppendLine("Overflow policy       " + FormatOverflowPolicy(configuration.OverflowPolicy));
                 text.AppendLine("Predicted peak        " + analysis.PredictedMaximumOccupancy.ToString("N0", CultureInfo.CurrentCulture) + " outstanding events");

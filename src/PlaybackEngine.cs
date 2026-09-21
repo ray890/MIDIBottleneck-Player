@@ -38,6 +38,7 @@ namespace MidiBottleneck
         private long _maximumQueueLength;
         private long _processedEvents;
         private long _droppedEvents;
+        private long _gateFilteredEvents;
         private long _lastDispatchedMicroseconds;
         private long _currentLagMicroseconds;
         private long _maximumLagMicroseconds;
@@ -419,6 +420,7 @@ namespace MidiBottleneck
                 _maximumQueueLength = _outstandingEvents;
                 _processedEvents = 0;
                 _droppedEvents = 0;
+                _gateFilteredEvents = 0;
                 _maximumLagMicroseconds = _currentLagMicroseconds;
             }
             _channelOverrides.ResetStatistics();
@@ -680,6 +682,7 @@ namespace MidiBottleneck
                 snapshot.MidiBitrate = Interlocked.Read(ref _midiBitrate);
                 snapshot.SimulateSlowdown = Volatile.Read(ref _simulateSlowdown) != 0;
                 snapshot.QueueLengthLimitEnabled = _mode == ProcessingMode.Drop;
+                snapshot.ProcessingMode = _mode;
                 snapshot.QueueLengthLimit = Volatile.Read(ref _queueLengthLimit);
                 snapshot.OverflowPolicy = (OverflowPolicy)Volatile.Read(ref _overflowPolicy);
                 snapshot.QueueLength = _queueLength;
@@ -687,6 +690,7 @@ namespace MidiBottleneck
                 snapshot.MaximumQueueLength = _maximumQueueLength;
                 snapshot.ProcessedEvents = _processedEvents;
                 snapshot.DroppedEvents = _droppedEvents;
+                snapshot.GateFilteredEvents = _gateFilteredEvents;
                 snapshot.PlaybackMicroseconds = playbackUs;
                 snapshot.IntendedTimelineMicroseconds = _song == null ? 0 : Math.Min(playbackUs, _song.DurationMicroseconds);
                 snapshot.LastDispatchedTimelineMicroseconds = _lastDispatchedMicroseconds;
@@ -706,8 +710,10 @@ namespace MidiBottleneck
                 {
                     if (_mode == ProcessingMode.Queue)
                         RunQueueMode(waiter);
-                    else
+                    else if (_mode == ProcessingMode.Drop)
                         RunDropMode(waiter);
+                    else
+                        RunPerNoteIntervalGate(waiter);
                 }
                 lock (_sync)
                     completed = _state == PlaybackState.Playing && _song != null;
@@ -1106,9 +1112,120 @@ namespace MidiBottleneck
             }
         }
 
+        private void RunPerNoteIntervalGate(HighResolutionWaiter waiter)
+        {
+            long interval = Interlocked.Read(ref _processingMicroseconds);
+            if (interval <= 0)
+                throw new InvalidOperationException("Per-note interval gate requires a nonzero processing interval.");
+
+            PerNoteIntervalGate gate = new PerNoteIntervalGate(interval);
+            MidiEvent[] boundaryEvents = new MidiEvent[128];
+            MidiEvent[] retiredEvents = new MidiEvent[256];
+            int nextArrival = _startEventIndex;
+            int routingGeneration = _channelRouting.FilterGeneration;
+            int[] disableGenerations = new int[16];
+            for (int channel = 0; channel < 16; channel++)
+                disableGenerations[channel] = _channelRouting.DisableGeneration(channel);
+            FilteredSourceEvents sourceFilters = new FilteredSourceEvents();
+
+            while (IsActive())
+            {
+                int iterationWakeGeneration = Volatile.Read(ref _wakeGeneration);
+                ApplyPendingChannelControls();
+                if (!WaitWhilePaused()) return;
+                ApplyPendingOverrides();
+
+                int currentRoutingGeneration = _channelRouting.FilterGeneration;
+                if (currentRoutingGeneration != routingGeneration)
+                {
+                    for (int channel = 0; channel < 16; channel++)
+                    {
+                        int disabledAt = _channelRouting.DisableGeneration(channel);
+                        if (disabledAt == disableGenerations[channel]) continue;
+                        disableGenerations[channel] = disabledAt;
+                        int retired = gate.RetireChannel(channel, retiredEvents);
+                        for (int index = 0; index < retired; index++)
+                            _channelRouting.RecordFiltered(channel);
+                    }
+                    routingGeneration = currentRoutingGeneration;
+                    PublishChannelState(true);
+                }
+
+                long nowMicroseconds = TicksToMicroseconds(CurrentTransportTicks());
+                bool didWork = false;
+                int examined = 0;
+                long batchStarted = Stopwatch.GetTimestamp();
+                while (IsPlaying() && Volatile.Read(ref _dispatchSuspended) == 0)
+                {
+                    long nextBoundary = gate.NextBoundaryMicroseconds;
+                    long nextSource = nextArrival < _events.Count
+                        ? _events[nextArrival].IntendedMicroseconds : Int64.MaxValue;
+                    long nextAction = Math.Min(nextBoundary, nextSource);
+                    if (nextAction > nowMicroseconds) break;
+
+                    // An accepted transition wins a tie at its boundary. A
+                    // source event arriving exactly there is considered for
+                    // the following boundary.
+                    if (nextBoundary <= nextSource)
+                    {
+                        int count = gate.EmitBoundary(nextBoundary, boundaryEvents);
+                        for (int index = 0; index < count; index++)
+                        {
+                            // A native send may have been blocked while a
+                            // transport boundary was requested. Do not emit
+                            // the rest of the logical batch after it returns.
+                            if (Volatile.Read(ref _dispatchSuspended) != 0 || !IsPlaying()) return;
+                            DispatchMidiEvent(boundaryEvents[index]);
+                        }
+                        examined += Math.Max(1, count);
+                    }
+                    else
+                    {
+                        int eventIndex = nextArrival++;
+                        examined++;
+                        if (HasActiveSourceFilters() && MarkNewSourceFiltered(eventIndex, sourceFilters))
+                        {
+                            didWork = true;
+                            nowMicroseconds = TicksToMicroseconds(CurrentTransportTicks());
+                            if (examined >= 2048 || Stopwatch.GetTimestamp() - batchStarted >= Stopwatch.Frequency / 125)
+                                break;
+                            continue;
+                        }
+
+                        MidiEvent midiEvent = _events[eventIndex];
+                        PerNoteGateAdmission admission = gate.Admit(midiEvent);
+                        if (admission == PerNoteGateAdmission.NotNote)
+                            DispatchMidiEvent(midiEvent);
+                        else if (admission == PerNoteGateAdmission.Filtered)
+                            lock (_sync) _gateFilteredEvents++;
+                    }
+                    didWork = true;
+                    nowMicroseconds = TicksToMicroseconds(CurrentTransportTicks());
+                    if (examined >= 2048 || Stopwatch.GetTimestamp() - batchStarted >= Stopwatch.Frequency / 125)
+                        break;
+                }
+
+                UpdateQueue(0, false);
+                if (nextArrival >= _events.Count && !gate.HasPendingTransitions) return;
+
+                long targetMicroseconds = gate.NextBoundaryMicroseconds;
+                if (nextArrival < _events.Count)
+                    targetMicroseconds = Math.Min(targetMicroseconds, _events[nextArrival].IntendedMicroseconds);
+                long nowTicks = CurrentTransportTicks();
+                long targetTicks = MicrosecondsToTicks(targetMicroseconds);
+                PublishChannelStateBeforeWait(targetTicks, nowTicks);
+                if (!didWork || targetTicks > nowTicks)
+                    WaitUntil(waiter, targetTicks, iterationWakeGeneration);
+            }
+        }
+
         private void Dispatch(int eventIndex, long actualTransportTicks)
         {
-            MidiEvent midiEvent = _events[eventIndex];
+            DispatchMidiEvent(_events[eventIndex]);
+        }
+
+        private void DispatchMidiEvent(MidiEvent midiEvent)
+        {
             SendScheduledEvent(midiEvent, Volatile.Read(ref _channelMonitoringEnabled) != 0);
             long actualUs = TicksToMicroseconds(CurrentTransportTicks());
             long lag = Math.Max(0, actualUs - midiEvent.IntendedMicroseconds);
@@ -1661,6 +1778,7 @@ namespace MidiBottleneck
             _maximumQueueLength = 0;
             _processedEvents = 0;
             _droppedEvents = 0;
+            _gateFilteredEvents = 0;
             _lastDispatchedMicroseconds = 0;
             _currentLagMicroseconds = 0;
             _maximumLagMicroseconds = 0;

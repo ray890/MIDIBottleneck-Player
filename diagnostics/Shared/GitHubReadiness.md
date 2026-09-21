@@ -1,6 +1,6 @@
 # GitHub readiness
 
-Build 22 is licensed under GPL-3.0-or-later and was published from the sanitized public-history candidate on 2026-09-20.
+The project is licensed under GPL-3.0-or-later and was published from the sanitized public-history candidate on 2026-09-20. Later releases move forward without rewriting that history.
 
 ## Publication boundary
 
@@ -8,7 +8,7 @@ Build 22 is licensed under GPL-3.0-or-later and was published from the sanitized
 - The private diagnostics archive is omitted from every outgoing commit because it contains raw provider logs, personal machine paths, and publication-irrelevant compatibility material.
 - Provider DLLs, synthesizers, MIDI files, build output, PDBs, archives, and local test inputs are not tracked or packaged.
 - External test material lives outside this project and is not part of the audit.
-- Private `refs/codex-snapshots/*` and `refs/codex-safety/*` are local recovery state. Only `main` and explicit `v1.0.1`–`v1.0.22` tags may be pushed.
+- Private `refs/codex-snapshots/*` and `refs/codex-safety/*` are local recovery state. Only `main` and individually reviewed version tags may be pushed.
 
 ## Gate result
 
@@ -16,6 +16,6 @@ The sanitized candidate passed full-history path/secret/binary scans, `git fsck`
 
 ## Published state
 
-The public repository is [Ray890/MIDIBottleneck-Player](https://github.com/ray890/MIDIBottleneck-Player). Build 01–22 tags and Release pages were published explicitly; Build 22's first-party assets were downloaded again, checksum-verified, and launch-smoked. A fresh public clone passed 91/91 deterministic tests on both x86 and x64.
+The public repository is [Ray890/MIDIBottleneck-Player](https://github.com/ray890/MIDIBottleneck-Player). Build 01–23 tags and Release pages were published explicitly. Current releases use explicit x86/x64 ZIPs and a checksum manifest rather than enumerating the ignored `dist` directory. Build 22's original assets and the later ZIP layout were independently downloaded and verified during publication maintenance.
 
 Only `main` and the explicit version tags were pushed. Private snapshot and safety refs remain local. Future publication must retain that explicit-ref rule and must not use mirror, all-ref, or wildcard pushes.

@@ -38,6 +38,14 @@ Overflow choices include:
 
 Channel mutes and forced-attribute conflicts are filtered before queue admission. They are reported separately and do not consume simulated service or queue capacity.
 
+### Per-note interval gate
+
+The title-bar system menu can enable **Per-note interval gate** when the processing-time value is greater than zero. While enabled, the player locks the rate model to Processing time per event and temporarily disables the generic slowdown and queue controls without changing their saved choices.
+
+The interval applies independently to each MIDI pitch across all channels. The first eligible NoteOn owns that pitch until its matching-channel NoteOff is emitted; duplicate NoteOns, unmatched NoteOffs, and wrong-channel NoteOffs are gate-filtered. If an owning NoteOff arrives before its pending NoteOn is emitted, it waits for the following interval rather than collapsing both transitions onto one boundary. Other MIDI messages retain their ordinary source-time path.
+
+The Sent/dropped statistic shows gate rejections separately in parentheses. Changing the gate, its interval, output, or transport state uses the normal safe silence/restart boundary, so stale pitch ownership cannot survive Pause, Seek, Stop, or an output restart.
+
 ## Playback and statistics
 
 Play, Pause, Seek, Stop, output switching, and file replacement use ordered worker boundaries so native sends do not overlap. A native call already executing cannot be forcibly interrupted; control takes effect as soon as it returns.
@@ -76,4 +84,4 @@ Overrides persist across normal playback boundaries for the same file and clear 
 
 The main window switches to a measured compact arrangement below its responsive width boundary. Controls retain full tooltips where captions or values must ellipsize.
 
-The title-bar system menu contains **About** and a session-only **Always on top** option.
+The title-bar system menu contains **About**, a session-only **Always on top** option, and **Per-note interval gate**.
