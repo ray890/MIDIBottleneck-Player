@@ -26,6 +26,7 @@ The public history was reconstructed because original Git commits did not exist.
 | 20 | pre-admission-filtering | 2026-09-19 11:20 -04:00 | exact corrected baseline | `v1.0.20` |
 | 21 | source-value-chase | 2026-09-19 17:22 -04:00 | exact | `v1.0.21` |
 | 22 | drag-drop-analysis-completion | 2026-09-20 04:21 -04:00 | exact | `v1.0.22` |
+| 23 | public-documentation-packaging | 2026-09-21 00:00 -04:00 | exact | `v1.0.23` |
 
 ## Evidence-recovery result
 
@@ -33,4 +34,4 @@ The publication audit compared all protected implementation snapshots against so
 
 The public rewrite preserves every defensible source/test/root-file delta. Private diagnostics, raw native-provider logs, personal machine paths, and recovery manifests are deliberately absent from all public commits. Release notes disclose source confidence individually.
 
-The rewritten commit mapping is recorded in [PublicCommitMapping.csv](PublicCommitMapping.csv). `SELF` is used for Build 22 because embedding a commit's own hash in its tracked contents is impossible; resolve it from `main` or `v1.0.22`. The private pre-sanitization mapping remains only in local safety references. The clean-clone gate and publication blocker are recorded in [PublicationGate.md](Shared/PublicationGate.md).
+The rewritten Build 01–22 mapping is recorded in [PublicCommitMapping.csv](PublicCommitMapping.csv). `SELF` is used where embedding a commit's own hash in its tracked contents is impossible; resolve current milestones from `main` or their version tag. The private pre-sanitization mapping remains only in local safety references. The original clean-clone gate and its successful publication resolution are recorded in [PublicationGate.md](Shared/PublicationGate.md).

@@ -1,6 +1,6 @@
 # GitHub readiness
 
-Build 22 is licensed under GPL-3.0-or-later and has a sanitized public-history candidate.
+Build 22 is licensed under GPL-3.0-or-later and was published from the sanitized public-history candidate on 2026-09-20.
 
 ## Publication boundary
 
@@ -14,4 +14,8 @@ Build 22 is licensed under GPL-3.0-or-later and has a sanitized public-history c
 
 The sanitized candidate passed full-history path/secret/binary scans, `git fsck`, an isolated clean-clone build, 91/91 deterministic tests on x86 and x64, explicit package verification, icon/metadata checks, and both launch/normal-close smokes. Details and hashes are in [PublicationGate.md](PublicationGate.md).
 
-External publication is blocked: GitHub CLI is unavailable, Git Credential Manager has no authenticated GitHub account, and the available browser is signed out. No remote or GitHub repository was created. The public repository is `Ray890/MIDIBottleneck-Player` only after Ray890 authenticates a safe write route and remote verification succeeds. Do not use mirror, all-ref, or wildcard pushes.
+## Published state
+
+The public repository is [Ray890/MIDIBottleneck-Player](https://github.com/ray890/MIDIBottleneck-Player). Build 01–22 tags and Release pages were published explicitly; Build 22's first-party assets were downloaded again, checksum-verified, and launch-smoked. A fresh public clone passed 91/91 deterministic tests on both x86 and x64.
+
+Only `main` and the explicit version tags were pushed. Private snapshot and safety refs remain local. Future publication must retain that explicit-ref rule and must not use mirror, all-ref, or wildcard pushes.

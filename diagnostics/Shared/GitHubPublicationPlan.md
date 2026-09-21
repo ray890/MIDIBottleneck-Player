@@ -47,6 +47,10 @@ Use GitHub private vulnerability reporting as the security contact. Public issue
 
 Never push with `--mirror`, `--all`, `--tags` without an explicit reviewed tag set, or wildcard refspecs. Do not create or store tokens in this repository.
 
-## Current status
+## Publication result
 
-The complete local gate passed on 2026-09-20; see [PublicationGate.md](PublicationGate.md). Annotated historical tags and Release-page bodies are prepared locally. Publication stopped at the external authentication boundary: this host has no GitHub CLI account, Git Credential Manager has no GitHub account, and the in-app browser is signed out. No remote, public repository, pushed ref, tag, or Release entry exists yet.
+The local gate passed on 2026-09-20; see [PublicationGate.md](PublicationGate.md). Git Credential Manager then provided an authenticated Ray890 write route. The public repository is [Ray890/MIDIBottleneck-Player](https://github.com/ray890/MIDIBottleneck-Player).
+
+The sanitized `main`, explicit `v1.0.1`–`v1.0.22` tags, and 22 Release pages were published without exposing local snapshot/safety refs. Build 22's seven original loose assets were downloaded again, validated against `SHA256SUMS.txt`, and launch-smoked. A new public clone passed 91/91 deterministic tests on x86 and x64 and `git fsck` reported no structural problem.
+
+Build 23 replaces the loose current-release layout with explicit x86/x64 ZIPs and a top-level checksum file. This record remains the publication procedure and provenance evidence; it is no longer an authentication-blocker notice.

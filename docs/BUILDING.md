@@ -15,7 +15,9 @@ Outputs are written to ignored `build/` and `dist/` directories. The expected ap
 - `dist\MIDIBottleneck Player x86.exe`
 - `dist\MIDIBottleneck Player x64.exe`
 
-Each has a matching `.exe.config` copied from `app.config`. The icon is embedded as both a native executable icon and a managed resource.
+Each has a matching `.exe.config` copied from `app.config`. The x64 configuration enables .NET Framework very-large arrays for the current contiguous event store. The setting affects only 64-bit processes; the x86 package retains a matching configuration for a predictable distribution layout. The icon is embedded as both a native executable icon and a managed resource.
+
+The same deterministic command runs in the repository's Windows GitHub Actions workflow. Native-provider integration is deliberately separate.
 
 `-MidiIntegration` is optional and intentionally excluded from the clean-clone gate because it opens installed native MIDI outputs. It requires user-supplied compatible providers and must be externally bounded:
 

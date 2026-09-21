@@ -7,7 +7,7 @@ body:
     id: build
     attributes:
       label: MIDIBottleneck build and architecture
-      placeholder: Build 22, x64
+      placeholder: Build 23, x64
     validations:
       required: true
   - type: textarea

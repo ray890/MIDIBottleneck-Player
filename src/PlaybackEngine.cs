@@ -11,6 +11,7 @@ namespace MidiBottleneck
         internal const int DefaultDropBufferCapacity = DefaultQueueLengthLimit;
         private readonly object _sync = new object();
         private readonly EventWaitHandle _wake = new EventWaitHandle(false, EventResetMode.ManualReset);
+        private int _wakeGeneration;
         private Thread _thread;
         private MidiSong _song;
         private MidiEventReader _events;
@@ -66,7 +67,7 @@ namespace MidiBottleneck
             {
                 if (value < 0) value = 0;
                 Interlocked.Exchange(ref _processingMicroseconds, value);
-                _wake.Set();
+                SignalWake();
             }
         }
 
@@ -76,7 +77,7 @@ namespace MidiBottleneck
             set
             {
                 Volatile.Write(ref _serviceDurationMode, (int)value);
-                _wake.Set();
+                SignalWake();
             }
         }
 
@@ -87,7 +88,7 @@ namespace MidiBottleneck
             {
                 if (value < 1) value = 1;
                 Interlocked.Exchange(ref _midiBitrate, value);
-                _wake.Set();
+                SignalWake();
             }
         }
 
@@ -97,7 +98,7 @@ namespace MidiBottleneck
             set
             {
                 Volatile.Write(ref _simulateSlowdown, value ? 1 : 0);
-                _wake.Set();
+                SignalWake();
             }
         }
 
@@ -223,7 +224,7 @@ namespace MidiBottleneck
                     Volatile.Write(ref _dispatchSuspended, 1);
                 }
             }
-            _wake.Set();
+            SignalWake();
         }
 
         public void Pause()
@@ -258,7 +259,7 @@ namespace MidiBottleneck
                 _thread.Priority = ThreadPriority.AboveNormal;
                 _thread.Start();
             }
-            _wake.Set();
+            SignalWake();
         }
 
         public void Resume()
@@ -270,7 +271,7 @@ namespace MidiBottleneck
                 _state = PlaybackState.Playing;
                 Volatile.Write(ref _dispatchSuspended, 0);
             }
-            _wake.Set();
+            SignalWake();
         }
 
         public void Stop()
@@ -300,7 +301,7 @@ namespace MidiBottleneck
                 _workerExitSilenceFailure = null;
                 _silenceWhenWorkerExits = thread != null;
             }
-            _wake.Set();
+            SignalWake();
 
             if (thread == null)
             {
@@ -496,7 +497,7 @@ namespace MidiBottleneck
                 PublishChannelState(true);
                 throw;
             }
-            if (!sentDirectly) _wake.Set();
+            if (!sentDirectly) SignalWake();
             PublishChannelState(true);
         }
 
@@ -573,7 +574,7 @@ namespace MidiBottleneck
                     catch (Exception ex) { immediateError = ex; }
                 }
             }
-            if (queued) _wake.Set();
+            if (queued) SignalWake();
             else
             {
                 request.Complete(immediateError);
@@ -787,6 +788,7 @@ namespace MidiBottleneck
 
             while (IsActive())
             {
+                int iterationWakeGeneration = Volatile.Read(ref _wakeGeneration);
                 ApplyPendingChannelControls();
                 if (!WaitWhilePaused()) return;
                 ApplyPendingOverrides();
@@ -847,7 +849,7 @@ namespace MidiBottleneck
                 if (inService < 0 && eligiblePending == 0)
                     SetCurrentLag(0);
                 PublishChannelStateBeforeWait(target, now);
-                WaitUntil(waiter, target);
+                WaitUntil(waiter, target, iterationWakeGeneration);
             }
         }
 
@@ -873,6 +875,7 @@ namespace MidiBottleneck
 
             while (IsActive())
             {
+                int iterationWakeGeneration = Volatile.Read(ref _wakeGeneration);
                 ApplyPendingChannelControls();
                 if (!WaitWhilePaused()) return;
                 ApplyPendingOverrides();
@@ -1099,7 +1102,7 @@ namespace MidiBottleneck
                 if (inService < 0)
                     SetCurrentLag(0);
                 PublishChannelStateBeforeWait(target, now);
-                WaitUntil(waiter, target);
+                WaitUntil(waiter, target, iterationWakeGeneration);
             }
         }
 
@@ -1566,18 +1569,27 @@ namespace MidiBottleneck
                 lock (_sync) state = _state;
                 if (state == PlaybackState.Playing) return true;
                 if (state != PlaybackState.Paused) return false;
+                int wakeGeneration = Volatile.Read(ref _wakeGeneration);
                 ApplyPendingChannelControls();
                 _wake.Reset();
+                if (wakeGeneration != Volatile.Read(ref _wakeGeneration)) continue;
                 lock (_sync) state = _state;
                 if (state == PlaybackState.Paused) _wake.WaitOne();
             }
         }
 
-        private void WaitUntil(HighResolutionWaiter waiter, long targetTicks)
+        private void SignalWake()
+        {
+            Interlocked.Increment(ref _wakeGeneration);
+            _wake.Set();
+        }
+
+        private void WaitUntil(HighResolutionWaiter waiter, long targetTicks, int iterationWakeGeneration)
         {
             while (IsActive())
             {
                 _wake.Reset();
+                if (iterationWakeGeneration != Volatile.Read(ref _wakeGeneration)) return;
                 if (!IsPlaying()) return;
                 long remainingTicks = targetTicks - CurrentTransportTicks();
                 if (remainingTicks <= 0) return;

@@ -10,38 +10,92 @@ if ([String]::IsNullOrWhiteSpace($OutputDirectory)) {
     $OutputDirectory = Join-Path $projectRoot 'release-package'
 }
 
-# This allowlist is deliberately explicit. Never sweep the ignored dist
-# directory into a package, even when it currently appears to contain only
-# first-party output.
-$releaseFiles = @(
-    @{ Source = (Join-Path $distributionDirectory 'MIDIBottleneck Player x86.exe'); Name = 'MIDIBottleneck Player x86.exe' },
-    @{ Source = (Join-Path $distributionDirectory 'MIDIBottleneck Player x86.exe.config'); Name = 'MIDIBottleneck Player x86.exe.config' },
-    @{ Source = (Join-Path $distributionDirectory 'MIDIBottleneck Player x64.exe'); Name = 'MIDIBottleneck Player x64.exe' },
-    @{ Source = (Join-Path $distributionDirectory 'MIDIBottleneck Player x64.exe.config'); Name = 'MIDIBottleneck Player x64.exe.config' },
-    @{ Source = (Join-Path $projectRoot 'LICENSE'); Name = 'LICENSE' },
-    @{ Source = (Join-Path $projectRoot 'README.md'); Name = 'README.md' }
+$x86Application = Join-Path $distributionDirectory 'MIDIBottleneck Player x86.exe'
+$x64Application = Join-Path $distributionDirectory 'MIDIBottleneck Player x64.exe'
+$commonFiles = @(
+    @{ Source = (Join-Path $projectRoot 'README.md'); Name = 'README.md' },
+    @{ Source = (Join-Path $projectRoot 'LICENSE'); Name = 'LICENSE' }
 )
 
-$entries = foreach ($file in $releaseFiles) {
-    $path = $file.Source
-    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
-        throw "Required first-party release file is missing: $path"
+foreach ($required in @($x86Application, ($x86Application + '.config'), $x64Application, ($x64Application + '.config')) + @($commonFiles | ForEach-Object { $_.Source })) {
+    if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
+        throw "Required first-party release file is missing: $required"
     }
-    $item = Get-Item -LiteralPath $path
-    $hash = Get-FileHash -LiteralPath $path -Algorithm SHA256
-    [PSCustomObject]@{ Name = $file.Name; Source = $path; Bytes = $item.Length; SHA256 = $hash.Hash }
 }
 
-$entries | Select-Object Name, Bytes, SHA256 | Format-Table -AutoSize
+$version = [Diagnostics.FileVersionInfo]::GetVersionInfo($x64Application).FileVersion
+if ($version -notmatch '^(\d+)\.(\d+)\.(\d+)\.\d+$') {
+    throw "Unexpected application file version: $version"
+}
+$releaseVersion = $Matches[1] + '.' + $Matches[2] + '.' + $Matches[3]
+$x86ZipName = "MIDIBottleneck-Player-v$releaseVersion-x86.zip"
+$x64ZipName = "MIDIBottleneck-Player-v$releaseVersion-x64.zip"
+
+$packages = @(
+    @{
+        Name = $x86ZipName
+        Files = @(
+            @{ Source = $x86Application; Name = 'MIDIBottleneck Player x86.exe' },
+            @{ Source = ($x86Application + '.config'); Name = 'MIDIBottleneck Player x86.exe.config' }
+        ) + $commonFiles
+    },
+    @{
+        Name = $x64ZipName
+        Files = @(
+            @{ Source = $x64Application; Name = 'MIDIBottleneck Player x64.exe' },
+            @{ Source = ($x64Application + '.config'); Name = 'MIDIBottleneck Player x64.exe.config' }
+        ) + $commonFiles
+    }
+)
+
+Write-Host "Release v$releaseVersion package plan:"
+foreach ($package in $packages) {
+    Write-Host ("  {0}" -f $package.Name)
+    foreach ($file in $package.Files) {
+        $item = Get-Item -LiteralPath $file.Source
+        Write-Host ("    {0} ({1} bytes)" -f $file.Name, $item.Length)
+    }
+}
+
 if (-not $WritePackage) {
-    Write-Host 'Dry run only. Pass -WritePackage to copy exactly these allowlisted first-party files and write SHA256SUMS.txt.'
+    Write-Host 'Dry run only. Pass -WritePackage to create the two allowlisted ZIPs and SHA256SUMS.txt.'
     return
 }
 
+Add-Type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
-foreach ($entry in $entries) {
-    Copy-Item -LiteralPath $entry.Source -Destination (Join-Path $OutputDirectory $entry.Name) -Force
+
+foreach ($package in $packages) {
+    $zipPath = Join-Path $OutputDirectory $package.Name
+    if (Test-Path -LiteralPath $zipPath) {
+        Remove-Item -LiteralPath $zipPath -Force
+    }
+    $archive = [IO.Compression.ZipFile]::Open($zipPath, [IO.Compression.ZipArchiveMode]::Create)
+    try {
+        foreach ($file in $package.Files) {
+            [IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+                $archive, $file.Source, $file.Name, [IO.Compression.CompressionLevel]::Optimal) | Out-Null
+        }
+    }
+    finally {
+        $archive.Dispose()
+    }
 }
-$checksumLines = $entries | ForEach-Object { $_.SHA256.ToLowerInvariant() + '  ' + $_.Name }
-Set-Content -LiteralPath (Join-Path $OutputDirectory 'SHA256SUMS.txt') -Value $checksumLines -Encoding ASCII
-Write-Host "Wrote first-party release package files to $OutputDirectory"
+
+$checksumPath = Join-Path $OutputDirectory 'SHA256SUMS.txt'
+$checksumLines = foreach ($package in $packages) {
+    $zipPath = Join-Path $OutputDirectory $package.Name
+    $hash = Get-FileHash -LiteralPath $zipPath -Algorithm SHA256
+    $hash.Hash.ToLowerInvariant() + '  ' + $package.Name
+}
+Set-Content -LiteralPath $checksumPath -Value $checksumLines -Encoding ASCII
+
+Write-Host "Wrote first-party release packages to $OutputDirectory"
+Get-ChildItem -LiteralPath $OutputDirectory -File |
+    Where-Object { $_.Name -in @($x86ZipName, $x64ZipName, 'SHA256SUMS.txt') } |
+    Sort-Object Name |
+    ForEach-Object {
+        $hash = Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256
+        [PSCustomObject]@{ Name = $_.Name; Bytes = $_.Length; SHA256 = $hash.Hash }
+    } | Format-Table -AutoSize

@@ -38,6 +38,8 @@ The explicit allowlist produced seven files: the two applications, two matching 
 
 The checked-out Windows package copy of `LICENSE` uses CRLF line endings; the tracked text is the official GPLv3 text.
 
-## External publication status
+## External publication result
 
-Local preparation is complete. Publication is blocked because this host has no GitHub CLI, Git Credential Manager reports no authenticated GitHub account, and the available in-app browser is signed out. No remote, repository, tag push, or GitHub Release was created. Resume only after Ray890 authenticates a safe GitHub write route on this host; never paste a token into chat or store one in the repository.
+This section records the original gate and its resolution. At the time of the clean local gate, external publication was waiting for authentication. Ray890 subsequently authenticated Git Credential Manager, the write route was verified without exposing a token, and publication completed on 2026-09-20.
+
+The public repository is [Ray890/MIDIBottleneck-Player](https://github.com/ray890/MIDIBottleneck-Player). Only sanitized `main` and the explicit Build 01–22 tags were pushed. All 22 Release pages were created, Build 22 assets were independently downloaded and checksum-verified, and a fresh public clone passed 91/91 tests on both architectures. No private snapshot/safety refs were published.

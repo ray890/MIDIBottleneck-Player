@@ -3901,7 +3901,9 @@ namespace MidiBottleneck.Tests
                 engine.SetChannelMonitoring(true);
                 engine.Start(pausedSong, none, ProcessingMode.Queue, 1000000, true);
                 engine.ChaseLatestSourceChannelAttribute(2, ChannelAttribute.Program);
-                WaitFor(delegate { return engine.GetChannelSnapshot().Channels[2].Program == 24; }, 1000,
+                // The paused worker still owns ordered control execution. Allow for
+                // a busy x86 full-suite host without weakening the state assertion.
+                WaitFor(delegate { return engine.GetChannelSnapshot().Channels[2].Program == 24; }, 5000,
                     "None source-value chase acknowledgement");
                 Equal(24, engine.GetChannelSnapshot().Channels[2].Program,
                     "None acknowledges the logical source-value chase");
@@ -4538,8 +4540,8 @@ namespace MidiBottleneck.Tests
                 Equal(ChannelOverrideState.AutoValue, engine.GetChannelOverride(0, ChannelAttribute.Program), "unload clears overrides");
             }
 
-            MidiSong boundarySong = NewChannelSong("override-boundaries.mid", 5000000,
-                ChannelMessage(0, 0x90, 60, 100), ChannelMessage(5000000, 0x80, 60, 0));
+            MidiSong boundarySong = NewChannelSong("override-boundaries.mid", 30000000,
+                ChannelMessage(0, 0x90, 60, 100), ChannelMessage(30000000, 0x80, 60, 0));
             using (PlaybackEngine engine = new PlaybackEngine())
             {
                 FakeMidiOutput output = new FakeMidiOutput();
@@ -4550,10 +4552,11 @@ namespace MidiBottleneck.Tests
                 engine.Start(boundarySong, output, ProcessingMode.Queue);
                 WaitFor(delegate { return engine.GetSnapshot().ProcessedEvents >= 1; }, 1000, "override boundary initial dispatch");
                 engine.SetChannelOverride(0, ChannelAttribute.Pan, 33);
-                // The worker is waiting on the same wake handle as its playback
-                // timer.  Keep this deadline above occasional full-suite x86 GC
-                // pauses; an isolated request normally completes immediately.
-                WaitFor(delegate { return ContainsMessage(output.SentPayloads(), 0xB0, 10, 33); }, 2500,
+                // Keep the next source event far beyond this deadline so a lost
+                // wake cannot pass when that event eventually wakes the worker.
+                // The five-second deadline also tolerates full-suite x86 GC and
+                // host scheduling; an isolated request normally completes at once.
+                WaitFor(delegate { return ContainsMessage(output.SentPayloads(), 0xB0, 10, 33); }, 5000,
                     "live override injection through ordered worker");
                 engine.Pause();
                 Equal(0, output.SentPayloads().Count, "Pause safety reset does not reapply sustain while paused");
