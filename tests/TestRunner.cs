@@ -4117,8 +4117,14 @@ namespace MidiBottleneck.Tests
                 int before = monitor.Width;
                 grid.Columns["Program"].Width += 20;
                 Application.DoEvents(); Application.DoEvents();
-                if (monitor.Width <= before) throw new Exception("column resize did not auto-fit monitor width");
-                monitor.Width += 10; Application.DoEvents();
+                if (monitor.Width <= before && before < working.Width - 1)
+                    throw new Exception("column resize did not auto-fit monitor width");
+                if (monitor.Width > working.Width)
+                    throw new Exception("column-driven auto-fit exceeded the working area");
+                // Shrink rather than grow so this remains a real resize even on
+                // a 1024-pixel hosted desktop where the initial fit is clamped.
+                monitor.Width = Math.Max(monitor.MinimumSize.Width, monitor.Width - 10);
+                Application.DoEvents();
                 Equal(false, monitor.AutoFitEnabledForTesting, "manual form resize disables session auto-fit");
                 int manual = monitor.Width;
                 grid.Columns["Program"].Width += 20; Application.DoEvents(); Application.DoEvents();
