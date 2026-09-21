@@ -1,6 +1,5 @@
 # MIDIBottleneck Player
 
-[![Build and test](https://github.com/ray890/MIDIBottleneck-Player/actions/workflows/windows-build.yml/badge.svg)](https://github.com/ray890/MIDIBottleneck-Player/actions/workflows/windows-build.yml)
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](LICENSE)
 
 MIDIBottleneck Player is a Windows MIDI player and deterministic workload simulator for studying output throughput, queue pressure, lag, and overflow. It focuses on dense MIDI workloads and diagnostic controls that are difficult to find together in an ordinary player.
