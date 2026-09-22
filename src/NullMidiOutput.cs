@@ -13,7 +13,7 @@ namespace MidiBottleneck
 
         public void Open() { }
         public void Close() { SourceFile = null; }
-        public void Send(MidiEvent midiEvent) { }
+        public void Send(MidiEventView midiEvent) { }
         public void Panic() { }
         public void Reset() { }
         public void Dispose() { Close(); }

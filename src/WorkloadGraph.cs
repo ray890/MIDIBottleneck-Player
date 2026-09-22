@@ -693,7 +693,7 @@ namespace MidiBottleneck
                             ? "Workload only — queue projection pending"
                             : _analysis.ProjectionState == AnalysisProjectionState.Cancelled
                                 ? "Workload only — projection cancelled"
-                                : "Workload only — projection unavailable");
+                                : "Workload only — queue projection failed");
                 return;
             }
 
@@ -709,7 +709,7 @@ namespace MidiBottleneck
                         ? "Workload only — queue projection pending"
                         : _analysis.ProjectionState == AnalysisProjectionState.Cancelled
                             ? "Workload only — projection cancelled"
-                            : "Workload only — projection unavailable");
+                            : "Workload only — queue projection failed");
         }
 
         private void DrawLegendLine(Graphics graphics, Rectangle area, int offset, string text)

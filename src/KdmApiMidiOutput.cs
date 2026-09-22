@@ -293,10 +293,10 @@ namespace MidiBottleneck
             }
         }
 
-        public void Send(MidiEvent midiEvent)
+        public void Send(MidiEventView midiEvent)
         {
             if (!_open) throw new InvalidOperationException("The KDMAPI output is not open.");
-            if (midiEvent == null || midiEvent.DataLength == 0) return;
+            if (midiEvent.DataLength == 0) return;
             ReclaimCompletedLongMessages();
             if (midiEvent.Kind == MidiEventKind.SystemExclusive)
             {
@@ -336,7 +336,7 @@ namespace MidiBottleneck
             ReclaimAllLongMessages();
         }
 
-        private void SendLongPacket(SystemExclusivePacket packet, MidiEvent finalEvent)
+        private void SendLongPacket(SystemExclusivePacket packet, MidiEventView finalEvent)
         {
             if (!_native.SupportsLongMessages)
                 throw new NotSupportedException("The selected KDMAPI provider can send short MIDI messages but does not export " +
@@ -413,7 +413,7 @@ namespace MidiBottleneck
         }
 
         private void ThrowLongIfError(uint code, string operation, SystemExclusivePacket packet,
-            MidiEvent finalEvent, int headerSize, NativeMidiHeader header)
+            MidiEventView finalEvent, int headerSize, NativeMidiHeader header)
         {
             if (code == 0) return;
             string detail = SystemExclusiveDiagnostics.DescribeFailure(operation, code, null, SourceFile, packet, finalEvent,

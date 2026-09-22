@@ -4,7 +4,11 @@
 
 The parser supports Standard MIDI File format 0 and synchronous format 1 with PPQN time division. It expands running status, preserves stable track/event ordering, assembles tempo changes into one map, and converts each dispatchable event to an intended microsecond timestamp.
 
-Playback and Analysis consume `IMidiEventStore`, an indexed read-only boundary with exact access and lower-bound search. Ordinary short messages store their bytes inline; variable-length SysEx data retains an immutable side payload. The current backend still uses one `MidiEvent` object per event and one contiguous final reference array.
+Playback and Analysis consume `IMidiEventStore`, an indexed read-only boundary with exact access and lower-bound search. The production backend stores immutable 40-byte value records in 65,536-record segments. Ordinary messages retain up to three bytes inline; variable-length SysEx/system payloads use an append-only side store split into 1 MiB byte segments. Final event identity is the indexed store position, while merge-only `Order` and the redundant stored `EventIndex` are absent from compact records.
+
+Production readers return a small immutable handle over either the compact backend or the retained list/reference test oracle. Short-message playback, Analysis, seeking, channel-state tracking, source-value lookup, SysEx assembly, and the per-note gate use that handle without constructing one object per event. Analysis has a concrete segment scan so x86 does not pay for large value copies or interface dispatch in its hottest sequential loop.
+
+The parser still creates per-track `MidiEvent` objects and a merged legacy list before a cancellable `Compacting event storage` stage. Conversion releases each legacy reference progressively and discards the final list before publishing the song, but the temporary peak can contain much of both representations. Direct construction into compact segments during merge is the next storage stage.
 
 A compact per-song index records state-changing channel messages for logarithmic one-attribute source-value chase. It is not automatic whole-song state chase.
 
@@ -50,7 +54,7 @@ Reset boundaries retire the worker before reset/panic whenever the active native
 
 Whole-file Analysis separates reusable file/resolution workload scanning from configuration-dependent queue projection. Workload counts and buckets can be reused when only service settings change; exact queue projections still recompute when their inputs change.
 
-For the first calculation in a window, the analyzer publishes one typed workload-only result after the reusable scan and summary complete. The callback exposes no mutable bucket arrays. The form generation-checks that preview independently from the final result and displays it only when no completed graph exists. Projection-only fields remain unavailable rather than appearing as zeros. Cancellation relabels a displayed preview as workload-only/cancelled, while stale generations, closed windows, and replaced files reject both preview and final publication.
+For the first calculation in a window, the analyzer publishes one typed workload-only result after the reusable scan and summary complete. The callback exposes no mutable bucket arrays. The form generation-checks that preview independently from the final result and displays it only when no completed graph exists. Projection-only fields remain unavailable rather than appearing as zeros. Cancellation relabels a displayed preview as workload-only/cancelled, while stale generations, closed windows, and replaced files reject both preview and final publication. If queue projection then fails, the workload remains displayed and the report/status retain a concise exception explanation; failure before preview remains an honest error-only state.
 
 Auto resolution is explicit state. Its visible label reports the resolution of the accepted graph, not a pending request. Cancellation retires the active/pending generation, and layout-only height changes do not re-arm the cancelled request.
 

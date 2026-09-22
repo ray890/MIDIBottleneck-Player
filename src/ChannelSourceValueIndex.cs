@@ -40,7 +40,7 @@ namespace MidiBottleneck
             while (low < high)
             {
                 int middle = low + ((high - low) >> 1);
-                MidiEvent midiEvent = _events.GetEvent(list[middle].EventIndex);
+                MidiEventView midiEvent = _events.GetEvent(list[middle].EventIndex);
                 if (midiEvent.IntendedMicroseconds <= positionMicroseconds) low = middle + 1;
                 else high = middle;
             }
@@ -55,7 +55,13 @@ namespace MidiBottleneck
 
             internal void Add(MidiEvent midiEvent, int eventIndex)
             {
-                if (midiEvent == null || midiEvent.Channel < 0 || midiEvent.Channel >= 16) return;
+                if (midiEvent == null) return;
+                Add(MidiEventView.FromEvent(midiEvent, eventIndex), eventIndex);
+            }
+
+            internal void Add(MidiEventView midiEvent, int eventIndex)
+            {
+                if (!midiEvent.IsValid || midiEvent.Channel < 0 || midiEvent.Channel >= 16) return;
                 int status = midiEvent.Status & 0xF0;
                 if (status == 0xB0 && midiEvent.DataLength > 2 && midiEvent.GetDataByte(1) == 121)
                 {

@@ -8,7 +8,7 @@ namespace MidiBottleneck
     internal static class SystemExclusiveDiagnostics
     {
         public static string DescribeFailure(string nativeOperation, uint errorCode, string nativeText,
-            string sourceFile, SystemExclusivePacket packet, MidiEvent finalEvent, int headerSize, uint bufferLength,
+            string sourceFile, SystemExclusivePacket packet, MidiEventView finalEvent, int headerSize, uint bufferLength,
             uint bytesRecorded, uint flags, IntPtr dataPointer)
         {
             StringBuilder text = new StringBuilder();

@@ -84,6 +84,7 @@ namespace MidiBottleneck
         public double EventServiceCapacityPerSecond;
         public double ByteServiceCapacityPerSecond;
         public AnalysisProjectionState ProjectionState;
+        public string ProjectionFailureReason;
 
         public bool HasQueueProjection { get { return ProjectionState == AnalysisProjectionState.Complete; } }
 
@@ -122,6 +123,14 @@ namespace MidiBottleneck
             if (ProjectionState == state) return this;
             WorkloadAnalysis copy = (WorkloadAnalysis)MemberwiseClone();
             copy.ProjectionState = state;
+            return copy;
+        }
+
+        internal WorkloadAnalysis WithProjectionFailure(string reason)
+        {
+            WorkloadAnalysis copy = (WorkloadAnalysis)MemberwiseClone();
+            copy.ProjectionState = AnalysisProjectionState.Failed;
+            copy.ProjectionFailureReason = reason;
             return copy;
         }
     }
@@ -252,7 +261,7 @@ namespace MidiBottleneck
                             cancellationToken.ThrowIfCancellationRequested();
                             Report(progress, "Calculating serial service demand", i, events.Count, 750, 0);
                         }
-                        MidiEvent midiEvent = events[i];
+                        MidiEventView midiEvent = events[i];
                         int bucket = (int)Math.Min(result.Buckets.Length - 1, Math.Max(0, midiEvent.IntendedMicroseconds / bucketMicroseconds));
                         result.Buckets[bucket].ServiceDemandMicroseconds += EventServiceMicroseconds(midiEvent, configuration);
                     }
@@ -294,49 +303,12 @@ namespace MidiBottleneck
             int typeCount = Enum.GetValues(typeof(MidiEventKind)).Length;
             long[] typeEvents = new long[typeCount];
             long[] typeBytes = new long[typeCount];
-            int index = 0;
-            while (index < events.Count)
-            {
-                if ((index & 16383) == 0)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    Report(progress, "Scanning events and clusters", index, events.Count, 50, 650);
-                }
-                long timestamp = events[index].IntendedMicroseconds;
-                int bucketIndex = (int)Math.Min(bucketCount - 1, Math.Max(0, timestamp / bucketMicroseconds));
-                int clusterEnd = index;
-                while (clusterEnd < events.Count && events[clusterEnd].IntendedMicroseconds == timestamp)
-                {
-                    if ((clusterEnd & 16383) == 0)
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-                        Report(progress, "Scanning events and clusters", clusterEnd, events.Count, 50, 650);
-                    }
-                    MidiEvent midiEvent = events[clusterEnd];
-                    int bytes = midiEvent.DataLength;
-                    result.TotalBytes += bytes;
-                    result.Buckets[bucketIndex].EventCount++;
-                    result.Buckets[bucketIndex].ByteCount += bytes;
-                    if (configuration != null && configuration.SimulateSlowdown)
-                        result.Buckets[bucketIndex].ServiceDemandMicroseconds += ServiceDurationCalculator.CalculateMicroseconds(
-                            midiEvent, configuration.ServiceDurationMode, configuration.ProcessingMicroseconds, configuration.MidiBitrate);
-                    int kind = (int)midiEvent.Kind;
-                    typeEvents[kind]++;
-                    typeBytes[kind] += bytes;
-                    clusterEnd++;
-                }
-                int clusterSize = clusterEnd - index;
-                result.UniqueTimestamps++;
-                if (clusterSize > result.LargestTimestampCluster) result.LargestTimestampCluster = clusterSize;
-                if (clusterSize >= 2) result.EventsInClustersAtLeast2 += clusterSize;
-                if (clusterSize >= 10) result.EventsInClustersAtLeast10 += clusterSize;
-                if (clusterSize >= 50) result.EventsInClustersAtLeast50 += clusterSize;
-                if (clusterSize >= 100) result.EventsInClustersAtLeast100 += clusterSize;
-
-                if (clusterSize > result.Buckets[bucketIndex].LargestCluster)
-                    result.Buckets[bucketIndex].LargestCluster = clusterSize;
-                index = clusterEnd;
-            }
+            if (events.CompactStore != null)
+                ScanCompactWorkload(events.CompactStore, result, bucketMicroseconds, bucketCount, configuration,
+                    typeEvents, typeBytes, cancellationToken, progress);
+            else
+                ScanReferenceWorkload(events, result, bucketMicroseconds, bucketCount, configuration,
+                    typeEvents, typeBytes, cancellationToken, progress);
             Report(progress, "Scanning events and clusters", events.Count, events.Count, 50, 650);
 
             double bucketSeconds = bucketMicroseconds / 1000000.0;
@@ -376,6 +348,111 @@ namespace MidiBottleneck
             }
             else Report(progress, "File workload complete", 1, 1, 0, 750);
             return result;
+        }
+
+        private static void ScanCompactWorkload(CompactMidiEventStore store, WorkloadAnalysis result,
+            long bucketMicroseconds, int bucketCount, AnalysisConfiguration configuration,
+            long[] typeEvents, long[] typeBytes, CancellationToken cancellationToken,
+            Action<WorkloadAnalysisProgress> progress)
+        {
+            CompactMidiEventRecord[][] segments = store.RecordSegments;
+            int count = store.Count;
+            int index = 0;
+            while (index < count)
+            {
+                if ((index & 16383) == 0)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    Report(progress, "Scanning events and clusters", index, count, 50, 650);
+                }
+                CompactMidiEventRecord first = segments[index / CompactMidiEventStore.RecordSegmentCapacity]
+                    [index % CompactMidiEventStore.RecordSegmentCapacity];
+                long timestamp = first.IntendedMicroseconds;
+                int bucketIndex = (int)Math.Min(bucketCount - 1, Math.Max(0, timestamp / bucketMicroseconds));
+                int clusterEnd = index;
+                while (clusterEnd < count)
+                {
+                    CompactMidiEventRecord record = clusterEnd == index ? first :
+                        segments[clusterEnd / CompactMidiEventStore.RecordSegmentCapacity]
+                            [clusterEnd % CompactMidiEventStore.RecordSegmentCapacity];
+                    if (record.IntendedMicroseconds != timestamp) break;
+                    if ((clusterEnd & 16383) == 0)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        Report(progress, "Scanning events and clusters", clusterEnd, count, 50, 650);
+                    }
+                    int bytes = record.PayloadLength;
+                    result.TotalBytes += bytes;
+                    result.Buckets[bucketIndex].EventCount++;
+                    result.Buckets[bucketIndex].ByteCount += bytes;
+                    if (configuration != null && configuration.SimulateSlowdown)
+                        result.Buckets[bucketIndex].ServiceDemandMicroseconds +=
+                            configuration.ServiceDurationMode == ServiceDurationMode.ProcessingTime
+                                ? Math.Max(0, configuration.ProcessingMicroseconds)
+                                : ServiceDurationCalculator.CalculateBitrateMicroseconds(bytes, configuration.MidiBitrate);
+                    int kind = record.Metadata & 0x0F;
+                    typeEvents[kind]++;
+                    typeBytes[kind] += bytes;
+                    clusterEnd++;
+                }
+                RecordWorkloadCluster(result, bucketIndex, clusterEnd - index);
+                index = clusterEnd;
+            }
+        }
+
+        private static void ScanReferenceWorkload(MidiEventReader events, WorkloadAnalysis result,
+            long bucketMicroseconds, int bucketCount, AnalysisConfiguration configuration,
+            long[] typeEvents, long[] typeBytes, CancellationToken cancellationToken,
+            Action<WorkloadAnalysisProgress> progress)
+        {
+            int index = 0;
+            while (index < events.Count)
+            {
+                if ((index & 16383) == 0)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    Report(progress, "Scanning events and clusters", index, events.Count, 50, 650);
+                }
+                MidiEventView first = events[index];
+                long timestamp = first.IntendedMicroseconds;
+                int bucketIndex = (int)Math.Min(bucketCount - 1, Math.Max(0, timestamp / bucketMicroseconds));
+                int clusterEnd = index;
+                while (clusterEnd < events.Count)
+                {
+                    MidiEventView midiEvent = clusterEnd == index ? first : events[clusterEnd];
+                    if (midiEvent.IntendedMicroseconds != timestamp) break;
+                    if ((clusterEnd & 16383) == 0)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        Report(progress, "Scanning events and clusters", clusterEnd, events.Count, 50, 650);
+                    }
+                    int bytes = midiEvent.DataLength;
+                    result.TotalBytes += bytes;
+                    result.Buckets[bucketIndex].EventCount++;
+                    result.Buckets[bucketIndex].ByteCount += bytes;
+                    if (configuration != null && configuration.SimulateSlowdown)
+                        result.Buckets[bucketIndex].ServiceDemandMicroseconds += ServiceDurationCalculator.CalculateMicroseconds(
+                            midiEvent, configuration.ServiceDurationMode, configuration.ProcessingMicroseconds, configuration.MidiBitrate);
+                    int kind = (int)midiEvent.Kind;
+                    typeEvents[kind]++;
+                    typeBytes[kind] += bytes;
+                    clusterEnd++;
+                }
+                RecordWorkloadCluster(result, bucketIndex, clusterEnd - index);
+                index = clusterEnd;
+            }
+        }
+
+        private static void RecordWorkloadCluster(WorkloadAnalysis result, int bucketIndex, int clusterSize)
+        {
+            result.UniqueTimestamps++;
+            if (clusterSize > result.LargestTimestampCluster) result.LargestTimestampCluster = clusterSize;
+            if (clusterSize >= 2) result.EventsInClustersAtLeast2 += clusterSize;
+            if (clusterSize >= 10) result.EventsInClustersAtLeast10 += clusterSize;
+            if (clusterSize >= 50) result.EventsInClustersAtLeast50 += clusterSize;
+            if (clusterSize >= 100) result.EventsInClustersAtLeast100 += clusterSize;
+            if (clusterSize > result.Buckets[bucketIndex].LargestCluster)
+                result.Buckets[bucketIndex].LargestCluster = clusterSize;
         }
 
         private static long DefaultResolution(MidiSong song)
@@ -435,7 +512,8 @@ namespace MidiBottleneck
                     cancellationToken.ThrowIfCancellationRequested();
                     Report(progress, "Projecting finite queue pressure", i, events.Count, 750, 250);
                 }
-                long arrival = events[i].IntendedMicroseconds;
+                MidiEventView incomingEvent = events[i];
+                long arrival = incomingEvent.IntendedMicroseconds;
                 while (busy && completion <= arrival)
                 {
                     lastCompleted = completion;
@@ -450,7 +528,6 @@ namespace MidiBottleneck
                 }
 
                 int bucketIndex = (int)Math.Min(result.Buckets.Length - 1, Math.Max(0, arrival / result.BucketMicroseconds));
-                MidiEvent incomingEvent = events[i];
                 CompleteNoteEventKind noteKind = CompleteNoteTracker.Classify(incomingEvent);
                 if (noteKind == CompleteNoteEventKind.NoteOff && completeNotes.ShouldSuppressNoteOff(incomingEvent))
                 {
@@ -465,13 +542,13 @@ namespace MidiBottleneck
                     if (!busy)
                     {
                         busy = true;
-                        completion = checked(arrival + EventServiceMicroseconds(events[i], configuration));
+                        completion = checked(arrival + EventServiceMicroseconds(incomingEvent, configuration));
                     }
                     else
                     {
                         pending.Enqueue(i);
                         pendingServiceMicroseconds = checked(pendingServiceMicroseconds +
-                            EventServiceMicroseconds(events[i], configuration));
+                            EventServiceMicroseconds(incomingEvent, configuration));
                     }
                     if (noteKind == CompleteNoteEventKind.NoteOn)
                         completeNotes.RecordNoteOn(incomingEvent, true, false);
@@ -483,7 +560,7 @@ namespace MidiBottleneck
                         EventServiceMicroseconds(events[removed], configuration));
                     pending.Enqueue(i);
                     pendingServiceMicroseconds = checked(pendingServiceMicroseconds +
-                        EventServiceMicroseconds(events[i], configuration));
+                        EventServiceMicroseconds(incomingEvent, configuration));
                     if (noteKind == CompleteNoteEventKind.NoteOn)
                         completeNotes.RecordNoteOn(incomingEvent, true, false);
                     RecordDrop(result, bucketIndex, 1);
@@ -533,7 +610,8 @@ namespace MidiBottleneck
                     cancellationToken.ThrowIfCancellationRequested();
                     Report(progress, "Projecting unlimited queue pressure", i, events.Count, 750, 250);
                 }
-                long arrival = events[i].IntendedMicroseconds;
+                MidiEventView incomingEvent = events[i];
+                long arrival = incomingEvent.IntendedMicroseconds;
                 while (busy && completion <= arrival)
                 {
                     lastCompleted = completion;
@@ -549,12 +627,12 @@ namespace MidiBottleneck
                 if (!busy)
                 {
                     busy = true;
-                    completion = checked(arrival + EventServiceMicroseconds(events[i], configuration));
+                    completion = checked(arrival + EventServiceMicroseconds(incomingEvent, configuration));
                     nextPending = i + 1;
                 }
                 else
                     pendingServiceMicroseconds = checked(pendingServiceMicroseconds +
-                        EventServiceMicroseconds(events[i], configuration));
+                        EventServiceMicroseconds(incomingEvent, configuration));
                 int occupancy = 1 + Math.Max(0, i + 1 - nextPending);
                 int bucketIndex = (int)Math.Min(result.Buckets.Length - 1, Math.Max(0, arrival / result.BucketMicroseconds));
                 if (occupancy > result.PredictedMaximumOccupancy) result.PredictedMaximumOccupancy = occupancy;
@@ -572,7 +650,7 @@ namespace MidiBottleneck
             result.Buckets[bucketIndex].PredictedDroppedEvents += count;
         }
 
-        private static long EventServiceMicroseconds(MidiEvent midiEvent, AnalysisConfiguration configuration)
+        private static long EventServiceMicroseconds(MidiEventView midiEvent, AnalysisConfiguration configuration)
         {
             return ServiceDurationCalculator.CalculateMicroseconds(midiEvent, configuration.ServiceDurationMode,
                 configuration.ProcessingMicroseconds, configuration.MidiBitrate);

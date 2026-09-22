@@ -29,7 +29,8 @@ The public history was reconstructed because original Git commits did not exist.
 | 23 | public-documentation-packaging | 2026-09-21 00:12:11 -04:00 | exact | `v1.0.23` |
 | 24 | per-note-interval-gate | 2026-09-21 07:20 -04:00 | exact | `v1.0.24` |
 | 25 | per-note-gate-correction | 2026-09-22 00:48 -04:00 | exact | `v1.0.25` |
-| 26 | gate-hardening-analysis-preview | 2026-09-22 01:52 -04:00 | exact | `v1.0.26` |
+| 26 | gate-hardening-analysis-preview | 2026-09-22 05:12 -04:00 | exact | `v1.0.26` |
+| 27 | compact-segmented-event-store | 2026-09-22 07:55 -04:00 | exact | `v1.0.27` |
 
 ## Evidence-recovery result
 

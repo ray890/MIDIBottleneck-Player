@@ -23,15 +23,14 @@ namespace MidiBottleneck
         private List<byte> _pending;
         private List<SystemExclusiveFragment> _pendingFragments;
 
-        public byte[] Accept(MidiEvent midiEvent)
+        public byte[] Accept(MidiEventView midiEvent)
         {
             SystemExclusivePacket packet = AcceptPacket(midiEvent);
             return packet == null ? null : packet.Bytes;
         }
 
-        public SystemExclusivePacket AcceptPacket(MidiEvent midiEvent)
+        public SystemExclusivePacket AcceptPacket(MidiEventView midiEvent)
         {
-            if (midiEvent == null) throw new ArgumentNullException("midiEvent");
             if (midiEvent.Kind != MidiEventKind.SystemExclusive)
                 throw new ArgumentException("The event is not System Exclusive.", "midiEvent");
 
@@ -83,7 +82,7 @@ namespace MidiBottleneck
             return packet;
         }
 
-        private static SystemExclusiveFragment CreateFragment(MidiEvent midiEvent)
+        private static SystemExclusiveFragment CreateFragment(MidiEventView midiEvent)
         {
             SystemExclusiveFragment fragment = new SystemExclusiveFragment();
             fragment.Status = midiEvent.Status;

@@ -193,7 +193,7 @@ namespace MidiBottleneck
             RecordOverrideApplied(channel, attribute, value);
         }
 
-        internal void RecordSuccessful(MidiEvent midiEvent)
+        internal void RecordSuccessful(MidiEventView midiEvent)
         {
             ApplyRequests();
             int channel = midiEvent.Channel;
@@ -235,7 +235,7 @@ namespace MidiBottleneck
             _channels[channel] = state;
         }
 
-        internal void RecordDropped(MidiEvent midiEvent)
+        internal void RecordDropped(MidiEventView midiEvent)
         {
             ApplyRequests();
             int channel = midiEvent.Channel;

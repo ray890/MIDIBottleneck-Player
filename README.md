@@ -18,7 +18,7 @@ MIDIBottleneck Player is a Windows MIDI player and deterministic workload simula
 - Shows live throughput, queue, lag, effective-speed, and channel statistics.
 - Provides whole-file Analysis graphs for event density, bitrate, queue pressure, and predicted output completion.
 - Loads files asynchronously with cancellation, progress, elapsed time, and process-private committed memory.
-- Handles unusually dense files with packed short-message storage and an x64 very-large-array configuration.
+- Retains loaded events in compact 40-byte value records split across bounded segments, with long payloads in a segmented side store.
 - Supports drag-and-drop loading, a compact layout, x86/x64 builds, and a read-only/override-capable 16-channel monitor.
 
 MIDIBottleneck is an independent project. It is not based on, and is not intended to compete with, any particular MIDI player.
@@ -52,6 +52,8 @@ The processing model can apply a fixed time per event or MIDI serial bitrate. A 
 Analysis uses the immutable source file and selected simulator settings. Live Channel Monitor mutes and overrides intentionally do not rewrite the static Analysis projection.
 
 When an Analysis window has no earlier completed result, it now becomes useful as soon as the reusable workload scan finishes: event and byte density, clusters, message types, inspection, zoom, and playback markers appear as an immutable workload-only preview labelled **Queue projection pending**. The final queue projection replaces it atomically. Cancelling may retain that preview with an explicit workload-only/cancelled label; recalculation keeps an existing completed graph visible.
+
+If queue projection fails after that preview, the scanned workload remains usable and the report/status show the concise failure reason. A later recalculation can replace it normally.
 
 The optional **Per-note interval gate** is available from the title-bar system menu. It uses the nonzero processing-time value as an independent transition interval for each pitch, while temporarily locking the competing slowdown and queue controls. Repeated attacks can retrigger an already sounding pitch through a deliberate one-interval release gap; simultaneous layers are coalesced deterministically. Runtime occurrence tracking grows in reusable segments when unusually many source notes overlap, rather than silently losing pairing identity. Static Analysis clearly identifies that this live-only gate is not included in its ordinary queue projection.
 

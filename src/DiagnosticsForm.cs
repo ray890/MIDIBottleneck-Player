@@ -521,16 +521,20 @@ namespace MidiBottleneck
                         }
                         if (task.IsFaulted)
                         {
-                            if (!_hasCompletedAnalysis && _analysis != null &&
-                                _analysis.ProjectionState == AnalysisProjectionState.Pending)
-                                UpdateAnalysisDisplay(_analysis.WithProjectionState(AnalysisProjectionState.Failed), false);
+                            string reason = ConciseAnalysisFailure(task.Exception.GetBaseException());
+                            bool retainedPreview = !_hasCompletedAnalysis && _analysis != null &&
+                                _analysis.ProjectionState == AnalysisProjectionState.Pending;
+                            if (retainedPreview)
+                                UpdateAnalysisDisplay(_analysis.WithProjectionFailure(reason), false);
                             else if (_analysis == null)
                             {
-                                string message = "Analysis failed: " + task.Exception.GetBaseException().Message;
+                                string message = "Analysis failed: " + reason;
                                 _summary.Text = message;
                                 _graph.EmptyMessage = message;
                             }
                             EndBusyPeriod();
+                            _calculationStatus.Text = (retainedPreview ? "Queue projection failed — " : "Analysis failed — ") + reason;
+                            _calculationStatus.Visible = true;
                             return;
                         }
                         RememberLocalAnalysis(cacheKey, task.Result);
@@ -827,6 +831,14 @@ namespace MidiBottleneck
             _latestAnalysisProgress = null;
         }
 
+        private static string ConciseAnalysisFailure(Exception exception)
+        {
+            string message = exception == null ? "Unknown error." : exception.Message;
+            if (String.IsNullOrWhiteSpace(message)) message = exception == null ? "Unknown error." : exception.GetType().Name;
+            message = message.Replace('\r', ' ').Replace('\n', ' ').Trim();
+            return message.Length <= 240 ? message : message.Substring(0, 237) + "…";
+        }
+
         private long SelectedResolutionMicroseconds()
         {
             if (_resolutionMode == ResolutionSelectionMode.Custom)
@@ -1055,7 +1067,11 @@ namespace MidiBottleneck
                 else if (analysis.ProjectionState == AnalysisProjectionState.Cancelled)
                     text.AppendLine("Status                Workload only — projection cancelled");
                 else
-                    text.AppendLine("Status                Workload only — projection unavailable");
+                {
+                    text.AppendLine("Status                Workload only — queue projection failed");
+                    if (!String.IsNullOrEmpty(analysis.ProjectionFailureReason))
+                        text.AppendLine("Failure               " + analysis.ProjectionFailureReason);
+                }
             }
             if (analysis.HasQueueProjection && analysis.Configuration != null)
             {

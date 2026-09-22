@@ -20,9 +20,9 @@ namespace MidiBottleneck
         private const byte RejectedByOtherPolicy = 3;
         private readonly Queue<byte>[] _occurrences = new Queue<byte>[16 * 128];
 
-        internal static CompleteNoteEventKind Classify(MidiEvent midiEvent)
+        internal static CompleteNoteEventKind Classify(MidiEventView midiEvent)
         {
-            if (midiEvent == null || midiEvent.DataLength < 3)
+            if (!midiEvent.IsValid || midiEvent.DataLength < 3)
                 return CompleteNoteEventKind.Other;
             int command = midiEvent.Status & 0xF0;
             if (command == 0x90)
@@ -30,7 +30,7 @@ namespace MidiBottleneck
             return command == 0x80 ? CompleteNoteEventKind.NoteOff : CompleteNoteEventKind.Other;
         }
 
-        internal void RecordNoteOn(MidiEvent midiEvent, bool accepted, bool rejectedByCompleteNotePolicy)
+        internal void RecordNoteOn(MidiEventView midiEvent, bool accepted, bool rejectedByCompleteNotePolicy)
         {
             int slot = Slot(midiEvent);
             if (slot < 0) return;
@@ -42,7 +42,7 @@ namespace MidiBottleneck
 
         // FIFO occurrence pairing is deterministic for overlapping notes on
         // the same channel/key. An unmatched NoteOff is never suppressed.
-        internal bool ShouldSuppressNoteOff(MidiEvent midiEvent)
+        internal bool ShouldSuppressNoteOff(MidiEventView midiEvent)
         {
             int slot = Slot(midiEvent);
             if (slot < 0) return false;
@@ -52,9 +52,9 @@ namespace MidiBottleneck
             return occurrence == RejectedByCompleteNotePolicy;
         }
 
-        private static int Slot(MidiEvent midiEvent)
+        private static int Slot(MidiEventView midiEvent)
         {
-            if (midiEvent == null || midiEvent.DataLength < 2) return -1;
+            if (!midiEvent.IsValid || midiEvent.DataLength < 2) return -1;
             int channel = midiEvent.Status & 0x0F;
             int key = midiEvent.GetDataByte(1) & 0x7F;
             return channel * 128 + key;

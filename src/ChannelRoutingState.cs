@@ -38,9 +38,9 @@ namespace MidiBottleneck
             }
         }
 
-        internal bool ShouldFilter(MidiEvent midiEvent)
+        internal bool ShouldFilter(MidiEventView midiEvent)
         {
-            int channel = midiEvent == null ? -1 : midiEvent.Channel;
+            int channel = !midiEvent.IsValid ? -1 : midiEvent.Channel;
             return channel >= 0 && channel < 16 && (Volatile.Read(ref _disabledMask) & (1 << channel)) != 0;
         }
 

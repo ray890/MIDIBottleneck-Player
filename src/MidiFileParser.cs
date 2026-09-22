@@ -161,9 +161,8 @@ namespace MidiBottleneck
                     {
                         cancellationToken.ThrowIfCancellationRequested();
                         Report(progress, "Finalizing events", trackCount, trackCount,
-                            9000 + ScaleProgress(eventIndex, allEvents.Count, 1000), ProgressScale, eventIndex, allEvents.Count);
+                            9000 + ScaleProgress(eventIndex, allEvents.Count, 400), ProgressScale, eventIndex, allEvents.Count);
                     }
-                    allEvents[eventIndex].EventIndex = eventIndex;
                     MidiEvent midiEvent = allEvents[eventIndex];
                     channelSourceValues.Add(midiEvent, eventIndex);
                     if (midiEvent.Kind == MidiEventKind.NoteOn && midiEvent.DataLength >= 3 && midiEvent.GetDataByte(2) != 0)
@@ -174,6 +173,16 @@ namespace MidiBottleneck
                 if (allEvents.Count > 0 && allEvents[allEvents.Count - 1].IntendedMicroseconds > duration)
                     duration = allEvents[allEvents.Count - 1].IntendedMicroseconds;
 
+                Report(progress, "Compacting event storage", trackCount, trackCount, 9400, ProgressScale, 0, Math.Max(1, allEvents.Count));
+                CompactMidiEventStore compactStore = CompactMidiEventStore.Convert(allEvents, cancellationToken,
+                    delegate(long completed, long total)
+                    {
+                        Report(progress, "Compacting event storage", trackCount, trackCount,
+                            9400 + ScaleProgress(completed, total, 600), ProgressScale, completed, total);
+                    });
+                allEvents.Clear();
+                allEvents.TrimExcess();
+
                 MidiSong song = new MidiSong();
                 song.FilePath = fullPath;
                 song.FileSizeBytes = stream.Length;
@@ -181,9 +190,9 @@ namespace MidiBottleneck
                 song.TrackCount = trackCount;
                 song.TicksPerQuarterNote = division;
                 song.NoteCount = noteCount;
-                song.Events = allEvents;
                 song.DurationMicroseconds = duration;
-                song.SetChannelSourceValueIndex(channelSourceValues.Complete(song.EventStore));
+                song.SetEventStore(compactStore);
+                song.SetChannelSourceValueIndex(channelSourceValues.Complete(compactStore));
                 Report(progress, "Ready", trackCount, trackCount, ProgressScale, ProgressScale, 1, 1);
                 return song;
             }

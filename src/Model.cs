@@ -8,13 +8,15 @@ namespace MidiBottleneck
     // Reading an inline message never constructs a replacement byte array.
     internal struct MidiEventData
     {
-        private byte[] _longPayload;
+        private object _payloadSource;
+        private long _payloadOffset;
         private uint _packed;
         private int _length;
 
         private MidiEventData(byte[] bytes)
         {
-            _longPayload = null;
+            _payloadSource = null;
+            _payloadOffset = 0;
             _packed = 0;
             _length = bytes == null ? 0 : bytes.Length;
             if (_length <= 3)
@@ -23,7 +25,7 @@ namespace MidiBottleneck
                 for (int i = 0; i < _length; i++) packed |= (uint)bytes[i] << (i * 8);
                 _packed = packed;
             }
-            else _longPayload = bytes;
+            else _payloadSource = bytes;
         }
 
         public int Length { get { return _length; } }
@@ -32,7 +34,10 @@ namespace MidiBottleneck
             get
             {
                 if (index < 0 || index >= _length) throw new IndexOutOfRangeException();
-                return _longPayload == null ? (byte)(_packed >> (index * 8)) : _longPayload[index];
+                if (_payloadSource == null) return (byte)(_packed >> (index * 8));
+                byte[] bytes = _payloadSource as byte[];
+                if (bytes != null) return bytes[(int)_payloadOffset + index];
+                return ((CompactPayloadStore)_payloadSource).ReadByte(_payloadOffset + index);
             }
         }
 
@@ -45,16 +50,21 @@ namespace MidiBottleneck
             }
         }
 
-        internal bool UsesHeapPayload { get { return _longPayload != null; } }
-        internal byte[] LongPayload { get { return _longPayload; } }
+        internal bool UsesHeapPayload { get { return _payloadSource is byte[]; } }
+        internal byte[] LongPayload { get { return _payloadSource as byte[]; } }
         internal uint PackedValue { get { return _packed; } }
 
         internal void AppendTo(List<byte> destination)
         {
             if (destination == null) throw new ArgumentNullException("destination");
-            if (_longPayload != null)
+            if (_payloadSource != null)
             {
-                destination.AddRange(_longPayload);
+                byte[] bytes = _payloadSource as byte[];
+                if (bytes != null)
+                {
+                    for (int i = 0; i < _length; i++) destination.Add(bytes[(int)_payloadOffset + i]);
+                }
+                else ((CompactPayloadStore)_payloadSource).AppendTo(destination, _payloadOffset, _length);
                 return;
             }
             for (int i = 0; i < _length; i++) destination.Add((byte)(_packed >> (i * 8)));
@@ -63,7 +73,12 @@ namespace MidiBottleneck
         internal byte[] ToArray()
         {
             byte[] result = new byte[_length];
-            if (_longPayload != null) Buffer.BlockCopy(_longPayload, 0, result, 0, _length);
+            if (_payloadSource != null)
+            {
+                byte[] bytes = _payloadSource as byte[];
+                if (bytes != null) Buffer.BlockCopy(bytes, (int)_payloadOffset, result, 0, _length);
+                else ((CompactPayloadStore)_payloadSource).CopyTo(_payloadOffset, result, 0, _length);
+            }
             else for (int i = 0; i < _length; i++) result[i] = (byte)(_packed >> (i * 8));
             return result;
         }
@@ -71,7 +86,7 @@ namespace MidiBottleneck
         internal string ToHexString()
         {
             if (_length == 0) return String.Empty;
-            if (_longPayload != null) return BitConverter.ToString(_longPayload);
+            if (_payloadSource != null) return BitConverter.ToString(ToArray());
             return BitConverter.ToString(ToArray());
         }
 
@@ -92,7 +107,18 @@ namespace MidiBottleneck
         internal static MidiEventData FromStorage(byte[] longPayload, uint packed, int length)
         {
             MidiEventData result = new MidiEventData();
-            result._longPayload = longPayload;
+            result._payloadSource = longPayload;
+            result._payloadOffset = 0;
+            result._packed = packed;
+            result._length = length;
+            return result;
+        }
+
+        internal static MidiEventData FromSegmented(CompactPayloadStore payloadStore, long offset, uint packed, int length)
+        {
+            MidiEventData result = new MidiEventData();
+            result._payloadSource = payloadStore;
+            result._payloadOffset = offset;
             result._packed = packed;
             result._length = length;
             return result;
@@ -175,6 +201,92 @@ namespace MidiBottleneck
         }
     }
 
+    // Allocation-free value view used by production playback and Analysis.
+    // Compact records provide their payload through the immutable segmented
+    // side store; the reference backend supplies the same view over a legacy
+    // MidiEvent object.
+    internal struct MidiEventView
+    {
+        private CompactMidiEventStore _compact;
+        private MidiEvent _legacy;
+        private int _eventIndex;
+
+        public long AbsoluteTick { [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)] get { return _legacy != null ? _legacy.AbsoluteTick : _compact.GetAbsoluteTick(_eventIndex); } }
+        public long IntendedMicroseconds { [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)] get { return _legacy != null ? _legacy.IntendedMicroseconds : _compact.GetIntendedMicroseconds(_eventIndex); } }
+        public int Track { [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)] get { return _legacy != null ? _legacy.Track : _compact.GetTrack(_eventIndex); } }
+        public MidiEventKind Kind { [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)] get { return _legacy != null ? _legacy.Kind : _compact.GetKind(_eventIndex); } }
+        public int Channel { [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)] get { return _legacy != null ? _legacy.Channel : _compact.GetChannel(_eventIndex); } }
+        public byte Status { [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)] get { return _legacy != null ? _legacy.Status : _compact.GetStatus(_eventIndex); } }
+        public int EventIndex { [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)] get { return _eventIndex; } }
+        public MidiEventData Data { [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)] get { return _legacy != null ? _legacy.Data : _compact.GetData(_eventIndex); } }
+        internal bool IsValid { [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)] get { return _legacy != null || _compact != null; } }
+        internal int DataLength { [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)] get { return _legacy != null ? _legacy.DataLength : _compact.GetDataLength(_eventIndex); } }
+        internal uint PackedShortMessage { [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)] get { return _legacy != null ? _legacy.PackedShortMessage : _compact.GetPackedShortMessage(_eventIndex); } }
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal byte GetDataByte(int index) { return _legacy != null ? _legacy.GetDataByte(index) : _compact.GetDataByte(_eventIndex, index); }
+
+        internal static MidiEventView FromEvent(MidiEvent midiEvent, int eventIndex)
+        {
+            if (midiEvent == null) return default(MidiEventView);
+            MidiEventView result = new MidiEventView();
+            result._legacy = midiEvent;
+            result._eventIndex = eventIndex;
+            return result;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal static MidiEventView FromCompact(CompactMidiEventStore store, int eventIndex)
+        {
+            MidiEventView result = new MidiEventView();
+            result._compact = store;
+            result._eventIndex = eventIndex;
+            return result;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal static MidiEventView Create(long tick, long microseconds, int track, MidiEventKind kind,
+            int channel, byte status, int eventIndex, MidiEventData data)
+        {
+            MidiEvent generated = new MidiEvent
+            {
+                AbsoluteTick = tick,
+                IntendedMicroseconds = microseconds,
+                Track = track,
+                Kind = kind,
+                Channel = channel,
+                Status = status,
+                EventIndex = eventIndex,
+                Data = data
+            };
+            return FromEvent(generated, eventIndex);
+        }
+
+        internal MidiEvent ToCompatibilityEvent()
+        {
+            return new MidiEvent
+            {
+                AbsoluteTick = AbsoluteTick,
+                IntendedMicroseconds = IntendedMicroseconds,
+                Track = Track,
+                Kind = Kind,
+                Channel = Channel,
+                Status = Status,
+                EventIndex = EventIndex,
+                Data = Data.Length > 3 ? (MidiEventData)Data.ToArray() : Data
+            };
+        }
+
+        public string Description
+        {
+            get { return Channel >= 0 ? Kind + " ch " + (Channel + 1) : Kind.ToString(); }
+        }
+
+        public static implicit operator MidiEventView(MidiEvent midiEvent)
+        {
+            return FromEvent(midiEvent, midiEvent == null ? -1 : midiEvent.EventIndex);
+        }
+    }
+
     internal sealed class MidiSong
     {
         public string FilePath;
@@ -183,10 +295,11 @@ namespace MidiBottleneck
         public int TrackCount;
         public int TicksPerQuarterNote;
         public long NoteCount;
-        public List<MidiEvent> Events;
+        public IList<MidiEvent> Events;
         public long DurationMicroseconds;
 
         private IMidiEventStore _eventStore;
+        private IList<MidiEvent> _eventCompatibility;
         private ChannelSourceValueIndex _channelSourceValues;
         private readonly object _channelSourceValuesSync = new object();
 
@@ -194,16 +307,26 @@ namespace MidiBottleneck
         {
             get
             {
-                ListMidiEventStore listStore = _eventStore as ListMidiEventStore;
-                if (Events != null && (listStore == null || !Object.ReferenceEquals(listStore.Source, Events)))
-                {
-                    _eventStore = new ListMidiEventStore(Events);
-                    _channelSourceValues = null;
-                }
                 if (_eventStore == null)
                 {
-                    Events = new List<MidiEvent>();
+                    if (Events == null) Events = new List<MidiEvent>();
                     _eventStore = new ListMidiEventStore(Events);
+                    _eventCompatibility = null;
+                    return _eventStore;
+                }
+                ListMidiEventStore listStore = _eventStore as ListMidiEventStore;
+                if (Events != null && listStore != null && !Object.ReferenceEquals(listStore.Source, Events))
+                {
+                    _eventStore = new ListMidiEventStore(Events);
+                    _eventCompatibility = null;
+                    _channelSourceValues = null;
+                }
+                else if (Events != null && _eventStore != null && listStore == null &&
+                    !Object.ReferenceEquals(Events, _eventCompatibility))
+                {
+                    _eventStore = new ListMidiEventStore(Events);
+                    _eventCompatibility = null;
+                    _channelSourceValues = null;
                 }
                 return _eventStore;
             }
@@ -220,7 +343,8 @@ namespace MidiBottleneck
             _eventStore = eventStore;
             _channelSourceValues = null;
             ListMidiEventStore listStore = eventStore as ListMidiEventStore;
-            Events = listStore == null ? null : listStore.Source;
+            _eventCompatibility = listStore == null ? new MidiEventStoreCompatibilityList(eventStore) : null;
+            Events = listStore == null ? _eventCompatibility : listStore.Source;
         }
 
         internal void SetChannelSourceValueIndex(ChannelSourceValueIndex index)
@@ -290,7 +414,7 @@ namespace MidiBottleneck
 
     internal interface IMidiOutput
     {
-        void Send(MidiEvent midiEvent);
+        void Send(MidiEventView midiEvent);
         void Panic();
         void Reset();
     }

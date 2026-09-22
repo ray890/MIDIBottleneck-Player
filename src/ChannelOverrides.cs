@@ -124,11 +124,11 @@ namespace MidiBottleneck
             lock (_changeSync) _pendingMasks[channel] |= mask;
         }
 
-        internal bool ShouldSuppress(MidiEvent midiEvent, out ChannelAttribute attribute, out int forcedValue)
+        internal bool ShouldSuppress(MidiEventView midiEvent, out ChannelAttribute attribute, out int forcedValue)
         {
             attribute = ChannelAttribute.BankMsb;
             forcedValue = AutoValue;
-            if (!AnyOverrides || midiEvent == null || midiEvent.Channel < 0 || midiEvent.Channel >= 16) return false;
+            if (!AnyOverrides || !midiEvent.IsValid || midiEvent.Channel < 0 || midiEvent.Channel >= 16) return false;
             int status = midiEvent.Status & 0xF0;
             int statusBit = status == 0xB0 ? 1 : status == 0xC0 ? 2 : status == 0xE0 ? 4 : status == 0xD0 ? 8 : 0;
             if (statusBit == 0 || (Volatile.Read(ref _statusMasks[midiEvent.Channel]) & statusBit) == 0) return false;
@@ -211,7 +211,7 @@ namespace MidiBottleneck
                 new byte[] { status, (byte)controller, (byte)value });
         }
 
-        internal static bool TryClassify(MidiEvent midiEvent, out ChannelAttribute attribute, out int value)
+        internal static bool TryClassify(MidiEventView midiEvent, out ChannelAttribute attribute, out int value)
         {
             attribute = ChannelAttribute.BankMsb;
             value = 0;

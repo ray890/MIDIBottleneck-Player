@@ -15,7 +15,7 @@ Outputs are written to ignored `build/` and `dist/` directories. The expected ap
 - `dist\MIDIBottleneck Player x86.exe`
 - `dist\MIDIBottleneck Player x64.exe`
 
-Only the x64 application and test executable receive an adjacent `.exe.config` copied from `app.config`. It enables .NET Framework very-large arrays for the current contiguous event store. The setting affects only 64-bit processes, so x86 is built and tested without a configuration sidecar. The icon is embedded as both a native executable icon and a managed resource.
+Only the x64 application and test executable receive an adjacent `.exe.config` copied from `app.config`. It enables .NET Framework very-large arrays for the remaining legacy parse/merge path; the final Build 27 event store itself is segmented. The setting affects only 64-bit processes, so x86 is built and tested without a configuration sidecar. The icon is embedded as both a native executable icon and a managed resource.
 
 Local deterministic testing remains the authoritative release gate. A bounded hosted-Windows experiment showed that display-independent tests run correctly, while realized WinForms checks can see different working-area, wrapping, and font metrics on a hosted 1024-pixel desktop. Future CI should separate those test classes or provide a controlled interactive desktop rather than weakening valid layout assertions. Native-provider integration is deliberately separate.
 

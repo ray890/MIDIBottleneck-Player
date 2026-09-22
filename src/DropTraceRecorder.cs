@@ -11,7 +11,7 @@ namespace MidiBottleneck
         private sealed class Entry
         {
             public int EventIndex;
-            public MidiEvent Event;
+            public MidiEventView Event;
             public long DecisionMicroseconds;
             public long ServiceStartMicroseconds;
             public long ServiceEndMicroseconds;
@@ -39,7 +39,7 @@ namespace MidiBottleneck
             _maximumRows = maximumRows;
         }
 
-        public void RecordAcceptedAdmission(int eventIndex, MidiEvent midiEvent, long decision, int clusterSize, int bufferOccupancy, int maximumBufferOccupancy, long busyUntil)
+        public void RecordAcceptedAdmission(int eventIndex, MidiEventView midiEvent, long decision, int clusterSize, int bufferOccupancy, int maximumBufferOccupancy, long busyUntil)
         {
             Record(eventIndex, midiEvent, decision, 0, 0, false, true, "accepted into bounded buffer", clusterSize, 0, busyUntil, bufferOccupancy, maximumBufferOccupancy);
         }
@@ -57,12 +57,12 @@ namespace MidiBottleneck
             }
         }
 
-        public void RecordDropped(int eventIndex, MidiEvent midiEvent, long decision, string reason, int clusterSize, int consecutiveDrops, long busyUntil, int bufferOccupancy, int maximumBufferOccupancy)
+        public void RecordDropped(int eventIndex, MidiEventView midiEvent, long decision, string reason, int clusterSize, int consecutiveDrops, long busyUntil, int bufferOccupancy, int maximumBufferOccupancy)
         {
             Record(eventIndex, midiEvent, decision, 0, 0, false, false, reason, clusterSize, consecutiveDrops, busyUntil, bufferOccupancy, maximumBufferOccupancy);
         }
 
-        private void Record(int eventIndex, MidiEvent midiEvent, long decision, long serviceStart, long serviceEnd, bool hasService, bool accepted, string reason, int clusterSize, int consecutiveDrops, long busyUntil, int bufferOccupancy, int maximumBufferOccupancy)
+        private void Record(int eventIndex, MidiEventView midiEvent, long decision, long serviceStart, long serviceEnd, bool hasService, bool accepted, string reason, int clusterSize, int consecutiveDrops, long busyUntil, int bufferOccupancy, int maximumBufferOccupancy)
         {
             if (midiEvent.IntendedMicroseconds < _fromMicroseconds || midiEvent.IntendedMicroseconds > _toMicroseconds)
                 return;

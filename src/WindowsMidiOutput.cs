@@ -161,11 +161,11 @@ namespace MidiBottleneck
             return results[0] == 0 && results[1] == 3 && results[2] == 6 && results[3] == 9;
         }
 
-        public void Send(MidiEvent midiEvent)
+        public void Send(MidiEventView midiEvent)
         {
             if (_handle == IntPtr.Zero)
                 throw new InvalidOperationException("No MIDI output device is open.");
-            if (midiEvent == null || midiEvent.DataLength == 0)
+            if (midiEvent.DataLength == 0)
                 return;
 
             ReclaimCompletedLongMessages();
@@ -231,7 +231,7 @@ namespace MidiBottleneck
             ReclaimAllLongMessages();
         }
 
-        private void HandleSystemExclusive(MidiEvent midiEvent)
+        private void HandleSystemExclusive(MidiEventView midiEvent)
         {
             // In an SMF, F0 starts a SysEx packet while an F7 event either
             // continues that packet or contains escaped bytes. winmm drivers are
@@ -242,7 +242,7 @@ namespace MidiBottleneck
                 SendLong(packet, midiEvent);
         }
 
-        private void SendLong(SystemExclusivePacket packet, MidiEvent finalEvent)
+        private void SendLong(SystemExclusivePacket packet, MidiEventView finalEvent)
         {
             if (_preparedLongMessagesUnsafe)
                 throw new NotSupportedException("The selected application-local WinMM provider does not expose a safely verifiable " +
@@ -326,7 +326,7 @@ namespace MidiBottleneck
         }
 
         private void ThrowLongIfError(uint code, string operation, SystemExclusivePacket packet,
-            MidiEvent finalEvent, int headerSize, NativeMidiHeader header)
+            MidiEventView finalEvent, int headerSize, NativeMidiHeader header)
         {
             if (code == 0) return;
             System.Text.StringBuilder nativeText = new System.Text.StringBuilder(256);

@@ -457,6 +457,12 @@ namespace MidiBottleneck.Tests
                     RunFocused("two-stage initial Analysis preview", TestAnalysisInitialPreview);
                     return 0;
                 }
+                if (arguments.Length == 1 && arguments[0] == "--test-build27")
+                {
+                    RunFocused("compact segmented event-store equivalence", TestCompactSegmentedEventStore);
+                    RunFocused("Analysis preview projection-failure detail", TestAnalysisInitialPreview);
+                    return 0;
+                }
                 if (arguments.Length == 1 && arguments[0] == "--test-interface-only")
                 {
                     RunFocused("WinForms interface construction", TestInterfaceConstruction);
@@ -498,6 +504,7 @@ namespace MidiBottleneck.Tests
                 }
                 Run("tempo map, multiple tracks, running status, and SysEx", TestMidiParser);
                 Run("indexed read-only event-store boundary", TestMidiEventStoreBoundary);
+                Run("compact segmented event-store equivalence", TestCompactSegmentedEventStore);
                 Run("packed short-message storage", TestPackedMidiEventData);
                 Run("explicit process architecture and packed MIDIHDR ABI", TestProcessArchitecture);
                 Run("FIFO queue accumulation", TestQueueSimulation);
@@ -687,7 +694,7 @@ namespace MidiBottleneck.Tests
             public readonly ManualResetEvent Entered = new ManualResetEvent(false);
             public readonly ManualResetEvent Release = new ManualResetEvent(false);
             public int Count;
-            public void Send(MidiEvent midiEvent)
+            public void Send(MidiEventView midiEvent)
             {
                 Entered.Set();
                 Release.WaitOne(1000);
@@ -1110,13 +1117,14 @@ namespace MidiBottleneck.Tests
             MidiSong legacy = BuildSong(new long[] { 0, 1000, 1000, 5000 });
             MidiEventReader legacyReader = legacy.GetEventReader();
             Equal(4, legacyReader.Count, "legacy reader count");
-            Equal(true, Object.ReferenceEquals(legacy.Events[2], legacyReader[2]), "legacy identity remains stable");
+            Equal(legacy.Events[2].EventIndex, legacyReader[2].EventIndex, "legacy reader preserves stable source identity");
             Equal(0, legacyReader.LowerBoundByTime(0), "lower bound at start");
             Equal(1, legacyReader.LowerBoundByTime(1), "lower bound between events");
             Equal(1, legacyReader.LowerBoundByTime(1000), "lower bound at duplicate timestamp");
             Equal(4, legacyReader.LowerBoundByTime(6000), "lower bound after end");
 
-            MidiEvent[] immutableEvents = legacy.Events.ToArray();
+            MidiEvent[] immutableEvents = new MidiEvent[legacy.Events.Count];
+            legacy.Events.CopyTo(immutableEvents, 0);
             MidiSong indexed = new MidiSong
             {
                 DurationMicroseconds = legacy.DurationMicroseconds,
@@ -1124,11 +1132,11 @@ namespace MidiBottleneck.Tests
                 TicksPerQuarterNote = legacy.TicksPerQuarterNote
             };
             indexed.SetEventStore(new ArrayMidiEventStore(immutableEvents));
-            Equal(true, indexed.Events == null, "non-list backend does not expose mutable legacy list");
+            Equal(true, indexed.Events.IsReadOnly, "non-list backend exposes only a read-only compatibility view");
             MidiEventReader indexedReader = indexed.GetEventReader();
             Equal(4, indexedReader.Count, "indexed backend count");
             Equal(1, indexedReader.LowerBoundByTime(1000), "indexed backend lower bound");
-            Equal(true, Object.ReferenceEquals(immutableEvents[3], indexedReader[3]), "indexed backend identity remains stable");
+            Equal(immutableEvents[3].EventIndex, indexedReader[3].EventIndex, "indexed backend identity remains stable");
 
             WorkloadAnalysis analysis = WorkloadAnalyzer.AnalyzeUncached(indexed, 1000,
                 DefaultAnalysisConfiguration(), CancellationToken.None, null);
@@ -1147,6 +1155,152 @@ namespace MidiBottleneck.Tests
             // without requiring test builders to know about the new boundary.
             legacy.Events = new List<MidiEvent> { immutableEvents[0] };
             Equal(1, legacy.EventStore.Count, "legacy list replacement refreshes backend");
+        }
+
+        private static void TestCompactSegmentedEventStore()
+        {
+            Equal(40, CompactMidiEventStore.RecordSize, "compact record size");
+            int count = CompactMidiEventStore.RecordSegmentCapacity + 3;
+            List<MidiEvent> referenceEvents = new List<MidiEvent>(count);
+            List<MidiEvent> conversionEvents = new List<MidiEvent>(count);
+            for (int index = 0; index < count; index++)
+            {
+                MidiEvent midiEvent;
+                if (index == CompactMidiEventStore.RecordSegmentCapacity - 1)
+                {
+                    byte[] payload = new byte[CompactPayloadStore.SegmentSize + 17];
+                    payload[0] = 0xF0;
+                    for (int byteIndex = 1; byteIndex < payload.Length - 1; byteIndex++)
+                        payload[byteIndex] = (byte)(byteIndex & 0x7F);
+                    payload[payload.Length - 1] = 0xF7;
+                    midiEvent = new MidiEvent
+                    {
+                        Kind = MidiEventKind.SystemExclusive,
+                        Channel = -1,
+                        Status = 0xF0,
+                        Data = payload
+                    };
+                }
+                else midiEvent = ChannelEvent(index / 2, (byte)(0x90 | (index & 0x0F)),
+                    (byte)(index & 0x7F), (byte)((index % 126) + 1), index);
+                midiEvent.AbsoluteTick = index / 3;
+                midiEvent.IntendedMicroseconds = index / 2;
+                midiEvent.Track = index % 7;
+                midiEvent.Order = index;
+                midiEvent.EventIndex = index;
+                referenceEvents.Add(midiEvent);
+                conversionEvents.Add(CloneMidiEvent(midiEvent));
+            }
+
+            CompactMidiEventStore compact = CompactMidiEventStore.Convert(conversionEvents,
+                CancellationToken.None, null);
+            Equal(2, compact.RecordSegmentCount, "record lookup crosses a bounded segment boundary");
+            Equal(2, compact.Payloads.SegmentCount, "long payload crosses bounded payload segments");
+            for (int index = 0; index < conversionEvents.Count; index++)
+                if (conversionEvents[index] != null) throw new Exception("converted legacy reference was retained at " + index);
+
+            MidiSong compactSong = new MidiSong { DurationMicroseconds = count / 2, TrackCount = 7,
+                TicksPerQuarterNote = 480 };
+            compactSong.SetEventStore(compact);
+            Equal(typeof(CompactMidiEventStore), compactSong.EventStore.GetType(),
+                "compatibility facade cannot replace compact production backend");
+            MidiEventReader compactReader = compactSong.GetEventReader();
+            MidiSong referenceSong = new MidiSong { DurationMicroseconds = count / 2, TrackCount = 7,
+                TicksPerQuarterNote = 480, Events = referenceEvents };
+            MidiEventReader referenceReader = referenceSong.GetEventReader();
+
+            ulong referenceHash = 1469598103934665603UL;
+            ulong compactHash = 1469598103934665603UL;
+            for (int index = 0; index < count; index++)
+            {
+                MidiEventView expected = referenceReader[index];
+                MidiEventView actual = compactReader[index];
+                Equal(expected.AbsoluteTick, actual.AbsoluteTick, "compact tick " + index);
+                Equal(expected.IntendedMicroseconds, actual.IntendedMicroseconds, "compact time " + index);
+                Equal(expected.Track, actual.Track, "compact track " + index);
+                Equal(expected.Kind, actual.Kind, "compact kind " + index);
+                Equal(expected.Channel, actual.Channel, "compact channel " + index);
+                Equal(expected.Status, actual.Status, "compact status " + index);
+                Equal(index, actual.EventIndex, "compact index identity " + index);
+                Equal(expected.DataLength, actual.DataLength, "compact payload length " + index);
+                for (int byteIndex = 0; byteIndex < expected.DataLength; byteIndex++)
+                {
+                    byte expectedByte = expected.GetDataByte(byteIndex);
+                    byte actualByte = actual.GetDataByte(byteIndex);
+                    Equal(expectedByte, actualByte, "compact payload byte");
+                    unchecked
+                    {
+                        referenceHash = (referenceHash ^ expectedByte) * 1099511628211UL;
+                        compactHash = (compactHash ^ actualByte) * 1099511628211UL;
+                    }
+                }
+            }
+            Equal(referenceHash, compactHash, "byte-for-byte compact payload hash");
+            int boundary = CompactMidiEventStore.RecordSegmentCapacity;
+            long boundaryTime = compactReader[boundary].IntendedMicroseconds;
+            Equal(referenceReader.LowerBoundByTime(boundaryTime), compactReader.LowerBoundByTime(boundaryTime),
+                "lower bound at record segment duplicate timestamp");
+            Equal(referenceReader.LowerBoundByTime(boundaryTime + 1), compactReader.LowerBoundByTime(boundaryTime + 1),
+                "lower bound after record segment duplicate timestamp");
+            Equal(0, compactReader.LowerBoundByTime(-1), "lower bound before compact store");
+            Equal(count, compactReader.LowerBoundByTime(Int64.MaxValue), "lower bound after compact store");
+
+            AnalysisConfiguration configuration = DefaultAnalysisConfiguration();
+            configuration.ProcessingMicroseconds = 25;
+            configuration.QueueLengthLimitEnabled = true;
+            configuration.QueueLengthLimit = 5;
+            configuration.OverflowPolicy = OverflowPolicy.DropIncomingCompleteNotes;
+            WorkloadAnalysis expectedAnalysis = WorkloadAnalyzer.AnalyzeUncached(referenceSong, 1000,
+                configuration, CancellationToken.None, null);
+            WorkloadAnalysis compactAnalysis = WorkloadAnalyzer.AnalyzeUncached(compactSong, 1000,
+                configuration, CancellationToken.None, null);
+            Equal(expectedAnalysis.TotalEvents, compactAnalysis.TotalEvents, "compact Analysis total events");
+            Equal(expectedAnalysis.TotalBytes, compactAnalysis.TotalBytes, "compact Analysis total bytes");
+            Equal(expectedAnalysis.UniqueTimestamps, compactAnalysis.UniqueTimestamps, "compact Analysis timestamps");
+            Equal(expectedAnalysis.LargestTimestampCluster, compactAnalysis.LargestTimestampCluster,
+                "compact Analysis clusters");
+            Equal(expectedAnalysis.PredictedDroppedEvents, compactAnalysis.PredictedDroppedEvents,
+                "compact Analysis drops");
+            Equal(expectedAnalysis.PredictedMaximumOccupancy, compactAnalysis.PredictedMaximumOccupancy,
+                "compact Analysis occupancy");
+
+            using (NullMidiOutput output = new NullMidiOutput())
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.SimulateSlowdown = false;
+                engine.Start(compactSong, output, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 5000,
+                    "compact immediate playback completion");
+                Equal((long)count, engine.GetSnapshot().ProcessedEvents,
+                    "compact immediate playback consumes every event");
+            }
+
+            List<MidiEvent> cancelledSource = new List<MidiEvent>();
+            cancelledSource.Add(CloneMidiEvent(referenceEvents[0]));
+            CancellationTokenSource cancelled = new CancellationTokenSource();
+            cancelled.Cancel();
+            bool cancellationObserved = false;
+            try { CompactMidiEventStore.Convert(cancelledSource, cancelled.Token, null); }
+            catch (OperationCanceledException) { cancellationObserved = true; }
+            finally { cancelled.Dispose(); }
+            Equal(true, cancellationObserved, "compact conversion observes cancellation before publication");
+            Equal(true, cancelledSource[0] != null, "pre-cancelled conversion does not consume source references");
+        }
+
+        private static MidiEvent CloneMidiEvent(MidiEvent source)
+        {
+            return new MidiEvent
+            {
+                AbsoluteTick = source.AbsoluteTick,
+                IntendedMicroseconds = source.IntendedMicroseconds,
+                Track = source.Track,
+                Order = source.Order,
+                Kind = source.Kind,
+                Channel = source.Channel,
+                Status = source.Status,
+                EventIndex = source.EventIndex,
+                Data = source.DataLength > 3 ? (MidiEventData)source.Data.ToArray() : source.Data
+            };
         }
 
         private static void TestPackedMidiEventData()
@@ -1204,23 +1358,59 @@ namespace MidiBottleneck.Tests
                 long privateBefore;
                 using (Process process = Process.GetCurrentProcess()) { process.Refresh(); privateBefore = process.PrivateMemorySize64; }
                 Stopwatch load = Stopwatch.StartNew();
-                MidiSong song = MidiFileParser.Load(path);
+                MidiSong song = null;
+                Exception loadFailure = null;
+                long conversionStarted = 0;
+                long conversionFinished = 0;
+                long peakManaged = managedBefore;
+                long peakPrivate = privateBefore;
+                Thread loadThread = new Thread((ThreadStart)delegate
+                {
+                    try
+                    {
+                        song = MidiFileParser.Load(path, CancellationToken.None, delegate(MidiLoadProgress value)
+                        {
+                            if (value.Stage == "Compacting event storage" && conversionStarted == 0)
+                                Interlocked.CompareExchange(ref conversionStarted, Stopwatch.GetTimestamp(), 0);
+                            if (value.Stage == "Ready" && conversionStarted != 0)
+                                Interlocked.Exchange(ref conversionFinished, Stopwatch.GetTimestamp());
+                        });
+                    }
+                    catch (Exception ex) { loadFailure = ex; }
+                });
+                loadThread.Start();
+                while (loadThread.IsAlive)
+                {
+                    peakManaged = Math.Max(peakManaged, GC.GetTotalMemory(false));
+                    using (Process process = Process.GetCurrentProcess())
+                    {
+                        process.Refresh();
+                        peakPrivate = Math.Max(peakPrivate, process.PrivateMemorySize64);
+                    }
+                    Thread.Sleep(1);
+                }
+                loadThread.Join();
                 load.Stop();
+                if (loadFailure != null) throw new InvalidOperationException("Synthetic event-store benchmark load failed.", loadFailure);
                 GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
                 long managedAfter = GC.GetTotalMemory(true);
                 long privateAfter;
                 using (Process process = Process.GetCurrentProcess()) { process.Refresh(); privateAfter = process.PrivateMemorySize64; }
 
                 int shortPayloadArrays = 0;
-                for (int i = 0; i < song.Events.Count; i++)
-                    if (song.Events[i].Data.UsesHeapPayload && song.Events[i].Data.Length <= 3) shortPayloadArrays++;
+                MidiEventReader eventReader = song.GetEventReader();
+                for (int i = 0; i < eventReader.Count; i++)
+                    if (eventReader[i].Data.UsesHeapPayload && eventReader[i].Data.Length <= 3) shortPayloadArrays++;
 
                 AnalysisConfiguration configuration = DefaultAnalysisConfiguration();
                 configuration.SimulateSlowdown = false;
+                int analysisGen0 = GC.CollectionCount(0);
                 Stopwatch analysisTimer = Stopwatch.StartNew();
                 WorkloadAnalysis analysis = WorkloadAnalyzer.Analyze(song, 100000, configuration);
                 analysisTimer.Stop();
+                analysisGen0 = GC.CollectionCount(0) - analysisGen0;
 
+                int playbackGen0 = GC.CollectionCount(0);
                 Stopwatch playback = Stopwatch.StartNew();
                 PlaybackSnapshot snapshot;
                 using (NullMidiOutput output = new NullMidiOutput())
@@ -1232,14 +1422,20 @@ namespace MidiBottleneck.Tests
                     snapshot = engine.GetSnapshot();
                 }
                 playback.Stop();
+                playbackGen0 = GC.CollectionCount(0) - playbackGen0;
 
                 Console.WriteLine("Event-store benchmark: architecture={0}, events={1:N0}, backend={2}",
-                    IntPtr.Size == 8 ? "x64" : "x86", song.Events.Count, song.Events.GetType().Name);
+                    IntPtr.Size == 8 ? "x64" : "x86", eventReader.Count, song.EventStore.GetType().Name);
                 Console.WriteLine("  load={0:F1} ms; managed delta={1:N0} bytes; private delta={2:N0} bytes; short payload arrays={3:N0}",
                     load.Elapsed.TotalMilliseconds, managedAfter - managedBefore, privateAfter - privateBefore, shortPayloadArrays);
-                Console.WriteLine("  analysis={0:F1} ms; analyzed events={1:N0}", analysisTimer.Elapsed.TotalMilliseconds, analysis.TotalEvents);
-                Console.WriteLine("  immediate None playback={0:F1} ms; processed={1:N0}; max lag={2:N0} us",
-                    playback.Elapsed.TotalMilliseconds, snapshot.ProcessedEvents, snapshot.MaximumLagMicroseconds);
+                Console.WriteLine("  observed load peak: managed delta={0:N0} bytes; private delta={1:N0} bytes; compact conversion={2:F1} ms",
+                    peakManaged - managedBefore, peakPrivate - privateBefore,
+                    conversionStarted == 0 || conversionFinished == 0 ? 0.0 :
+                        (conversionFinished - conversionStarted) * 1000.0 / Stopwatch.Frequency);
+                Console.WriteLine("  analysis={0:F1} ms; analyzed events={1:N0}; Gen0={2:N0}",
+                    analysisTimer.Elapsed.TotalMilliseconds, analysis.TotalEvents, analysisGen0);
+                Console.WriteLine("  immediate None playback={0:F1} ms; processed={1:N0}; max lag={2:N0} us; Gen0={3:N0}",
+                    playback.Elapsed.TotalMilliseconds, snapshot.ProcessedEvents, snapshot.MaximumLagMicroseconds, playbackGen0);
             }
             finally { DeleteFileWhenAvailable(path); }
         }
@@ -4146,7 +4342,7 @@ namespace MidiBottleneck.Tests
                 "the retained occurrence still pairs with its own track Note Off");
 
             PerNoteIntervalGate gate = new PerNoteIntervalGate(100);
-            MidiEvent[] emitted = new MidiEvent[128];
+            MidiEventView[] emitted = new MidiEventView[128];
             MidiEvent on60 = ChannelMessage(0, 0x90, 60, 100);
             on60.Track = 3;
             MidiEvent off60 = ChannelMessage(50, 0x80, 60, 45);
@@ -6087,6 +6283,96 @@ namespace MidiBottleneck.Tests
                     Equal(false, form.CalculationPending, "file replacement retires preview/final generation");
                     secondFinal.Set(); PumpFor(150);
                     Equal(null, form.CurrentAnalysis, "detached shell rejects late Analysis publication");
+                    form.Close();
+                }
+            }
+
+            // A projection failure must preserve a valid workload preview and
+            // expose the actual exception message. A later request can replace
+            // that state normally.
+            int failureCalls = 0;
+            WorkloadAnalysisRunner failingProjection = delegate(MidiSong source, long bucket,
+                AnalysisConfiguration configuration, CancellationToken token,
+                Action<WorkloadAnalysisProgress> progress, Action<WorkloadBaseAnalysis> workloadReady)
+            {
+                int call = Interlocked.Increment(ref failureCalls);
+                WorkloadAnalysis workload = WorkloadAnalyzer.Analyze(source, bucket, null, token, progress);
+                if (workloadReady != null) workloadReady(new WorkloadBaseAnalysis(workload));
+                if (call == 1) throw new InvalidOperationException("Synthetic queue projection explanation.");
+                return WorkloadAnalyzer.Analyze(source, bucket, configuration, token, progress);
+            };
+            using (DiagnosticsForm form = new DiagnosticsForm(song, null, failingProjection))
+            {
+                form.Show(); form.RequestAnalysis(first);
+                PumpUntil(delegate
+                {
+                    return form.CurrentAnalysis != null &&
+                        form.CurrentAnalysis.ProjectionState == AnalysisProjectionState.Failed;
+                }, 3000, "projection failure after workload preview");
+                Equal(false, form.HasCompletedAnalysis, "failed projection retains workload-only state");
+                if (form.SummaryText.IndexOf("Synthetic queue projection explanation", StringComparison.Ordinal) < 0)
+                    throw new Exception("failed preview discarded the queue-projection exception explanation");
+                if (!form.CalculationStatusVisible ||
+                    form.CalculationStatusText.IndexOf("Synthetic queue projection explanation", StringComparison.Ordinal) < 0)
+                    throw new Exception("calculation status omitted the queue-projection failure explanation");
+                Equal(4L, form.CurrentAnalysis.TotalEvents, "failed projection keeps usable workload totals");
+                form.RequestAnalysis(second);
+                PumpUntil(delegate { return form.HasCompletedAnalysis; }, 3000,
+                    "successful recalculation after failed preview");
+                Equal(AnalysisProjectionState.Complete, form.CurrentAnalysis.ProjectionState,
+                    "later success replaces failed-preview state");
+                form.Close();
+            }
+
+            WorkloadAnalysisRunner failureBeforePreview = delegate(MidiSong source, long bucket,
+                AnalysisConfiguration configuration, CancellationToken token,
+                Action<WorkloadAnalysisProgress> progress, Action<WorkloadBaseAnalysis> workloadReady)
+            {
+                throw new InvalidOperationException("Synthetic workload scan failure.");
+            };
+            using (DiagnosticsForm form = new DiagnosticsForm(song, null, failureBeforePreview))
+            {
+                form.Show(); form.RequestAnalysis(first);
+                PumpUntil(delegate { return form.SummaryText.IndexOf("Synthetic workload scan failure", StringComparison.Ordinal) >= 0; },
+                    3000, "failure before workload preview");
+                Equal(null, form.CurrentAnalysis, "pre-preview failure does not invent workload data");
+                if (!form.CalculationStatusVisible ||
+                    form.CalculationStatusText.IndexOf("Synthetic workload scan failure", StringComparison.Ordinal) < 0)
+                    throw new Exception("pre-preview failure explanation was not retained in calculation status");
+                form.Close();
+            }
+
+            using (ManualResetEvent releaseStaleFailure = new ManualResetEvent(false))
+            {
+                int calls = 0;
+                WorkloadAnalysisRunner staleFailure = delegate(MidiSong source, long bucket,
+                    AnalysisConfiguration configuration, CancellationToken token,
+                    Action<WorkloadAnalysisProgress> progress, Action<WorkloadBaseAnalysis> workloadReady)
+                {
+                    int call = Interlocked.Increment(ref calls);
+                    WorkloadAnalysis workload = WorkloadAnalyzer.Analyze(source, bucket, null,
+                        call == 1 ? CancellationToken.None : token, progress);
+                    if (workloadReady != null) workloadReady(new WorkloadBaseAnalysis(workload));
+                    if (call == 1)
+                    {
+                        releaseStaleFailure.WaitOne();
+                        throw new InvalidOperationException("Stale projection failure must be ignored.");
+                    }
+                    return WorkloadAnalyzer.Analyze(source, bucket, configuration, token, progress);
+                };
+                using (DiagnosticsForm form = new DiagnosticsForm(song, null, staleFailure))
+                {
+                    form.Show(); form.RequestAnalysis(first);
+                    PumpUntil(delegate { return form.PreviewPublicationCount == 1; }, 3000,
+                        "preview owned by soon-stale generation");
+                    form.RequestAnalysis(second);
+                    PumpUntil(delegate { return form.HasCompletedAnalysis; }, 3000,
+                        "new generation completes before stale failure");
+                    releaseStaleFailure.Set(); PumpFor(200);
+                    Equal(AnalysisProjectionState.Complete, form.CurrentAnalysis.ProjectionState,
+                        "stale failed generation cannot replace newer result");
+                    if (form.SummaryText.IndexOf("Stale projection failure", StringComparison.Ordinal) >= 0)
+                        throw new Exception("stale projection failure leaked into the current Analysis report");
                     form.Close();
                 }
             }
@@ -8182,14 +8468,14 @@ namespace MidiBottleneck.Tests
         private sealed class CountingMidiOutput : IMidiOutput
         {
             public long Count;
-            public void Send(MidiEvent midiEvent) { Count++; }
+            public void Send(MidiEventView midiEvent) { Count++; }
             public void Panic() { }
             public void Reset() { }
         }
 
         private sealed class ThrowingMidiOutput : IMidiOutput
         {
-            public void Send(MidiEvent midiEvent) { throw new InvalidOperationException("Synthetic output failure"); }
+            public void Send(MidiEventView midiEvent) { throw new InvalidOperationException("Synthetic output failure"); }
             public void Panic() { }
             public void Reset() { }
         }
@@ -8197,7 +8483,7 @@ namespace MidiBottleneck.Tests
         private sealed class ToggleFailureOutput : IMidiOutput
         {
             internal bool Throw;
-            public void Send(MidiEvent midiEvent)
+            public void Send(MidiEventView midiEvent)
             {
                 if (Throw) throw new InvalidOperationException("Synthetic output failure");
             }
@@ -8211,7 +8497,7 @@ namespace MidiBottleneck.Tests
             private long _count;
             internal CallbackMidiOutput(Action<long> callback) { _callback = callback; }
             internal long Count { get { return Interlocked.Read(ref _count); } }
-            public void Send(MidiEvent midiEvent)
+            public void Send(MidiEventView midiEvent)
             {
                 long count = Interlocked.Increment(ref _count);
                 if (_callback != null) _callback(count);
@@ -8226,7 +8512,7 @@ namespace MidiBottleneck.Tests
             internal int ResetCount;
             internal int PanicCount;
             internal long Count { get { return Interlocked.Read(ref _count); } }
-            public void Send(MidiEvent midiEvent)
+            public void Send(MidiEventView midiEvent)
             {
                 Thread.SpinWait(1200);
                 Interlocked.Increment(ref _count);
@@ -8253,7 +8539,7 @@ namespace MidiBottleneck.Tests
 
             internal int SendBeginCount { get { lock (_sync) return _beginNotes.Count; } }
 
-            public void Send(MidiEvent midiEvent)
+            public void Send(MidiEventView midiEvent)
             {
                 int active = Interlocked.Increment(ref _activeSends);
                 int observed;
@@ -8337,11 +8623,11 @@ namespace MidiBottleneck.Tests
                 _checkpointStamps = new long[(expectedCount + checkpoint - 1) / checkpoint];
             }
 
-            public void Send(MidiEvent midiEvent)
+            public void Send(MidiEventView midiEvent)
             {
                 int index = Count;
                 if (index % _checkpoint == 0) _checkpointStamps[index / _checkpoint] = Stopwatch.GetTimestamp();
-                if (index >= _expectedCount || midiEvent == null || midiEvent.Order != index ||
+                if (index >= _expectedCount || !midiEvent.IsValid ||
                     midiEvent.EventIndex != index || midiEvent.Status != 0x90 ||
                     midiEvent.Data.Length != 3 || midiEvent.Data[0] != 0x90 ||
                     midiEvent.Data[1] != (byte)(60 + (index % 12)) || midiEvent.Data[2] != 1)
@@ -8367,7 +8653,7 @@ namespace MidiBottleneck.Tests
             private readonly IMidiOutput _inner;
             public long SendTicks;
             public TimedMidiOutput(IMidiOutput inner) { _inner = inner; }
-            public void Send(MidiEvent midiEvent)
+            public void Send(MidiEventView midiEvent)
             {
                 long start = Stopwatch.GetTimestamp();
                 try { _inner.Send(midiEvent); }
@@ -8382,7 +8668,7 @@ namespace MidiBottleneck.Tests
             private readonly MidiEvent[] _events;
             internal ArrayMidiEventStore(MidiEvent[] events) { _events = events; }
             public int Count { get { return _events.Length; } }
-            public MidiEvent GetEvent(int index) { return _events[index]; }
+            public MidiEventView GetEvent(int index) { return MidiEventView.FromEvent(_events[index], index); }
             public int LowerBoundByTime(long microseconds)
             {
                 int low = 0;
@@ -8409,7 +8695,7 @@ namespace MidiBottleneck.Tests
 
             internal AcknowledgingMidiOutput(int blockSendNumber) { _blockSendNumber = blockSendNumber; }
 
-            public void Send(MidiEvent midiEvent)
+            public void Send(MidiEventView midiEvent)
             {
                 int sendNumber = Interlocked.Increment(ref _sendNumber);
                 if (sendNumber == _blockSendNumber)
@@ -8450,14 +8736,14 @@ namespace MidiBottleneck.Tests
             public string SourceFile { get; set; }
             private readonly object _sync = new object();
             private readonly List<long> _sent = new List<long>();
-            private readonly List<MidiEvent> _sentEvents = new List<MidiEvent>();
+            private readonly List<MidiEventView> _sentEvents = new List<MidiEventView>();
             public int ResetCount;
             public int PanicCount;
             public int LastResetSequence;
             public int LastPanicSequence;
             private int _safetySequence;
 
-            public void Send(MidiEvent midiEvent)
+            public void Send(MidiEventView midiEvent)
             {
                 lock (_sync)
                 {
@@ -8517,7 +8803,12 @@ namespace MidiBottleneck.Tests
 
             public List<MidiEvent> SentEvents()
             {
-                lock (_sync) return new List<MidiEvent>(_sentEvents);
+                lock (_sync)
+                {
+                    List<MidiEvent> result = new List<MidiEvent>(_sentEvents.Count);
+                    for (int i = 0; i < _sentEvents.Count; i++) result.Add(_sentEvents[i].ToCompatibilityEvent());
+                    return result;
+                }
             }
         }
 

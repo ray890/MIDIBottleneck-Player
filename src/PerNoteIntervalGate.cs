@@ -32,8 +32,8 @@ namespace MidiBottleneck
             internal int NextActive;
             internal int NextGroup;
             internal int NextFree;
-            internal MidiEvent NoteOn;
-            internal MidiEvent NoteOff;
+            internal MidiEventView NoteOn;
+            internal MidiEventView NoteOff;
         }
 
         private readonly long _intervalMicroseconds;
@@ -43,10 +43,10 @@ namespace MidiBottleneck
         private readonly long[] _minimumReleaseBoundary = new long[PitchCount];
         private readonly long[] _nextAttackBoundary = new long[PitchCount];
 
-        private readonly MidiEvent[] _pendingAttack = new MidiEvent[PitchCount];
+        private readonly MidiEventView[] _pendingAttack = new MidiEventView[PitchCount];
         private readonly long[] _attackBoundary = new long[PitchCount];
         private readonly long[] _preparatoryReleaseBoundary = new long[PitchCount];
-        private readonly MidiEvent[] _naturalRelease = new MidiEvent[PitchCount];
+        private readonly MidiEventView[] _naturalRelease = new MidiEventView[PitchCount];
         private readonly long[] _naturalReleaseBoundary = new long[PitchCount];
 
         // At most one candidate group per pitch is retained for an eligible
@@ -105,7 +105,7 @@ namespace MidiBottleneck
             _sourceTick = absoluteTick;
         }
 
-        internal PerNoteGateAdmission Admit(MidiEvent midiEvent)
+        internal PerNoteGateAdmission Admit(MidiEventView midiEvent)
         {
             int pitch;
             bool noteOn;
@@ -180,7 +180,7 @@ namespace MidiBottleneck
 
         // Source events at this timestamp must already have been admitted.
         // Emits no more than one transition per pitch in ascending-pitch order.
-        internal int EmitBoundary(long boundaryMicroseconds, MidiEvent[] output)
+        internal int EmitBoundary(long boundaryMicroseconds, MidiEventView[] output)
         {
             if (output == null || output.Length < PitchCount)
                 throw new ArgumentException("A 128-entry output buffer is required.", "output");
@@ -198,8 +198,8 @@ namespace MidiBottleneck
                 {
                     bool natural = _naturalReleaseBoundary[pitch] <= boundaryMicroseconds &&
                         _selectedSupportCount[pitch] == 0;
-                    MidiEvent releaseSource = natural ? _naturalRelease[pitch] : null;
-                    int velocity = releaseSource == null ? 0 : releaseSource.GetDataByte(2) & 0x7F;
+                    MidiEventView releaseSource = natural ? _naturalRelease[pitch] : default(MidiEventView);
+                    int velocity = !releaseSource.IsValid ? 0 : releaseSource.GetDataByte(2) & 0x7F;
                     output[count++] = CreateNoteOff(releaseSource, pitch, _outputChannel[pitch], velocity,
                         boundaryMicroseconds);
                     _outputDown[pitch] = false;
@@ -207,20 +207,20 @@ namespace MidiBottleneck
                     _preparatoryReleaseBoundary[pitch] = Int64.MaxValue;
                     if (natural)
                     {
-                        _naturalRelease[pitch] = null;
+                        _naturalRelease[pitch] = default(MidiEventView);
                         _naturalReleaseBoundary[pitch] = Int64.MaxValue;
                     }
-                    if (_pendingAttack[pitch] != null && _attackBoundary[pitch] <= boundaryMicroseconds)
+                    if (_pendingAttack[pitch].IsValid && _attackBoundary[pitch] <= boundaryMicroseconds)
                         _attackBoundary[pitch] = AddInterval(boundaryMicroseconds);
                     continue;
                 }
 
-                MidiEvent attack = _pendingAttack[pitch];
-                if (attack != null && _attackBoundary[pitch] <= boundaryMicroseconds)
+                MidiEventView attack = _pendingAttack[pitch];
+                if (attack.IsValid && _attackBoundary[pitch] <= boundaryMicroseconds)
                 {
                     if (_outputDown[pitch])
                     {
-                        output[count++] = CreateNoteOff(null, pitch, _outputChannel[pitch], 0, boundaryMicroseconds);
+                        output[count++] = CreateNoteOff(default(MidiEventView), pitch, _outputChannel[pitch], 0, boundaryMicroseconds);
                         _outputDown[pitch] = false;
                         _outputChannel[pitch] = -1;
                         _attackBoundary[pitch] = AddInterval(boundaryMicroseconds);
@@ -230,7 +230,7 @@ namespace MidiBottleneck
                     _outputDown[pitch] = true;
                     _outputChannel[pitch] = attack.Channel;
                     _minimumReleaseBoundary[pitch] = AddInterval(boundaryMicroseconds);
-                    _pendingAttack[pitch] = null;
+                    _pendingAttack[pitch] = default(MidiEventView);
                     _attackBoundary[pitch] = Int64.MaxValue;
                     _preparatoryReleaseBoundary[pitch] = Int64.MaxValue;
                     if (_selectedSupportCount[pitch] == 0)
@@ -241,13 +241,13 @@ namespace MidiBottleneck
                 if (_outputDown[pitch] && _selectedSupportCount[pitch] == 0 &&
                     _naturalReleaseBoundary[pitch] <= boundaryMicroseconds)
                 {
-                    MidiEvent release = _naturalRelease[pitch];
-                    int velocity = release == null ? 0 : release.GetDataByte(2) & 0x7F;
+                    MidiEventView release = _naturalRelease[pitch];
+                    int velocity = !release.IsValid ? 0 : release.GetDataByte(2) & 0x7F;
                     output[count++] = CreateNoteOff(release, pitch, _outputChannel[pitch], velocity,
                         boundaryMicroseconds);
                     _outputDown[pitch] = false;
                     _outputChannel[pitch] = -1;
-                    _naturalRelease[pitch] = null;
+                    _naturalRelease[pitch] = default(MidiEventView);
                     _naturalReleaseBoundary[pitch] = Int64.MaxValue;
                 }
             }
@@ -280,8 +280,8 @@ namespace MidiBottleneck
             }
             for (int pitch = 0; pitch < PitchCount; pitch++)
                 if (_selectedSupportCount[pitch] == 0 &&
-                    (_outputDown[pitch] || _pendingAttack[pitch] != null))
-                    ScheduleNaturalRelease(pitch, null, sourceEndMicroseconds);
+                    (_outputDown[pitch] || _pendingAttack[pitch].IsValid))
+                    ScheduleNaturalRelease(pitch, default(MidiEventView), sourceEndMicroseconds);
             RecalculateNextBoundary();
         }
 
@@ -312,9 +312,9 @@ namespace MidiBottleneck
                     node = next;
                 }
 
-                if (_pendingAttack[pitch] != null && _pendingAttack[pitch].Channel == channel)
+                if (_pendingAttack[pitch].IsValid && _pendingAttack[pitch].Channel == channel)
                 {
-                    _pendingAttack[pitch] = null;
+                    _pendingAttack[pitch] = default(MidiEventView);
                     _attackBoundary[pitch] = Int64.MaxValue;
                     _preparatoryReleaseBoundary[pitch] = Int64.MaxValue;
                     routedFiltered++;
@@ -323,11 +323,11 @@ namespace MidiBottleneck
                 {
                     _outputDown[pitch] = false;
                     _outputChannel[pitch] = -1;
-                    _naturalRelease[pitch] = null;
+                    _naturalRelease[pitch] = default(MidiEventView);
                     _naturalReleaseBoundary[pitch] = Int64.MaxValue;
                     _preparatoryReleaseBoundary[pitch] = Int64.MaxValue;
                 }
-                if (!_outputDown[pitch] && _pendingAttack[pitch] == null &&
+                if (!_outputDown[pitch] && !_pendingAttack[pitch].IsValid &&
                     _selectedSupportCount[pitch] > 0)
                 {
                     int replacement = FindBestSelectedSupport(pitch);
@@ -337,15 +337,15 @@ namespace MidiBottleneck
                         if (boundary <= nowMicroseconds) boundary = AddInterval(boundary);
                         _pendingAttack[pitch] = GetOccurrence(replacement).NoteOn;
                         _attackBoundary[pitch] = boundary;
-                        _naturalRelease[pitch] = null;
+                        _naturalRelease[pitch] = default(MidiEventView);
                         _naturalReleaseBoundary[pitch] = Int64.MaxValue;
                     }
                 }
                 if (_selectedSupportCount[pitch] == 0 && _outputDown[pitch])
-                    ScheduleNaturalRelease(pitch, null, nowMicroseconds);
-                if (!_outputDown[pitch] && _pendingAttack[pitch] == null)
+                    ScheduleNaturalRelease(pitch, default(MidiEventView), nowMicroseconds);
+                if (!_outputDown[pitch] && !_pendingAttack[pitch].IsValid)
                 {
-                    _naturalRelease[pitch] = null;
+                    _naturalRelease[pitch] = default(MidiEventView);
                     _naturalReleaseBoundary[pitch] = Int64.MaxValue;
                 }
             }
@@ -388,7 +388,7 @@ namespace MidiBottleneck
             return false;
         }
 
-        private int AllocateOccurrence(MidiEvent noteOn, int pitch)
+        private int AllocateOccurrence(MidiEventView noteOn, int pitch)
         {
             int node;
             if (_freeOccurrence >= 0)
@@ -507,7 +507,7 @@ namespace MidiBottleneck
             if (head < 0) return;
             long firstBoundary = _candidateBoundary[pitch];
             long assigned = Math.Max(firstBoundary, _nextAttackBoundary[pitch]);
-            if (_outputDown[pitch] || _pendingAttack[pitch] != null)
+            if (_outputDown[pitch] || _pendingAttack[pitch].IsValid)
                 assigned = Math.Max(assigned, AddInterval(firstBoundary));
             if (assigned > AddInterval(firstBoundary))
             {
@@ -535,12 +535,12 @@ namespace MidiBottleneck
                 ClearCandidate(pitch);
                 return;
             }
-            MidiEvent representativeEvent = GetOccurrence(representative).NoteOn;
+            MidiEventView representativeEvent = GetOccurrence(representative).NoteOn;
 
             int liveSupports = 0;
             int endedCount = 0;
             int selectedMembers = 0;
-            MidiEvent latestOff = null;
+            MidiEventView latestOff = default(MidiEventView);
             int node = head;
             while (node >= 0)
             {
@@ -554,7 +554,7 @@ namespace MidiBottleneck
                     if (occurrence.Ended)
                     {
                         endedCount++;
-                        if (occurrence.NoteOff != null && (latestOff == null ||
+                        if (occurrence.NoteOff.IsValid && (!latestOff.IsValid ||
                             IsLaterSourceEvent(occurrence.NoteOff, latestOff))) latestOff = occurrence.NoteOff;
                     }
                     else liveSupports++;
@@ -662,30 +662,30 @@ namespace MidiBottleneck
 
         private bool IsBetterRepresentative(int candidate, int current)
         {
-            MidiEvent left = GetOccurrence(candidate).NoteOn;
-            MidiEvent right = GetOccurrence(current).NoteOn;
+            MidiEventView left = GetOccurrence(candidate).NoteOn;
+            MidiEventView right = GetOccurrence(current).NoteOn;
             int leftVelocity = left.GetDataByte(2) & 0x7F;
             int rightVelocity = right.GetDataByte(2) & 0x7F;
             if (leftVelocity != rightVelocity) return leftVelocity > rightVelocity;
             if (left.EventIndex != right.EventIndex) return left.EventIndex < right.EventIndex;
-            return left.Order < right.Order;
+            return left.Track < right.Track;
         }
 
-        private static bool IsLaterSourceEvent(MidiEvent candidate, MidiEvent current)
+        private static bool IsLaterSourceEvent(MidiEventView candidate, MidiEventView current)
         {
             if (candidate.IntendedMicroseconds != current.IntendedMicroseconds)
                 return candidate.IntendedMicroseconds > current.IntendedMicroseconds;
             if (candidate.AbsoluteTick != current.AbsoluteTick)
                 return candidate.AbsoluteTick > current.AbsoluteTick;
-            return candidate.Order > current.Order;
+            return candidate.EventIndex > current.EventIndex;
         }
 
-        private void ScheduleNaturalRelease(int pitch, MidiEvent source, long requestedMicroseconds)
+        private void ScheduleNaturalRelease(int pitch, MidiEventView source, long requestedMicroseconds)
         {
             long boundary = BoundaryAtOrAfter(Math.Max(0, requestedMicroseconds));
             if (_minimumReleaseBoundary[pitch] != 0)
                 boundary = Math.Max(boundary, _minimumReleaseBoundary[pitch]);
-            if (_pendingAttack[pitch] != null)
+            if (_pendingAttack[pitch].IsValid)
                 boundary = Math.Max(boundary, AddInterval(_attackBoundary[pitch]));
             _naturalRelease[pitch] = source;
             _naturalReleaseBoundary[pitch] = boundary;
@@ -726,7 +726,7 @@ namespace MidiBottleneck
                 if (_delayedBoundary[pitch] < next) next = _delayedBoundary[pitch];
                 if (_preparatoryReleaseBoundary[pitch] < next) next = _preparatoryReleaseBoundary[pitch];
                 if (_attackBoundary[pitch] < next) next = _attackBoundary[pitch];
-                if ((_outputDown[pitch] || _pendingAttack[pitch] != null) &&
+                if ((_outputDown[pitch] || _pendingAttack[pitch].IsValid) &&
                     _naturalReleaseBoundary[pitch] < next) next = _naturalReleaseBoundary[pitch];
             }
             _nextBoundary = next;
@@ -734,29 +734,22 @@ namespace MidiBottleneck
 
         private static int Key(int channel, int pitch) { return channel * PitchCount + pitch; }
 
-        private static MidiEvent CreateNoteOff(MidiEvent source, int pitch, int channel, int velocity,
+        private static MidiEventView CreateNoteOff(MidiEventView source, int pitch, int channel, int velocity,
             long boundaryMicroseconds)
         {
             if (channel < 0 || channel >= ChannelCount) channel = 0;
-            return new MidiEvent
-            {
-                AbsoluteTick = source == null ? 0 : source.AbsoluteTick,
-                IntendedMicroseconds = source == null ? boundaryMicroseconds : source.IntendedMicroseconds,
-                Track = source == null ? -1 : source.Track,
-                Order = source == null ? Int32.MaxValue : source.Order,
-                EventIndex = source == null ? -1 : source.EventIndex,
-                Kind = MidiEventKind.NoteOff,
-                Channel = channel,
-                Status = (byte)(0x80 | channel),
-                Data = MidiEventData.FromShort((byte)(0x80 | channel), (byte)pitch, (byte)velocity, 3)
-            };
+            return MidiEventView.Create(source.IsValid ? source.AbsoluteTick : 0,
+                source.IsValid ? source.IntendedMicroseconds : boundaryMicroseconds,
+                source.IsValid ? source.Track : -1, MidiEventKind.NoteOff, channel,
+                (byte)(0x80 | channel), source.IsValid ? source.EventIndex : -1,
+                MidiEventData.FromShort((byte)(0x80 | channel), (byte)pitch, (byte)velocity, 3));
         }
 
-        internal static bool TryClassify(MidiEvent midiEvent, out int pitch, out bool noteOn)
+        internal static bool TryClassify(MidiEventView midiEvent, out int pitch, out bool noteOn)
         {
             pitch = -1;
             noteOn = false;
-            if (midiEvent == null || midiEvent.Channel < 0 || midiEvent.Channel >= ChannelCount || midiEvent.DataLength < 3)
+            if (!midiEvent.IsValid || midiEvent.Channel < 0 || midiEvent.Channel >= ChannelCount || midiEvent.DataLength < 3)
                 return false;
             int command = midiEvent.Status & 0xF0;
             if (command != 0x80 && command != 0x90) return false;

@@ -15,7 +15,6 @@ namespace MidiBottleneck
         private Thread _thread;
         private MidiSong _song;
         private MidiEventReader _events;
-        private List<MidiEvent> _eventList;
         private IMidiOutput _output;
         private ProcessingMode _mode;
         private int _startEventIndex;
@@ -150,8 +149,6 @@ namespace MidiBottleneck
             {
                 _song = song;
                 _events = song.GetEventReader();
-                ListMidiEventStore listStore = song.EventStore as ListMidiEventStore;
-                _eventList = listStore == null ? null : listStore.Source;
                 _output = output;
                 _mode = mode;
                 _startEventIndex = FindFirstEventAtOrAfter(song, startMicroseconds);
@@ -383,7 +380,6 @@ namespace MidiBottleneck
                 if (outputContext != null) outputContext.SourceFile = null;
                 _song = null;
                 _events = default(MidiEventReader);
-                _eventList = null;
                 _output = null;
                 _startEventIndex = 0;
                 _lastDispatchedMicroseconds = 0;
@@ -944,7 +940,7 @@ namespace MidiBottleneck
                         clusterSize = clusterEnd - nextArrival;
                     }
 
-                    MidiEvent incomingEvent = _events[nextArrival];
+                    MidiEventView incomingEvent = _events[nextArrival];
                     CompleteNoteEventKind noteKind = CompleteNoteTracker.Classify(incomingEvent);
                     if (noteKind == CompleteNoteEventKind.NoteOff && completeNotes.ShouldSuppressNoteOff(incomingEvent))
                     {
@@ -1119,7 +1115,7 @@ namespace MidiBottleneck
                 throw new InvalidOperationException("Per-note interval gate requires a nonzero processing interval.");
 
             PerNoteIntervalGate gate = new PerNoteIntervalGate(interval);
-            MidiEvent[] boundaryEvents = new MidiEvent[128];
+            MidiEventView[] boundaryEvents = new MidiEventView[128];
             int nextArrival = _startEventIndex;
             int routingGeneration = _channelRouting.FilterGeneration;
             int[] disableGenerations = new int[16];
@@ -1177,7 +1173,7 @@ namespace MidiBottleneck
                             examined++;
                             if (HasActiveSourceFilters() && MarkNewSourceFiltered(eventIndex, sourceFilters))
                                 continue;
-                            MidiEvent midiEvent = _events[eventIndex];
+                            MidiEventView midiEvent = _events[eventIndex];
                             PerNoteGateAdmission admission = gate.Admit(midiEvent);
                             if (admission == PerNoteGateAdmission.NotNote)
                                 DispatchMidiEvent(midiEvent);
@@ -1239,7 +1235,7 @@ namespace MidiBottleneck
             DispatchMidiEvent(_events[eventIndex]);
         }
 
-        private void DispatchMidiEvent(MidiEvent midiEvent)
+        private void DispatchMidiEvent(MidiEventView midiEvent)
         {
             SendScheduledEvent(midiEvent, Volatile.Read(ref _channelMonitoringEnabled) != 0);
             long actualUs = TicksToMicroseconds(CurrentTransportTicks());
@@ -1256,12 +1252,6 @@ namespace MidiBottleneck
 
         private void DispatchImmediateRange(ref int nextIndex, int endExclusive, long transportAtBatchStart)
         {
-            if (_eventList != null)
-            {
-                DispatchImmediateListRange(ref nextIndex, endExclusive, transportAtBatchStart, _eventList);
-                return;
-            }
-
             const int chunkSize = 2048;
             long stopwatchAtBatchStart = Stopwatch.GetTimestamp();
             if (nextIndex < endExclusive && Volatile.Read(ref _dispatchSuspended) == 0 && IsEffectiveZeroService())
@@ -1283,7 +1273,7 @@ namespace MidiBottleneck
                         // the established 64-event check cadence.
                         if (Volatile.Read(ref _dispatchSuspended) != 0) break;
                         if ((sent & 63) == 0 && !IsEffectiveZeroService()) break;
-                        MidiEvent midiEvent = _events[nextIndex];
+                        MidiEventView midiEvent = _events[nextIndex];
                         SendScheduledEvent(midiEvent, trackChannels);
                         long elapsedTicks = Stopwatch.GetTimestamp() - stopwatchAtBatchStart;
                         long actualTicks = transportAtBatchStart + elapsedTicks;
@@ -1295,57 +1285,6 @@ namespace MidiBottleneck
                         // Return to admission/publication after at most 2048
                         // sends or 8 ms of completed output work. Never wait for
                         // an entire multi-million-event range to drain.
-                        if (elapsedTicks >= Stopwatch.Frequency / 125) break;
-                    }
-                }
-                finally
-                {
-                    if (sent > 0)
-                    {
-                        lock (_sync)
-                        {
-                            _processedEvents += sent;
-                            _lastDispatchedMicroseconds = lastTimeline;
-                            _currentLagMicroseconds = currentLag;
-                            if (maximumLag > _maximumLagMicroseconds) _maximumLagMicroseconds = maximumLag;
-                        }
-                    }
-                    PublishChannelState(false);
-                }
-            }
-        }
-
-        // The reference backend retains a direct List access loop. This avoids
-        // charging today's hottest path for the abstraction used by future
-        // compact stores.
-        private void DispatchImmediateListRange(ref int nextIndex, int endExclusive, long transportAtBatchStart,
-            List<MidiEvent> events)
-        {
-            const int chunkSize = 2048;
-            long stopwatchAtBatchStart = Stopwatch.GetTimestamp();
-            if (nextIndex < endExclusive && Volatile.Read(ref _dispatchSuspended) == 0 && IsEffectiveZeroService())
-            {
-                int chunkEnd = Math.Min(endExclusive, nextIndex + chunkSize);
-                int sent = 0;
-                long lastTimeline = 0;
-                long currentLag = 0;
-                long maximumLag = 0;
-                bool trackChannels = Volatile.Read(ref _channelMonitoringEnabled) != 0;
-                try
-                {
-                    while (nextIndex < chunkEnd)
-                    {
-                        if (Volatile.Read(ref _dispatchSuspended) != 0) break;
-                        if ((sent & 63) == 0 && !IsEffectiveZeroService()) break;
-                        MidiEvent midiEvent = events[nextIndex];
-                        SendScheduledEvent(midiEvent, trackChannels);
-                        long elapsedTicks = Stopwatch.GetTimestamp() - stopwatchAtBatchStart;
-                        long actualTicks = transportAtBatchStart + elapsedTicks;
-                        currentLag = Math.Max(0, TicksToMicroseconds(actualTicks) - midiEvent.IntendedMicroseconds);
-                        if (currentLag > maximumLag) maximumLag = currentLag;
-                        lastTimeline = midiEvent.IntendedMicroseconds;
-                        sent++;
-                        nextIndex++;
                         if (elapsedTicks >= Stopwatch.Frequency / 125) break;
                     }
                 }
@@ -1387,7 +1326,7 @@ namespace MidiBottleneck
                     int eventIndex = nextIndex++;
                     examined++;
                     if (filtered.Any && filtered.Contains(eventIndex)) continue;
-                    MidiEvent midiEvent = _eventList == null ? _events[eventIndex] : _eventList[eventIndex];
+                    MidiEventView midiEvent = _events[eventIndex];
                     SendScheduledEvent(midiEvent, trackChannels);
                     if (eligiblePending > 0) eligiblePending--;
                     long elapsedTicks = Stopwatch.GetTimestamp() - stopwatchAtBatchStart;
@@ -1446,7 +1385,7 @@ namespace MidiBottleneck
             _publishedChannelState = snapshot;
         }
 
-        private bool SendScheduledEvent(MidiEvent midiEvent, bool trackChannels)
+        private bool SendScheduledEvent(MidiEventView midiEvent, bool trackChannels)
         {
             _output.Send(midiEvent);
             if (trackChannels) _channelState.RecordSuccessful(midiEvent);
@@ -1495,7 +1434,7 @@ namespace MidiBottleneck
 
         private bool MarkNewSourceFiltered(int eventIndex, FilteredSourceEvents filtered)
         {
-            MidiEvent midiEvent = _events[eventIndex];
+            MidiEventView midiEvent = _events[eventIndex];
             if (_channelRouting.ShouldFilter(midiEvent))
             {
                 filtered.Add(eventIndex);

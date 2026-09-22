@@ -12,11 +12,11 @@ namespace MidiBottleneck
     {
         public const long FivePinDinBitrate = 31250;
 
-        public static long CalculateMicroseconds(MidiEvent midiEvent, ServiceDurationMode mode, long processingMicroseconds, long midiBitrate)
+        public static long CalculateMicroseconds(MidiEventView midiEvent, ServiceDurationMode mode, long processingMicroseconds, long midiBitrate)
         {
             if (mode == ServiceDurationMode.ProcessingTime)
                 return Math.Max(0, processingMicroseconds);
-            if (midiEvent == null) throw new ArgumentNullException("midiEvent");
+            if (!midiEvent.IsValid) throw new ArgumentException("A valid MIDI event is required.", "midiEvent");
             int byteCount = midiEvent.DataLength;
             return CalculateBitrateMicroseconds(byteCount, midiBitrate);
         }
