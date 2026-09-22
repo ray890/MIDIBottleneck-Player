@@ -39,9 +39,6 @@ namespace MidiBottleneck
     internal static class MidiFileParser
     {
         private const long ProgressScale = 10000;
-        private const long LegacyMaximumSingleArrayBytes = 0x7FEFFFFF;
-        private const long VeryLargeReferenceArrayElementLimit = 0x7FEFFFFF;
-        private const long ArraySafetyOverheadBytes = 64;
         private sealed class TempoChange
         {
             public long Tick;
@@ -59,10 +56,17 @@ namespace MidiBottleneck
 
         public static MidiSong Load(string path)
         {
-            return Load(path, CancellationToken.None, null);
+            return DirectCompactMidiParser.Load(path, CancellationToken.None, null);
         }
 
         public static MidiSong Load(string path, CancellationToken cancellationToken, Action<MidiLoadProgress> progress)
+        {
+            return DirectCompactMidiParser.Load(path, cancellationToken, progress);
+        }
+
+        // Retained only as a deterministic parser oracle. Production loading
+        // always enters DirectCompactMidiParser above.
+        internal static MidiSong LoadLegacyForTests(string path, CancellationToken cancellationToken, Action<MidiLoadProgress> progress)
         {
             if (String.IsNullOrEmpty(path))
                 throw new ArgumentException("A MIDI file path is required.", "path");
@@ -131,7 +135,7 @@ namespace MidiBottleneck
                     parsedTracks[trackIndex] = track;
                     parsedTrackBytes += currentTrackLength;
                     parsedEventTotal += track.Events.Count;
-                    ValidateObservedContiguousEventCount(parsedEventTotal, trackIndex + 1, trackCount);
+                    ValidateSupportedEventCount(parsedEventTotal);
                     allTempos.AddRange(track.Tempos);
                     if (track.EndTick > endTick)
                         endTick = track.EndTick;
@@ -379,7 +383,7 @@ namespace MidiBottleneck
         {
             long total = 0;
             for (int i = 0; i < tracks.Length; i++) total += tracks[i].Events.Count;
-            ValidateContiguousEventCount(total);
+            ValidateSupportedEventCount(total);
             List<MidiEvent> merged;
             try { merged = new List<MidiEvent>((int)total); }
             catch (Exception ex)
@@ -475,63 +479,12 @@ namespace MidiBottleneck
                     overallCompleted, overallTotal, stageCompleted, stageTotal));
         }
 
-        internal static long MaximumContiguousEventCount
-        {
-            get { return CalculateMaximumContiguousEventCount(IntPtr.Size, VeryLargeArraysConfigured()); }
-        }
+        internal static long MaximumSupportedEventCount { get { return Int32.MaxValue; } }
 
-        internal static long CalculateMaximumContiguousEventCount(int pointerSize, bool veryLargeArraysEnabled)
+        internal static void ValidateSupportedEventCount(long eventCount)
         {
-            if (pointerSize != 4 && pointerSize != 8) throw new ArgumentOutOfRangeException("pointerSize");
-            if (pointerSize == 8 && veryLargeArraysEnabled)
-                return Math.Min(Int32.MaxValue, VeryLargeReferenceArrayElementLimit);
-            return Math.Min(Int32.MaxValue, (LegacyMaximumSingleArrayBytes - ArraySafetyOverheadBytes) / pointerSize);
-        }
-
-        internal static bool VeryLargeArraysConfigured()
-        {
-            if (IntPtr.Size != 8) return false;
-            try
-            {
-                string configuration = AppDomain.CurrentDomain.SetupInformation.ConfigurationFile;
-                if (String.IsNullOrEmpty(configuration) || !File.Exists(configuration)) return false;
-                string text = File.ReadAllText(configuration);
-                int setting = text.IndexOf("gcAllowVeryLargeObjects", StringComparison.OrdinalIgnoreCase);
-                if (setting < 0) return false;
-                int close = text.IndexOf('>', setting);
-                if (close < 0) close = text.Length;
-                string element = text.Substring(setting, close - setting);
-                return element.IndexOf("enabled=\"true\"", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                    element.IndexOf("enabled='true'", StringComparison.OrdinalIgnoreCase) >= 0;
-            }
-            catch { return false; }
-        }
-
-        internal static void ValidateContiguousEventCount(long eventCount)
-        {
-            if (eventCount < 0 || eventCount > MaximumContiguousEventCount)
-                throw ContiguousEventStorageException(eventCount, true, null);
-        }
-
-        internal static void ValidateObservedContiguousEventCount(long eventCount, int completedTracks, int totalTracks)
-        {
-            if (eventCount < 0 || eventCount > MaximumContiguousEventCount)
-                throw ContiguousEventStorageException(eventCount, false, null, completedTracks, totalTracks);
-        }
-
-        private static InvalidDataException ContiguousEventStorageException(long eventCount, bool complete, Exception inner,
-            int completedTracks = 0, int totalTracks = 0)
-        {
-            string count = complete
-                ? "The complete MIDI contains " + eventCount.ToString("N0") + " dispatchable events"
-                : "After " + completedTracks + " of " + totalTracks + " tracks, at least " + eventCount.ToString("N0") +
-                    " dispatchable events have been observed; the complete file total is not yet known";
-            string message = count + ", exceeding this process's structural contiguous event-storage limit of " +
-                MaximumContiguousEventCount.ToString("N0") + " events. " +
-                (IntPtr.Size == 8 && VeryLargeArraysConfigured()
-                    ? "The x64 very-large-array limit is already enabled; larger files require a future segmented-storage design."
-                    : "This process uses the legacy array byte-size limit; use the configured x64 release for a higher structural ceiling.");
-            return inner == null ? new InvalidDataException(message) : new InvalidDataException(message, inner);
+            if (eventCount < 0 || eventCount > MaximumSupportedEventCount)
+                throw new InvalidDataException("The MIDI exceeds the supported 2,147,483,647-event indexed-store limit.");
         }
 
         private static InvalidDataException RunningAllocationException(long priorEventCount, int currentTrack, int totalTracks,
@@ -545,8 +498,8 @@ namespace MidiBottleneck
         private static InvalidDataException CompletedAllocationException(long eventCount, Exception inner)
         {
             return new InvalidDataException("The complete MIDI contains " + eventCount.ToString("N0") +
-                " dispatchable events and is within the structural limit of " + MaximumContiguousEventCount.ToString("N0") +
-                ", but the final contiguous event-reference array could not be allocated. Available contiguous address space or committed memory was insufficient.", inner);
+                " dispatchable events and is within the indexed-store limit of " + MaximumSupportedEventCount.ToString("N0") +
+                ", but the legacy reference parser oracle could not allocate its final list. This path is not used for production loading.", inner);
         }
 
         private static long TickToMicroseconds(long targetTick, List<TempoChange> tempos, int ppqn)

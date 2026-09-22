@@ -17,7 +17,7 @@ $commonFiles = @(
     @{ Source = (Join-Path $projectRoot 'LICENSE'); Name = 'LICENSE' }
 )
 
-foreach ($required in @($x86Application, $x64Application, ($x64Application + '.config')) + @($commonFiles | ForEach-Object { $_.Source })) {
+foreach ($required in @($x86Application, $x64Application) + @($commonFiles | ForEach-Object { $_.Source })) {
     if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
         throw "Required first-party release file is missing: $required"
     }
@@ -41,8 +41,7 @@ $packages = @(
     @{
         Name = $x64ZipName
         Files = @(
-            @{ Source = $x64Application; Name = 'MIDIBottleneck Player x64.exe' },
-            @{ Source = ($x64Application + '.config'); Name = 'MIDIBottleneck Player x64.exe.config' }
+            @{ Source = $x64Application; Name = 'MIDIBottleneck Player x64.exe' }
         ) + $commonFiles
     }
 )

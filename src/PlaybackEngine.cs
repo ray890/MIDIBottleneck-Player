@@ -1262,6 +1262,7 @@ namespace MidiBottleneck
                 long currentLag = 0;
                 long maximumLag = 0;
                 bool trackChannels = Volatile.Read(ref _channelMonitoringEnabled) != 0;
+                CompactSequentialCursor cursor = new CompactSequentialCursor();
                 try
                 {
                     while (nextIndex < chunkEnd)
@@ -1273,13 +1274,14 @@ namespace MidiBottleneck
                         // the established 64-event check cadence.
                         if (Volatile.Read(ref _dispatchSuspended) != 0) break;
                         if ((sent & 63) == 0 && !IsEffectiveZeroService()) break;
-                        MidiEventView midiEvent = _events[nextIndex];
+                        long intendedMicroseconds;
+                        MidiEventView midiEvent = _events.GetSequential(nextIndex, ref cursor, out intendedMicroseconds);
                         SendScheduledEvent(midiEvent, trackChannels);
                         long elapsedTicks = Stopwatch.GetTimestamp() - stopwatchAtBatchStart;
                         long actualTicks = transportAtBatchStart + elapsedTicks;
-                        currentLag = Math.Max(0, TicksToMicroseconds(actualTicks) - midiEvent.IntendedMicroseconds);
+                        currentLag = Math.Max(0, TicksToMicroseconds(actualTicks) - intendedMicroseconds);
                         if (currentLag > maximumLag) maximumLag = currentLag;
-                        lastTimeline = midiEvent.IntendedMicroseconds;
+                        lastTimeline = intendedMicroseconds;
                         sent++;
                         nextIndex++;
                         // Return to admission/publication after at most 2048
@@ -1317,6 +1319,7 @@ namespace MidiBottleneck
             long currentLag = 0;
             long maximumLag = 0;
             bool trackChannels = Volatile.Read(ref _channelMonitoringEnabled) != 0;
+            CompactSequentialCursor cursor = new CompactSequentialCursor();
             try
             {
                 while (nextIndex < endExclusive && examined < chunkSize)
@@ -1326,14 +1329,15 @@ namespace MidiBottleneck
                     int eventIndex = nextIndex++;
                     examined++;
                     if (filtered.Any && filtered.Contains(eventIndex)) continue;
-                    MidiEventView midiEvent = _events[eventIndex];
+                    long intendedMicroseconds;
+                    MidiEventView midiEvent = _events.GetSequential(eventIndex, ref cursor, out intendedMicroseconds);
                     SendScheduledEvent(midiEvent, trackChannels);
                     if (eligiblePending > 0) eligiblePending--;
                     long elapsedTicks = Stopwatch.GetTimestamp() - stopwatchAtBatchStart;
                     long actualTicks = transportAtBatchStart + elapsedTicks;
-                    currentLag = Math.Max(0, TicksToMicroseconds(actualTicks) - midiEvent.IntendedMicroseconds);
+                    currentLag = Math.Max(0, TicksToMicroseconds(actualTicks) - intendedMicroseconds);
                     if (currentLag > maximumLag) maximumLag = currentLag;
-                    lastTimeline = midiEvent.IntendedMicroseconds;
+                    lastTimeline = intendedMicroseconds;
                     sent++;
                     if (elapsedTicks >= Stopwatch.Frequency / 125) break;
                 }

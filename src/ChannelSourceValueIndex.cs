@@ -1,22 +1,27 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace MidiBottleneck
 {
-    // Compact, immutable lookup for the latest source-requested channel value.
-    // Only state-changing source events are indexed; notes and unrelated MIDI
-    // never add storage. The parser feeds this during its existing final pass.
     internal sealed class ChannelSourceValueIndex
     {
+        internal const int SegmentCapacity = 4096;
         private const int AttributeCount = 9;
         private readonly IMidiEventStore _events;
-        private readonly List<SourceValueChange>[] _changes;
+        private readonly SourceValueSeries[] _changes;
 
-        internal ChannelSourceValueIndex(IMidiEventStore events, List<SourceValueChange>[] changes)
+        private sealed class SourceValueSeries
         {
-            _events = events;
-            _changes = changes;
+            internal readonly SourceValueChange[][] Segments;
+            internal readonly int Count;
+            internal SourceValueSeries(SourceValueChange[][] segments, int count) { Segments = segments; Count = count; }
+            internal SourceValueChange this[int index]
+            { get { return Segments[index >> 12][index & (SegmentCapacity - 1)]; } }
         }
+
+        private ChannelSourceValueIndex(IMidiEventStore events, SourceValueSeries[] changes)
+        { _events = events; _changes = changes; }
 
         internal static Builder CreateBuilder() { return new Builder(); }
 
@@ -25,39 +30,34 @@ namespace MidiBottleneck
             if (events == null) throw new ArgumentNullException("events");
             Builder builder = new Builder();
             for (int index = 0; index < events.Count; index++) builder.Add(events.GetEvent(index), index);
-            return builder.Complete(events);
+            return builder.Complete(events, CancellationToken.None);
         }
 
         internal bool TryGetLatest(int channel, ChannelAttribute attribute, long positionMicroseconds, out int value)
         {
             value = 0;
             if (channel < 0 || channel >= 16) return false;
-            int slot = channel * AttributeCount + (int)attribute;
-            List<SourceValueChange> list = _changes[slot];
-            if (list == null || list.Count == 0) return false;
+            SourceValueSeries series = _changes[channel * AttributeCount + (int)attribute];
+            if (series == null || series.Count == 0) return false;
             int low = 0;
-            int high = list.Count;
+            int high = series.Count;
             while (low < high)
             {
                 int middle = low + ((high - low) >> 1);
-                MidiEventView midiEvent = _events.GetEvent(list[middle].EventIndex);
-                if (midiEvent.IntendedMicroseconds <= positionMicroseconds) low = middle + 1;
+                if (_events.GetEvent(series[middle].EventIndex).IntendedMicroseconds <= positionMicroseconds) low = middle + 1;
                 else high = middle;
             }
             if (low == 0) return false;
-            value = list[low - 1].Value;
+            value = series[low - 1].Value;
             return true;
         }
 
         internal sealed class Builder
         {
-            private readonly List<SourceValueChange>[] _changes = new List<SourceValueChange>[16 * AttributeCount];
+            private readonly SeriesBuilder[] _changes = new SeriesBuilder[16 * AttributeCount];
 
             internal void Add(MidiEvent midiEvent, int eventIndex)
-            {
-                if (midiEvent == null) return;
-                Add(MidiEventView.FromEvent(midiEvent, eventIndex), eventIndex);
-            }
+            { if (midiEvent != null) Add(MidiEventView.FromEvent(midiEvent, eventIndex), eventIndex); }
 
             internal void Add(MidiEventView midiEvent, int eventIndex)
             {
@@ -81,14 +81,54 @@ namespace MidiBottleneck
             private void Add(int channel, ChannelAttribute attribute, int eventIndex, int value)
             {
                 int slot = channel * AttributeCount + (int)attribute;
-                List<SourceValueChange> list = _changes[slot];
-                if (list == null) _changes[slot] = list = new List<SourceValueChange>();
-                list.Add(new SourceValueChange(eventIndex, value));
+                SeriesBuilder series = _changes[slot];
+                if (series == null) _changes[slot] = series = new SeriesBuilder();
+                series.Add(new SourceValueChange(eventIndex, value));
             }
 
             internal ChannelSourceValueIndex Complete(IMidiEventStore events)
+            { return Complete(events, CancellationToken.None); }
+
+            internal ChannelSourceValueIndex Complete(IMidiEventStore events, CancellationToken cancellationToken)
             {
-                return new ChannelSourceValueIndex(events, _changes);
+                SourceValueSeries[] completed = new SourceValueSeries[_changes.Length];
+                for (int slot = 0; slot < _changes.Length; slot++)
+                {
+                    if ((slot & 15) == 0) cancellationToken.ThrowIfCancellationRequested();
+                    if (_changes[slot] != null) completed[slot] = _changes[slot].Complete();
+                }
+                return new ChannelSourceValueIndex(events, completed);
+            }
+        }
+
+        private sealed class SeriesBuilder
+        {
+            private readonly List<SourceValueChange[]> _segments = new List<SourceValueChange[]>();
+            private SourceValueChange[] _current;
+            private int _offset;
+            private int _count;
+
+            internal void Add(SourceValueChange value)
+            {
+                if (_current == null || _offset == _current.Length)
+                {
+                    _current = new SourceValueChange[SegmentCapacity];
+                    _segments.Add(_current);
+                    _offset = 0;
+                }
+                _current[_offset++] = value;
+                _count++;
+            }
+
+            internal SourceValueSeries Complete()
+            {
+                if (_current != null && _offset != _current.Length)
+                {
+                    SourceValueChange[] trimmed = new SourceValueChange[_offset];
+                    Array.Copy(_current, trimmed, _offset);
+                    _segments[_segments.Count - 1] = trimmed;
+                }
+                return new SourceValueSeries(_segments.ToArray(), _count);
             }
         }
 

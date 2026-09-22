@@ -31,6 +31,7 @@ The public history was reconstructed because original Git commits did not exist.
 | 25 | per-note-gate-correction | 2026-09-22 00:48 -04:00 | exact | `v1.0.25` |
 | 26 | gate-hardening-analysis-preview | 2026-09-22 05:12 -04:00 | exact | `v1.0.26` |
 | 27 | compact-segmented-event-store | 2026-09-22 07:55 -04:00 | exact | `v1.0.27` |
+| 28 | direct-compact-parser | 2026-09-22 12:50 -04:00 | exact | `v1.0.28` |
 
 ## Evidence-recovery result
 

@@ -23,7 +23,7 @@ The output is exactly:
 - `MIDIBottleneck-Player-v<version>-x64.zip`
 - `SHA256SUMS.txt`
 
-The x86 ZIP contains its executable, `README.md`, and `LICENSE`. The x64 ZIP additionally contains `MIDIBottleneck Player x64.exe.config`. The final Build 27 store is segmented, but the parser still creates a contiguous legacy merge list before conversion; .NET Framework must read `gcAllowVeryLargeObjects` before managed startup. The x86 distribution deliberately has no sidecar.
+Each architecture ZIP contains only its corresponding executable, `README.md`, and `LICENSE`. Build 28's production parser, tempo data, provisional/final records, payloads, and source-value indexes are bounded or segmented, so neither architecture has a runtime configuration sidecar.
 
 The script allowlists every input and never sweeps `dist/`. Inspect the ZIP entries and verify `SHA256SUMS.txt` before upload.
 

@@ -463,6 +463,13 @@ namespace MidiBottleneck.Tests
                     RunFocused("Analysis preview projection-failure detail", TestAnalysisInitialPreview);
                     return 0;
                 }
+                if (arguments.Length == 1 && arguments[0] == "--test-build28")
+                {
+                    RunFocused("direct compact parser and segmented source-index equivalence", TestDirectCompactParser);
+                    RunFocused("cancellable direct parser stages", TestCancellableMidiParser);
+                    RunFocused("compact reader and store equivalence", TestCompactSegmentedEventStore);
+                    return 0;
+                }
                 if (arguments.Length == 1 && arguments[0] == "--test-interface-only")
                 {
                     RunFocused("WinForms interface construction", TestInterfaceConstruction);
@@ -490,7 +497,7 @@ namespace MidiBottleneck.Tests
                 }
                 if (arguments.Length == 1 && arguments[0] == "--test-finishing-ui")
                 {
-                    RunFocused("contiguous event-storage limit fails clearly before allocation", TestContiguousEventStorageLimit);
+                    RunFocused("segmented indexed-event limit fails clearly", TestContiguousEventStorageLimit);
                     RunFocused("controlled KDMAPI provider selection and architecture validation", TestKdmApiProviderSelection);
                     RunFocused("background loading, stale-result rejection, and unload", TestBackgroundMidiLoading);
                     RunFocused("asynchronous Analysis refresh and resolution policy", TestAsynchronousAnalysis);
@@ -505,6 +512,7 @@ namespace MidiBottleneck.Tests
                 Run("tempo map, multiple tracks, running status, and SysEx", TestMidiParser);
                 Run("indexed read-only event-store boundary", TestMidiEventStoreBoundary);
                 Run("compact segmented event-store equivalence", TestCompactSegmentedEventStore);
+                Run("direct compact parser and segmented source-index equivalence", TestDirectCompactParser);
                 Run("packed short-message storage", TestPackedMidiEventData);
                 Run("explicit process architecture and packed MIDIHDR ABI", TestProcessArchitecture);
                 Run("FIFO queue accumulation", TestQueueSimulation);
@@ -573,7 +581,7 @@ namespace MidiBottleneck.Tests
                 Run("normalized Analysis geometry", TestBuild21AnalysisGeometry);
                 Run("dense 200,000-event MIDI parsing", TestDenseMidiParser);
                 Run("cancellable parser progress and cancellation", TestCancellableMidiParser);
-                Run("contiguous event-storage limit fails clearly before allocation", TestContiguousEventStorageLimit);
+                Run("segmented indexed-event limit fails clearly", TestContiguousEventStorageLimit);
                 Run("background loading, stale-result rejection, and unload", TestBackgroundMidiLoading);
                 Run("workload analysis and graph data", TestWorkloadAnalysis);
                 Run("asynchronous Analysis refresh and resolution policy", TestAsynchronousAnalysis);
@@ -1285,6 +1293,136 @@ namespace MidiBottleneck.Tests
             finally { cancelled.Dispose(); }
             Equal(true, cancellationObserved, "compact conversion observes cancellation before publication");
             Equal(true, cancelledSource[0] != null, "pre-cancelled conversion does not consume source references");
+        }
+
+        private static void TestDirectCompactParser()
+        {
+            string path = Path.Combine(Path.GetTempPath(), "midi-bottleneck-direct-parser-" + Guid.NewGuid().ToString("N") + ".mid");
+            string sourceIndexPath = Path.Combine(Path.GetTempPath(), "midi-bottleneck-source-index-" + Guid.NewGuid().ToString("N") + ".mid");
+            string payloadPath = Path.Combine(Path.GetTempPath(), "midi-bottleneck-payload-segment-" + Guid.NewGuid().ToString("N") + ".mid");
+            string tempoPath = Path.Combine(Path.GetTempPath(), "midi-bottleneck-tempo-merge-" + Guid.NewGuid().ToString("N") + ".mid");
+            try
+            {
+                File.WriteAllBytes(path, BuildTestMidi());
+                MidiSong direct = MidiFileParser.Load(path);
+                MidiSong legacy = MidiFileParser.LoadLegacyForTests(path, CancellationToken.None, null);
+                CompareParsedSongs(legacy, direct, "direct/reference parser");
+                Equal(typeof(CompactMidiEventStore), direct.EventStore.GetType(), "production parser publishes compact backend");
+
+                List<byte> stateTrack = new List<byte>();
+                for (int index = 0; index < ChannelSourceValueIndex.SegmentCapacity + 17; index++)
+                    Add(stateTrack, 0x00, 0xB0, 0x07, (byte)(index & 0x7F));
+                Add(stateTrack, 0x00, 0xFF, 0x2F, 0x00);
+                File.WriteAllBytes(sourceIndexPath, BuildSingleTrackMidi(stateTrack));
+                MidiSong stateSong = MidiFileParser.Load(sourceIndexPath);
+                int latest;
+                Equal(true, stateSong.GetChannelSourceValueIndex().TryGetLatest(0, ChannelAttribute.Volume, 0, out latest),
+                    "segmented source index lookup exists");
+                Equal((ChannelSourceValueIndex.SegmentCapacity + 16) & 0x7F, latest,
+                    "segmented source index lookup crosses boundary");
+
+                int longLength = CompactPayloadStore.SegmentSize + 17;
+                List<byte> payloadTrack = new List<byte>(longLength + 16);
+                Add(payloadTrack, 0x00, 0xF0);
+                AddVariableLength(payloadTrack, longLength);
+                for (int index = 0; index < longLength; index++) payloadTrack.Add((byte)(index & 0x7F));
+                Add(payloadTrack, 0x00, 0xFF, 0x2F, 0x00);
+                File.WriteAllBytes(payloadPath, BuildSingleTrackMidi(payloadTrack));
+                MidiSong payloadSong = MidiFileParser.Load(payloadPath);
+                Equal(1, payloadSong.EventStore.Count, "direct parser long-payload event count");
+                MidiEventView payload = payloadSong.EventStore.GetEvent(0);
+                Equal(longLength + 1, payload.DataLength, "F0 prefix retained across payload segments");
+                Equal((byte)0xF0, payload.GetDataByte(0), "direct parser F0 prefix");
+                Equal((byte)((longLength - 1) & 0x7F), payload.GetDataByte(longLength), "direct parser payload tail");
+
+                List<byte> tempoBytes = new List<byte>();
+                AddAscii(tempoBytes, "MThd"); AddUInt32(tempoBytes, 6); AddUInt16(tempoBytes, 1); AddUInt16(tempoBytes, 3); AddUInt16(tempoBytes, 480);
+                List<byte> tempo0 = new List<byte>();
+                Add(tempo0, 0x00, 0xFF, 0x51, 0x03, 0x07, 0xA1, 0x20);
+                Add(tempo0, 0x83, 0x60, 0xFF, 0x51, 0x03, 0x06, 0x1A, 0x80);
+                Add(tempo0, 0x83, 0x60, 0xFF, 0x2F, 0x00); AddTrack(tempoBytes, tempo0);
+                List<byte> tempo1 = new List<byte>();
+                Add(tempo1, 0x83, 0x60, 0xFF, 0x51, 0x03, 0x0F, 0x42, 0x40);
+                Add(tempo1, 0x83, 0x60, 0xFF, 0x2F, 0x00); AddTrack(tempoBytes, tempo1);
+                List<byte> notes = new List<byte>();
+                Add(notes, 0x83, 0x60, 0x90, 0x3C, 0x64);
+                Add(notes, 0x83, 0x60, 0x80, 0x3C, 0x00);
+                Add(notes, 0x00, 0xFF, 0x2F, 0x00); AddTrack(tempoBytes, notes);
+                File.WriteAllBytes(tempoPath, tempoBytes.ToArray());
+                MidiSong directTempo = MidiFileParser.Load(tempoPath);
+                MidiSong legacyTempo = MidiFileParser.LoadLegacyForTests(tempoPath, CancellationToken.None, null);
+                CompareParsedSongs(legacyTempo, directTempo, "simultaneous cross-track tempo merge");
+                Equal(500000L, directTempo.EventStore.GetEvent(0).IntendedMicroseconds, "event at simultaneous tempo tick");
+                Equal(1500000L, directTempo.EventStore.GetEvent(1).IntendedMicroseconds, "later event uses last deterministic tempo");
+
+                AssertParserFailureEquivalent(BuildSingleTrackMidi(new List<byte> { 0x00, 0x40 }),
+                    "invalid running status");
+                AssertParserFailureEquivalent(BuildSingleTrackMidi(new List<byte> { 0x81, 0x81, 0x81, 0x81, 0x00 }),
+                    "invalid variable-length quantity");
+                AssertParserFailureEquivalent(BuildSingleTrackMidi(new List<byte> { 0x00, 0xF0, 0x05, 0x01, 0x02 }),
+                    "truncated event payload");
+            }
+            finally
+            {
+                if (File.Exists(path)) File.Delete(path);
+                if (File.Exists(sourceIndexPath)) File.Delete(sourceIndexPath);
+                if (File.Exists(payloadPath)) File.Delete(payloadPath);
+                if (File.Exists(tempoPath)) File.Delete(tempoPath);
+            }
+        }
+
+        private static void CompareParsedSongs(MidiSong expected, MidiSong actual, string name)
+        {
+            Equal(expected.Format, actual.Format, name + " format");
+            Equal(expected.TrackCount, actual.TrackCount, name + " tracks");
+            Equal(expected.TicksPerQuarterNote, actual.TicksPerQuarterNote, name + " PPQN");
+            Equal(expected.NoteCount, actual.NoteCount, name + " notes");
+            Equal(expected.DurationMicroseconds, actual.DurationMicroseconds, name + " duration");
+            MidiEventReader left = expected.GetEventReader();
+            MidiEventReader right = actual.GetEventReader();
+            Equal(left.Count, right.Count, name + " event count");
+            ulong leftHash = 1469598103934665603UL;
+            ulong rightHash = 1469598103934665603UL;
+            for (int index = 0; index < left.Count; index++)
+            {
+                MidiEventView a = left[index];
+                MidiEventView b = right[index];
+                Equal(a.AbsoluteTick, b.AbsoluteTick, name + " tick " + index);
+                Equal(a.IntendedMicroseconds, b.IntendedMicroseconds, name + " time " + index);
+                Equal(a.Track, b.Track, name + " track " + index);
+                Equal(a.Kind, b.Kind, name + " kind " + index);
+                Equal(a.Channel, b.Channel, name + " channel " + index);
+                Equal(a.Status, b.Status, name + " status " + index);
+                Equal(a.DataLength, b.DataLength, name + " length " + index);
+                for (int byteIndex = 0; byteIndex < a.DataLength; byteIndex++)
+                {
+                    unchecked
+                    {
+                        leftHash = (leftHash ^ a.GetDataByte(byteIndex)) * 1099511628211UL;
+                        rightHash = (rightHash ^ b.GetDataByte(byteIndex)) * 1099511628211UL;
+                    }
+                }
+            }
+            Equal(leftHash, rightHash, name + " payload hash");
+        }
+
+        private static void AssertParserFailureEquivalent(byte[] bytes, string name)
+        {
+            string path = Path.Combine(Path.GetTempPath(), "midi-bottleneck-malformed-" + Guid.NewGuid().ToString("N") + ".mid");
+            try
+            {
+                File.WriteAllBytes(path, bytes);
+                Type directType = null;
+                Type legacyType = null;
+                try { MidiFileParser.Load(path); }
+                catch (Exception ex) { directType = ex.GetType(); }
+                try { MidiFileParser.LoadLegacyForTests(path, CancellationToken.None, null); }
+                catch (Exception ex) { legacyType = ex.GetType(); }
+                if (directType == null || legacyType == null)
+                    throw new Exception(name + " was not rejected by both parser paths");
+                Equal(legacyType, directType, name + " exception type");
+            }
+            finally { if (File.Exists(path)) File.Delete(path); }
         }
 
         private static MidiEvent CloneMidiEvent(MidiEvent source)
@@ -2024,8 +2162,8 @@ namespace MidiBottleneck.Tests
 #elif ARCH_X64
             Equal(8, IntPtr.Size, "x64 process pointer size");
             Equal(112, Marshal.SizeOf(typeof(NativeMidiHeader)), "x64 packed MIDIHDR size");
-            Equal(true, File.Exists(Process.GetCurrentProcess().MainModule.FileName + ".config"),
-                "x64 deterministic process retains very-large-array configuration sidecar");
+            Equal(false, File.Exists(Process.GetCurrentProcess().MainModule.FileName + ".config"),
+                "x64 direct segmented parser needs no very-large-array sidecar");
 #else
             throw new Exception("test executable was not compiled for an explicit architecture");
 #endif
@@ -5582,6 +5720,27 @@ namespace MidiBottleneck.Tests
                 catch (OperationCanceledException) { cancelled = true; }
                 Equal(true, cancelled, "parser checks cancellation inside track parsing");
 
+                string[] cancellableStages = new string[]
+                {
+                    "Preparing tempo map", "Merging tracks and assigning timestamps", "Finalizing indexes"
+                };
+                for (int stageIndex = 0; stageIndex < cancellableStages.Length; stageIndex++)
+                {
+                    string stage = cancellableStages[stageIndex];
+                    CancellationTokenSource duringStage = new CancellationTokenSource();
+                    cancelled = false;
+                    try
+                    {
+                        MidiFileParser.Load(path, duringStage.Token, delegate(MidiLoadProgress value)
+                        {
+                            if (value.Stage == stage) duringStage.Cancel();
+                        });
+                    }
+                    catch (OperationCanceledException) { cancelled = true; }
+                    finally { duringStage.Dispose(); }
+                    Equal(true, cancelled, "parser cancels during " + stage);
+                }
+
                 List<string> stages = new List<string>();
                 List<MidiLoadProgress> reports = new List<MidiLoadProgress>();
                 MidiSong song = MidiFileParser.Load(path, CancellationToken.None, delegate(MidiLoadProgress progress)
@@ -5592,7 +5751,9 @@ namespace MidiBottleneck.Tests
                 Equal(50000, song.Events.Count, "cancellable parser successful result");
                 bool parsedStage = false;
                 for (int i = 0; i < stages.Count; i++) if (stages[i].StartsWith("Parsing track", StringComparison.Ordinal)) parsedStage = true;
-                if (!parsedStage || !stages.Contains("Merging tracks") || !stages.Contains("Assigning playback timestamps") || !stages.Contains("Ready"))
+                if (!parsedStage || !stages.Contains("Preparing tempo map") ||
+                    !stages.Contains("Merging tracks and assigning timestamps") || !stages.Contains("Finalizing indexes") ||
+                    stages.Contains("Compacting event storage") || !stages.Contains("Ready"))
                     throw new Exception("parser did not report its meaningful stages");
                 int previousOverall = -1;
                 bool sawIntermediateOverall = false;
@@ -5616,35 +5777,16 @@ namespace MidiBottleneck.Tests
 
         private static void TestContiguousEventStorageLimit()
         {
-            long maximum = MidiFileParser.MaximumContiguousEventCount;
-            if (maximum <= 0 || maximum > Int32.MaxValue)
-                throw new Exception("invalid computed contiguous event-storage limit: " + maximum);
-            MidiFileParser.ValidateContiguousEventCount(maximum);
+            long maximum = MidiFileParser.MaximumSupportedEventCount;
+            Equal((long)Int32.MaxValue, maximum, "segmented store uses explicit indexed-event bound");
+            MidiFileParser.ValidateSupportedEventCount(maximum);
             bool rejected = false;
-            try { MidiFileParser.ValidateContiguousEventCount(maximum + 1); }
+            try { MidiFileParser.ValidateSupportedEventCount(maximum + 1); }
             catch (InvalidDataException ex)
             {
-                rejected = ex.Message.IndexOf("contiguous event-storage limit", StringComparison.OrdinalIgnoreCase) >= 0 &&
-                    ex.Message.IndexOf("structural", StringComparison.OrdinalIgnoreCase) >= 0;
+                rejected = ex.Message.IndexOf("indexed-store limit", StringComparison.OrdinalIgnoreCase) >= 0;
             }
-            Equal(true, rejected, "impossible contiguous event allocation is rejected clearly");
-            long legacyX64 = Math.Min(Int32.MaxValue, (0x7FEFFFFFL - 64L) / 8L);
-            long legacyX86 = Math.Min(Int32.MaxValue, (0x7FEFFFFFL - 64L) / 4L);
-            Equal(legacyX64, MidiFileParser.CalculateMaximumContiguousEventCount(8, false), "legacy x64 array byte limit");
-            Equal(legacyX86, MidiFileParser.CalculateMaximumContiguousEventCount(4, true), "x86 remains on legacy array byte limit");
-            Equal(0x7FEFFFFFL, MidiFileParser.CalculateMaximumContiguousEventCount(8, true), "configured x64 VLO element limit");
-            long expected = IntPtr.Size == 8 && MidiFileParser.VeryLargeArraysConfigured() ? 0x7FEFFFFFL :
-                Math.Min(Int32.MaxValue, (0x7FEFFFFFL - 64L) / IntPtr.Size);
-            Equal(expected, maximum, "contiguous event limit follows architecture and runtime configuration");
-
-            bool observedRejected = false;
-            try { MidiFileParser.ValidateObservedContiguousEventCount(maximum + 1, 3, 9); }
-            catch (InvalidDataException ex)
-            {
-                observedRejected = ex.Message.IndexOf("at least", StringComparison.OrdinalIgnoreCase) >= 0 &&
-                    ex.Message.IndexOf("complete file total is not yet known", StringComparison.OrdinalIgnoreCase) >= 0;
-            }
-            Equal(true, observedRejected, "partial running count is not reported as a complete total");
+            Equal(true, rejected, "indexed identity overflow is rejected clearly without a contiguous-array claim");
         }
 
         private static void TestBackgroundMidiLoading()
@@ -8406,6 +8548,31 @@ namespace MidiBottleneck.Tests
             AddAscii(target, "MTrk");
             AddUInt32(target, (uint)track.Count);
             target.AddRange(track);
+        }
+
+        private static byte[] BuildSingleTrackMidi(List<byte> track)
+        {
+            List<byte> bytes = new List<byte>(track.Count + 22);
+            AddAscii(bytes, "MThd");
+            AddUInt32(bytes, 6);
+            AddUInt16(bytes, 0);
+            AddUInt16(bytes, 1);
+            AddUInt16(bytes, 480);
+            AddTrack(bytes, track);
+            return bytes.ToArray();
+        }
+
+        private static void AddVariableLength(List<byte> target, int value)
+        {
+            if (value < 0 || value > 0x0FFFFFFF) throw new ArgumentOutOfRangeException("value");
+            int buffer = value & 0x7F;
+            while ((value >>= 7) != 0) buffer = (buffer << 8) | ((value & 0x7F) | 0x80);
+            while (true)
+            {
+                target.Add((byte)buffer);
+                if ((buffer & 0x80) == 0) break;
+                buffer >>= 8;
+            }
         }
 
         private static void Add(List<byte> target, params byte[] values)

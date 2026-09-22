@@ -9,7 +9,6 @@ $compiler = 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 $buildDirectory = Join-Path $projectRoot 'build'
 $distributionDirectory = Join-Path $projectRoot 'dist'
 $manifest = Join-Path $projectRoot 'app.manifest'
-$runtimeConfiguration = Join-Path $projectRoot 'app.config'
 $applicationIcon = Join-Path $projectRoot 'assets\icon\MIDIBottleneck Player.ico'
 
 if (-not (Test-Path -LiteralPath $compiler)) {
@@ -48,10 +47,7 @@ function Build-Architecture([string]$architecture, [int]$expectedMachine) {
     }
     Write-Host ("Built {0} (PE machine 0x{1:X4})" -f $application, $machine)
     $applicationConfiguration = $application + '.config'
-    if ($architecture -eq 'x64') {
-        Copy-Item -LiteralPath $runtimeConfiguration -Destination $applicationConfiguration -Force
-    }
-    elseif (Test-Path -LiteralPath $applicationConfiguration) {
+    if (Test-Path -LiteralPath $applicationConfiguration) {
         Remove-Item -LiteralPath $applicationConfiguration -Force
     }
 
@@ -59,10 +55,7 @@ function Build-Architecture([string]$architecture, [int]$expectedMachine) {
         & $compiler /nologo /target:exe "/platform:$architecture" "/define:$define" /optimize+ /warn:4 /nowarn:0649 "/out:$testApplication" "/resource:$applicationIcon,MidiBottleneck.ProductIcon.ico" /reference:System.dll /reference:System.Core.dll /reference:System.Drawing.dll /reference:System.Windows.Forms.dll $testSources
         if ($LASTEXITCODE -ne 0) { throw "$architecture test compilation failed." }
         $testConfiguration = $testApplication + '.config'
-        if ($architecture -eq 'x64') {
-            Copy-Item -LiteralPath $runtimeConfiguration -Destination $testConfiguration -Force
-        }
-        elseif (Test-Path -LiteralPath $testConfiguration) {
+        if (Test-Path -LiteralPath $testConfiguration) {
             Remove-Item -LiteralPath $testConfiguration -Force
         }
         if ($MidiIntegration) { & $testApplication --midi-integration } else { & $testApplication }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -91,6 +92,22 @@ namespace MidiBottleneck
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal MidiEventView GetSequential(int index, ref CompactSequentialCursor cursor, out long intendedMicroseconds)
+        {
+            if (_list != null)
+            {
+                MidiEvent midiEvent = _list[index];
+                intendedMicroseconds = midiEvent.IntendedMicroseconds;
+                return MidiEventView.FromEvent(midiEvent, index);
+            }
+            if (_compact != null)
+                return _compact.GetSequential(index, ref cursor, out intendedMicroseconds);
+            MidiEventView view = _store.GetEvent(index);
+            intendedMicroseconds = view.IntendedMicroseconds;
+            return view;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void GetWorkloadFields(int index, out long microseconds, out int dataLength, out MidiEventKind kind)
         {
             if (_list != null)
@@ -111,6 +128,12 @@ namespace MidiBottleneck
             dataLength = view.DataLength;
             kind = view.Kind;
         }
+    }
+
+    internal struct CompactSequentialCursor
+    {
+        internal int SegmentIndex;
+        internal CompactMidiEventRecord[] Segment;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -178,11 +201,22 @@ namespace MidiBottleneck
                 remaining -= copy;
             }
         }
+
+        internal void ReleaseBefore(long offsetExclusive)
+        {
+            if (offsetExclusive <= 0) return;
+            int completeSegments = (int)Math.Min(_segments.Length, offsetExclusive / SegmentSize);
+            for (int index = 0; index < completeSegments; index++) _segments[index] = null;
+        }
     }
 
     internal sealed class CompactMidiEventStore : IMidiEventStore
     {
-        internal const int RecordSegmentCapacity = 65536;
+        // 2,048 × 40 bytes = 80 KiB, deliberately below the .NET Framework
+        // large-object-heap threshold so discarded provisional track segments
+        // do not leave multi-megabyte LOH regions committed after merge.
+        internal const int RecordSegmentCapacity = 2048;
+        private const int RecordSegmentShift = 11;
         private readonly CompactMidiEventRecord[][] _segments;
         private readonly CompactPayloadStore _payloads;
         private readonly int _count;
@@ -208,9 +242,29 @@ namespace MidiBottleneck
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private CompactMidiEventRecord[] Segment(int index) { return _segments[index / RecordSegmentCapacity]; }
+        internal MidiEventView GetSequential(int index, ref CompactSequentialCursor cursor, out long intendedMicroseconds)
+        {
+            int segmentIndex = index >> RecordSegmentShift;
+            if (cursor.Segment == null || cursor.SegmentIndex != segmentIndex)
+            {
+                cursor.SegmentIndex = segmentIndex;
+                cursor.Segment = _segments[segmentIndex];
+            }
+            intendedMicroseconds = cursor.Segment[index & (RecordSegmentCapacity - 1)].IntendedMicroseconds;
+            return MidiEventView.FromCompact(this, index);
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private int Offset(int index) { return index % RecordSegmentCapacity; }
+        internal CompactMidiEventRecord[] GetRecordSegment(int index, out int offset)
+        {
+            offset = index & (RecordSegmentCapacity - 1);
+            return _segments[index >> RecordSegmentShift];
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private CompactMidiEventRecord[] Segment(int index) { return _segments[index >> RecordSegmentShift]; }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private int Offset(int index) { return index & (RecordSegmentCapacity - 1); }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal long GetAbsoluteTick(int index) { return Segment(index)[Offset(index)].AbsoluteTick; }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -249,7 +303,7 @@ namespace MidiBottleneck
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void GetWorkloadFields(int index, out long microseconds, out int dataLength, out MidiEventKind kind)
         {
-            CompactMidiEventRecord record = _segments[index / RecordSegmentCapacity][index % RecordSegmentCapacity];
+            CompactMidiEventRecord record = _segments[index >> RecordSegmentShift][index & (RecordSegmentCapacity - 1)];
             microseconds = record.IntendedMicroseconds;
             dataLength = record.PayloadLength;
             kind = (MidiEventKind)(record.Metadata & 0x0F);
@@ -262,7 +316,7 @@ namespace MidiBottleneck
             while (low < high)
             {
                 int middle = low + ((high - low) >> 1);
-                CompactMidiEventRecord record = _segments[middle / RecordSegmentCapacity][middle % RecordSegmentCapacity];
+                CompactMidiEventRecord record = _segments[middle >> RecordSegmentShift][middle & (RecordSegmentCapacity - 1)];
                 if (record.IntendedMicroseconds < microseconds) low = middle + 1;
                 else high = middle;
             }
@@ -290,6 +344,21 @@ namespace MidiBottleneck
             return builder.Complete();
         }
 
+        // Used only while compact per-track stores are being consumed by the
+        // direct parser. Published song stores are immutable and never call it.
+        internal void ReleaseConsumedThrough(int index)
+        {
+            if (index < 0 || index >= _count) return;
+            int segmentIndex = index >> RecordSegmentShift;
+            int segmentOffset = index & (RecordSegmentCapacity - 1);
+            CompactMidiEventRecord[] segment = _segments[segmentIndex];
+            CompactMidiEventRecord record = segment[segmentOffset];
+            if (segmentOffset == segment.Length - 1)
+                _segments[segmentIndex] = null;
+            if (record.PayloadOffset >= 0)
+                _payloads.ReleaseBefore(record.PayloadOffset + record.PayloadLength);
+        }
+
         internal sealed class Builder
         {
             private readonly List<CompactMidiEventRecord[]> _recordSegments = new List<CompactMidiEventRecord[]>();
@@ -300,6 +369,9 @@ namespace MidiBottleneck
             private int _payloadOffset;
             private int _count;
             private long _payloadLength;
+
+            internal int Count { get { return _count; } }
+            internal long PayloadLength { get { return _payloadLength; } }
 
             internal void Add(MidiEvent midiEvent)
             {
@@ -332,7 +404,41 @@ namespace MidiBottleneck
                 _count++;
             }
 
-            private void AppendPayloadByte(byte value)
+            internal void Add(MidiEventView midiEvent, long intendedMicroseconds)
+            {
+                long payloadOffset = -1;
+                uint packed = 0;
+                if (midiEvent.DataLength <= 3) packed = midiEvent.PackedShortMessage;
+                else
+                {
+                    payloadOffset = _payloadLength;
+                    for (int index = 0; index < midiEvent.DataLength; index++)
+                        AppendPayloadByte(midiEvent.GetDataByte(index));
+                }
+                AddRaw(midiEvent.AbsoluteTick, intendedMicroseconds, midiEvent.Track, midiEvent.Kind,
+                    midiEvent.Channel, midiEvent.Status, midiEvent.DataLength, packed, payloadOffset);
+            }
+
+            internal void AddRaw(long tick, long intendedMicroseconds, int track, MidiEventKind kind,
+                int channel, byte status, int payloadLength, uint packedShortMessage, long payloadOffset)
+            {
+                if (_count == Int32.MaxValue)
+                    throw new InvalidDataException("The MIDI exceeds the supported 2,147,483,647-event indexed-store limit.");
+                EnsureRecordSpace();
+                CompactMidiEventRecord record = new CompactMidiEventRecord();
+                record.AbsoluteTick = tick;
+                record.IntendedMicroseconds = intendedMicroseconds;
+                record.Track = track;
+                record.PayloadLength = payloadLength;
+                record.Status = status;
+                record.Metadata = (ushort)(((int)kind & 0x0F) | ((channel + 1) << 4));
+                record.PayloadOffset = payloadOffset;
+                record.PackedShortMessage = packedShortMessage;
+                _currentRecords[_recordOffset++] = record;
+                _count++;
+            }
+
+            internal void AppendPayloadByte(byte value)
             {
                 if (_currentPayload == null || _payloadOffset == _currentPayload.Length)
                 {
@@ -342,6 +448,14 @@ namespace MidiBottleneck
                 }
                 _currentPayload[_payloadOffset++] = value;
                 _payloadLength++;
+            }
+
+            private void EnsureRecordSpace()
+            {
+                if (_currentRecords != null && _recordOffset != _currentRecords.Length) return;
+                _currentRecords = new CompactMidiEventRecord[RecordSegmentCapacity];
+                _recordSegments.Add(_currentRecords);
+                _recordOffset = 0;
             }
 
             internal CompactMidiEventStore Complete()

@@ -4,7 +4,6 @@ This is a public product roadmap, not a promise of dates. Correctness, determini
 
 ## Near term
 
-- **Direct parser construction into compact segments** — Build 27 completes the compact segmented final store. The next isolated stage must append compact records during the stable merge, release consumed track objects, and remove the complete legacy merged list/conversion overlap.
 - **Large-file preflight** — provide cancellable exact event counting and a storage-aware memory estimate without misleading file-size guesses.
 - **Drop oldest complete note** — add a bounded data structure that can remove the oldest safe complete note without scanning a large queue on every overflow.
 
@@ -13,6 +12,8 @@ Build 25 corrected the live per-note interval gate so overlapping source notes n
 Build 26 removes the gate's former 16,384 simultaneously unmatched-note ceiling, restores surviving layered support after a live representative-channel disable, and adds a generation-safe workload-only preview for initial Analysis calculations.
 
 Build 27 moves loaded songs to immutable compact record/payload segments, preserves the list backend as a deterministic oracle, and keeps workload preview data visible with a useful reason when queue projection fails.
+
+Build 28 streams track chunks into compact provisional segments and performs timestamp assignment during the stable direct-to-final merge. Tempo and source-value histories are segmented, the post-merge conversion is gone, and neither architecture needs a runtime configuration sidecar.
 
 ## Needs a product decision or more evidence
 
