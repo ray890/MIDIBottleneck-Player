@@ -8,5 +8,5 @@
 - The x64 executable must remain beside its `.exe.config`; the configuration enables the .NET Framework very-large-array setting before managed startup. Segmented event storage is the planned way to remove this requirement.
 - In-process code cannot forcibly interrupt a native output call that never returns. Stop, Pause, Seek, and output switching avoid concurrent native calls and will not start a replacement worker across an unsafe boundary.
 - Starting or seeking in the middle of a song does not reconstruct complete prior channel state. The Channel Monitor offers a deliberate one-attribute source-value chase; whole-state chase remains deferred.
-- Analysis is a deterministic projection of immutable source events and selected simulator settings. It does not predict synthesizer voice stealing, audible release tails, provider buffering, live Channel Monitor mutes/overrides, or the first live-only per-note interval gate.
+- Analysis is a deterministic projection of immutable source events and selected simulator settings. It does not predict synthesizer voice stealing, audible release tails, provider buffering, live Channel Monitor mutes/overrides, or the live-only per-note interval gate.
 - KDMAPI prepared SysEx requires a provider exposing the complete prepare/send/unprepare contract. Unsupported combinations fail explicitly.

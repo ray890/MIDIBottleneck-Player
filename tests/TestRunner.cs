@@ -442,8 +442,13 @@ namespace MidiBottleneck.Tests
                 }
                 if (arguments.Length == 1 && arguments[0] == "--test-build24")
                 {
-                    RunFocused("per-note interval gate state, scheduler, lifecycle, and UI", TestBuild24PerNoteIntervalGate);
+                    RunFocused("per-note interval gate state, scheduler, lifecycle, and UI", TestBuild25PerNoteIntervalGate);
                     RunFocused("architecture-specific runtime configuration", TestProcessArchitecture);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-build25")
+                {
+                    RunFocused("corrected per-note interval gate semantics and lifecycle", TestBuild25PerNoteIntervalGate);
                     return 0;
                 }
                 if (arguments.Length == 1 && arguments[0] == "--test-interface-only")
@@ -550,7 +555,7 @@ namespace MidiBottleneck.Tests
                 Run("Always-on-top native system-menu command", TestBuild22AlwaysOnTopMenu);
                 Run("single-source product metadata", TestBuild23ProductMetadata);
                 Run("pre-admission channel and override filtering", TestBuild23PreAdmissionFiltering);
-                Run("per-note interval gate state, scheduler, lifecycle, and UI", TestBuild24PerNoteIntervalGate);
+                Run("corrected per-note interval gate state, scheduler, lifecycle, and UI", TestBuild25PerNoteIntervalGate);
                 Run("channel monitor measured fitting", TestBuild21ChannelMonitorFit);
                 Run("normalized Analysis geometry", TestBuild21AnalysisGeometry);
                 Run("dense 200,000-event MIDI parsing", TestDenseMidiParser);
@@ -4095,7 +4100,7 @@ namespace MidiBottleneck.Tests
             }
         }
 
-        private static void TestBuild24PerNoteIntervalGate()
+        private static void TestBuild25PerNoteIntervalGate()
         {
             bool rejectedZero = false;
             try { new PerNoteIntervalGate(0); }
@@ -4103,43 +4108,76 @@ namespace MidiBottleneck.Tests
             Equal(true, rejectedZero, "zero interval is rejected explicitly");
 
             PerNoteIntervalGate gate = new PerNoteIntervalGate(100);
-            MidiEvent on60 = ChannelMessage(0, 0x90, 60, 100);
-            MidiEvent duplicate60 = ChannelMessage(10, 0x91, 60, 90);
-            MidiEvent wrongOff60 = ChannelMessage(20, 0x81, 60, 0);
-            MidiEvent ownerOff60 = ChannelMessage(30, 0x80, 60, 0);
-            Equal(PerNoteGateAdmission.Accepted, gate.Admit(on60), "first Note On owns global pitch");
-            Equal(PerNoteGateAdmission.Filtered, gate.Admit(duplicate60), "cross-channel duplicate Note On is filtered");
-            Equal(PerNoteGateAdmission.Filtered, gate.Admit(wrongOff60), "wrong-channel Note Off is filtered");
-            Equal(PerNoteGateAdmission.Accepted, gate.Admit(ownerOff60), "owning-channel Note Off is retained");
             MidiEvent[] emitted = new MidiEvent[128];
-            Equal(1, gate.EmitBoundary(100, emitted), "pending Note On occupies first boundary");
-            Equal(0x90, (int)emitted[0].Status, "first boundary emits Note On only");
-            Equal(1, gate.EmitBoundary(200, emitted), "early Note Off moves to following boundary");
-            Equal(0x80, (int)emitted[0].Status, "second boundary emits Note Off only");
-            Equal(false, gate.IsActive(60), "pitch returns inactive after Note Off");
+            MidiEvent on60 = ChannelMessage(0, 0x90, 60, 100);
+            on60.Track = 3;
+            MidiEvent off60 = ChannelMessage(50, 0x80, 60, 45);
+            off60.Track = 3;
+            gate.BeginSourceTick(0); gate.Admit(on60); gate.EndSourceTick();
+            Equal(1, gate.EmitBoundary(0, emitted), "event on source-time zero is eligible at boundary zero");
+            Equal(0x90, (int)emitted[0].Status, "ordinary attack preserves Note On");
+            gate.BeginSourceTick(50); gate.Admit(off60); gate.EndSourceTick();
+            Equal(1, gate.EmitBoundary(100, emitted), "ordinary release reaches its first eligible boundary");
+            Equal(45, (int)emitted[0].GetDataByte(2), "natural release preserves source velocity");
+            Equal(false, gate.IsActive(60), "ordinary note returns output pitch to Up");
 
             gate = new PerNoteIntervalGate(100);
-            MidiEvent on62 = ChannelMessage(0, 0x91, 62, 100);
-            MidiEvent on59 = ChannelMessage(0, 0x92, 59, 100);
-            MidiEvent zeroVelocityOff = ChannelMessage(10, 0x92, 59, 0);
-            gate.Admit(on62); gate.Admit(on59);
-            Equal(PerNoteGateAdmission.Accepted, gate.Admit(zeroVelocityOff), "velocity-zero Note On is an owning Note Off");
-            Equal(2, gate.EmitBoundary(100, emitted), "different pitches share one logical boundary");
-            Equal(59, (int)emitted[0].GetDataByte(1), "boundary ordering is stable ascending pitch");
-            Equal(62, (int)emitted[1].GetDataByte(1), "boundary ordering includes later pitch second");
-            Equal(1, gate.EmitBoundary(200, emitted), "velocity-zero Note Off cannot collapse with its Note On");
+            MidiEvent layeredA = ChannelMessage(100, 0x90, 62, 90); layeredA.Track = 0; layeredA.EventIndex = 1;
+            MidiEvent layeredB = ChannelMessage(100, 0x91, 62, 110); layeredB.Track = 1; layeredB.EventIndex = 2;
+            gate.BeginSourceTick(100); gate.Admit(layeredA); gate.Admit(layeredB); gate.EndSourceTick();
+            Equal(1, gate.EmitBoundary(100, emitted), "simultaneous layers coalesce to one attack");
+            Equal(0x91, (int)emitted[0].Status, "strongest simultaneous layer supplies output channel");
+            Equal(110, (int)emitted[0].GetDataByte(2), "strongest simultaneous velocity is retained");
+            MidiEvent layeredOffA = ChannelMessage(150, 0x80, 62, 1); layeredOffA.Track = 0;
+            MidiEvent layeredOffB = ChannelMessage(160, 0x81, 62, 2); layeredOffB.Track = 1;
+            gate.BeginSourceTick(150); gate.Admit(layeredOffA); gate.EndSourceTick();
+            gate.BeginSourceTick(160); gate.Admit(layeredOffB); gate.EndSourceTick();
+            Equal(1, gate.EmitBoundary(200, emitted), "all simultaneous supports must end before output release");
+            Equal(0x81, (int)emitted[0].Status, "release uses the channel that actually received Note On");
+            Equal(2L, gate.TakeFilteredEventCount(), "coalesced Note On and non-final Note Off are gate-filtered");
+
+            gate = new PerNoteIntervalGate(100);
+            MidiEvent shortOn = ChannelMessage(0, 0x92, 59, 100); shortOn.Track = 4;
+            MidiEvent zeroVelocityOff = ChannelMessage(0, 0x92, 59, 0); zeroVelocityOff.Track = 4;
+            gate.BeginSourceTick(0);
+            gate.Admit(shortOn);
+            Equal(PerNoteGateAdmission.Accepted, gate.Admit(zeroVelocityOff), "velocity-zero Note On pairs as Note Off");
+            gate.EndSourceTick();
+            Equal(1, gate.EmitBoundary(0, emitted), "zero-duration source note still emits an attack");
+            Equal(0x92, (int)emitted[0].Status, "short note attack preserves source status");
+            Equal(1, gate.EmitBoundary(100, emitted), "short note remains down for a complete interval");
+            Equal(0x82, (int)emitted[0].Status, "short note emits a matching output-channel release");
+
+            gate = new PerNoteIntervalGate(100);
+            MidiEvent beforeBoundary = ChannelMessage(99, 0x90, 52, 80);
+            MidiEvent onBoundary = ChannelMessage(100, 0x91, 51, 81);
+            MidiEvent afterBoundary = ChannelMessage(101, 0x92, 50, 82);
+            gate.BeginSourceTick(99); gate.Admit(beforeBoundary); gate.EndSourceTick();
+            gate.BeginSourceTick(100); gate.Admit(onBoundary); gate.EndSourceTick();
+            Equal(2, gate.EmitBoundary(100, emitted), "events before and exactly on a boundary are eligible there");
+            Equal(51, (int)emitted[0].GetDataByte(1), "same-boundary transitions remain pitch sorted");
+            Equal(52, (int)emitted[1].GetDataByte(1), "same-boundary higher pitch follows");
+            gate.BeginSourceTick(101); gate.Admit(afterBoundary); gate.EndSourceTick();
+            Equal(1, gate.EmitBoundary(200, emitted), "event just after a boundary waits for the next one");
+            Equal(50, (int)emitted[0].GetDataByte(1), "post-boundary attack payload is preserved");
 
             MidiEvent controller = ChannelMessage(50, 0xB0, 7, 100);
             Equal(PerNoteGateAdmission.NotNote, gate.Admit(controller), "controllers remain outside note gate");
 
-            MidiSong song = NewChannelSong("per-note-gate.mid", 20000,
-                ChannelMessage(0, 0x91, 62, 100),
-                ChannelMessage(0, 0x90, 60, 100),
-                ChannelMessage(1000, 0x92, 60, 100),
-                ChannelMessage(2000, 0xB0, 7, 90),
-                ChannelMessage(3000, 0x82, 60, 0),
-                ChannelMessage(5000, 0x80, 60, 0),
-                ChannelMessage(5000, 0x81, 62, 0));
+            // Compact regression for the reported real-file shape: one long
+            // lower-track note must not suppress representable attacks from a
+            // different track/channel on the same pitch.
+            MidiEvent longOn = ChannelMessage(0, 0x90, 59, 70); longOn.Track = 0;
+            MidiEvent attack1 = ChannelMessage(30000, 0x91, 59, 100); attack1.Track = 1;
+            MidiEvent attackOff1 = ChannelMessage(35000, 0x81, 59, 0); attackOff1.Track = 1;
+            MidiEvent attack2 = ChannelMessage(60000, 0x91, 59, 105); attack2.Track = 1;
+            MidiEvent attackOff2 = ChannelMessage(65000, 0x81, 59, 0); attackOff2.Track = 1;
+            MidiEvent attack3 = ChannelMessage(90000, 0x92, 59, 110); attack3.Track = 1;
+            MidiEvent attackOff3 = ChannelMessage(95000, 0x82, 59, 0); attackOff3.Track = 1;
+            MidiEvent longOff = ChannelMessage(120000, 0x80, 59, 7); longOff.Track = 0;
+            MidiSong song = NewChannelSong("per-note-overlap.mid", 120000,
+                longOn, ChannelMessage(15000, 0xB0, 7, 90), attack1, attackOff1,
+                attack2, attackOff2, attack3, attackOff3, longOff);
             using (PlaybackEngine engine = new PlaybackEngine())
             {
                 FakeMidiOutput output = new FakeMidiOutput();
@@ -4148,21 +4186,53 @@ namespace MidiBottleneck.Tests
                 engine.Start(song, output, ProcessingMode.PerNoteIntervalGate);
                 WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1500, "per-note gate completion");
                 List<byte[]> messages = output.SentPayloads();
-                Equal(5, messages.Count, "only non-note and admitted transitions are dispatched");
-                Equal(0xB0, (int)messages[0][0], "non-note message keeps its established source-time path");
-                Equal(60, (int)messages[1][1], "first boundary is pitch-sorted");
-                Equal(62, (int)messages[2][1], "first boundary second pitch");
-                Equal(60, (int)messages[3][1], "second boundary first Note Off");
-                Equal(62, (int)messages[4][1], "second boundary second Note Off");
+                int pitch59Attacks = 0;
+                for (int index = 0; index < messages.Count; index++)
+                    if ((messages[index][0] & 0xF0) == 0x90 && messages[index][2] != 0 && messages[index][1] == 59)
+                        pitch59Attacks++;
+                Equal(4, pitch59Attacks, "overlapping long note does not glue three representable repeated attacks");
+                Equal(true, ContainsMessage(messages, 0xB0, 7, 90), "controller keeps its normal source-time path");
+                Equal(0x82, (int)messages[messages.Count - 1][0],
+                    "final release follows the channel of the last emitted retrigger");
                 PlaybackSnapshot snapshot = engine.GetSnapshot();
                 Equal(ProcessingMode.PerNoteIntervalGate, snapshot.ProcessingMode, "snapshot identifies gate mode");
-                Equal(5L, snapshot.ProcessedEvents, "sent statistics include admitted gate transitions only");
                 Equal(0L, snapshot.DroppedEvents, "gate filtering is not queue overflow");
-                Equal(2L, snapshot.GateFilteredEvents, "duplicate and wrong-owner events have separate accounting");
+                Equal(3L, snapshot.GateFilteredEvents, "non-output supporting releases have separate accounting");
                 Equal(0L, snapshot.MaximumQueueLength, "gate does not expose generic queue pressure");
                 Equal(0, engine.GetChannelSnapshot().Channels[0].KeysDown, "monitor has no stuck keys after gate completion");
                 engine.ResetStatistics();
                 Equal(0L, engine.GetSnapshot().GateFilteredEvents, "Reset stats clears the gate-filter counter");
+            }
+
+            // Genuine overload retains attacks across the run instead of
+            // suppressing everything after one early attack.
+            List<MidiEvent> denseEvents = new List<MidiEvent>();
+            for (int index = 0; index < 7; index++)
+            {
+                MidiEvent noteOn = ChannelMessage(index * 10000, 0x90, 64, (byte)(10 + index));
+                MidiEvent noteOff = ChannelMessage(index * 10000, 0x80, 64, 0);
+                noteOn.Track = noteOff.Track = index;
+                denseEvents.Add(noteOn); denseEvents.Add(noteOff);
+            }
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.ProcessingMicroseconds = 10000;
+                engine.Start(NewChannelSong("gate-dense.mid", 60000, denseEvents.ToArray()), output,
+                    ProcessingMode.PerNoteIntervalGate);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1500, "dense gate completion");
+                List<byte[]> messages = output.SentPayloads();
+                List<int> velocities = new List<int>();
+                for (int index = 0; index < messages.Count; index++)
+                    if ((messages[index][0] & 0xF0) == 0x90 && messages[index][2] != 0)
+                        velocities.Add(messages[index][2]);
+                Equal(true, velocities.Count >= 3, "dense run retains maximum useful attacks");
+                Equal(4, velocities.Count, "bounded look-ahead retains the maximum feasible dense subset");
+                Equal(10, velocities[0], "dense selection starts at passage beginning");
+                Equal(12, velocities[1], "equivalent adjacent candidate choice prefers stronger velocity");
+                Equal(14, velocities[2], "dense omissions remain distributed instead of clustering");
+                Equal(16, velocities[3], "dense selection reaches passage end");
+                Equal(true, engine.GetSnapshot().GateFilteredEvents > 0, "overload is recorded separately");
             }
 
             using (PlaybackEngine engine = new PlaybackEngine())
@@ -4175,10 +4245,10 @@ namespace MidiBottleneck.Tests
                 engine.Start(lifecycle, output, ProcessingMode.PerNoteIntervalGate);
                 Thread.Sleep(20);
                 engine.Pause();
-                Equal(0, output.SentPayloads().Count, "Pause retires pending ownership before its boundary");
+                Equal(0, output.SentPayloads().Count, "Pause retires a pending attack before its boundary");
                 engine.Resume();
                 WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1000, "gate Pause/Resume completion");
-                Equal(0, output.SentPayloads().Count, "Resume does not resurrect stale gate ownership");
+                Equal(0, output.SentPayloads().Count, "Resume does not resurrect stale gate state");
                 Equal(0, engine.GetChannelSnapshot().Channels[0].KeysDown, "Pause/Resume gate leaves no held key");
             }
 
@@ -4195,7 +4265,7 @@ namespace MidiBottleneck.Tests
                 engine.Seek(100000);
                 WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1000, "post-seek gate completion");
                 List<byte[]> postSeek = output.SentPayloads();
-                Equal(2, postSeek.Count, "Seek discards old ownership and dispatches only later complete transition");
+                Equal(2, postSeek.Count, "Seek discards old gate state and dispatches only later complete transition");
                 Equal(66, (int)postSeek[0][1], "post-seek Note On belongs to later pitch");
                 Equal(66, (int)postSeek[1][1], "post-seek Note Off belongs to later pitch");
                 Equal(0, engine.GetChannelSnapshot().Channels[0].KeysDown, "Seek gate leaves no held key");
@@ -4221,7 +4291,7 @@ namespace MidiBottleneck.Tests
                 if (!pauser.Join(1000)) throw new Exception("gate blocked Pause did not complete");
                 if (pauseFailure != null) throw pauseFailure;
                 Equal(1, output.SendBeginCount,
-                    "after a blocked boundary send returns, Pause prevents the remaining stale batch");
+                    "after a blocked boundary send returns, Pause prevents the remaining stale boundary batch");
                 Equal(PlaybackState.Paused, engine.State, "blocked gate Pause reaches coherent paused state");
                 engine.Stop();
             }
@@ -4237,7 +4307,9 @@ namespace MidiBottleneck.Tests
                     ChannelMessage(0, 0x91, 67, 100),
                     ChannelMessage(5000, 0x81, 67, 0)), output, ProcessingMode.PerNoteIntervalGate);
                 WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1000, "disabled-channel gate completion");
-                Equal(2, output.SentPayloads().Count, "disabled channel cannot acquire global pitch ownership");
+                WaitFor(delegate { return engine.GetChannelSnapshot().Channels[0].MutedFilteredEvents == 1; },
+                    1000, "disabled-channel gate snapshot publication");
+                Equal(2, output.SentPayloads().Count, "disabled channel cannot contribute pitch-gate input");
                 Equal(1L, engine.GetChannelSnapshot().Channels[0].MutedFilteredEvents,
                     "disabled event remains separately muted-filtered");
                 Equal(0L, engine.GetSnapshot().GateFilteredEvents, "pre-gate channel filtering is not gate filtering");
@@ -4896,6 +4968,13 @@ namespace MidiBottleneck.Tests
 
         private static MidiSong NewChannelSong(string path, long duration, params MidiEvent[] events)
         {
+            for (int index = 0; index < events.Length; index++)
+            {
+                events[index].EventIndex = index;
+                events[index].Order = index;
+                if (events[index].AbsoluteTick == 0 && events[index].IntendedMicroseconds != 0)
+                    events[index].AbsoluteTick = events[index].IntendedMicroseconds;
+            }
             return new MidiSong
             {
                 FilePath = path, Format = 0, TrackCount = 1, TicksPerQuarterNote = 480,
@@ -5053,6 +5132,7 @@ namespace MidiBottleneck.Tests
                 command == 0xE0 ? MidiEventKind.PitchBend : MidiEventKind.SystemMessage;
             return new MidiEvent
             {
+                AbsoluteTick = time,
                 IntendedMicroseconds = time,
                 Kind = kind,
                 Channel = data == null || data.Length == 0 ? -1 : data[0] & 0x0F,

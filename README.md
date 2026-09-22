@@ -51,7 +51,7 @@ The processing model can apply a fixed time per event or MIDI serial bitrate. A 
 
 Analysis uses the immutable source file and selected simulator settings. Live Channel Monitor mutes and overrides intentionally do not rewrite the static Analysis projection.
 
-The optional **Per-note interval gate** is available from the title-bar system menu. It uses the nonzero processing-time value as a global pitch interval, while temporarily locking the competing slowdown and queue controls. Static Analysis clearly identifies that this live-only gate is not included in its ordinary queue projection.
+The optional **Per-note interval gate** is available from the title-bar system menu. It uses the nonzero processing-time value as an independent transition interval for each pitch, while temporarily locking the competing slowdown and queue controls. Repeated attacks can retrigger an already sounding pitch through a deliberate one-interval release gap; simultaneous layers are coalesced deterministically. Static Analysis clearly identifies that this live-only gate is not included in its ordinary queue projection.
 
 ## Documentation
 

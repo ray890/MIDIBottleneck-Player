@@ -24,9 +24,13 @@ The unlimited queue uses contiguous indices into the sorted event store, so back
 
 Muted channel events and source attribute changes conflicting with forced overrides are filtered before scheduler admission. They consume no simulated service, queue space, output rate, or sent count and are reported separately from overflow drops. An event already executing inside a native call cannot be recalled.
 
-The live per-note interval gate uses fixed 128-pitch state, with ownership global by pitch and channel-specific while active. It allocates no per-event gate objects. Each pitch emits at most one transition at a boundary; simultaneous pitches are emitted in ascending pitch order. A NoteOff accepted before its pending NoteOn executes is scheduled for the following boundary. Disabled-channel and override routing filters run first, while controllers, program changes, bend, pressure, SysEx, and system messages keep their established path. Gate rejections are counted separately from queue overflow.
+The live per-note interval gate separates source-note identity from constrained output state. Source NoteOffs pair FIFO with NoteOns from the same track/channel/pitch, with an oldest-same-channel fallback for unusual cross-track files. A fixed pool covers up to 16,384 simultaneously unmatched source occurrences; it is runtime state, not another whole-file schedule. Each output pitch stores only Up/Down plus the channel of the NoteOn actually sent.
 
-The gate deliberately has no generic simulated queue. Enabling/disabling it or changing its live interval retires and silences the scheduler, then restarts at the same transport position while preserving playing versus paused state. All pitch ownership is recreated from later eligible source events; no notes are chased or replayed.
+Boundaries are anchored to source time zero, and source events exactly on a boundary are considered first. Same-pitch NoteOns at the same absolute tick form one candidate whose strongest velocity wins. A selected short note is held for at least one interval. Retriggering a down pitch uses a preparatory release followed one boundary later by the new attack. Each pitch emits at most one transition per boundary, while different pitches emit in ascending order.
+
+Selection uses a bounded one-boundary look-ahead. Attacks are assigned only to their first eligible boundary or the following boundary, so no gate backlog can grow with the file. In a dense run this retains the maximum feasible alternating subset across the passage; when adjacent choices are otherwise equivalent, velocity and then stable source order decide. Disabled-channel filters run before gate admission. Controllers, program changes, bend, pressure, SysEx, and system messages keep their established path. Simultaneous coalescing and overload are counted separately from queue overflow.
+
+The gate deliberately has no generic simulated queue. Enabling/disabling it or changing its live interval retires and silences the scheduler, then restarts at the same transport position while preserving playing versus paused state. All pitch state is recreated from later eligible source events; no notes are chased or replayed.
 
 ## Output boundaries
 
@@ -48,7 +52,7 @@ Auto resolution is explicit state. Its visible label reports the resolution of t
 
 Queue Projection drains accepted modeled work after the last arrival to calculate predicted output completion. Rejected events add no later service. Static Analysis intentionally excludes live Channel Monitor mutes and overrides.
 
-The first per-note gate implementation is live-playback-only. Analysis labels this explicitly and continues to show the immutable source/configuration queue projection; it does not present that projection as a gate simulation.
+The per-note gate remains live-playback-only. Analysis labels this explicitly and continues to show the immutable source/configuration queue projection; it does not present that projection as a gate simulation.
 
 ## UI publication cadence
 

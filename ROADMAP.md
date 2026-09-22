@@ -8,7 +8,7 @@ This is a public product roadmap, not a promise of dates. Correctness, determini
 - **Large-file preflight** — provide cancellable exact event counting and a storage-aware memory estimate without misleading file-size guesses.
 - **Drop oldest complete note** — add a bounded data structure that can remove the oldest safe complete note without scanning a large queue on every overflow.
 
-Build 24 completed the first live per-note interval gate with deterministic pitch ownership, lifecycle reset, separate accounting, and explicit Analysis disclosure.
+Build 25 corrected the live per-note interval gate so overlapping source notes no longer create first-channel ownership. Repeated attacks retrigger predictably under one transition per pitch/boundary, while Analysis continues to disclose that it excludes the live gate.
 
 ## Needs a product decision or more evidence
 

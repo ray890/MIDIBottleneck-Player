@@ -28,6 +28,7 @@ The public history was reconstructed because original Git commits did not exist.
 | 22 | drag-drop-analysis-completion | 2026-09-20 04:21 -04:00 | exact | `v1.0.22` |
 | 23 | public-documentation-packaging | 2026-09-21 00:12:11 -04:00 | exact | `v1.0.23` |
 | 24 | per-note-interval-gate | 2026-09-21 07:20 -04:00 | exact | `v1.0.24` |
+| 25 | per-note-gate-correction | 2026-09-22 00:48 -04:00 | exact | `v1.0.25` |
 
 ## Evidence-recovery result
 

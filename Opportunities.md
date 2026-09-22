@@ -8,7 +8,7 @@ These are evidence-backed deferred items, not commitments for the current releas
 
 ## Completed playback milestone
 
-- **Per-note interval gate** — Build 24 implements the fixed-size 128-pitch live gate after disabled-channel/routing filters. It uses stable ascending-pitch boundary order, channel-specific ownership, velocity-zero NoteOff handling, a separate gate-filter count, safe scheduler restarts, and an explicit live-only Analysis disclosure. Exact static Analysis projection of this gate remains intentionally outside the first release.
+- **Per-note interval gate** — Build 25 replaces Build 24's first-NoteOn ownership interpretation with distinct source occurrences and a global Up/Down output constraint per pitch. Representable repeated attacks now retrigger through a clean release gap, simultaneous layers coalesce by velocity, short notes receive a full interval, dense overload uses bounded one-boundary look-ahead, and lifecycle/filter accounting remains explicit. Exact static Analysis projection remains deferred.
 
 ## Near-term follow-ups
 - **Remaining compact/segmented event-store stages** — The indexed store boundary and inline short-message payload are now production. Next stages are immutable compact value records, removal of proven post-merge redundancy, bounded segments, a segmented long-payload side store, and finally direct parser construction into segments. This is still high-value/high-scope: it must preserve exact global order, binary-search seeks, scheduler cursors, SysEx diagnostics, Analysis, cancellation, and x86 limits.

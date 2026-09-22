@@ -1120,13 +1120,13 @@ namespace MidiBottleneck
 
             PerNoteIntervalGate gate = new PerNoteIntervalGate(interval);
             MidiEvent[] boundaryEvents = new MidiEvent[128];
-            MidiEvent[] retiredEvents = new MidiEvent[256];
             int nextArrival = _startEventIndex;
             int routingGeneration = _channelRouting.FilterGeneration;
             int[] disableGenerations = new int[16];
             for (int channel = 0; channel < 16; channel++)
                 disableGenerations[channel] = _channelRouting.DisableGeneration(channel);
             FilteredSourceEvents sourceFilters = new FilteredSourceEvents();
+            bool sourceCompleted = false;
 
             while (IsActive())
             {
@@ -1134,6 +1134,7 @@ namespace MidiBottleneck
                 ApplyPendingChannelControls();
                 if (!WaitWhilePaused()) return;
                 ApplyPendingOverrides();
+                long nowMicroseconds = TicksToMicroseconds(CurrentTransportTicks());
 
                 int currentRoutingGeneration = _channelRouting.FilterGeneration;
                 if (currentRoutingGeneration != routingGeneration)
@@ -1143,7 +1144,7 @@ namespace MidiBottleneck
                         int disabledAt = _channelRouting.DisableGeneration(channel);
                         if (disabledAt == disableGenerations[channel]) continue;
                         disableGenerations[channel] = disabledAt;
-                        int retired = gate.RetireChannel(channel, retiredEvents);
+                        int retired = gate.RetireChannel(channel, nowMicroseconds);
                         for (int index = 0; index < retired; index++)
                             _channelRouting.RecordFiltered(channel);
                     }
@@ -1151,7 +1152,6 @@ namespace MidiBottleneck
                     PublishChannelState(true);
                 }
 
-                long nowMicroseconds = TicksToMicroseconds(CurrentTransportTicks());
                 bool didWork = false;
                 int examined = 0;
                 long batchStarted = Stopwatch.GetTimestamp();
@@ -1163,12 +1163,33 @@ namespace MidiBottleneck
                     long nextAction = Math.Min(nextBoundary, nextSource);
                     if (nextAction > nowMicroseconds) break;
 
-                    // An accepted transition wins a tie at its boundary. A
-                    // source event arriving exactly there is considered for
-                    // the following boundary.
-                    if (nextBoundary <= nextSource)
+                    // Source events exactly on a boundary are admitted before
+                    // that boundary is resolved. All events at one absolute
+                    // MIDI tick are kept together so simultaneous same-pitch
+                    // layers make one deterministic attack decision.
+                    if (nextSource <= nextBoundary)
+                    {
+                        long sourceTick = _events[nextArrival].AbsoluteTick;
+                        gate.BeginSourceTick(sourceTick);
+                        while (nextArrival < _events.Count && _events[nextArrival].AbsoluteTick == sourceTick)
+                        {
+                            int eventIndex = nextArrival++;
+                            examined++;
+                            if (HasActiveSourceFilters() && MarkNewSourceFiltered(eventIndex, sourceFilters))
+                                continue;
+                            MidiEvent midiEvent = _events[eventIndex];
+                            PerNoteGateAdmission admission = gate.Admit(midiEvent);
+                            if (admission == PerNoteGateAdmission.NotNote)
+                                DispatchMidiEvent(midiEvent);
+                            if (Volatile.Read(ref _dispatchSuspended) != 0 || !IsPlaying()) return;
+                        }
+                        gate.EndSourceTick();
+                        AddGateFiltered(gate.TakeFilteredEventCount());
+                    }
+                    else
                     {
                         int count = gate.EmitBoundary(nextBoundary, boundaryEvents);
+                        AddGateFiltered(gate.TakeFilteredEventCount());
                         for (int index = 0; index < count; index++)
                         {
                             // A native send may have been blocked while a
@@ -1179,26 +1200,6 @@ namespace MidiBottleneck
                         }
                         examined += Math.Max(1, count);
                     }
-                    else
-                    {
-                        int eventIndex = nextArrival++;
-                        examined++;
-                        if (HasActiveSourceFilters() && MarkNewSourceFiltered(eventIndex, sourceFilters))
-                        {
-                            didWork = true;
-                            nowMicroseconds = TicksToMicroseconds(CurrentTransportTicks());
-                            if (examined >= 2048 || Stopwatch.GetTimestamp() - batchStarted >= Stopwatch.Frequency / 125)
-                                break;
-                            continue;
-                        }
-
-                        MidiEvent midiEvent = _events[eventIndex];
-                        PerNoteGateAdmission admission = gate.Admit(midiEvent);
-                        if (admission == PerNoteGateAdmission.NotNote)
-                            DispatchMidiEvent(midiEvent);
-                        else if (admission == PerNoteGateAdmission.Filtered)
-                            lock (_sync) _gateFilteredEvents++;
-                    }
                     didWork = true;
                     nowMicroseconds = TicksToMicroseconds(CurrentTransportTicks());
                     if (examined >= 2048 || Stopwatch.GetTimestamp() - batchStarted >= Stopwatch.Frequency / 125)
@@ -1206,6 +1207,14 @@ namespace MidiBottleneck
                 }
 
                 UpdateQueue(0, false);
+                if (nextArrival >= _events.Count && !sourceCompleted)
+                {
+                    MidiSong song;
+                    lock (_sync) song = _song;
+                    gate.CompleteSource(song == null ? nowMicroseconds : song.DurationMicroseconds);
+                    AddGateFiltered(gate.TakeFilteredEventCount());
+                    sourceCompleted = true;
+                }
                 if (nextArrival >= _events.Count && !gate.HasPendingTransitions) return;
 
                 long targetMicroseconds = gate.NextBoundaryMicroseconds;
@@ -1217,6 +1226,12 @@ namespace MidiBottleneck
                 if (!didWork || targetTicks > nowTicks)
                     WaitUntil(waiter, targetTicks, iterationWakeGeneration);
             }
+        }
+
+        private void AddGateFiltered(long count)
+        {
+            if (count == 0) return;
+            lock (_sync) _gateFilteredEvents += count;
         }
 
         private void Dispatch(int eventIndex, long actualTransportTicks)

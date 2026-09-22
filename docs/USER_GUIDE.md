@@ -42,9 +42,13 @@ Channel mutes and forced-attribute conflicts are filtered before queue admission
 
 The title-bar system menu can enable **Per-note interval gate** when the processing-time value is greater than zero. While enabled, the player locks the rate model to Processing time per event and temporarily disables the generic slowdown and queue controls without changing their saved choices.
 
-The interval applies independently to each MIDI pitch across all channels. The first eligible NoteOn owns that pitch until its matching-channel NoteOff is emitted; duplicate NoteOns, unmatched NoteOffs, and wrong-channel NoteOffs are gate-filtered. If an owning NoteOff arrives before its pending NoteOn is emitted, it waits for the following interval rather than collapsing both transitions onto one boundary. Other MIDI messages retain their ordinary source-time path.
+The interval applies independently to each MIDI pitch across all channels. Source notes remain distinct by track, channel, pitch, and FIFO occurrence; the constrained output remembers only whether that pitch is up or down and the channel on which its current NoteOn was actually sent. A later attack is therefore not suppressed merely because a longer note on another track or channel is still sustaining.
 
-The Sent/dropped statistic shows gate rejections separately in parentheses. Changing the gate, its interval, output, or transport state uses the normal safe silence/restart boundary, so stale pitch ownership cannot survive Pause, Seek, Stop, or an output restart.
+If a selected attack arrives while its pitch is down, the player sends a release at the preceding boundary and the new NoteOn at its assigned boundary. Very short and zero-duration source notes still receive one complete interval. NoteOns at the same absolute MIDI tick are one simultaneous candidate: the strongest velocity is emitted, with source order breaking a tie, while every selected layer can support the resulting sustain. Under genuine overload, a bounded one-boundary look-ahead retains the maximum feasible alternating attacks, prefers the stronger of otherwise equivalent adjacent candidates, and prevents an unbounded transition backlog.
+
+The output limit remains exactly one NoteOn, one NoteOff, or no transition for each pitch at each boundary. Non-note messages retain their ordinary source-time path.
+
+The Sent/dropped statistic shows simultaneous coalescing and interval-overload rejections separately in parentheses. Changing the gate, its interval, output, or transport state uses the normal safe silence/restart boundary, so stale pitch state cannot survive Pause, Seek, Stop, or an output restart.
 
 ## Playback and statistics
 
