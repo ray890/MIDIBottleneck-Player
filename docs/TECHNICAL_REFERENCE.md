@@ -24,11 +24,13 @@ The unlimited queue uses contiguous indices into the sorted event store, so back
 
 Muted channel events and source attribute changes conflicting with forced overrides are filtered before scheduler admission. They consume no simulated service, queue space, output rate, or sent count and are reported separately from overflow drops. An event already executing inside a native call cannot be recalled.
 
-The live per-note interval gate separates source-note identity from constrained output state. Source NoteOffs pair FIFO with NoteOns from the same track/channel/pitch, with an oldest-same-channel fallback for unusual cross-track files. A fixed pool covers up to 16,384 simultaneously unmatched source occurrences; it is runtime state, not another whole-file schedule. Each output pitch stores only Up/Down plus the channel of the NoteOn actually sent.
+The live per-note interval gate separates source-note identity from constrained output state. Source NoteOffs pair FIFO with NoteOns from the same track/channel/pitch, with an oldest-same-channel fallback for unusual cross-track files. Simultaneously unmatched occurrences live in reusable 4,096-entry segments allocated on demand; memory therefore follows peak overlap rather than total file size, and freed entries are reused. Allocation failure is surfaced as an explicit playback failure instead of falling back to lossy track-blind pairing. Each output pitch stores only Up/Down plus the channel of the NoteOn actually sent.
 
 Boundaries are anchored to source time zero, and source events exactly on a boundary are considered first. Same-pitch NoteOns at the same absolute tick form one candidate whose strongest velocity wins. A selected short note is held for at least one interval. Retriggering a down pitch uses a preparatory release followed one boundary later by the new attack. Each pitch emits at most one transition per boundary, while different pitches emit in ascending order.
 
 Selection uses a bounded one-boundary look-ahead. Attacks are assigned only to their first eligible boundary or the following boundary, so no gate backlog can grow with the file. In a dense run this retains the maximum feasible alternating subset across the passage; when adjacent choices are otherwise equivalent, velocity and then stable source order decide. Disabled-channel filters run before gate admission. Controllers, program changes, bend, pressure, SysEx, and system messages keep their established path. Simultaneous coalescing and overload are counted separately from queue overflow.
+
+If a live channel-disable safety operation silences the channel that supplied the currently sounding representative, an already selected occurrence on another enabled channel remains valid support. It is emitted as a replacement attack at the next legal boundary. A disabled pending representative is similarly replaced before emission; disabled occurrences themselves are never resurrected.
 
 The gate deliberately has no generic simulated queue. Enabling/disabling it or changing its live interval retires and silences the scheduler, then restarts at the same transport position while preserving playing versus paused state. All pitch state is recreated from later eligible source events; no notes are chased or replayed.
 
@@ -47,6 +49,8 @@ Reset boundaries retire the worker before reset/panic whenever the active native
 ## Analysis
 
 Whole-file Analysis separates reusable file/resolution workload scanning from configuration-dependent queue projection. Workload counts and buckets can be reused when only service settings change; exact queue projections still recompute when their inputs change.
+
+For the first calculation in a window, the analyzer publishes one typed workload-only result after the reusable scan and summary complete. The callback exposes no mutable bucket arrays. The form generation-checks that preview independently from the final result and displays it only when no completed graph exists. Projection-only fields remain unavailable rather than appearing as zeros. Cancellation relabels a displayed preview as workload-only/cancelled, while stale generations, closed windows, and replaced files reject both preview and final publication.
 
 Auto resolution is explicit state. Its visible label reports the resolution of the accepted graph, not a pending request. Cancellation retires the active/pending generation, and layout-only height changes do not re-arm the cancelled request.
 

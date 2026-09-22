@@ -50,6 +50,8 @@ The output limit remains exactly one NoteOn, one NoteOff, or no transition for e
 
 The Sent/dropped statistic shows simultaneous coalescing and interval-overload rejections separately in parentheses. Changing the gate, its interval, output, or transport state uses the normal safe silence/restart boundary, so stale pitch state cannot survive Pause, Seek, Stop, or an output restart.
 
+Very large numbers of simultaneously unmatched source notes are tracked in growable reusable segments. If the selected output channel for a layered pitch is disabled during playback, another already selected enabled layer can re-establish that pitch at the next interval boundary after the safety silence.
+
 ## Playback and statistics
 
 Play, Pause, Seek, Stop, output switching, and file replacement use ordered worker boundaries so native sends do not overlap. A native call already executing cannot be forcibly interrupted; control takes effect as soon as it returns.
@@ -64,7 +66,9 @@ The Analysis window summarizes message types and workload, then graphs event/byt
 
 Queue Projection reports source duration, predicted accepted-output completion, and positive overrun after the source ends. This models the selected simulator service and queue policy. It does not predict provider buffering, synthesizer rendering, voice release tails, or audio-device latency.
 
-Analysis work is asynchronous, cancellable, cached by reusable file/resolution workload, and protected from stale results. Cancelling keeps the last completed graph when one exists.
+Analysis work is asynchronous, cancellable, cached by reusable file/resolution workload, and protected from stale results. On an initial calculation, the window shows a workload-only graph as soon as event/byte density, clusters, and message-type scanning finishes. It is labelled **Queue projection pending** and deliberately omits occupancy, overflow, predicted drops, buffer clears, and completion values until they are calculated.
+
+The final projection replaces that preview atomically. Cancelling keeps the last completed graph when one exists. If there is no completed graph yet, a published preview remains useful and is relabelled **Workload only — projection cancelled**.
 
 ## MIDI Channel Monitor
 

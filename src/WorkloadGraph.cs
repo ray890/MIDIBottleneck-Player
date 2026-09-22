@@ -165,9 +165,12 @@ namespace MidiBottleneck
                 string endLabel = FormatAxisClock(Math.Max(_viewStart, _viewEnd), ChooseTimelineTickInterval(span, Math.Max(100, ClientSize.Width)));
                 int horizontalAllowance = Math.Max(42, TextRenderer.MeasureText(endLabel, _labelFont).Width / 2 + 8);
                 int top = 42;
-                bool finite = _analysis != null && _analysis.Configuration != null && _analysis.Configuration.QueueLengthLimitEnabled;
+                bool finite = _analysis != null && _analysis.HasQueueProjection &&
+                    _analysis.Configuration != null && _analysis.Configuration.QueueLengthLimitEnabled;
+                bool workloadOnly = _analysis != null && !_analysis.HasQueueProjection;
                 bool narrow = ClientSize.Width - horizontalAllowance * 2 < 430;
                 int bottomAllowance = finite ? (narrow ? 121 : 104) : (narrow ? 104 : 87);
+                if (workloadOnly) bottomAllowance += 17;
                 return new Rectangle(horizontalAllowance, top,
                     Math.Max(20, ClientSize.Width - horizontalAllowance * 2),
                     Math.Max(50, ClientSize.Height - top - bottomAllowance));
@@ -452,7 +455,8 @@ namespace MidiBottleneck
                 string title = byteModel ? "MIDI bytes/sec" : "Events/sec";
                 string unit = byteModel ? "bytes/sec" : "events/sec";
                 double peak = byteModel ? _analysis.PeakBytesPerSecond : _analysis.PeakEventsPerSecond;
-                double capacity = byteModel ? _analysis.ByteServiceCapacityPerSecond : _analysis.EventServiceCapacityPerSecond;
+                double capacity = _analysis.HasQueueProjection
+                    ? (byteModel ? _analysis.ByteServiceCapacityPerSecond : _analysis.EventServiceCapacityPerSecond) : 0;
                 DrawPanel(graphics, area, byteModel, title, unit, peak, capacity);
                 DrawTimelineAxis(graphics, area);
                 DrawMarkerLanes(graphics, area);
@@ -511,9 +515,11 @@ namespace MidiBottleneck
                     {
                         double current = bytes ? _analysis.Buckets[bucket].ByteCount / bucketSeconds : _analysis.Buckets[bucket].EventCount / bucketSeconds;
                         value = Math.Max(value, current);
-                        predictedOverflow |= _analysis.Buckets[bucket].PredictedDroppedEvents > 0;
+                        predictedOverflow |= _analysis.HasQueueProjection &&
+                            _analysis.Buckets[bucket].PredictedDroppedEvents > 0;
                     }
-                    if (predictedOverflow && _analysis.Configuration != null && _analysis.Configuration.QueueLengthLimitEnabled)
+                    if (predictedOverflow && _analysis.HasQueueProjection && _analysis.Configuration != null &&
+                        _analysis.Configuration.QueueLengthLimitEnabled)
                         graphics.FillRectangle(overflow, area.Left + x, area.Top, 1, area.Height);
                     int y = peak <= 0 ? area.Bottom : area.Bottom - (int)Math.Round((value / peak) * area.Height);
                     Point currentPoint = new Point(area.Left + x, Math.Max(area.Top, Math.Min(area.Bottom, y)));
@@ -659,14 +665,16 @@ namespace MidiBottleneck
                         Point[] diamond = new Point[] { new Point(area.Left + x, clusterY - 3), new Point(area.Left + x + 3, clusterY), new Point(area.Left + x, clusterY + 3), new Point(area.Left + x - 3, clusterY) };
                         graphics.FillPolygon(cluster, diamond);
                     }
-                    if (_analysis.Configuration != null && _analysis.Configuration.QueueLengthLimitEnabled)
+                    if (_analysis.HasQueueProjection && _analysis.Configuration != null &&
+                        _analysis.Configuration.QueueLengthLimitEnabled)
                     {
                         double ratio = occupancy / (double)Math.Max(1, _analysis.Configuration.QueueLengthLimit);
                         graphics.FillRectangle(ratio >= 0.9 ? high : ratio >= 0.65 ? medium : low, area.Left + x, pressureY, 1, 6);
                     }
                 }
             }
-            bool finite = _analysis.Configuration != null && _analysis.Configuration.QueueLengthLimitEnabled;
+            bool finite = _analysis.HasQueueProjection && _analysis.Configuration != null &&
+                _analysis.Configuration.QueueLengthLimitEnabled;
             bool narrow = area.Width < 430;
             if (narrow)
             {
@@ -679,6 +687,13 @@ namespace MidiBottleneck
                 }
                 DrawLegendLine(graphics, area, next, "White dots: playback timeline");
                 DrawLegendLine(graphics, area, next + 17, "Green dash-dot: MIDI output  •  " + FormatResolution(_analysis.BucketMicroseconds));
+                if (!_analysis.HasQueueProjection)
+                    DrawLegendLine(graphics, area, next + 34,
+                        _analysis.ProjectionState == AnalysisProjectionState.Pending
+                            ? "Workload only — queue projection pending"
+                            : _analysis.ProjectionState == AnalysisProjectionState.Cancelled
+                                ? "Workload only — projection cancelled"
+                                : "Workload only — projection unavailable");
                 return;
             }
 
@@ -688,6 +703,13 @@ namespace MidiBottleneck
             string liveLegend = "White dots: playback timeline  •  Green dash-dot: MIDI output  •  " +
                 FormatResolution(_analysis.BucketMicroseconds);
             DrawLegendLine(graphics, area, finite ? 81 : 64, liveLegend);
+            if (!_analysis.HasQueueProjection)
+                DrawLegendLine(graphics, area, finite ? 98 : 81,
+                    _analysis.ProjectionState == AnalysisProjectionState.Pending
+                        ? "Workload only — queue projection pending"
+                        : _analysis.ProjectionState == AnalysisProjectionState.Cancelled
+                            ? "Workload only — projection cancelled"
+                            : "Workload only — projection unavailable");
         }
 
         private void DrawLegendLine(Graphics graphics, Rectangle area, int offset, string text)

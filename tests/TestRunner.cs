@@ -451,6 +451,12 @@ namespace MidiBottleneck.Tests
                     RunFocused("corrected per-note interval gate semantics and lifecycle", TestBuild25PerNoteIntervalGate);
                     return 0;
                 }
+                if (arguments.Length == 1 && arguments[0] == "--test-build26")
+                {
+                    RunFocused("gate occurrence growth and mixed-channel continuity", TestBuild25PerNoteIntervalGate);
+                    RunFocused("two-stage initial Analysis preview", TestAnalysisInitialPreview);
+                    return 0;
+                }
                 if (arguments.Length == 1 && arguments[0] == "--test-interface-only")
                 {
                     RunFocused("WinForms interface construction", TestInterfaceConstruction);
@@ -564,6 +570,7 @@ namespace MidiBottleneck.Tests
                 Run("background loading, stale-result rejection, and unload", TestBackgroundMidiLoading);
                 Run("workload analysis and graph data", TestWorkloadAnalysis);
                 Run("asynchronous Analysis refresh and resolution policy", TestAsynchronousAnalysis);
+                Run("two-stage initial Analysis preview", TestAnalysisInitialPreview);
                 Run("Analysis shell detach and rebind across file replacement", TestAnalysisWindowPersistence);
                 Run("Analysis report wrapping and splitter cursor", TestBuild19AnalysisUsability);
                 Run("configured whole-file Analysis window", TestAnalysisWindowConstruction);
@@ -4107,6 +4114,37 @@ namespace MidiBottleneck.Tests
             catch (ArgumentOutOfRangeException) { rejectedZero = true; }
             Equal(true, rejectedZero, "zero interval is rejected explicitly");
 
+            // Cross the former 16,384-occurrence ceiling. An occurrence on a
+            // different track but the same channel/pitch must retain its own
+            // pairing identity instead of consuming the oldest tracked note.
+            PerNoteIntervalGate expandedGate = new PerNoteIntervalGate(100);
+            const int retainedTrack = 70001;
+            MidiEvent retainedOn = ChannelMessage(0, 0x90, 60, 80);
+            retainedOn.Track = retainedTrack;
+            expandedGate.BeginSourceTick(0);
+            expandedGate.Admit(retainedOn);
+            for (int occurrenceIndex = 1; occurrenceIndex < 16384; occurrenceIndex++)
+            {
+                MidiEvent filler = ChannelMessage(0, 0x90, 60, 1);
+                filler.Track = 80000 + occurrenceIndex;
+                expandedGate.Admit(filler);
+            }
+            MidiEvent beyondOldPool = ChannelMessage(0, 0x90, 60, 90);
+            beyondOldPool.Track = 99999;
+            expandedGate.Admit(beyondOldPool);
+            Equal(true, expandedGate.OccurrenceSegmentCountForTesting > 4,
+                "active occurrence storage grows beyond the former 16,384-entry ceiling");
+            MidiEvent beyondOldPoolOff = ChannelMessage(1, 0x80, 60, 0);
+            beyondOldPoolOff.Track = 99999;
+            expandedGate.Admit(beyondOldPoolOff);
+            Equal(true, expandedGate.HasActiveOccurrenceForTesting(retainedTrack, 0, 60),
+                "a later track's Note Off cannot retire the valid occurrence retained before pool growth");
+            MidiEvent retainedOff = ChannelMessage(2, 0x80, 60, 0);
+            retainedOff.Track = retainedTrack;
+            expandedGate.Admit(retainedOff);
+            Equal(false, expandedGate.HasActiveOccurrenceForTesting(retainedTrack, 0, 60),
+                "the retained occurrence still pairs with its own track Note Off");
+
             PerNoteIntervalGate gate = new PerNoteIntervalGate(100);
             MidiEvent[] emitted = new MidiEvent[128];
             MidiEvent on60 = ChannelMessage(0, 0x90, 60, 100);
@@ -4135,6 +4173,59 @@ namespace MidiBottleneck.Tests
             Equal(1, gate.EmitBoundary(200, emitted), "all simultaneous supports must end before output release");
             Equal(0x81, (int)emitted[0].Status, "release uses the channel that actually received Note On");
             Equal(2L, gate.TakeFilteredEventCount(), "coalesced Note On and non-final Note Off are gate-filtered");
+
+            // If the selected representative channel is disabled, selected
+            // support on another enabled channel becomes a replacement attack.
+            gate = new PerNoteIntervalGate(100);
+            MidiEvent disableLayerA = ChannelMessage(0, 0x90, 63, 120); disableLayerA.Track = 10;
+            MidiEvent disableLayerB = ChannelMessage(0, 0x91, 63, 100); disableLayerB.Track = 11;
+            gate.BeginSourceTick(0); gate.Admit(disableLayerA); gate.Admit(disableLayerB); gate.EndSourceTick();
+            Equal(1, gate.EmitBoundary(0, emitted), "mixed-channel support initially emits its strongest representative");
+            Equal(0x90, (int)emitted[0].Status, "initial representative uses channel 1");
+            gate.RetireChannel(0, 25);
+            Equal(1, gate.EmitBoundary(100, emitted), "surviving support establishes a replacement at the next boundary");
+            Equal(0x91, (int)emitted[0].Status, "replacement uses the surviving enabled channel");
+            MidiEvent survivingOff = ChannelMessage(150, 0x81, 63, 9); survivingOff.Track = 11;
+            gate.BeginSourceTick(150); gate.Admit(survivingOff); gate.EndSourceTick();
+            Equal(1, gate.EmitBoundary(200, emitted), "surviving support retains an eventual matching release");
+            Equal(0x81, (int)emitted[0].Status, "replacement release follows its actual output channel");
+            Equal(false, gate.IsActive(63), "mixed-channel retirement leaves no stuck pitch");
+
+            gate = new PerNoteIntervalGate(100);
+            disableLayerA = ChannelMessage(50, 0x90, 63, 120); disableLayerA.Track = 10;
+            disableLayerB = ChannelMessage(50, 0x91, 63, 100); disableLayerB.Track = 11;
+            gate.BeginSourceTick(50); gate.Admit(disableLayerA); gate.Admit(disableLayerB); gate.EndSourceTick();
+            gate.RetireChannel(0, 60);
+            Equal(1, gate.EmitBoundary(100, emitted),
+                "disabling a pending representative selects surviving support before emission");
+            Equal(0x91, (int)emitted[0].Status, "pending replacement uses the enabled layer");
+
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.SetChannelMonitoring(true);
+                engine.ProcessingMicroseconds = 50000;
+                MidiEvent liveLayerA = ChannelMessage(0, 0x90, 63, 120); liveLayerA.Track = 10;
+                MidiEvent liveLayerB = ChannelMessage(0, 0x91, 63, 100); liveLayerB.Track = 11;
+                MidiEvent liveOffA = ChannelMessage(300000, 0x80, 63, 0); liveOffA.Track = 10;
+                MidiEvent liveOffB = ChannelMessage(300000, 0x81, 63, 0); liveOffB.Track = 11;
+                engine.Start(NewChannelSong("gate-live-disable.mid", 300000,
+                    liveLayerA, liveLayerB, liveOffA, liveOffB), output,
+                    ProcessingMode.PerNoteIntervalGate);
+                WaitFor(delegate { return ContainsMessage(output.SentPayloads(), 0x90, 63, 120); }, 1000,
+                    "initial live mixed-channel gate representative");
+                engine.SetChannelEnabled(0, false);
+                WaitFor(delegate { return ContainsMessage(output.SentPayloads(), 0x91, 63, 100); }, 1000,
+                    "live replacement from surviving enabled support");
+                engine.Pause();
+                Equal(0, engine.GetChannelSnapshot().Channels[1].KeysDown,
+                    "Pause after mixed-channel replacement leaves no held key");
+                engine.Resume();
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1500,
+                    "mixed-channel replacement lifecycle completion");
+                Equal(0, engine.GetChannelSnapshot().Channels[1].KeysDown,
+                    "mixed-channel replacement lifecycle completes without a stuck note");
+            }
 
             gate = new PerNoteIntervalGate(100);
             MidiEvent shortOn = ChannelMessage(0, 0x92, 59, 100); shortOn.Track = 4;
@@ -5833,6 +5924,182 @@ namespace MidiBottleneck.Tests
             Equal(10000L, DiagnosticsForm.ChooseAutoResolution(3000000, 500, 0), "Auto selects fine resolution for short visible span");
             Equal(1000000L, DiagnosticsForm.ChooseAutoResolution(300000000, 500, 0), "Auto selects coarse resolution for long visible span");
             Equal(100000L, DiagnosticsForm.ChooseAutoResolution(40000000, 500, 100000), "Auto hysteresis preserves a stable current resolution");
+        }
+
+        private static void TestAnalysisInitialPreview()
+        {
+            Application.EnableVisualStyles();
+            MidiSong song = BuildSong(new long[] { 0, 100000, 200000, 300000 });
+            AnalysisConfiguration first = DefaultAnalysisConfiguration();
+            AnalysisConfiguration second = DefaultAnalysisConfiguration();
+            second.ProcessingMicroseconds = 333;
+            int invocations = 0;
+            using (ManualResetEvent allowFinal = new ManualResetEvent(false))
+            {
+                WorkloadAnalysisRunner runner = delegate(MidiSong source, long bucket,
+                    AnalysisConfiguration configuration, CancellationToken token,
+                    Action<WorkloadAnalysisProgress> progress, Action<WorkloadBaseAnalysis> workloadReady)
+                {
+                    Interlocked.Increment(ref invocations);
+                    WorkloadAnalysis workload = WorkloadAnalyzer.Analyze(source, bucket, null, token, progress);
+                    if (workloadReady != null) workloadReady(new WorkloadBaseAnalysis(workload));
+                    WaitHandle.WaitAny(new WaitHandle[] { allowFinal, token.WaitHandle });
+                    token.ThrowIfCancellationRequested();
+                    return WorkloadAnalyzer.Analyze(source, bucket, configuration, token, progress);
+                };
+
+                using (DiagnosticsForm form = new DiagnosticsForm(song, null, runner))
+                {
+                    form.Show(); Application.DoEvents();
+                    form.RequestAnalysis(first);
+                    PumpUntil(delegate
+                    {
+                        return form.CurrentAnalysis != null &&
+                            form.CurrentAnalysis.ProjectionState == AnalysisProjectionState.Pending;
+                    }, 3000, "initial workload-only Analysis preview");
+                    Equal(false, form.HasCompletedAnalysis, "preview is not misidentified as a completed projection");
+                    Equal(1, form.PreviewPublicationCount, "workload preview publishes once, not on progress callbacks");
+                    if (form.SummaryText.IndexOf("Queue projection pending", StringComparison.Ordinal) < 0)
+                        throw new Exception("initial workload preview lacks its pending label");
+                    if (form.SummaryText.IndexOf("Predicted peak", StringComparison.Ordinal) >= 0 ||
+                        form.SummaryText.IndexOf("Predicted drops", StringComparison.Ordinal) >= 0)
+                        throw new Exception("unfinished projection values were represented in the workload preview");
+                    using (Bitmap previewBitmap = new Bitmap(form.Width, form.Height))
+                        CaptureForm(form, previewBitmap);
+
+                    allowFinal.Set();
+                    PumpUntil(delegate { return !form.CalculationPending && form.HasCompletedAnalysis; }, 3000,
+                        "final Analysis replacement after preview");
+                    Equal(AnalysisProjectionState.Complete, form.CurrentAnalysis.ProjectionState,
+                        "final projection atomically replaces initial preview");
+                    if (form.SummaryText.IndexOf("Predicted peak", StringComparison.Ordinal) < 0)
+                        throw new Exception("completed projection did not restore queue results");
+
+                    WorkloadAnalysis completed = form.CurrentAnalysis;
+                    int previewsBeforeRecalculation = form.PreviewPublicationCount;
+                    allowFinal.Reset();
+                    form.RequestAnalysis(second);
+                    PumpUntil(delegate { return Volatile.Read(ref invocations) >= 2; }, 1500,
+                        "configuration recalculation started");
+                    PumpFor(150);
+                    Equal(completed, form.CurrentAnalysis,
+                        "recalculation retains the completed graph instead of publishing a preview");
+                    Equal(previewsBeforeRecalculation, form.PreviewPublicationCount,
+                        "recalculation with completed data publishes no workload preview");
+                    form.CancelAnalysisCalculation();
+                    allowFinal.Set();
+                    form.Close();
+                }
+            }
+
+            using (ManualResetEvent allowFinal = new ManualResetEvent(false))
+            {
+                WorkloadAnalysisRunner runner = delegate(MidiSong source, long bucket,
+                    AnalysisConfiguration configuration, CancellationToken token,
+                    Action<WorkloadAnalysisProgress> progress, Action<WorkloadBaseAnalysis> workloadReady)
+                {
+                    WorkloadAnalysis workload = WorkloadAnalyzer.Analyze(source, bucket, null, token, progress);
+                    if (workloadReady != null) workloadReady(new WorkloadBaseAnalysis(workload));
+                    WaitHandle.WaitAny(new WaitHandle[] { allowFinal, token.WaitHandle });
+                    token.ThrowIfCancellationRequested();
+                    return WorkloadAnalyzer.Analyze(source, bucket, configuration, token, progress);
+                };
+                using (DiagnosticsForm form = new DiagnosticsForm(song, null, runner))
+                {
+                    form.Show(); form.RequestAnalysis(first);
+                    PumpUntil(delegate { return form.CurrentAnalysis != null; }, 3000,
+                        "preview before cancellation");
+                    form.CancelAnalysisCalculation();
+                    Equal(AnalysisProjectionState.Cancelled, form.CurrentAnalysis.ProjectionState,
+                        "cancellation retains and relabels the workload-only preview");
+                    if (form.SummaryText.IndexOf("Workload only — projection cancelled", StringComparison.Ordinal) < 0)
+                        throw new Exception("cancelled preview lacks its workload-only label");
+                    using (Bitmap cancelledBitmap = new Bitmap(form.Width, form.Height))
+                        CaptureForm(form, cancelledBitmap);
+                    allowFinal.Set(); PumpFor(200);
+                    Equal(false, form.HasCompletedAnalysis, "cancelled generation cannot publish a late final result");
+                    form.Close();
+                }
+            }
+
+            using (ManualResetEvent allowPreview = new ManualResetEvent(false))
+            {
+                WorkloadAnalysisRunner runner = delegate(MidiSong source, long bucket,
+                    AnalysisConfiguration configuration, CancellationToken token,
+                    Action<WorkloadAnalysisProgress> progress, Action<WorkloadBaseAnalysis> workloadReady)
+                {
+                    WaitHandle.WaitAny(new WaitHandle[] { allowPreview, token.WaitHandle });
+                    token.ThrowIfCancellationRequested();
+                    WorkloadAnalysis workload = WorkloadAnalyzer.Analyze(source, bucket, null, token, progress);
+                    if (workloadReady != null) workloadReady(new WorkloadBaseAnalysis(workload));
+                    return WorkloadAnalyzer.Analyze(source, bucket, configuration, token, progress);
+                };
+                using (DiagnosticsForm form = new DiagnosticsForm(song, null, runner))
+                {
+                    form.Show(); form.RequestAnalysis(first); PumpFor(50);
+                    form.CancelAnalysisCalculation();
+                    allowPreview.Set(); PumpFor(200);
+                    Equal(0, form.PreviewPublicationCount, "cancellation before preview rejects stale publication");
+                    Equal(null, form.CurrentAnalysis, "cancellation before preview retains an honest empty state");
+                    form.Close();
+                }
+            }
+
+            using (ManualResetEvent firstFinal = new ManualResetEvent(false))
+            using (ManualResetEvent secondFinal = new ManualResetEvent(false))
+            {
+                int generationCall = 0;
+                WorkloadAnalysisRunner runner = delegate(MidiSong source, long bucket,
+                    AnalysisConfiguration configuration, CancellationToken token,
+                    Action<WorkloadAnalysisProgress> progress, Action<WorkloadBaseAnalysis> workloadReady)
+                {
+                    int call = Interlocked.Increment(ref generationCall);
+                    WorkloadAnalysis workload = WorkloadAnalyzer.Analyze(source, bucket, null, token, progress);
+                    if (workloadReady != null) workloadReady(new WorkloadBaseAnalysis(workload));
+                    WaitHandle.WaitAny(new WaitHandle[] { call == 1 ? firstFinal : secondFinal, token.WaitHandle });
+                    token.ThrowIfCancellationRequested();
+                    return WorkloadAnalyzer.Analyze(source, bucket, configuration, token, progress);
+                };
+                using (DiagnosticsForm form = new DiagnosticsForm(song, null, runner))
+                {
+                    form.Show(); form.RequestAnalysis(first);
+                    PumpUntil(delegate { return form.PreviewPublicationCount == 1; }, 3000,
+                        "first generation workload preview");
+                    form.RequestAnalysis(second);
+                    PumpUntil(delegate { return form.PreviewPublicationCount == 2; }, 3000,
+                        "replacement generation workload preview");
+                    Equal(333L, form.CurrentAnalysis.Configuration.ProcessingMicroseconds,
+                        "latest generation owns the displayed preview");
+                    firstFinal.Set(); PumpFor(150);
+                    Equal(333L, form.CurrentAnalysis.Configuration.ProcessingMicroseconds,
+                        "stale final cannot replace newer preview");
+                    secondFinal.Set();
+                    PumpUntil(delegate { return form.HasCompletedAnalysis; }, 3000,
+                        "latest generation final projection");
+                    Equal(333L, form.CurrentAnalysis.Configuration.ProcessingMicroseconds,
+                        "latest generation owns the final projection");
+
+                    secondFinal.Reset();
+                    form.RequestAnalysis(first);
+                    PumpFor(50);
+                    form.DetachForSongReplacement("Loading new MIDI…");
+                    Equal(null, form.CurrentAnalysis, "file replacement detaches workload preview/final state");
+                    Equal(false, form.CalculationPending, "file replacement retires preview/final generation");
+                    secondFinal.Set(); PumpFor(150);
+                    Equal(null, form.CurrentAnalysis, "detached shell rejects late Analysis publication");
+                    form.Close();
+                }
+            }
+
+            long scansBefore = Interlocked.Read(ref WorkloadAnalyzer.WorkloadScanCount);
+            int cachedPreviews = 0;
+            WorkloadAnalyzer.Analyze(song, 25000, first, CancellationToken.None, null,
+                delegate { cachedPreviews++; });
+            WorkloadAnalyzer.Analyze(song, 25000, second, CancellationToken.None, null,
+                delegate { cachedPreviews++; });
+            long scanDelta = Interlocked.Read(ref WorkloadAnalyzer.WorkloadScanCount) - scansBefore;
+            if (scanDelta > 1) throw new Exception("configuration-only preview recalculation rescanned the event store");
+            Equal(2, cachedPreviews, "cached workload can publish one preview for each configuration request");
         }
 
         private static void TestWorkloadAnalysis()

@@ -10,6 +10,10 @@ using System.Windows.Forms;
 
 namespace MidiBottleneck
 {
+    internal delegate WorkloadAnalysis WorkloadAnalysisRunner(MidiSong song, long bucketMicroseconds,
+        AnalysisConfiguration configuration, CancellationToken cancellationToken,
+        Action<WorkloadAnalysisProgress> progress, Action<WorkloadBaseAnalysis> workloadReady);
+
     internal sealed class DiagnosticsForm : Form
     {
         private readonly RichTextBox _summary;
@@ -37,13 +41,15 @@ namespace MidiBottleneck
         private AnalysisConfiguration _pendingConfiguration;
         private int _analysisGeneration;
         private WorkloadAnalysis _analysis;
-        private readonly Func<MidiSong, long, AnalysisConfiguration, CancellationToken, Action<WorkloadAnalysisProgress>, WorkloadAnalysis> _analyzer;
+        private readonly WorkloadAnalysisRunner _analyzer;
         private readonly bool _usesDefaultAnalyzer;
         private volatile AnalysisProgressUpdate _latestAnalysisProgress;
         private bool _analysisBusy;
         private bool _busyIndicatorVisible;
         private int _displayedProgressPermille;
         private bool _updatingAnalysis;
+        private bool _hasCompletedAnalysis;
+        private int _previewPublicationCount;
         private bool _suppressResolutionSelection;
         private ResolutionSelectionMode _resolutionMode = ResolutionSelectionMode.Auto;
         private string _autoResolutionLabel = "Auto";
@@ -82,29 +88,39 @@ namespace MidiBottleneck
 
         public DiagnosticsForm(MidiSong song, WorkloadAnalysis analysis)
             : this(song, analysis,
-                (Func<MidiSong, long, AnalysisConfiguration, CancellationToken, Action<WorkloadAnalysisProgress>, WorkloadAnalysis>)null)
+                (WorkloadAnalysisRunner)null)
         {
         }
 
         internal DiagnosticsForm(MidiSong song, WorkloadAnalysis analysis,
             Func<MidiSong, long, AnalysisConfiguration, CancellationToken, WorkloadAnalysis> analyzer)
             : this(song, analysis, analyzer == null ? null :
-                new Func<MidiSong, long, AnalysisConfiguration, CancellationToken, Action<WorkloadAnalysisProgress>, WorkloadAnalysis>(
+                new WorkloadAnalysisRunner(
                     delegate(MidiSong source, long bucket, AnalysisConfiguration configuration, CancellationToken token,
-                        Action<WorkloadAnalysisProgress> progress)
+                        Action<WorkloadAnalysisProgress> progress, Action<WorkloadBaseAnalysis> workloadReady)
                     { return analyzer(source, bucket, configuration, token); }))
         {
         }
 
         internal DiagnosticsForm(MidiSong song, WorkloadAnalysis analysis,
             Func<MidiSong, long, AnalysisConfiguration, CancellationToken, Action<WorkloadAnalysisProgress>, WorkloadAnalysis> analyzer)
+            : this(song, analysis, analyzer == null ? null :
+                new WorkloadAnalysisRunner(
+                    delegate(MidiSong source, long bucket, AnalysisConfiguration configuration, CancellationToken token,
+                        Action<WorkloadAnalysisProgress> progress, Action<WorkloadBaseAnalysis> workloadReady)
+                    { return analyzer(source, bucket, configuration, token, progress); }))
+        {
+        }
+
+        internal DiagnosticsForm(MidiSong song, WorkloadAnalysis analysis, WorkloadAnalysisRunner analyzer)
         {
             ProductIcon.Apply(this);
             _usesDefaultAnalyzer = analyzer == null;
             _analyzer = analyzer == null
-                ? new Func<MidiSong, long, AnalysisConfiguration, CancellationToken, Action<WorkloadAnalysisProgress>, WorkloadAnalysis>(
-                    delegate(MidiSong source, long bucket, AnalysisConfiguration configuration, CancellationToken token, Action<WorkloadAnalysisProgress> progress)
-                    { return WorkloadAnalyzer.Analyze(source, bucket, configuration, token, progress); })
+                ? new WorkloadAnalysisRunner(
+                    delegate(MidiSong source, long bucket, AnalysisConfiguration configuration, CancellationToken token,
+                        Action<WorkloadAnalysisProgress> progress, Action<WorkloadBaseAnalysis> workloadReady)
+                    { return WorkloadAnalyzer.Analyze(source, bucket, configuration, token, progress, workloadReady); })
                 : analyzer;
             SourceSong = song;
             Text = "MIDIBottleneck Player — Analysis — " + System.IO.Path.GetFileName(song.FilePath);
@@ -336,11 +352,17 @@ namespace MidiBottleneck
 
         internal void UpdateAnalysis(WorkloadAnalysis analysis)
         {
+            UpdateAnalysisDisplay(analysis, true);
+        }
+
+        private void UpdateAnalysisDisplay(WorkloadAnalysis analysis, bool completed)
+        {
             if (analysis == null) throw new ArgumentNullException("analysis");
             _updatingAnalysis = true;
             try
             {
             _analysis = analysis;
+            _hasCompletedAnalysis = completed;
             if (_pendingConfiguration == null) _pendingConfiguration = CloneConfiguration(analysis.Configuration);
             int selectionStart = _summary == null ? 0 : _summary.SelectionStart;
             if (_summary != null)
@@ -390,6 +412,8 @@ namespace MidiBottleneck
         internal string ResolutionSelectionText { get { return Convert.ToString(_resolutionCombo.SelectedItem, CultureInfo.CurrentCulture); } }
         internal bool AutomaticResolutionSelected { get { return _resolutionMode == ResolutionSelectionMode.Auto; } }
         internal WorkloadAnalysis CurrentAnalysis { get { return _analysis; } }
+        internal bool HasCompletedAnalysis { get { return _hasCompletedAnalysis; } }
+        internal int PreviewPublicationCount { get { return _previewPublicationCount; } }
         internal bool HasAttachedSong { get { return SourceSong != null; } }
         internal int HeaderRowCount
         {
@@ -468,13 +492,18 @@ namespace MidiBottleneck
             BeginBusyPeriod();
             MidiSong song = SourceSong;
             AnalysisConfiguration requested = CloneConfiguration(_pendingConfiguration);
+            bool allowPreview = !_hasCompletedAnalysis;
 
             Task.Factory.StartNew(delegate
             {
                 return _analyzer(song, resolution, requested, cancellation.Token, delegate(WorkloadAnalysisProgress value)
                 {
                     _latestAnalysisProgress = new AnalysisProgressUpdate { Generation = generation, Progress = value };
-                });
+                }, allowPreview ? (Action<WorkloadBaseAnalysis>)delegate(WorkloadBaseAnalysis workload)
+                {
+                    WorkloadAnalysis preview = workload.CreatePresentationAnalysis(requested, cancellation.Token);
+                    PublishWorkloadPreview(generation, cancellation, song, preview);
+                } : null);
             }, cancellation.Token, TaskCreationOptions.LongRunning, TaskScheduler.Default).ContinueWith(delegate(Task<WorkloadAnalysis> task)
             {
                 if (IsDisposed || !IsHandleCreated) return;
@@ -492,7 +521,10 @@ namespace MidiBottleneck
                         }
                         if (task.IsFaulted)
                         {
-                            if (_analysis == null)
+                            if (!_hasCompletedAnalysis && _analysis != null &&
+                                _analysis.ProjectionState == AnalysisProjectionState.Pending)
+                                UpdateAnalysisDisplay(_analysis.WithProjectionState(AnalysisProjectionState.Failed), false);
+                            else if (_analysis == null)
                             {
                                 string message = "Analysis failed: " + task.Exception.GetBaseException().Message;
                                 _summary.Text = message;
@@ -511,6 +543,23 @@ namespace MidiBottleneck
             });
         }
 
+        private void PublishWorkloadPreview(int generation, CancellationTokenSource cancellation,
+            MidiSong song, WorkloadAnalysis preview)
+        {
+            if (IsDisposed || !IsHandleCreated) return;
+            try
+            {
+                BeginInvoke((MethodInvoker)delegate
+                {
+                    if (IsDisposed || generation != _analysisGeneration || cancellation != _analysisCancellation ||
+                        cancellation.IsCancellationRequested || song != SourceSong || _hasCompletedAnalysis) return;
+                    _previewPublicationCount++;
+                    UpdateAnalysisDisplay(preview, false);
+                });
+            }
+            catch (InvalidOperationException) { }
+        }
+
         internal void DetachForSongReplacement(string message)
         {
             _resolutionDebounceTimer.Stop();
@@ -518,6 +567,7 @@ namespace MidiBottleneck
             EndBusyPeriod();
             SourceSong = null;
             _analysis = null;
+            _hasCompletedAnalysis = false;
             _pendingConfiguration = null;
             _analysisCache.Clear();
             _analysisCacheOrder.Clear();
@@ -538,6 +588,7 @@ namespace MidiBottleneck
             EndBusyPeriod();
             SourceSong = song;
             _analysis = null;
+            _hasCompletedAnalysis = false;
             _pendingConfiguration = null;
             _analysisCache.Clear();
             _analysisCacheOrder.Clear();
@@ -698,8 +749,12 @@ namespace MidiBottleneck
             // Cancel retires the desired request as well as the worker.  Header
             // controls disappearing can resize the graph; that layout-only
             // resize must not recreate the cancelled configuration.
-            _pendingConfiguration = _analysis == null ? null : CloneConfiguration(_analysis.Configuration);
-            if (_analysis == null)
+            _pendingConfiguration = _hasCompletedAnalysis && _analysis != null
+                ? CloneConfiguration(_analysis.Configuration) : null;
+            if (!_hasCompletedAnalysis && _analysis != null &&
+                _analysis.ProjectionState == AnalysisProjectionState.Pending)
+                UpdateAnalysisDisplay(_analysis.WithProjectionState(AnalysisProjectionState.Cancelled), false);
+            else if (_analysis == null)
             {
                 _summary.Text = "Analysis calculation cancelled.";
                 _graph.EmptyMessage = "Analysis calculation cancelled.";
@@ -942,7 +997,8 @@ namespace MidiBottleneck
                 text.Append("Events/sec: ").Append((bucket.EventCount / seconds).ToString("N1", CultureInfo.CurrentCulture));
                 text.Append("   MIDI bytes/sec: ").AppendLine((bucket.ByteCount / seconds).ToString("N1", CultureInfo.CurrentCulture));
                 text.Append("Largest simultaneous cluster: ").Append(bucket.LargestCluster.ToString("N0", CultureInfo.CurrentCulture));
-                if (_analysis.Configuration != null && _analysis.Configuration.QueueLengthLimitEnabled)
+                if (_analysis.HasQueueProjection && _analysis.Configuration != null &&
+                    _analysis.Configuration.QueueLengthLimitEnabled)
                 {
                     text.Append("   Predicted occupancy: ").Append(bucket.PredictedPeakOccupancy.ToString("N0", CultureInfo.CurrentCulture));
                     text.Append(" / ").Append(_analysis.Configuration.QueueLengthLimit.ToString("N0", CultureInfo.CurrentCulture));
@@ -990,7 +1046,18 @@ namespace MidiBottleneck
             text.AppendLine("Average events/sec    " + analysis.AverageEventsPerSecond.ToString("N1", CultureInfo.CurrentCulture));
             text.AppendLine("Peak events/sec       " + analysis.PeakEventsPerSecond.ToString("N1", CultureInfo.CurrentCulture));
             text.AppendLine("Peak bytes/sec        " + analysis.PeakBytesPerSecond.ToString("N1", CultureInfo.CurrentCulture));
-            if (analysis.Configuration != null)
+            if (!analysis.HasQueueProjection)
+            {
+                text.AppendLine();
+                text.AppendLine("QUEUE PROJECTION");
+                if (analysis.ProjectionState == AnalysisProjectionState.Pending)
+                    text.AppendLine("Status                Queue projection pending");
+                else if (analysis.ProjectionState == AnalysisProjectionState.Cancelled)
+                    text.AppendLine("Status                Workload only — projection cancelled");
+                else
+                    text.AppendLine("Status                Workload only — projection unavailable");
+            }
+            if (analysis.HasQueueProjection && analysis.Configuration != null)
             {
                 AnalysisConfiguration configuration = analysis.Configuration;
                 text.AppendLine();

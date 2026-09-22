@@ -10,6 +10,8 @@ This is a public product roadmap, not a promise of dates. Correctness, determini
 
 Build 25 corrected the live per-note interval gate so overlapping source notes no longer create first-channel ownership. Repeated attacks retrigger predictably under one transition per pitch/boundary, while Analysis continues to disclose that it excludes the live gate.
 
+Build 26 removes the gate's former 16,384 simultaneously unmatched-note ceiling, restores surviving layered support after a live representative-channel disable, and adds a generation-safe workload-only preview for initial Analysis calculations.
+
 ## Needs a product decision or more evidence
 
 - **Whole-state chase on Play/Seek** — restore prior channel state without replaying notes, using a compact index and explicit rules for overrides, disabled channels, RPN/NRPN, and SysEx.

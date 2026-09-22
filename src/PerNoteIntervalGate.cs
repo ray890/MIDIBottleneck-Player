@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace MidiBottleneck
 {
@@ -9,7 +10,7 @@ namespace MidiBottleneck
         Filtered
     }
 
-    // Live, fixed-memory pitch transition gate. Source occurrences remain
+    // Live, bounded-state pitch transition gate. Source occurrences remain
     // distinct by track/channel/pitch, while constrained output has one
     // Up/Down state per pitch. The bounded pool represents only simultaneously
     // unmatched notes and never scales with file size.
@@ -17,7 +18,7 @@ namespace MidiBottleneck
     {
         private const int PitchCount = 128;
         private const int ChannelCount = 16;
-        private const int MaximumActiveOccurrences = 16384;
+        private const int OccurrenceChunkSize = 4096;
 
         private struct SourceOccurrence
         {
@@ -66,11 +67,11 @@ namespace MidiBottleneck
         private readonly int[] _tickMembers = new int[PitchCount];
         private long _sourceTick = Int64.MinValue;
 
-        private readonly SourceOccurrence[] _occurrences = new SourceOccurrence[MaximumActiveOccurrences];
+        private readonly List<SourceOccurrence[]> _occurrenceChunks = new List<SourceOccurrence[]>();
         private readonly int[] _activeHead = new int[ChannelCount * PitchCount];
         private readonly int[] _activeTail = new int[ChannelCount * PitchCount];
-        private readonly int[] _untrackedOccurrences = new int[ChannelCount * PitchCount];
-        private int _freeOccurrence;
+        private int _freeOccurrence = -1;
+        private int _nextUnusedOccurrence;
         private long _nextBoundary = Int64.MaxValue;
         private long _filteredEvents;
         private bool _sourceComplete;
@@ -92,10 +93,6 @@ namespace MidiBottleneck
             }
             for (int index = 0; index < _activeHead.Length; index++)
                 _activeHead[index] = _activeTail[index] = -1;
-            for (int index = 0; index < _occurrences.Length; index++)
-                _occurrences[index].NextFree = index + 1;
-            _occurrences[_occurrences.Length - 1].NextFree = -1;
-            _freeOccurrence = 0;
         }
 
         internal long IntervalMicroseconds { get { return _intervalMicroseconds; } }
@@ -118,12 +115,6 @@ namespace MidiBottleneck
             if (noteOn)
             {
                 int node = AllocateOccurrence(midiEvent, pitch);
-                if (node < 0)
-                {
-                    _untrackedOccurrences[Key(midiEvent.Channel, pitch)]++;
-                    _filteredEvents++;
-                    return PerNoteGateAdmission.Filtered;
-                }
                 AddToTickGroup(pitch, node);
                 return PerNoteGateAdmission.Accepted;
             }
@@ -131,16 +122,14 @@ namespace MidiBottleneck
             int occurrence = MatchOccurrence(midiEvent.Track, midiEvent.Channel, pitch);
             if (occurrence < 0)
             {
-                int key = Key(midiEvent.Channel, pitch);
-                if (_untrackedOccurrences[key] > 0) _untrackedOccurrences[key]--;
                 _filteredEvents++;
                 return PerNoteGateAdmission.Filtered;
             }
 
-            SourceOccurrence matched = _occurrences[occurrence];
+            SourceOccurrence matched = GetOccurrence(occurrence);
             matched.Ended = true;
             matched.NoteOff = midiEvent;
-            _occurrences[occurrence] = matched;
+            SetOccurrence(occurrence, matched);
             if (matched.Disposition == 0) return PerNoteGateAdmission.Accepted;
             if (matched.Disposition == 2)
             {
@@ -170,7 +159,7 @@ namespace MidiBottleneck
                 int head = _tickHead[pitch];
                 if (head < 0) continue;
                 int representative = _tickRepresentative[pitch];
-                long boundary = BoundaryAtOrAfter(_occurrences[representative].NoteOn.IntendedMicroseconds);
+                long boundary = BoundaryAtOrAfter(GetOccurrence(representative).NoteOn.IntendedMicroseconds);
                 if (_candidateHead[pitch] < 0)
                     StoreCandidate(pitch, head, representative, _tickMembers[pitch], boundary);
                 else if (_candidateBoundary[pitch] == boundary &&
@@ -278,11 +267,11 @@ namespace MidiBottleneck
                 _activeHead[key] = _activeTail[key] = -1;
                 while (node >= 0)
                 {
-                    int next = _occurrences[node].NextActive;
-                    SourceOccurrence occurrence = _occurrences[node];
+                    SourceOccurrence occurrence = GetOccurrence(node);
+                    int next = occurrence.NextActive;
                     occurrence.Ended = true;
                     occurrence.NextActive = -1;
-                    _occurrences[node] = occurrence;
+                    SetOccurrence(node, occurrence);
                     if (occurrence.Disposition == 1 && _selectedSupportCount[occurrence.Pitch] > 0)
                         _selectedSupportCount[occurrence.Pitch]--;
                     if (occurrence.Disposition != 0) FreeOccurrence(node);
@@ -310,12 +299,12 @@ namespace MidiBottleneck
                 _activeHead[key] = _activeTail[key] = -1;
                 while (node >= 0)
                 {
-                    int next = _occurrences[node].NextActive;
-                    SourceOccurrence occurrence = _occurrences[node];
+                    SourceOccurrence occurrence = GetOccurrence(node);
+                    int next = occurrence.NextActive;
                     occurrence.Ended = true;
                     occurrence.RemovedByRouting = true;
                     occurrence.NextActive = -1;
-                    _occurrences[node] = occurrence;
+                    SetOccurrence(node, occurrence);
                     if (occurrence.Disposition == 0) routedFiltered++;
                     else if (occurrence.Disposition == 1 && _selectedSupportCount[pitch] > 0)
                         _selectedSupportCount[pitch]--;
@@ -338,6 +327,20 @@ namespace MidiBottleneck
                     _naturalReleaseBoundary[pitch] = Int64.MaxValue;
                     _preparatoryReleaseBoundary[pitch] = Int64.MaxValue;
                 }
+                if (!_outputDown[pitch] && _pendingAttack[pitch] == null &&
+                    _selectedSupportCount[pitch] > 0)
+                {
+                    int replacement = FindBestSelectedSupport(pitch);
+                    if (replacement >= 0)
+                    {
+                        long boundary = BoundaryAtOrAfter(Math.Max(0, nowMicroseconds));
+                        if (boundary <= nowMicroseconds) boundary = AddInterval(boundary);
+                        _pendingAttack[pitch] = GetOccurrence(replacement).NoteOn;
+                        _attackBoundary[pitch] = boundary;
+                        _naturalRelease[pitch] = null;
+                        _naturalReleaseBoundary[pitch] = Int64.MaxValue;
+                    }
+                }
                 if (_selectedSupportCount[pitch] == 0 && _outputDown[pitch])
                     ScheduleNaturalRelease(pitch, null, nowMicroseconds);
                 if (!_outputDown[pitch] && _pendingAttack[pitch] == null)
@@ -350,6 +353,22 @@ namespace MidiBottleneck
             return routedFiltered;
         }
 
+        private int FindBestSelectedSupport(int pitch)
+        {
+            int best = -1;
+            for (int channel = 0; channel < ChannelCount; channel++)
+            {
+                for (int node = _activeHead[Key(channel, pitch)]; node >= 0;
+                    node = GetOccurrence(node).NextActive)
+                {
+                    SourceOccurrence occurrence = GetOccurrence(node);
+                    if (occurrence.Ended || occurrence.RemovedByRouting || occurrence.Disposition != 1) continue;
+                    if (best < 0 || IsBetterRepresentative(node, best)) best = node;
+                }
+            }
+            return best;
+        }
+
         internal long TakeFilteredEventCount()
         {
             long count = _filteredEvents;
@@ -359,12 +378,30 @@ namespace MidiBottleneck
 
         internal bool IsActive(int pitch) { return pitch >= 0 && pitch < PitchCount && _outputDown[pitch]; }
         internal int OwnerChannel(int pitch) { return pitch < 0 || pitch >= PitchCount ? -1 : _outputChannel[pitch]; }
+        internal int OccurrenceSegmentCountForTesting { get { return _occurrenceChunks.Count; } }
+        internal bool HasActiveOccurrenceForTesting(int track, int channel, int pitch)
+        {
+            if (channel < 0 || channel >= ChannelCount || pitch < 0 || pitch >= PitchCount) return false;
+            for (int node = _activeHead[Key(channel, pitch)]; node >= 0;
+                node = GetOccurrence(node).NextActive)
+                if (GetOccurrence(node).Track == track) return true;
+            return false;
+        }
 
         private int AllocateOccurrence(MidiEvent noteOn, int pitch)
         {
-            if (_freeOccurrence < 0) return -1;
-            int node = _freeOccurrence;
-            _freeOccurrence = _occurrences[node].NextFree;
+            int node;
+            if (_freeOccurrence >= 0)
+            {
+                node = _freeOccurrence;
+                _freeOccurrence = GetOccurrence(node).NextFree;
+            }
+            else
+            {
+                node = _nextUnusedOccurrence;
+                EnsureOccurrenceCapacity(node);
+                _nextUnusedOccurrence++;
+            }
             SourceOccurrence occurrence = new SourceOccurrence();
             occurrence.InUse = true;
             occurrence.Track = noteOn.Track;
@@ -374,19 +411,40 @@ namespace MidiBottleneck
             occurrence.NextGroup = -1;
             occurrence.NextFree = -1;
             occurrence.NoteOn = noteOn;
-            _occurrences[node] = occurrence;
+            SetOccurrence(node, occurrence);
 
             int key = Key(noteOn.Channel, pitch);
             int tail = _activeTail[key];
             if (tail < 0) _activeHead[key] = node;
             else
             {
-                SourceOccurrence previous = _occurrences[tail];
+                SourceOccurrence previous = GetOccurrence(tail);
                 previous.NextActive = node;
-                _occurrences[tail] = previous;
+                SetOccurrence(tail, previous);
             }
             _activeTail[key] = node;
             return node;
+        }
+
+        private void EnsureOccurrenceCapacity(int node)
+        {
+            if (node < _occurrenceChunks.Count * OccurrenceChunkSize) return;
+            try { _occurrenceChunks.Add(new SourceOccurrence[OccurrenceChunkSize]); }
+            catch (OutOfMemoryException exception)
+            {
+                throw new InvalidOperationException(
+                    "Per-note interval gate could not allocate another source-note occurrence segment.", exception);
+            }
+        }
+
+        private SourceOccurrence GetOccurrence(int node)
+        {
+            return _occurrenceChunks[node / OccurrenceChunkSize][node % OccurrenceChunkSize];
+        }
+
+        private void SetOccurrence(int node, SourceOccurrence occurrence)
+        {
+            _occurrenceChunks[node / OccurrenceChunkSize][node % OccurrenceChunkSize] = occurrence;
         }
 
         private int MatchOccurrence(int track, int channel, int pitch)
@@ -398,24 +456,24 @@ namespace MidiBottleneck
             int fallback = node;
             while (node >= 0)
             {
-                if (_occurrences[node].Track == track) break;
+                if (GetOccurrence(node).Track == track) break;
                 previous = node;
-                node = _occurrences[node].NextActive;
+                node = GetOccurrence(node).NextActive;
             }
             if (node < 0) { node = fallback; previous = -1; }
             if (node < 0) return -1;
-            int next = _occurrences[node].NextActive;
+            int next = GetOccurrence(node).NextActive;
             if (previous < 0) _activeHead[key] = next;
             else
             {
-                SourceOccurrence prior = _occurrences[previous];
+                SourceOccurrence prior = GetOccurrence(previous);
                 prior.NextActive = next;
-                _occurrences[previous] = prior;
+                SetOccurrence(previous, prior);
             }
             if (_activeTail[key] == node) _activeTail[key] = previous;
-            SourceOccurrence matched = _occurrences[node];
+            SourceOccurrence matched = GetOccurrence(node);
             matched.NextActive = -1;
-            _occurrences[node] = matched;
+            SetOccurrence(node, matched);
             return node;
         }
 
@@ -425,9 +483,9 @@ namespace MidiBottleneck
             if (tail < 0) _tickHead[pitch] = node;
             else
             {
-                SourceOccurrence previous = _occurrences[tail];
+                SourceOccurrence previous = GetOccurrence(tail);
                 previous.NextGroup = node;
-                _occurrences[tail] = previous;
+                SetOccurrence(tail, previous);
             }
             _tickTail[pitch] = node;
             _tickMembers[pitch]++;
@@ -469,7 +527,7 @@ namespace MidiBottleneck
             }
 
             int representative = _candidateRepresentative[pitch];
-            if (representative < 0 || _occurrences[representative].RemovedByRouting)
+            if (representative < 0 || GetOccurrence(representative).RemovedByRouting)
                 representative = FindBestGroupMember(head);
             if (representative < 0)
             {
@@ -477,7 +535,7 @@ namespace MidiBottleneck
                 ClearCandidate(pitch);
                 return;
             }
-            MidiEvent representativeEvent = _occurrences[representative].NoteOn;
+            MidiEvent representativeEvent = GetOccurrence(representative).NoteOn;
 
             int liveSupports = 0;
             int endedCount = 0;
@@ -486,8 +544,8 @@ namespace MidiBottleneck
             int node = head;
             while (node >= 0)
             {
-                int next = _occurrences[node].NextGroup;
-                SourceOccurrence occurrence = _occurrences[node];
+                SourceOccurrence occurrence = GetOccurrence(node);
+                int next = occurrence.NextGroup;
                 occurrence.NextGroup = -1;
                 if (!occurrence.RemovedByRouting)
                 {
@@ -500,7 +558,7 @@ namespace MidiBottleneck
                             IsLaterSourceEvent(occurrence.NoteOff, latestOff))) latestOff = occurrence.NoteOff;
                     }
                     else liveSupports++;
-                    _occurrences[node] = occurrence;
+                    SetOccurrence(node, occurrence);
                 }
                 if (occurrence.Ended) FreeOccurrence(node);
                 node = next;
@@ -529,15 +587,15 @@ namespace MidiBottleneck
             int node = head;
             while (node >= 0)
             {
-                int next = _occurrences[node].NextGroup;
-                SourceOccurrence occurrence = _occurrences[node];
+                SourceOccurrence occurrence = GetOccurrence(node);
+                int next = occurrence.NextGroup;
                 occurrence.NextGroup = -1;
                 if (!occurrence.RemovedByRouting)
                 {
                     occurrence.Disposition = 2;
                     _filteredEvents++;
                     if (occurrence.Ended) _filteredEvents++;
-                    _occurrences[node] = occurrence;
+                    SetOccurrence(node, occurrence);
                 }
                 if (occurrence.Ended) FreeOccurrence(node);
                 node = next;
@@ -549,10 +607,10 @@ namespace MidiBottleneck
             int node = head;
             while (node >= 0)
             {
-                int next = _occurrences[node].NextGroup;
-                SourceOccurrence occurrence = _occurrences[node];
+                SourceOccurrence occurrence = GetOccurrence(node);
+                int next = occurrence.NextGroup;
                 occurrence.NextGroup = -1;
-                _occurrences[node] = occurrence;
+                SetOccurrence(node, occurrence);
                 if (occurrence.Ended) FreeOccurrence(node);
                 node = next;
             }
@@ -596,16 +654,16 @@ namespace MidiBottleneck
         private int FindBestGroupMember(int head)
         {
             int best = -1;
-            for (int node = head; node >= 0; node = _occurrences[node].NextGroup)
-                if (!_occurrences[node].RemovedByRouting &&
+            for (int node = head; node >= 0; node = GetOccurrence(node).NextGroup)
+                if (!GetOccurrence(node).RemovedByRouting &&
                     (best < 0 || IsBetterRepresentative(node, best))) best = node;
             return best;
         }
 
         private bool IsBetterRepresentative(int candidate, int current)
         {
-            MidiEvent left = _occurrences[candidate].NoteOn;
-            MidiEvent right = _occurrences[current].NoteOn;
+            MidiEvent left = GetOccurrence(candidate).NoteOn;
+            MidiEvent right = GetOccurrence(current).NoteOn;
             int leftVelocity = left.GetDataByte(2) & 0x7F;
             int rightVelocity = right.GetDataByte(2) & 0x7F;
             if (leftVelocity != rightVelocity) return leftVelocity > rightVelocity;
@@ -635,12 +693,12 @@ namespace MidiBottleneck
 
         private void FreeOccurrence(int node)
         {
-            if (node < 0 || node >= _occurrences.Length || !_occurrences[node].InUse) return;
+            if (node < 0 || node >= _nextUnusedOccurrence || !GetOccurrence(node).InUse) return;
             SourceOccurrence cleared = new SourceOccurrence();
             cleared.NextFree = _freeOccurrence;
             cleared.NextActive = -1;
             cleared.NextGroup = -1;
-            _occurrences[node] = cleared;
+            SetOccurrence(node, cleared);
             _freeOccurrence = node;
         }
 

@@ -51,6 +51,14 @@ namespace MidiBottleneck
         public long ByteCount;
     }
 
+    internal enum AnalysisProjectionState
+    {
+        Complete,
+        Pending,
+        Cancelled,
+        Failed
+    }
+
     internal sealed class WorkloadAnalysis
     {
         public long TotalEvents;
@@ -75,6 +83,9 @@ namespace MidiBottleneck
         public long PredictedOutputCompletionMicroseconds;
         public double EventServiceCapacityPerSecond;
         public double ByteServiceCapacityPerSecond;
+        public AnalysisProjectionState ProjectionState;
+
+        public bool HasQueueProjection { get { return ProjectionState == AnalysisProjectionState.Complete; } }
 
         internal WorkloadAnalysis CopyWorkload(AnalysisConfiguration configuration, CancellationToken token)
         {
@@ -104,6 +115,39 @@ namespace MidiBottleneck
             WorkloadAnalysis copy = (WorkloadAnalysis)MemberwiseClone();
             copy.Configuration = configuration;
             return copy;
+        }
+
+        internal WorkloadAnalysis WithProjectionState(AnalysisProjectionState state)
+        {
+            if (ProjectionState == state) return this;
+            WorkloadAnalysis copy = (WorkloadAnalysis)MemberwiseClone();
+            copy.ProjectionState = state;
+            return copy;
+        }
+    }
+
+    // Immutable ownership boundary around the reusable file-workload cache.
+    // No mutable bucket or message-type collection is exposed. Consumers can
+    // request an independent presentation copy without reaching into cache
+    // ownership or allowing projection work to mutate a published preview.
+    internal sealed class WorkloadBaseAnalysis
+    {
+        private readonly WorkloadAnalysis _workload;
+
+        internal WorkloadBaseAnalysis(WorkloadAnalysis workload)
+        {
+            if (workload == null) throw new ArgumentNullException("workload");
+            _workload = workload;
+        }
+
+        internal long BucketMicroseconds { get { return _workload.BucketMicroseconds; } }
+
+        internal WorkloadAnalysis CreatePresentationAnalysis(AnalysisConfiguration configuration,
+            CancellationToken cancellationToken)
+        {
+            WorkloadAnalysis preview = _workload.CopyWorkload(configuration, cancellationToken);
+            preview.ProjectionState = AnalysisProjectionState.Pending;
+            return preview;
         }
     }
 
@@ -149,6 +193,13 @@ namespace MidiBottleneck
         public static WorkloadAnalysis Analyze(MidiSong song, long bucketMicroseconds, AnalysisConfiguration configuration,
             CancellationToken cancellationToken, Action<WorkloadAnalysisProgress> progress)
         {
+            return Analyze(song, bucketMicroseconds, configuration, cancellationToken, progress, null);
+        }
+
+        public static WorkloadAnalysis Analyze(MidiSong song, long bucketMicroseconds, AnalysisConfiguration configuration,
+            CancellationToken cancellationToken, Action<WorkloadAnalysisProgress> progress,
+            Action<WorkloadBaseAnalysis> workloadReady)
+        {
             if (song == null) throw new ArgumentNullException("song");
             MidiEventReader events = song.GetEventReader();
             SongWorkloads cache = Workloads.GetOrCreateValue(song);
@@ -173,6 +224,8 @@ namespace MidiBottleneck
                 }
             }
             finally { Monitor.Exit(cache); }
+            cancellationToken.ThrowIfCancellationRequested();
+            if (workloadReady != null) workloadReady(new WorkloadBaseAnalysis(workload));
             WorkloadAnalysis result = workload.CopyWorkload(configuration, cancellationToken);
             Report(progress, "Reusing file workload", 1, 1, 0, 750);
             if (configuration == null) { Report(progress, "Complete", 1, 1, 0, 1000); return result; }
@@ -207,6 +260,7 @@ namespace MidiBottleneck
                 }
             }
             AnalyzePressure(song, result, configuration, cancellationToken, progress);
+            result.ProjectionState = AnalysisProjectionState.Complete;
             return result;
         }
 
