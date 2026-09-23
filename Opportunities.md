@@ -4,6 +4,10 @@ These are evidence-backed future directions, not promises for a particular relea
 
 ## Near term
 
+### Direct Events per second rate input
+
+Add **Events per second** as a third visible Rate model rather than reinterpreting Queue limit. Processing time already defines service rate, while Queue limit independently defines burst capacity. The direct model should use fixed-point/rational service accumulation so selected rates are not distorted by integer-microsecond reciprocals; switching models should preserve the nearest equivalent behavior. Playback and Analysis must share the calculation and Build 31's forward-only policy restrictions remain unchanged.
+
 ### Drop oldest complete note
 
 Add a finite-queue policy that removes the oldest safe complete note: its Note On and matching Note Off. A production design needs intrusive pending-queue nodes plus per-channel/key occurrence links so both messages can be unlinked in amortized O(1), without scanning a large queue on every overflow.
@@ -25,11 +29,7 @@ The policy still needs exact rules for a Note Off that has not arrived, an event
 
 ### Whole-state chase on Play/Seek
 
-The eventual product behavior would be enabled by default with a system-menu option to disable it. It should restore bank/program, controllers, bend/pressure, and ordered RPN/NRPN data-entry state before later notes, without replaying notes.
-
-This needs a compact checkpoint index suitable for very large files, explicit SysEx exclusions or bounded rules, forced-override precedence, disabled-channel behavior, and exact reset-before-note ordering. Do not expose a partial menu command.
-
-Build 31 deliberately left this unstarted after the queue work: completing controller reconstruction also requires exact RPN/NRPN parameter-state indexing and ordered data-entry replay, not just reusing the nine-attribute monitor index. A suitable design should use segmented per-controller histories plus compact parameter checkpoints, exclude notes/SysEx/channel-mode commands, and be verified across every reset/restart boundary before the menu appears.
+Completed in Build 32. The checked-by-default power-user option uses segmented controller/parameter histories and event-index lower bounds, restores ordered state before later source events, respects disabled channels and overrides, and excludes notes, SysEx, poly pressure, system/meta messages, and channel-mode commands.
 
 ### Channel-override extensions
 
@@ -60,6 +60,8 @@ Completed for **Drop newest** and **Drop incoming complete notes**. Playback and
 - Inactive opacity needs layered-window accessibility and recovery rules.
 - Roll-up needs exact compact/default size restoration.
 - Classic-Windows presentation is best treated as a startup mode because visual styles and fonts affect the entire measured layout.
+
+Build 32's placement audit kept Per-note gate, forward-only queue admission, state chase, and Always on top in the system menu. They are model/session switches used less often than transport controls, and no superior visible location fits both default and compact layouts without adding clutter.
 
 ### Help presentation
 

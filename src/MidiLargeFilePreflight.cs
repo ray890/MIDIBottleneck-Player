@@ -16,6 +16,8 @@ namespace MidiBottleneck
         internal long ProvisionalPayloadBytes;
         internal long TempoChangeCount;
         internal long SourceValueEntryCount;
+        internal long ChaseStateEntryCount;
+        internal long ChaseParameterValueEntryCount;
         internal long[] EventsByTrack;
         internal long[] PayloadBytesByTrack;
         internal long[] TempoChangesByTrack;
@@ -216,6 +218,7 @@ namespace MidiBottleneck
                     if (high == 0x90 && secondValue != 0)
                         counts.NoteOnCount = CheckedIncrement(counts.NoteOnCount, "NoteOn");
                     AddSourceValueEntries(counts, status & 0x0F, high, firstValue);
+                    AddChaseEntries(counts, high, firstValue);
                 }
                 else
                 {
@@ -276,6 +279,17 @@ namespace MidiBottleneck
             counts.SourceValueEntryCount = CheckedIncrement(counts.SourceValueEntryCount, "source-value entry");
         }
 
+        private static void AddChaseEntries(MidiPreflightCounts counts, int high, byte first)
+        {
+            if (high == 0xC0 || high == 0xD0 || high == 0xE0 ||
+                high == 0xB0 && (first < 120 || first == 121))
+                counts.ChaseStateEntryCount = CheckedIncrement(counts.ChaseStateEntryCount,
+                    "whole-state chase entry");
+            if (high == 0xB0 && (first == 6 || first == 38 || first == 96 || first == 97))
+                counts.ChaseParameterValueEntryCount = CheckedIncrement(
+                    counts.ChaseParameterValueEntryCount, "parameter-state chase entry");
+        }
+
         internal static MidiMemoryProjection Estimate(MidiPreflightCounts counts, int pointerSize)
         {
             if (counts == null) throw new ArgumentNullException("counts");
@@ -307,6 +321,16 @@ namespace MidiBottleneck
                     ChannelSourceValueIndex.SegmentCapacity, pointerSize));
             }
             retained = Add(retained, 3L * ObjectHeader(pointerSize));
+            retained = Add(retained, ReferenceArrayBytes(16 * 123 + 32, pointerSize));
+            retained = Add(retained, SegmentedValueBytes(counts.ChaseStateEntryCount, 8,
+                MidiStateChaseIndex.SegmentCapacity, pointerSize));
+            long chaseSeriesUpperBound = Math.Min(counts.ChaseStateEntryCount, 16L * (123 + 2));
+            retained = Add(retained, Multiply(chaseSeriesUpperBound, 2L * ObjectHeader(pointerSize) + pointerSize));
+            long parameterSeriesUpperBound = Math.Min(counts.ChaseParameterValueEntryCount, 16L * 32768L);
+            retained = Add(retained, SegmentedValueBytes(counts.ChaseParameterValueEntryCount, 8,
+                MidiStateChaseIndex.SegmentCapacity, pointerSize));
+            retained = Add(retained, Multiply(parameterSeriesUpperBound,
+                3L * ObjectHeader(pointerSize) + 2L * pointerSize));
 
             long workspace = Multiply(counts.TrackCount, pointerSize == 8 ? 112L : 72L);
             workspace = Add(workspace, ReferenceArrayBytes(counts.TrackCount, pointerSize));

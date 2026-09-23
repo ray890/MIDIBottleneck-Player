@@ -285,6 +285,7 @@ namespace MidiBottleneck
                 Report(progress, "Merging tracks and assigning timestamps", trackCount, trackCount, 6500, 0, Math.Max(1, totalEvents));
                 CompactMidiEventStore.Builder finalBuilder = new CompactMidiEventStore.Builder();
                 ChannelSourceValueIndex.Builder sourceIndex = ChannelSourceValueIndex.CreateBuilder();
+                MidiStateChaseIndex.Builder chaseIndex = MidiStateChaseIndex.CreateBuilder();
                 List<EventNode> heap = new List<EventNode>(trackCount);
                 for (int track = 0; track < tracks.Length; track++)
                     if (tracks[track].Events.Count > 0) PushEvent(heap, new EventNode { Track = track, Index = 0 }, tracks);
@@ -305,6 +306,7 @@ namespace MidiBottleneck
                     long intended = clock.TimeAt(value.AbsoluteTick);
                     int eventIndex = finalBuilder.Count;
                     sourceIndex.Add(value, eventIndex);
+                    chaseIndex.Add(value, eventIndex);
                     if (value.Kind == MidiEventKind.NoteOn && value.DataLength >= 3 && value.GetDataByte(2) != 0) noteCount++;
                     finalBuilder.Add(value, intended);
                     lastEventTime = intended;
@@ -321,6 +323,7 @@ namespace MidiBottleneck
                 Report(progress, "Finalizing indexes", trackCount, trackCount, 9500, merged, Math.Max(1, merged));
                 CompactMidiEventStore finalStore = finalBuilder.Complete();
                 ChannelSourceValueIndex completedIndex = sourceIndex.Complete(finalStore, cancellationToken);
+                MidiStateChaseIndex completedChase = chaseIndex.Complete(cancellationToken);
                 MidiSong song = new MidiSong();
                 song.FilePath = Path.GetFullPath(path);
                 song.FileSizeBytes = stream.Length;
@@ -331,6 +334,7 @@ namespace MidiBottleneck
                 song.DurationMicroseconds = duration;
                 song.SetEventStore(finalStore);
                 song.SetChannelSourceValueIndex(completedIndex);
+                song.SetMidiStateChaseIndex(completedChase);
                 Report(progress, "Ready", trackCount, trackCount, ProgressScale, 1, 1);
                 return song;
             }

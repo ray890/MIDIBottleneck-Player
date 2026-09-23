@@ -10,7 +10,11 @@ Production readers return a small immutable handle over either the compact backe
 
 Production parsing reads each declared track through a 64 KiB boundary-limited stream reader into compact provisional record/payload segments. Tempo changes use 4,096-value segments. A stable tick/track/source-order heap merge advances the exact decimal tempo cursor, assigns timestamps, appends directly to the final compact builder, counts notes, and builds final-index channel-state metadata in the same pass. Consumed provisional record, payload, and tempo segments are released progressively. There is no complete raw-track array, per-event object graph, contiguous merged event list, second timestamp pass, or post-merge conversion stage.
 
-The one-value source chase index stores each channel/attribute history in immutable 4,096-entry segments and performs logarithmic lookup by final event position. Production loading is bounded by the explicit signed 32-bit event-index identity and aggregate address space/commit, not a greater-than-2-GB array. No release package requires `gcAllowVeryLargeObjects`.
+The one-value source chase index stores each monitor attribute history in immutable 4,096-entry segments and performs logarithmic lookup by final event position. Build 32 adds a separate whole-state index with 8-byte `(event index, value)` entries in the same bounded segment size. It has sparse series for controllers, Program, bend, pressure, reset boundaries, selectors, and only the RPN/NRPN parameters that actually occur. Finalization is cancellable and unload releases the song-owned graph.
+
+Whole-state lookup uses the final lower-bound event index, not a time-only approximation. Changes strictly before the target are eligible; changes at the target remain normal playback events. Reset All Controllers retires earlier affected controller, bend, pressure, selector, and parameter state while preserving bank, channel volume, and Program according to the documented MIDI reset practice. Data Entry MSB/LSB is resolved to a 14-bit value; Data Increment/Decrement changes a known selected value by one, while an increment of an unknown receiver value is not guessed.
+
+Chase output is an ordered control batch before any later source event: bank MSB/LSB, Program, other controllers, bend/pressure, sorted RPN then NRPN values, and the final selector. Disabled channels are skipped and forced overrides suppress conflicting chased attributes before pending overrides are applied. Notes, poly pressure, SysEx, system/meta events, and channel-mode commands are absent from the index. Production loading remains bounded by the explicit signed 32-bit event-index identity and aggregate address space/commit, not a greater-than-2-GB array. No release package requires `gcAllowVeryLargeObjects`.
 
 ### Large-file preflight
 
@@ -69,6 +73,10 @@ All outputs implement the same MIDI-output abstraction:
 Detailed identity/error strings are built only on native failure. Stable module/device identity and architecture-dependent header sizes are cached outside the per-event success path.
 
 Reset boundaries retire the worker before reset/panic whenever the active native call can return. Panic uses sustain-off, all-sound-off, and all-notes-off safety ordering. In-process managed code cannot forcibly cancel unmanaged code that never returns.
+
+Play at a nonzero position and Seek set one pending whole-state lookup. Pause also requires restoration because its established reset/panic boundary clears controller state, but a paused worker emits nothing; Resume performs one chase before source dispatch. A chase send failure enters the ordinary playback-failure/panic path and later source messages cannot overtake it.
+
+The custom system menu remains a deliberate power-user surface. Per-note gating, forward-only queue admission, and state chase change playback models but do not justify enlarging the stable main layout; Always on top is a session preference. About belongs there, while future contextual Help should be one F1/menu window rather than a decorative title-bar control.
 
 ## Analysis
 

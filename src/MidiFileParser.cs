@@ -192,6 +192,7 @@ namespace MidiBottleneck
                 string fullPath = Path.GetFullPath(path);
                 long noteCount = 0;
                 ChannelSourceValueIndex.Builder channelSourceValues = ChannelSourceValueIndex.CreateBuilder();
+                MidiStateChaseIndex.Builder stateChase = MidiStateChaseIndex.CreateBuilder();
                 Report(progress, "Finalizing events", trackCount, trackCount, 9000, ProgressScale, 0, Math.Max(1, allEvents.Count));
                 for (int eventIndex = 0; eventIndex < allEvents.Count; eventIndex++)
                 {
@@ -203,6 +204,7 @@ namespace MidiBottleneck
                     }
                     MidiEvent midiEvent = allEvents[eventIndex];
                     channelSourceValues.Add(midiEvent, eventIndex);
+                    stateChase.Add(midiEvent, eventIndex);
                     if (midiEvent.Kind == MidiEventKind.NoteOn && midiEvent.DataLength >= 3 && midiEvent.GetDataByte(2) != 0)
                         noteCount++;
                 }
@@ -231,6 +233,7 @@ namespace MidiBottleneck
                 song.DurationMicroseconds = duration;
                 song.SetEventStore(compactStore);
                 song.SetChannelSourceValueIndex(channelSourceValues.Complete(compactStore));
+                song.SetMidiStateChaseIndex(stateChase.Complete(cancellationToken));
                 Report(progress, "Ready", trackCount, trackCount, ProgressScale, ProgressScale, 1, 1);
                 return song;
             }

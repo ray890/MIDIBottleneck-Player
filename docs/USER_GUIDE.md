@@ -20,6 +20,14 @@ If the exact scan projects substantial use, MIDIBottleneck Player shows the file
 
 Changing output during playback uses the same safe restart boundary as seeking: the old worker retires, the real provider is silenced and closed where applicable, queued work/statistics are reset as documented, and playback resumes from the same source position.
 
+## Starting in the middle of a file
+
+The title-bar system menu checks **Chase MIDI state on Play/Seek** by default. Starting Play at a nonzero position or seeking restores the bank, program, ordinary controller values, pitch bend, channel pressure, and known RPN/NRPN parameter values that were effective immediately before that position. Bank selection is sent before Program, and parameter selectors/data remain in valid order.
+
+Chase never replays notes, polyphonic key pressure, SysEx, meta data, system messages, or channel-mode silence commands. Events exactly at the selected position remain ordinary source events and are not sent twice. Disabled channels receive no state. A forced Channel Monitor value wins over a conflicting source value.
+
+Pause resets and silences the output, so state is restored once when Resume continues; nothing is resent while paused. The option is disabled while playback is active and can be unchecked while stopped. This does not change the Channel Monitor's deliberate one-attribute source chase.
+
 ## Processing model
 
 **Simulate slowdown** applies the selected service model:
@@ -102,10 +110,10 @@ Double-click an adjustable attribute to activate its scrub-or-type editor:
 
 Forced values are applied through the ordered output boundary. Conflicting source changes are filtered before queue admission. Clicking the Channel cell disables/enables that channel; disabling first sends channel-specific sustain-off and note-silencing safety messages. Re-enabling does not replay missed notes or reconstruct state.
 
-Overrides persist across normal playback boundaries for the same file and clear on file replacement. Whole-channel state chase on arbitrary Play/Seek remains deferred.
+Overrides persist across normal playback boundaries for the same file and clear on file replacement. Automatic Play/Seek chase respects those overrides and never recreates notes.
 
 ## Compact layout and system menu
 
 The main window switches to a measured compact arrangement below its responsive width boundary. Controls retain full tooltips where captions or values must ellipsize.
 
-The title-bar system menu contains **About**, a session-only **Always on top** option, **Per-note interval gate**, and the checked-by-default **Apply queue limit without slowdown** option.
+The title-bar system menu contains **About**, a session-only **Always on top** option, **Per-note interval gate**, checked-by-default **Apply queue limit without slowdown**, and checked-by-default **Chase MIDI state on Play/Seek**.

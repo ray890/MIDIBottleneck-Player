@@ -18,6 +18,7 @@ namespace MidiBottleneck
         private const int SystemMenuAlwaysOnTop = 0x1F30;
         private const int SystemMenuPerNoteIntervalGate = 0x1F40;
         private const int SystemMenuApplyQueueLimitWithoutSlowdown = 0x1F50;
+        private const int SystemMenuChaseMidiState = 0x1F60;
         private const uint MfString = 0x0000;
         private const uint MfSeparator = 0x0800;
         private const uint MfChecked = 0x0008;
@@ -85,6 +86,7 @@ namespace MidiBottleneck
         private MidiLargeFileInspection _lastLargeFileInspection;
         private bool _perNoteIntervalGateEnabled;
         private bool _applyQueueLimitWithoutSlowdown = true;
+        private bool _chaseMidiStateOnPlaySeek = true;
         private ServiceDurationMode _serviceModeBeforePerNoteGate = ServiceDurationMode.ProcessingTime;
 
         private Label _fileLabel;
@@ -146,6 +148,7 @@ namespace MidiBottleneck
             _effectiveSpeed.WindowMicroseconds = UserPreferences.LoadEffectiveSpeedWindow();
             _engine.SimulateSlowdown = false;
             _engine.ApplyQueueLimitWithoutSlowdown = true;
+            _engine.ChaseMidiStateOnPlaySeek = true;
 
             BuildInterface();
             ConfigureMidiDrop(this);
@@ -180,9 +183,12 @@ namespace MidiBottleneck
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuPerNoteIntervalGate, "Per-note interval gate");
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuApplyQueueLimitWithoutSlowdown,
                     "Apply queue limit without slowdown");
+                AppendMenu(menu, MfString, (UIntPtr)SystemMenuChaseMidiState,
+                    "Chase MIDI state on Play/Seek");
                 UpdateAlwaysOnTopMenuCheck();
                 UpdatePerNoteIntervalGateMenuCheck();
                 UpdateForwardQueueMenuState();
+                UpdateStateChaseMenuState();
             }
         }
 
@@ -195,6 +201,7 @@ namespace MidiBottleneck
                 if (command == SystemMenuAlwaysOnTop) { ToggleAlwaysOnTop(); return; }
                 if (command == SystemMenuPerNoteIntervalGate) { TogglePerNoteIntervalGate(); return; }
                 if (command == SystemMenuApplyQueueLimitWithoutSlowdown) { ToggleForwardQueueLimit(); return; }
+                if (command == SystemMenuChaseMidiState) { ToggleStateChase(); return; }
             }
             base.WndProc(ref message);
         }
@@ -253,6 +260,28 @@ namespace MidiBottleneck
             bool active = state == PlaybackState.Playing || state == PlaybackState.Paused;
             EnableMenuItem(menu, (uint)SystemMenuApplyQueueLimitWithoutSlowdown,
                 active ? MfGrayed : MfEnabled);
+            DrawMenuBar(Handle);
+        }
+
+        private void ToggleStateChase()
+        {
+            PlaybackState state = _engine.State;
+            if (state == PlaybackState.Playing || state == PlaybackState.Paused) return;
+            _chaseMidiStateOnPlaySeek = !_chaseMidiStateOnPlaySeek;
+            _engine.ChaseMidiStateOnPlaySeek = _chaseMidiStateOnPlaySeek;
+            UpdateStateChaseMenuState();
+        }
+
+        private void UpdateStateChaseMenuState()
+        {
+            if (!IsHandleCreated) return;
+            IntPtr menu = GetSystemMenu(Handle, false);
+            if (menu == IntPtr.Zero) return;
+            CheckMenuItem(menu, (uint)SystemMenuChaseMidiState,
+                _chaseMidiStateOnPlaySeek ? MfChecked : MfUnchecked);
+            PlaybackState state = _engine.State;
+            bool active = state == PlaybackState.Playing || state == PlaybackState.Paused;
+            EnableMenuItem(menu, (uint)SystemMenuChaseMidiState, active ? MfGrayed : MfEnabled);
             DrawMenuBar(Handle);
         }
 
@@ -383,6 +412,8 @@ namespace MidiBottleneck
         internal bool ApplyQueueLimitWithoutSlowdownForTesting { get { return _applyQueueLimitWithoutSlowdown; } }
         internal static int ApplyQueueLimitWithoutSlowdownSystemCommandForTesting
         { get { return SystemMenuApplyQueueLimitWithoutSlowdown; } }
+        internal bool ChaseMidiStateOnPlaySeekForTesting { get { return _chaseMidiStateOnPlaySeek; } }
+        internal static int ChaseMidiStateSystemCommandForTesting { get { return SystemMenuChaseMidiState; } }
         internal bool PerNoteGateControlsLockedForTesting
         {
             get
@@ -1586,6 +1617,7 @@ namespace MidiBottleneck
                 ? "This overflow policy requires Simulate slowdown because sent MIDI cannot be removed from a forward-only queue."
                 : String.Empty);
             UpdateForwardQueueMenuState();
+            UpdateStateChaseMenuState();
         }
 
         private void UpdateLoadStatus()

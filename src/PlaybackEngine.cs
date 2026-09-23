@@ -25,6 +25,8 @@ namespace MidiBottleneck
         private int _queueLengthLimit = DefaultQueueLengthLimit;
         private int _simulateSlowdown = 1;
         private int _applyQueueLimitWithoutSlowdown = 1;
+        private int _chaseMidiStateOnPlaySeek = 1;
+        private int _pendingStateChaseEventIndex = -1;
         private bool _virtualForwardDropActive;
         private int _overflowPolicy;
         private long _transportBaseTicks;
@@ -121,6 +123,16 @@ namespace MidiBottleneck
             set { Volatile.Write(ref _applyQueueLimitWithoutSlowdown, value ? 1 : 0); }
         }
 
+        public bool ChaseMidiStateOnPlaySeek
+        {
+            get { return Volatile.Read(ref _chaseMidiStateOnPlaySeek) != 0; }
+            set
+            {
+                Volatile.Write(ref _chaseMidiStateOnPlaySeek, value ? 1 : 0);
+                if (!value) Interlocked.Exchange(ref _pendingStateChaseEventIndex, -1);
+            }
+        }
+
         public int QueueLengthLimit
         {
             get { return Volatile.Read(ref _queueLengthLimit); }
@@ -179,6 +191,8 @@ namespace MidiBottleneck
                 _mode = mode;
                 _virtualForwardDropActive = virtualForward;
                 _startEventIndex = FindFirstEventAtOrAfter(song, startMicroseconds);
+                _pendingStateChaseEventIndex = ChaseMidiStateOnPlaySeek && _startEventIndex > 0
+                    ? _startEventIndex : -1;
                 _hasPublishedQueue = false;
                 Volatile.Write(ref _usesPreAdmissionFilterAccounting, 0);
                 _transportBaseTicks = MicrosecondsToTicks(startMicroseconds);
@@ -226,6 +240,8 @@ namespace MidiBottleneck
             {
                 _transportBaseTicks = MicrosecondsToTicks(targetMicroseconds);
                 _startEventIndex = FindFirstEventAtOrAfter(song, targetMicroseconds);
+                _pendingStateChaseEventIndex = ChaseMidiStateOnPlaySeek && _startEventIndex > 0
+                    ? _startEventIndex : -1;
                 _hasPublishedQueue = false;
                 Volatile.Write(ref _usesPreAdmissionFilterAccounting, 0);
                 ResetStatisticsLocked();
@@ -274,6 +290,8 @@ namespace MidiBottleneck
                 long pausedMicroseconds = ClampPosition(song, TicksToMicroseconds(_transportBaseTicks));
                 _transportBaseTicks = MicrosecondsToTicks(pausedMicroseconds);
                 _startEventIndex = FindFirstEventAtOrAfter(song, pausedMicroseconds);
+                _pendingStateChaseEventIndex = ChaseMidiStateOnPlaySeek && _startEventIndex > 0
+                    ? _startEventIndex : -1;
                 _effectiveSpeedFrontierMicroseconds = pausedMicroseconds;
                 _hasPublishedQueue = false;
                 Volatile.Write(ref _usesPreAdmissionFilterAccounting, 0);
@@ -414,6 +432,7 @@ namespace MidiBottleneck
                 _events = default(MidiEventReader);
                 _output = null;
                 _startEventIndex = 0;
+                _pendingStateChaseEventIndex = -1;
                 _lastDispatchedMicroseconds = 0;
                 _effectiveSpeedFrontierMicroseconds = 0;
                 _transportBaseTicks = 0;
@@ -842,6 +861,7 @@ namespace MidiBottleneck
                 int iterationWakeGeneration = Volatile.Read(ref _wakeGeneration);
                 ApplyPendingChannelControls();
                 if (!WaitWhilePaused()) return;
+                ApplyPendingStateChase();
                 ApplyPendingOverrides();
                 long now = CurrentTransportTicks();
 
@@ -934,6 +954,7 @@ namespace MidiBottleneck
                 int iterationWakeGeneration = Volatile.Read(ref _wakeGeneration);
                 ApplyPendingChannelControls();
                 if (!WaitWhilePaused()) return;
+                ApplyPendingStateChase();
                 ApplyPendingOverrides();
                 long now = CurrentTransportTicks();
                 PublishDropQueue(nextArrival, pending.Count, inService >= 0);
@@ -1179,6 +1200,7 @@ namespace MidiBottleneck
                 int iterationWakeGeneration = Volatile.Read(ref _wakeGeneration);
                 ApplyPendingChannelControls();
                 if (!WaitWhilePaused()) return;
+                ApplyPendingStateChase();
                 ApplyPendingOverrides();
                 long nowTicks = CurrentTransportTicks();
                 PublishDropQueue(nextArrival, 0, false);
@@ -1283,6 +1305,7 @@ namespace MidiBottleneck
                 int iterationWakeGeneration = Volatile.Read(ref _wakeGeneration);
                 ApplyPendingChannelControls();
                 if (!WaitWhilePaused()) return;
+                ApplyPendingStateChase();
                 ApplyPendingOverrides();
                 long nowMicroseconds = TicksToMicroseconds(CurrentTransportTicks());
 
@@ -1769,6 +1792,27 @@ namespace MidiBottleneck
                 }
             }
             if (applied) PublishChannelState(true);
+        }
+
+        private void ApplyPendingStateChase()
+        {
+            int eventIndexExclusive = Interlocked.Exchange(ref _pendingStateChaseEventIndex, -1);
+            if (eventIndexExclusive < 0 || Volatile.Read(ref _chaseMidiStateOnPlaySeek) == 0) return;
+            MidiSong song;
+            IMidiOutput output;
+            lock (_sync) { song = _song; output = _output; }
+            if (song == null || output == null) return;
+            IList<MidiEvent> messages = song.GetMidiStateChaseIndex().CreateMessages(eventIndexExclusive,
+                _channelRouting, _channelOverrides);
+            bool trackChannels = Volatile.Read(ref _channelMonitoringEnabled) != 0;
+            for (int i = 0; i < messages.Count; i++)
+            {
+                if (!IsActive()) return;
+                MidiEventView message = MidiEventView.FromEvent(messages[i], -1);
+                output.Send(message);
+                if (trackChannels) _channelState.RecordSuccessful(message);
+            }
+            if (messages.Count != 0) PublishChannelState(true);
         }
 
         private void PublishChannelStateBeforeWait(long targetTicks, long nowTicks)

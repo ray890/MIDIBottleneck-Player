@@ -369,3 +369,17 @@ This is the human-readable history of MIDIBottleneck Player. Dates are original 
 ### Verification
 
 - Deterministic blocked-output, filtering, complete-note, Analysis-equivalence, lifecycle, and system-menu coverage was added on both architectures.
+
+## Build 32 — 2026-09-23
+
+### Player changes
+
+- Added checked-by-default MIDI-state chase when Play or Seek starts in the middle of a file.
+- Restores bank and Program, ordinary controllers, pitch bend, channel pressure, and known RPN/NRPN parameter values before later source events.
+- Preserves MIDI ordering and gives forced overrides precedence while skipping disabled channels.
+- Deliberately does not replay notes, polyphonic key pressure, SysEx, system/meta messages, or channel-mode silence commands.
+
+### Storage and safety
+
+- Builds immutable segmented state histories during the compact merge; seeking uses binary lookup instead of rescanning the file.
+- Reset, Pause/Resume, Seek, output replacement, cancellation, and output-failure behavior use the existing ordered safety boundary.

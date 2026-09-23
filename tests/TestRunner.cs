@@ -493,6 +493,11 @@ namespace MidiBottleneck.Tests
                     RunFocused("forward-only queue limit without slowdown", TestForwardQueueLimitWithoutSlowdown);
                     return 0;
                 }
+                if (arguments.Length == 1 && arguments[0] == "--test-build32")
+                {
+                    RunFocused("whole-state Play/Seek chase", TestBuild32WholeStateChase);
+                    return 0;
+                }
                 if (arguments.Length == 1 && arguments[0] == "--test-interface-only")
                 {
                     RunFocused("WinForms interface construction", TestInterfaceConstruction);
@@ -578,6 +583,7 @@ namespace MidiBottleneck.Tests
                 Run("integer stopwatch conversion matches exact scheduler math", TestStopwatchConversion);
                 Run("live queue snapshots during slow and blocked output", TestQueueFreshness);
                 Run("forward-only queue limit without slowdown", TestForwardQueueLimitWithoutSlowdown);
+                Run("whole-state Play/Seek chase", TestBuild32WholeStateChase);
                 Run("file workload scan reuse with exact projections", TestAnalysisWorkloadReuse);
                 Run("loading cadence and corrected layout", TestCorrectiveLoading);
                 Run("KDMAPI short, SysEx, reset, and stream lifecycle", TestKdmApiOutput);
@@ -2841,6 +2847,236 @@ namespace MidiBottleneck.Tests
             }
         }
 
+        private static void TestBuild32WholeStateChase()
+        {
+            List<MidiEvent> source = new List<MidiEvent>();
+            source.Add(ChannelMessage(10, 0xB0, 0, 1));
+            source.Add(ChannelMessage(20, 0xB0, 32, 2));
+            source.Add(ChannelMessage(30, 0xC0, 5));
+            source.Add(ChannelMessage(40, 0xB0, 1, 44));
+            source.Add(ChannelMessage(50, 0xB0, 7, 90));
+            source.Add(ChannelMessage(60, 0xB0, 10, 33));
+            source.Add(ChannelMessage(70, 0xB0, 11, 80));
+            source.Add(ChannelMessage(80, 0xB0, 64, 127));
+            source.Add(ChannelMessage(90, 0xE0, 100, 64));
+            source.Add(ChannelMessage(100, 0xD0, 77));
+            source.Add(ChannelMessage(110, 0xB0, 101, 0));
+            source.Add(ChannelMessage(120, 0xB0, 100, 0));
+            source.Add(ChannelMessage(130, 0xB0, 6, 12));
+            source.Add(ChannelMessage(140, 0xB0, 38, 34));
+            source.Add(ChannelMessage(150, 0xB0, 96, 0));
+            source.Add(ChannelMessage(160, 0xB0, 99, 1));
+            source.Add(ChannelMessage(170, 0xB0, 98, 2));
+            source.Add(ChannelMessage(180, 0xB0, 6, 3));
+            source.Add(ChannelMessage(190, 0xB0, 38, 4));
+            source.Add(ChannelMessage(200, 0xB0, 97, 0));
+            source.Add(ChannelMessage(210, 0xB0, 101, 127));
+            source.Add(ChannelMessage(220, 0xB0, 100, 127));
+            source.Add(ChannelMessage(230, 0x90, 60, 100));
+            source.Add(ChannelMessage(240, 0xA0, 60, 55));
+            source.Add(new MidiEvent { AbsoluteTick = 250, IntendedMicroseconds = 250,
+                Kind = MidiEventKind.SystemExclusive, Channel = -1, Status = 0xF0,
+                Data = new byte[] { 0xF0, 0x7D, 0x01, 0xF7 } });
+            source.Add(ChannelMessage(260, 0xB0, 123, 0));
+            source.Add(ChannelMessage(1000, 0xB0, 1, 99));
+            source.Add(ChannelMessage(5000000, 0x90, 72, 100));
+            MidiSong song = NewChannelSong("whole-state-chase.mid", 6000000, source.ToArray());
+            Equal(0, song.GetMidiStateChaseIndex().CreateMessages(0,
+                new ChannelRoutingState(), new ChannelOverrideState()).Count, "Play from zero has no earlier state to chase");
+            int targetIndex = song.EventStore.LowerBoundByTime(1000);
+            IList<MidiEvent> chase = song.GetMidiStateChaseIndex().CreateMessages(targetIndex,
+                new ChannelRoutingState(), new ChannelOverrideState());
+            List<byte[]> messages = new List<byte[]>();
+            for (int i = 0; i < chase.Count; i++) messages.Add(chase[i].Data.ToArray());
+            Equal(0, ChaseIndexOfMessage(messages, 0xB0, 0, 1), "bank MSB is chased first");
+            Equal(1, ChaseIndexOfMessage(messages, 0xB0, 32, 2), "bank LSB follows bank MSB");
+            Equal(2, ChaseIndexOfMessage(messages, 0xC0, 5), "Program follows bank selection");
+            Equal(true, ContainsMessage(messages, 0xB0, 1, 44), "ordinary modulation chased");
+            Equal(true, ContainsMessage(messages, 0xB0, 7, 90), "volume chased");
+            Equal(true, ContainsMessage(messages, 0xB0, 10, 33), "pan chased");
+            Equal(true, ContainsMessage(messages, 0xB0, 11, 80), "expression chased");
+            Equal(true, ContainsMessage(messages, 0xB0, 64, 127), "sustain chased");
+            Equal(true, ContainsMessage(messages, 0xE0, 100, 64), "pitch bend chased");
+            Equal(true, ContainsMessage(messages, 0xD0, 77), "channel pressure chased");
+            Equal(false, ContainsMessage(messages, 0xB0, 1, 99), "event exactly at target is not chased");
+            Equal(false, ContainsMessage(messages, 0x90, 60, 100), "notes are not chased");
+            Equal(false, ContainsMessage(messages, 0xA0, 60, 55), "poly pressure is not chased");
+            Equal(false, ContainsMessage(messages, 0xF0, 0x7D, 0x01, 0xF7), "SysEx is not chased");
+            Equal(false, ContainsMessage(messages, 0xB0, 123, 0), "channel-mode silence is not chased");
+            int rpnSelector = ChaseIndexOfMessage(messages, 0xB0, 101, 0);
+            Equal(true, rpnSelector >= 0 && ChaseIndexOfMessageAfter(messages, rpnSelector, 0xB0, 100, 0) > rpnSelector,
+                "RPN selector order");
+            Equal(true, ContainsMessage(messages, 0xB0, 6, 12) && ContainsMessage(messages, 0xB0, 38, 35),
+                "RPN increment resolves to an exact value");
+            Equal(true, ContainsMessage(messages, 0xB0, 99, 1) && ContainsMessage(messages, 0xB0, 98, 2) &&
+                ContainsMessage(messages, 0xB0, 6, 3) && ContainsMessage(messages, 0xB0, 38, 3),
+                "NRPN decrement resolves to an exact value");
+            Equal(true, messages.Count >= 2 && ContainsMessage(messages, 0xB0, 101, 127) &&
+                ContainsMessage(messages, 0xB0, 100, 127), "null selector restored");
+
+            MidiSong resetSong = NewChannelSong("reset-chase.mid", 10000,
+                ChannelMessage(10, 0xB0, 1, 22), ChannelMessage(20, 0xB0, 7, 88),
+                ChannelMessage(30, 0xC0, 4), ChannelMessage(40, 0xB0, 11, 60),
+                ChannelMessage(50, 0xB0, 121, 0), ChannelMessage(60, 0xB0, 10, 20),
+                ChannelMessage(5000, 0x90, 70, 1));
+            IList<MidiEvent> resetChase = resetSong.GetMidiStateChaseIndex().CreateMessages(
+                resetSong.EventStore.LowerBoundByTime(1000), new ChannelRoutingState(), new ChannelOverrideState());
+            List<byte[]> resetMessages = new List<byte[]>();
+            for (int i = 0; i < resetChase.Count; i++) resetMessages.Add(resetChase[i].Data.ToArray());
+            Equal(false, ContainsMessage(resetMessages, 0xB0, 1, 22), "reset retires earlier modulation");
+            Equal(false, ContainsMessage(resetMessages, 0xB0, 11, 60), "reset retires earlier expression");
+            Equal(true, ContainsMessage(resetMessages, 0xB0, 7, 88), "reset preserves channel volume");
+            Equal(true, ContainsMessage(resetMessages, 0xC0, 4), "reset preserves Program");
+            Equal(true, ContainsMessage(resetMessages, 0xB0, 10, 20), "post-reset pan is chased");
+
+            List<MidiEvent> segmented = new List<MidiEvent>();
+            for (int i = 0; i < MidiStateChaseIndex.SegmentCapacity + 9; i++)
+                segmented.Add(ChannelMessage(i, 0xB0, 1, (byte)(i & 0x7F)));
+            MidiSong segmentSong = NewChannelSong("segmented-chase.mid", segmented.Count + 10, segmented.ToArray());
+            IList<MidiEvent> segmentChase = segmentSong.GetMidiStateChaseIndex().CreateMessages(segmented.Count,
+                new ChannelRoutingState(), new ChannelOverrideState());
+            List<byte[]> segmentMessages = new List<byte[]>();
+            for (int i = 0; i < segmentChase.Count; i++) segmentMessages.Add(segmentChase[i].Data.ToArray());
+            Equal(true, ContainsMessage(segmentMessages, 0xB0, 1,
+                (byte)((MidiStateChaseIndex.SegmentCapacity + 8) & 0x7F)), "segment-boundary lookup");
+            if (segmentSong.GetMidiStateChaseIndex().ApproximateRetainedBytes >
+                (MidiStateChaseIndex.SegmentCapacity + 20L) * 10L + 100000L)
+                throw new Exception("whole-state chase index retained excessive per-event memory");
+            Console.WriteLine("      Chase index: " + segmentSong.GetMidiStateChaseIndex().EntryCount.ToString("N0") +
+                " entries, approximately " + segmentSong.GetMidiStateChaseIndex().ApproximateRetainedBytes.ToString("N0") + " bytes");
+            MidiStateChaseIndex.Builder cancelledBuilder = MidiStateChaseIndex.CreateBuilder();
+            cancelledBuilder.Add(ChannelMessage(0, 0xB0, 7, 100), 0);
+            CancellationTokenSource chaseCancellation = new CancellationTokenSource();
+            chaseCancellation.Cancel();
+            bool chaseCancelled = false;
+            try { cancelledBuilder.Complete(chaseCancellation.Token); }
+            catch (OperationCanceledException) { chaseCancelled = true; }
+            Equal(true, chaseCancelled, "chase index finalization is cancellable");
+
+            FakeMidiOutput output = new FakeMidiOutput();
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.ChaseMidiStateOnPlaySeek = true;
+                engine.Start(song, output, ProcessingMode.Queue, 1000, true);
+                Thread.Sleep(40);
+                Equal(0, output.SentPayloads().Count, "paused nonzero Play waits to chase until Resume");
+                engine.Resume();
+                WaitFor(delegate { return ContainsMessage(output.SentPayloads(), 0xC0, 5); }, 1000,
+                    "nonzero Play chase precedes resumed source");
+                Equal(false, ContainsMessage(output.SentPayloads(), 0x90, 60, 100), "engine chase excludes notes");
+                engine.Pause();
+                Thread.Sleep(40);
+                Equal(0, output.SentPayloads().Count, "Pause remains silent after its reset");
+                engine.Resume();
+                WaitFor(delegate { return ContainsMessage(output.SentPayloads(), 0xC0, 5); }, 1000,
+                    "Resume restores state cleared by Pause");
+                engine.Pause();
+                engine.Seek(1000);
+                Thread.Sleep(40);
+                Equal(0, output.SentPayloads().Count, "paused Seek does not emit until Resume");
+                engine.Resume();
+                WaitFor(delegate { return ContainsMessage(output.SentPayloads(), 0xB0, 7, 90); }, 1000,
+                    "paused Seek restores state before later source");
+                engine.Seek(1000);
+                WaitFor(delegate { return ContainsMessage(output.SentPayloads(), 0xC0, 5); }, 1000,
+                    "repeated Seek remains deterministic");
+                engine.Stop();
+            }
+
+            FakeMidiOutput replacement = new FakeMidiOutput();
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.Start(song, new FakeMidiOutput(), ProcessingMode.Queue, 1000, true);
+                engine.Stop();
+                engine.Start(song, replacement, ProcessingMode.Queue, 1000, true);
+                engine.Resume();
+                WaitFor(delegate { return ContainsMessage(replacement.SentPayloads(), 0xC0, 5); }, 1000,
+                    "output replacement restores state before source");
+                engine.Stop();
+            }
+
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.Start(song, new NullMidiOutput(), ProcessingMode.Queue, 1000, true);
+                engine.Resume();
+                Thread.Sleep(20);
+                engine.Stop();
+            }
+
+            FakeMidiOutput overrideOutput = new FakeMidiOutput();
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.SetChannelOverride(0, ChannelAttribute.Volume, 99);
+                engine.Start(song, overrideOutput, ProcessingMode.Queue, 1000, true);
+                engine.Resume();
+                WaitFor(delegate { return ContainsMessage(overrideOutput.SentPayloads(), 0xB0, 7, 99); }, 1000,
+                    "forced override applied after chase");
+                Equal(false, ContainsMessage(overrideOutput.SentPayloads(), 0xB0, 7, 90),
+                    "forced override suppresses conflicting chased value");
+                engine.Stop();
+            }
+
+            FakeMidiOutput disabledOutput = new FakeMidiOutput();
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.SetChannelEnabled(0, false);
+                engine.Start(song, disabledOutput, ProcessingMode.Queue, 1000, true);
+                Thread.Sleep(50);
+                Equal(0, disabledOutput.SentPayloads().Count, "disabled channel receives no chase");
+                engine.Stop();
+            }
+
+            FakeMidiOutput offOutput = new FakeMidiOutput();
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.ChaseMidiStateOnPlaySeek = false;
+                engine.Start(song, offOutput, ProcessingMode.Queue, 1000, true);
+                Thread.Sleep(50);
+                Equal(0, offOutput.SentPayloads().Count, "system option fully disables automatic chase");
+                engine.Stop();
+            }
+
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                ManualResetEvent failed = new ManualResetEvent(false);
+                engine.PlaybackFailed += delegate { failed.Set(); };
+                engine.Start(song, new ThrowingMidiOutput(), ProcessingMode.Queue, 1000);
+                Equal(true, failed.WaitOne(1000), "chase output failure is reported");
+                Equal(PlaybackState.Stopped, engine.State, "failed chase prevents source playback");
+                Equal(0L, engine.GetSnapshot().ProcessedEvents, "failed chase sends no source event");
+            }
+
+            Application.EnableVisualStyles();
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(30);
+                Equal(true, form.ChaseMidiStateOnPlaySeekForTesting, "state chase menu defaults checked");
+                IntPtr menu = GetSystemMenu(form.Handle, false);
+                Equal(0x0008U, GetMenuState(menu, (uint)MainForm.ChaseMidiStateSystemCommandForTesting, 0) & 0x0008U,
+                    "state chase menu check");
+                SendMessage(form.Handle, 0x0112, (IntPtr)MainForm.ChaseMidiStateSystemCommandForTesting, IntPtr.Zero);
+                Application.DoEvents();
+                Equal(false, form.ChaseMidiStateOnPlaySeekForTesting, "state chase toggles while stopped");
+                form.Close();
+            }
+        }
+
+        private static int ChaseIndexOfMessage(List<byte[]> messages, params byte[] expected)
+        { return ChaseIndexOfMessageAfter(messages, -1, expected); }
+
+        private static int ChaseIndexOfMessageAfter(List<byte[]> messages, int after, params byte[] expected)
+        {
+            for (int i = after + 1; i < messages.Count; i++)
+            {
+                byte[] actual = messages[i];
+                if (actual.Length != expected.Length) continue;
+                bool equal = true;
+                for (int b = 0; b < actual.Length; b++) if (actual[b] != expected[b]) { equal = false; break; }
+                if (equal) return i;
+            }
+            return -1;
+        }
+
         private static void TestDefaultQueueLimit()
         {
             Equal(2000, PlaybackEngine.DefaultQueueLengthLimit, "default queue limit constant");
@@ -4855,8 +5091,11 @@ namespace MidiBottleneck.Tests
                 engine.SetChannelMonitoring(true);
                 engine.Start(pausedSong, pausedOutput, ProcessingMode.Queue, 1000000, true);
                 engine.ChaseLatestSourceChannelAttribute(2, ChannelAttribute.Program);
-                WaitFor(delegate { return ContainsMessage(pausedOutput.SentPayloads(), 0xC2, 24); }, 1000,
-                    "paused source-value chase acknowledgement");
+                WaitFor(delegate
+                {
+                    return ContainsMessage(pausedOutput.SentPayloads(), 0xC2, 24) &&
+                        engine.GetChannelSnapshot().Channels[2].Program == 24;
+                }, 5000, "paused source-value chase acknowledgement and monitor publication");
                 Equal(24, engine.GetChannelSnapshot().Channels[2].Program,
                     "paused chase records the acknowledged latest source Program");
                 Equal(PlaybackState.Paused, engine.State, "source-value chase does not resume paused playback");

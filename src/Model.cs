@@ -302,6 +302,8 @@ namespace MidiBottleneck
         private IList<MidiEvent> _eventCompatibility;
         private ChannelSourceValueIndex _channelSourceValues;
         private readonly object _channelSourceValuesSync = new object();
+        private MidiStateChaseIndex _stateChaseIndex;
+        private readonly object _stateChaseSync = new object();
 
         internal IMidiEventStore EventStore
         {
@@ -320,6 +322,7 @@ namespace MidiBottleneck
                     _eventStore = new ListMidiEventStore(Events);
                     _eventCompatibility = null;
                     _channelSourceValues = null;
+                    _stateChaseIndex = null;
                 }
                 else if (Events != null && _eventStore != null && listStore == null &&
                     !Object.ReferenceEquals(Events, _eventCompatibility))
@@ -327,6 +330,7 @@ namespace MidiBottleneck
                     _eventStore = new ListMidiEventStore(Events);
                     _eventCompatibility = null;
                     _channelSourceValues = null;
+                    _stateChaseIndex = null;
                 }
                 return _eventStore;
             }
@@ -342,6 +346,7 @@ namespace MidiBottleneck
             if (eventStore == null) throw new ArgumentNullException("eventStore");
             _eventStore = eventStore;
             _channelSourceValues = null;
+            _stateChaseIndex = null;
             ListMidiEventStore listStore = eventStore as ListMidiEventStore;
             _eventCompatibility = listStore == null ? new MidiEventStoreCompatibilityList(eventStore) : null;
             Events = listStore == null ? _eventCompatibility : listStore.Source;
@@ -361,6 +366,21 @@ namespace MidiBottleneck
                 if (_channelSourceValues == null)
                     _channelSourceValues = ChannelSourceValueIndex.Build(EventStore);
                 return _channelSourceValues;
+            }
+        }
+
+        internal void SetMidiStateChaseIndex(MidiStateChaseIndex index)
+        { _stateChaseIndex = index; }
+
+        internal MidiStateChaseIndex GetMidiStateChaseIndex()
+        {
+            MidiStateChaseIndex index = _stateChaseIndex;
+            if (index != null) return index;
+            lock (_stateChaseSync)
+            {
+                if (_stateChaseIndex == null)
+                    _stateChaseIndex = MidiStateChaseIndex.Build(EventStore);
+                return _stateChaseIndex;
             }
         }
     }

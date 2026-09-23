@@ -38,6 +38,10 @@ In Per-note mode, Effective speed uses a monotonic resolved-source frontier that
 
 Build 31 repeated injected short-message boundary measurements without opening a provider. Across five 500,000-send runs, WinMM took 13.1–14.5 ms and KDMAPI took 12.6–14.6 ms, with zero Gen0 collections. Neither boundary had a stable advantage large enough to justify changing the tested adapter path. These numbers measure application/delegate overhead only and say nothing about a synthesizer's internal processing. Warm immediate None playback of the generated 200,000-event fixture was about 6.9–7.2 ms after a 21.3 ms first run, also with zero Gen0 collections.
 
+Build 32 repeated the bounded 200,000-event x64 fixture after adding the whole-state index. Count-only preflight took 4.6–7.7 ms with no Gen0 collection, production parsing took 56.9–65.6 ms with two or three Gen0 collections, and warm immediate None playback took 6.9–7.5 ms with no Gen0 collection. The fixture contains note traffic rather than a state-heavy controller stream, so these figures primarily bound the extra per-event index inspection during loading; they are not giant-file predictions. A separate 4,105-controller-change segment-boundary fixture retained an estimated 48,584 bytes for the state index.
+
+Build 32 whole-state histories add one 8-byte value entry for each retained state change, plus bounded segment/reference overhead and one small series object per used controller or parameter. A 4,105-change single-controller boundary fixture reported approximately 49 KiB retained by the index. This scales with state changes—not notes or every dispatchable event—and the large-file warning projection includes a conservative allowance for the new histories.
+
 ## Provider boundaries
 
 - WinMM behavior depends on the selected Windows MIDI device or user-supplied wrapper.
@@ -49,6 +53,6 @@ Native calls can block for provider-dependent time. The player prevents concurre
 
 ## Analysis boundaries
 
-Analysis predicts simulator service, queue occupancy, overflow, accepted-output completion, and source-end overrun. It does not predict synthesizer voice stealing or release tails, provider-internal buffering, audio-device latency, live Channel Monitor mutes/overrides, or the audible result of starting without prior channel-state reconstruction.
+Analysis predicts simulator service, queue occupancy, overflow, accepted-output completion, and source-end overrun. It does not predict synthesizer voice stealing or release tails, provider-internal buffering, audio-device latency, live Channel Monitor mutes/overrides, or the audible result of a provider's implementation-specific controller behavior.
 
 See [Known limitations](KNOWN_LIMITATIONS.md) for the concise compatibility list and [Technical reference](TECHNICAL_REFERENCE.md) for implementation details.
