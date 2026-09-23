@@ -71,6 +71,10 @@ namespace MidiBottleneck
         private int _lastDefaultRequiredHeight;
         private bool _suppressLoadErrorDialogs;
         private Exception _lastLoadError;
+        private Func<MidiLargeFileInspection, bool> _largeFileWarningHandlerForTests;
+        private bool _forceLargeFilePreflightForTests;
+        private bool _forceLargeFileWarningForTests;
+        private MidiLargeFileInspection _lastLargeFileInspection;
         private bool _perNoteIntervalGateEnabled;
         private ServiceDurationMode _serviceModeBeforePerNoteGate = ServiceDurationMode.ProcessingTime;
 
@@ -802,10 +806,13 @@ namespace MidiBottleneck
 
             Task.Factory.StartNew(delegate
             {
-                return MidiFileParser.Load(path, cancellation.Token, delegate(MidiLoadProgress progress)
+                return MidiFileParser.LoadWithPreflight(path, cancellation.Token, delegate(MidiLoadProgress progress)
                 {
                     _loadProgress = progress;
-                });
+                }, delegate(MidiLargeFileInspection inspection)
+                {
+                    return RequestLargeFileDecision(inspection, generation, cancellation);
+                }, _forceLargeFilePreflightForTests, _forceLargeFileWarningForTests);
             }, cancellation.Token, TaskCreationOptions.LongRunning, TaskScheduler.Default).ContinueWith(delegate(Task<MidiSong> task)
             {
                 if (IsDisposed || !IsHandleCreated) return;
@@ -823,7 +830,7 @@ namespace MidiBottleneck
                         _lastLoadTooltipStage = null;
                         SetLoadingPresentation(false);
                         _openButton.Text = "Open MIDI...";
-                        if (task.IsCanceled)
+                        if (task.IsCanceled || (!task.IsFaulted && task.Result == null))
                         {
                             _fileLabel.Text = "No file loaded";
                             _toolTip.SetToolTip(_fileLabel, String.Empty);
@@ -866,6 +873,32 @@ namespace MidiBottleneck
                 }
                 catch (InvalidOperationException) { }
             });
+        }
+
+        private bool RequestLargeFileDecision(MidiLargeFileInspection inspection, int generation,
+            CancellationTokenSource cancellation)
+        {
+            if (inspection == null || cancellation.IsCancellationRequested) return false;
+            bool accepted = false;
+            try
+            {
+                MethodInvoker show = delegate
+                {
+                    if (IsDisposed || generation != _loadGeneration || cancellation != _loadCancellation ||
+                        cancellation.IsCancellationRequested) return;
+                    _lastLargeFileInspection = inspection;
+                    if (_largeFileWarningHandlerForTests != null)
+                        accepted = _largeFileWarningHandlerForTests(inspection);
+                    else
+                    {
+                        using (LargeMidiWarningDialog dialog = new LargeMidiWarningDialog(inspection))
+                            accepted = dialog.ShowDialog(this) == DialogResult.OK;
+                    }
+                };
+                if (InvokeRequired) Invoke(show); else show();
+            }
+            catch (InvalidOperationException) { return false; }
+            return accepted;
         }
 
         internal void CancelMidiLoad()
@@ -1012,6 +1045,13 @@ namespace MidiBottleneck
         internal int LoadingProgressWidth { get { return _loadingPanel == null ? 0 : _loadingPanel.Width; } }
         internal int LoadingTelemetryUpdateCount { get { return _loadingTelemetryUpdateCount; } }
         internal string OpenCommandText { get { return _openButton == null ? String.Empty : _openButton.Text; } }
+        internal Func<MidiLargeFileInspection, bool> LargeFileWarningHandlerForTests
+        { get { return _largeFileWarningHandlerForTests; } set { _largeFileWarningHandlerForTests = value; } }
+        internal bool ForceLargeFilePreflightForTests
+        { get { return _forceLargeFilePreflightForTests; } set { _forceLargeFilePreflightForTests = value; } }
+        internal bool ForceLargeFileWarningForTests
+        { get { return _forceLargeFileWarningForTests; } set { _forceLargeFileWarningForTests = value; } }
+        internal MidiLargeFileInspection LastLargeFileInspection { get { return _lastLargeFileInspection; } }
 
         private void PlayClicked(object sender, EventArgs e)
         {

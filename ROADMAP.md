@@ -4,7 +4,6 @@ This is a public product roadmap, not a promise of dates. Correctness, determini
 
 ## Near term
 
-- **Large-file preflight** — provide cancellable exact event counting and a storage-aware memory estimate without misleading file-size guesses.
 - **Drop oldest complete note** — add a bounded data structure that can remove the oldest safe complete note without scanning a large queue on every overflow.
 
 Build 25 corrected the live per-note interval gate so overlapping source notes no longer create first-channel ownership. Repeated attacks retrigger predictably under one transition per pitch/boundary, while Analysis continues to disclose that it excludes the live gate.
@@ -14,6 +13,8 @@ Build 26 removes the gate's former 16,384 simultaneously unmatched-note ceiling,
 Build 27 moves loaded songs to immutable compact record/payload segments, preserves the list backend as a deterministic oracle, and keeps workload preview data visible with a useful reason when queue projection fails.
 
 Build 28 streams track chunks into compact provisional segments and performs timestamp assignment during the stable direct-to-final merge. Tempo and source-value histories are segmented, the post-merge conversion is gone, and neither architecture needs a runtime configuration sidecar.
+
+Build 29 keeps ordinary files on that one-pass path and adds an exact, cancellable grammar scan only for unusually large inputs. Its architecture-aware warning reports exact dispatchable events plus projected retained and conservative peak MIDI memory before allocating compact stores.
 
 ## Needs a product decision or more evidence
 

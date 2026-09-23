@@ -64,6 +64,40 @@ namespace MidiBottleneck
             return DirectCompactMidiParser.Load(path, cancellationToken, progress);
         }
 
+        internal static MidiSong LoadWithPreflight(string path, CancellationToken cancellationToken,
+            Action<MidiLoadProgress> progress, Func<MidiLargeFileInspection, bool> warningDecision,
+            bool forcePreflight, bool forceWarning)
+        {
+            long fileLength = new FileInfo(path).Length;
+            if (!forcePreflight && !MidiLargeFilePreflight.RequiresPreflight(fileLength, IntPtr.Size))
+                return DirectCompactMidiParser.Load(path, cancellationToken, progress);
+
+            MidiLargeFileInspection inspection = MidiLargeFilePreflight.Inspect(path, IntPtr.Size,
+                cancellationToken, delegate(MidiLoadProgress value)
+                {
+                    if (progress == null) return;
+                    progress(new MidiLoadProgress(value.Stage, value.CompletedTracks, value.TotalTracks,
+                        value.OverallCompleted * 2500L / value.OverallTotal, ProgressScale,
+                        value.StageCompleted, value.StageTotal));
+                });
+            cancellationToken.ThrowIfCancellationRequested();
+            bool warn = forceWarning || MidiLargeFilePreflight.RequiresWarning(inspection.Projection);
+            if (warn)
+            {
+                if (progress != null) progress(new MidiLoadProgress("Waiting for confirmation",
+                    inspection.Counts.TrackCount, inspection.Counts.TrackCount, 2500, ProgressScale, 1, 1));
+                if (warningDecision == null || !warningDecision(inspection)) return null;
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            return DirectCompactMidiParser.Load(path, cancellationToken, delegate(MidiLoadProgress value)
+            {
+                if (progress == null) return;
+                progress(new MidiLoadProgress(value.Stage, value.CompletedTracks, value.TotalTracks,
+                    2500L + value.OverallCompleted * 7500L / value.OverallTotal, ProgressScale,
+                    value.StageCompleted, value.StageTotal));
+            });
+        }
+
         // Retained only as a deterministic parser oracle. Production loading
         // always enters DirectCompactMidiParser above.
         internal static MidiSong LoadLegacyForTests(string path, CancellationToken cancellationToken, Action<MidiLoadProgress> progress)

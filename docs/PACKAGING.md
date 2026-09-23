@@ -23,7 +23,7 @@ The output is exactly:
 - `MIDIBottleneck-Player-v<version>-x64.zip`
 - `SHA256SUMS.txt`
 
-Each architecture ZIP contains only its corresponding executable, `README.md`, and `LICENSE`. Build 28's production parser, tempo data, provisional/final records, payloads, and source-value indexes are bounded or segmented, so neither architecture has a runtime configuration sidecar.
+Each architecture ZIP contains only its corresponding executable, `README.md`, and `LICENSE`. Production parsing, preflight, tempo data, provisional/final records, payloads, and source-value indexes are bounded or segmented, so neither architecture has a runtime configuration sidecar.
 
 The script allowlists every input and never sweeps `dist/`. Inspect the ZIP entries and verify `SHA256SUMS.txt` before upload.
 

@@ -18,6 +18,7 @@ MIDIBottleneck Player is a Windows MIDI player and deterministic workload simula
 - Shows live throughput, queue, lag, effective-speed, and channel statistics.
 - Provides whole-file Analysis graphs for event density, bitrate, queue pressure, and predicted output completion.
 - Loads files asynchronously with cancellation, progress, elapsed time, and process-private committed memory.
+- Preflights only unusually large files, with exact event counting and a storage-aware memory warning before large allocations.
 - Parses directly into compact segmented track storage, then performs a stable merge into 40-byte final records without a per-event object graph or contiguous merged list.
 - Supports drag-and-drop loading, a compact layout, x86/x64 builds, and a read-only/override-capable 16-channel monitor.
 
@@ -38,6 +39,8 @@ Windows 7 SP1 has not been tested. Windows XP and cross-platform support are pos
 3. Run `MIDIBottleneck Player x64.exe` on a typical modern system, or the x86 build when a 32-bit MIDI environment requires it.
 4. Choose a MIDI output, then open or drag one `.mid`/`.midi` file onto the window.
 5. Leave **Simulate slowdown** and **Queue length limit** off for ordinary uncapped playback, or enable the model you want to study.
+
+Ordinary MIDI files load in one pass. On x86, files of at least 15 MiB receive an allocation-light preflight; on x64 the threshold is 63 MiB. The exact scan can be cancelled and warns before parsing only when the current storage model projects at least 1 GiB on x86 or 4 GiB on x64.
 
 ## Output choices
 

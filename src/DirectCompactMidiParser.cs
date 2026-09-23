@@ -155,19 +155,23 @@ namespace MidiBottleneck
             }
         }
 
-        private sealed class TrackReader
+        internal sealed class TrackReader
         {
             private readonly Stream _stream;
             private readonly CancellationToken _cancellationToken;
             private readonly Action<long> _progress;
-            private readonly byte[] _buffer = new byte[65536];
+            private readonly byte[] _buffer;
             private long _streamRemaining;
             private int _position;
             private int _count;
             private long _consumed;
 
-            internal TrackReader(Stream stream, uint length, CancellationToken cancellationToken, Action<long> progress)
-            { _stream = stream; _streamRemaining = length; _cancellationToken = cancellationToken; _progress = progress; }
+            internal TrackReader(Stream stream, uint length, CancellationToken cancellationToken, Action<long> progress,
+                byte[] buffer)
+            {
+                if (buffer == null || buffer.Length == 0) throw new ArgumentException("A track-reader buffer is required.", "buffer");
+                _stream = stream; _streamRemaining = length; _cancellationToken = cancellationToken; _progress = progress; _buffer = buffer;
+            }
             internal bool AtEnd { get { return _position == _count && _streamRemaining == 0; } }
             internal long Consumed { get { return _consumed; } }
 
@@ -251,6 +255,7 @@ namespace MidiBottleneck
                 long totalEvents = 0;
                 long endTick = 0;
                 long fileLength = Math.Max(1, stream.Length);
+                byte[] trackBuffer = new byte[65536];
                 for (int trackIndex = 0; trackIndex < trackCount; trackIndex++)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
@@ -261,7 +266,7 @@ namespace MidiBottleneck
                     {
                         Report(progress, "Parsing track " + (trackIndex + 1) + " of " + trackCount,
                             trackIndex, trackCount, Scale(priorBytes + consumed, fileLength, 6000), consumed, Math.Max(1L, length));
-                    });
+                    }, trackBuffer);
                     ParsedTrack track;
                     try { track = ParseTrack(trackReader, trackIndex, cancellationToken, progress, trackCount, priorBytes, fileLength, length); }
                     catch (OutOfMemoryException ex)
@@ -470,7 +475,7 @@ namespace MidiBottleneck
             return compare != 0 ? compare : a.IntendedMicroseconds.CompareTo(b.IntendedMicroseconds);
         }
 
-        private static void ValidateHeader(int format, int trackCount, int division)
+        internal static void ValidateHeader(int format, int trackCount, int division)
         {
             if (format < 0 || format > 2) throw new InvalidDataException("Unsupported Standard MIDI File format " + format + ".");
             if (format == 2) throw new InvalidDataException("Format 2 MIDI files contain independent sequences and are not supported in this version.");
@@ -479,7 +484,7 @@ namespace MidiBottleneck
             if (trackCount <= 0) throw new InvalidDataException("The MIDI file contains no tracks.");
         }
 
-        private static MidiEventKind KindFromStatus(byte status)
+        internal static MidiEventKind KindFromStatus(byte status)
         {
             switch (status & 0xF0)
             {
@@ -493,8 +498,8 @@ namespace MidiBottleneck
                 default: throw new InvalidDataException("Unknown MIDI channel status 0x" + status.ToString("X2") + ".");
             }
         }
-        private static int ChannelDataLength(byte status) { int high = status & 0xF0; return high == 0xC0 || high == 0xD0 ? 1 : 2; }
-        private static int SystemDataLength(byte status)
+        internal static int ChannelDataLength(byte status) { int high = status & 0xF0; return high == 0xC0 || high == 0xD0 ? 1 : 2; }
+        internal static int SystemDataLength(byte status)
         {
             switch (status)
             {
@@ -503,19 +508,19 @@ namespace MidiBottleneck
                 default: throw new InvalidDataException("Unsupported system status 0x" + status.ToString("X2") + ".");
             }
         }
-        private static void RequireChunk(BinaryReader reader, string expected)
+        internal static void RequireChunk(BinaryReader reader, string expected)
         {
             byte[] id = reader.ReadBytes(4);
             if (id.Length != 4 || id[0] != expected[0] || id[1] != expected[1] || id[2] != expected[2] || id[3] != expected[3])
                 throw new InvalidDataException("Expected MIDI chunk " + expected + ".");
         }
-        private static int ReadUInt16BigEndian(BinaryReader reader) { return (reader.ReadByte() << 8) | reader.ReadByte(); }
-        private static uint ReadUInt32BigEndian(BinaryReader reader)
+        internal static int ReadUInt16BigEndian(BinaryReader reader) { return (reader.ReadByte() << 8) | reader.ReadByte(); }
+        internal static uint ReadUInt32BigEndian(BinaryReader reader)
         {
             uint a = reader.ReadByte(), b = reader.ReadByte(), c = reader.ReadByte(), d = reader.ReadByte();
             return (a << 24) | (b << 16) | (c << 8) | d;
         }
-        private static void SkipStream(Stream stream, uint length, CancellationToken cancellationToken)
+        internal static void SkipStream(Stream stream, uint length, CancellationToken cancellationToken)
         {
             byte[] buffer = new byte[4096];
             long remaining = length;

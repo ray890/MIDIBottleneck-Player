@@ -224,6 +224,11 @@ namespace MidiBottleneck.Tests
                     RenderBuild24Set(arguments[1]);
                     return 0;
                 }
+                if (arguments.Length == 2 && arguments[0] == "--render-build29")
+                {
+                    RenderBuild29Set(arguments[1]);
+                    return 0;
+                }
                 if (arguments.Length == 2 && arguments[0] == "--render-build22-new")
                 {
                     RenderBuild22NewSet(arguments[1]);
@@ -470,6 +475,11 @@ namespace MidiBottleneck.Tests
                     RunFocused("compact reader and store equivalence", TestCompactSegmentedEventStore);
                     return 0;
                 }
+                if (arguments.Length == 1 && arguments[0] == "--test-build29")
+                {
+                    RunFocused("large-file count-only preflight and memory projection", TestLargeFilePreflight);
+                    return 0;
+                }
                 if (arguments.Length == 1 && arguments[0] == "--test-interface-only")
                 {
                     RunFocused("WinForms interface construction", TestInterfaceConstruction);
@@ -488,6 +498,11 @@ namespace MidiBottleneck.Tests
                 if (arguments.Length == 2 && arguments[0] == "--benchmark-event-store")
                 {
                     BenchmarkEventStore(Int32.Parse(arguments[1], CultureInfo.InvariantCulture));
+                    return 0;
+                }
+                if (arguments.Length == 2 && arguments[0] == "--benchmark-preflight")
+                {
+                    BenchmarkLargeFilePreflight(Int32.Parse(arguments[1], CultureInfo.InvariantCulture));
                     return 0;
                 }
                 if (arguments.Length == 1 && arguments[0] == "--benchmark-channel-monitor")
@@ -582,6 +597,7 @@ namespace MidiBottleneck.Tests
                 Run("dense 200,000-event MIDI parsing", TestDenseMidiParser);
                 Run("cancellable parser progress and cancellation", TestCancellableMidiParser);
                 Run("segmented indexed-event limit fails clearly", TestContiguousEventStorageLimit);
+                Run("large-file count-only preflight and memory projection", TestLargeFilePreflight);
                 Run("background loading, stale-result rejection, and unload", TestBackgroundMidiLoading);
                 Run("workload analysis and graph data", TestWorkloadAnalysis);
                 Run("asynchronous Analysis refresh and resolution policy", TestAsynchronousAnalysis);
@@ -1371,6 +1387,213 @@ namespace MidiBottleneck.Tests
             }
         }
 
+        private static void TestLargeFilePreflight()
+        {
+            string path = Path.Combine(Path.GetTempPath(), "midi-bottleneck-preflight-" + Guid.NewGuid().ToString("N") + ".mid");
+            string statePath = Path.Combine(Path.GetTempPath(), "midi-bottleneck-preflight-state-" + Guid.NewGuid().ToString("N") + ".mid");
+            string payloadPath = Path.Combine(Path.GetTempPath(), "midi-bottleneck-preflight-payload-" + Guid.NewGuid().ToString("N") + ".mid");
+            string densePath = null;
+            try
+            {
+                File.WriteAllBytes(path, BuildTestMidi());
+                MidiPreflightCounts counts = MidiLargeFilePreflight.Scan(path, CancellationToken.None, null);
+                MidiSong parsed = MidiFileParser.Load(path);
+                Equal((long)parsed.EventStore.Count, counts.DispatchableEventCount,
+                    "preflight dispatchable count matches production parser");
+                Equal(parsed.NoteCount, counts.NoteOnCount, "preflight NoteOn count matches production parser");
+                Equal(2L, counts.TempoChangeCount, "preflight tempo count");
+                Equal(4L, counts.FinalLongPayloadBytes, "preflight retained F0 payload count");
+                Equal(4L, counts.ProvisionalPayloadBytes, "preflight provisional F0 payload count");
+                Equal(1L, counts.SourceValueEntryCount, "preflight Program source-index count");
+                Equal(2, counts.TrackCount, "preflight synchronous format-one track count");
+
+                List<byte> stateTrack = new List<byte>();
+                Add(stateTrack, 0x00, 0xB1, 0x00, 0x02); // Bank MSB.
+                Add(stateTrack, 0x00, 0x79, 0x00);       // Running-status Reset Controllers: five entries.
+                Add(stateTrack, 0x00, 0xC1, 0x05);       // Program, one data byte.
+                Add(stateTrack, 0x00, 0x06);             // Running-status Program.
+                Add(stateTrack, 0x00, 0xD1, 0x20);       // Channel pressure, one data byte.
+                Add(stateTrack, 0x00, 0xE1, 0x00, 0x40); // Pitch bend.
+                Add(stateTrack, 0x00, 0xF1, 0x01);       // Supported system message.
+                Add(stateTrack, 0x00, 0xFF, 0x2F, 0x00);
+                File.WriteAllBytes(statePath, BuildSingleTrackMidi(stateTrack));
+                MidiPreflightCounts stateCounts = MidiLargeFilePreflight.Scan(statePath, CancellationToken.None, null);
+                Equal(7L, stateCounts.DispatchableEventCount, "preflight one/two-byte and system-message count");
+                Equal(10L, stateCounts.SourceValueEntryCount, "preflight Reset Controllers expansion count");
+                Equal((long)MidiFileParser.Load(statePath).EventStore.Count, stateCounts.DispatchableEventCount,
+                    "preflight state-heavy count matches production parser");
+
+                int f0Length = CompactPayloadStore.SegmentSize + 7;
+                List<byte> payloadTrack = new List<byte>(f0Length + 40);
+                Add(payloadTrack, 0x00, 0xF0); AddVariableLength(payloadTrack, f0Length);
+                for (int index = 0; index < f0Length; index++) payloadTrack.Add((byte)(index & 0x7F));
+                Add(payloadTrack, 0x00, 0xF7, 0x05, 0x01, 0x02, 0x03, 0x04, 0x05);
+                Add(payloadTrack, 0x00, 0xFF, 0x2F, 0x00);
+                File.WriteAllBytes(payloadPath, BuildSingleTrackMidi(payloadTrack));
+                MidiPreflightCounts payloadCounts = MidiLargeFilePreflight.Scan(payloadPath, CancellationToken.None, null);
+                Equal(2L, payloadCounts.DispatchableEventCount, "preflight F0/F7 event count");
+                Equal((long)f0Length + 1 + 5, payloadCounts.ProvisionalPayloadBytes,
+                    "preflight exact F0-prefix/F7 provisional payload bytes");
+                Equal(payloadCounts.ProvisionalPayloadBytes, payloadCounts.FinalLongPayloadBytes,
+                    "preflight long payload bytes across side-store boundary");
+
+                AssertPreflightFailureEquivalent(BuildSingleTrackMidi(new List<byte> { 0x00, 0x40 }),
+                    "preflight invalid running status");
+                AssertPreflightFailureEquivalent(BuildSingleTrackMidi(new List<byte> { 0x00, 0xF0, 0x05, 0x01, 0x02 }),
+                    "preflight truncated payload");
+
+                densePath = CreateDenseMidiFile(100000);
+                CancellationTokenSource cancellation = new CancellationTokenSource();
+                bool cancelled = false;
+                try
+                {
+                    MidiLargeFilePreflight.Scan(densePath, cancellation.Token, delegate(MidiLoadProgress progress)
+                    {
+                        if (progress.OverallPermille > 0) cancellation.Cancel();
+                    });
+                }
+                catch (OperationCanceledException) { cancelled = true; }
+                finally { cancellation.Dispose(); }
+                Equal(true, cancelled, "preflight cancellation interrupts the bounded scan");
+
+                long x86Threshold = MidiLargeFilePreflight.PreflightFileSizeThreshold(4);
+                long x64Threshold = MidiLargeFilePreflight.PreflightFileSizeThreshold(8);
+                Equal(false, MidiLargeFilePreflight.RequiresPreflight(x86Threshold - 1, 4),
+                    "ordinary x86 file bypasses preflight below conservative threshold");
+                Equal(true, MidiLargeFilePreflight.RequiresPreflight(x86Threshold, 4),
+                    "x86 threshold starts exact preflight");
+                Equal(false, MidiLargeFilePreflight.RequiresPreflight(x64Threshold - 1, 8),
+                    "ordinary x64 file bypasses preflight below conservative threshold");
+                Equal(true, MidiLargeFilePreflight.RequiresPreflight(x64Threshold, 8),
+                    "x64 threshold starts exact preflight");
+                if (x64Threshold <= x86Threshold) throw new Exception("x64 preflight threshold is not architecture-aware");
+
+                MidiPreflightCounts riskCounts = new MidiPreflightCounts
+                {
+                    TrackCount = 1,
+                    DispatchableEventCount = 20000000,
+                    EventsByTrack = new long[] { 20000000 },
+                    PayloadBytesByTrack = new long[] { 0 },
+                    TempoChangesByTrack = new long[] { 0 },
+                    SourceEntriesBySlot = new long[16 * ChannelOverrideState.AttributeCount]
+                };
+                riskCounts.SourceEntriesBySlot[0] = 20000000;
+                riskCounts.SourceValueEntryCount = 20000000;
+                MidiMemoryProjection x86Projection = MidiLargeFilePreflight.Estimate(riskCounts, 4);
+                MidiMemoryProjection x64Projection = MidiLargeFilePreflight.Estimate(riskCounts, 8);
+                Equal(true, MidiLargeFilePreflight.RequiresWarning(x86Projection), "x86 projection receives strong warning");
+                Equal(false, MidiLargeFilePreflight.RequiresWarning(x64Projection), "same plausible x64 projection remains below 4 GiB warning");
+                Equal(true, x86Projection.IsArchitectureRisk, "x86 address-space risk is explicit");
+                if (x86Projection.ProjectedPeakLowBytes > x86Projection.ProjectedPeakHighBytes ||
+                    x86Projection.ProjectedRetainedBytes <= 0)
+                    throw new Exception("preflight memory range is not internally consistent");
+
+                int decisions = 0;
+                List<MidiLoadProgress> combined = new List<MidiLoadProgress>();
+                MidiSong continued = MidiFileParser.LoadWithPreflight(path, CancellationToken.None,
+                    delegate(MidiLoadProgress value) { combined.Add(value); },
+                    delegate(MidiLargeFileInspection inspection) { decisions++; return true; }, true, true);
+                Equal(1, decisions, "warning decision is requested once");
+                Equal(parsed.EventStore.Count, continued.EventStore.Count, "Continue enters existing production parser");
+                bool sawInspection = false;
+                bool sawConfirmation = false;
+                int previousOverall = -1;
+                for (int index = 0; index < combined.Count; index++)
+                {
+                    MidiLoadProgress value = combined[index];
+                    if (value.Stage == "Inspecting large MIDI") sawInspection = true;
+                    if (value.Stage == "Waiting for confirmation") sawConfirmation = true;
+                    if (value.OverallPermille < previousOverall)
+                        throw new Exception("combined preflight/parser progress moved backwards at " + value.Stage);
+                    previousOverall = value.OverallPermille;
+                }
+                Equal(true, sawInspection, "combined load exposes preflight stage");
+                Equal(true, sawConfirmation, "combined load exposes decision stage");
+                Equal(1000, previousOverall, "combined progress completes monotonically");
+
+                List<string> cancelledStages = new List<string>();
+                MidiSong declined = MidiFileParser.LoadWithPreflight(path, CancellationToken.None,
+                    delegate(MidiLoadProgress value) { cancelledStages.Add(value.Stage); },
+                    delegate(MidiLargeFileInspection inspection) { return false; }, true, true);
+                Equal(null, declined, "Cancel decision prevents event-store allocation and publication");
+                Equal(false, cancelledStages.Contains("Parsing track 1 of 2"),
+                    "Cancel decision does not enter production parsing");
+
+                int bypassDecisions = 0;
+                MidiSong bypassed = MidiFileParser.LoadWithPreflight(path, CancellationToken.None, null,
+                    delegate(MidiLargeFileInspection inspection) { bypassDecisions++; return true; }, false, false);
+                Equal(0, bypassDecisions, "ordinary file is not scanned or warned twice");
+                Equal(parsed.EventStore.Count, bypassed.EventStore.Count, "ordinary one-pass load remains unchanged");
+
+                int noWarningDecisions = 0;
+                MidiSong inspectedWithoutWarning = MidiFileParser.LoadWithPreflight(path, CancellationToken.None, null,
+                    delegate(MidiLargeFileInspection inspection) { noWarningDecisions++; return false; }, true, false);
+                Equal(0, noWarningDecisions, "exact scan below projected threshold does not warn");
+                Equal(parsed.EventStore.Count, inspectedWithoutWarning.EventStore.Count,
+                    "large-but-sparse classification continues automatically after inspection");
+
+                MidiLargeFileInspection messageInspection = new MidiLargeFileInspection(path, riskCounts, x86Projection);
+                string message = LargeMidiWarningDialog.CreateMessage(messageInspection);
+                if (message.IndexOf(Path.GetFileName(path), StringComparison.Ordinal) < 0 ||
+                    message.IndexOf("20,000,000", StringComparison.Ordinal) < 0 ||
+                    message.IndexOf("32-bit warning", StringComparison.Ordinal) < 0)
+                    throw new Exception("large-file warning omits filename, exact count, or architecture risk");
+
+                Application.EnableVisualStyles();
+                using (MainForm form = new MainForm())
+                {
+                    form.SuppressLoadErrorDialogs = true;
+                    form.ForceLargeFilePreflightForTests = true;
+                    form.ForceLargeFileWarningForTests = true;
+                    form.LargeFileWarningHandlerForTests = delegate(MidiLargeFileInspection inspection) { return true; };
+                    form.Show(); Application.DoEvents();
+                    form.BeginMidiLoad(path);
+                    PumpUntil(delegate { return !form.IsLoadingSong; }, 5000, "preflight Continue UI flow");
+                    if (form.CurrentSong == null || form.LastLargeFileInspection == null)
+                        throw new Exception("preflight Continue did not publish the selected song");
+                    form.UnloadCurrentSong();
+                    form.LargeFileWarningHandlerForTests = delegate(MidiLargeFileInspection inspection) { return false; };
+                    form.BeginMidiLoad(path);
+                    PumpUntil(delegate { return !form.IsLoadingSong; }, 5000, "preflight Cancel UI flow");
+                    Equal(null, form.CurrentSong, "warning Cancel leaves clean no-file state");
+                    Equal(null, form.LastLoadError, "warning Cancel is not reported as a parser failure");
+                    form.LargeFileWarningHandlerForTests = delegate(MidiLargeFileInspection inspection) { return true; };
+                    form.BeginMidiLoad(densePath);
+                    form.BeginMidiLoad(path);
+                    PumpUntil(delegate { return !form.IsLoadingSong; }, 5000, "superseded preflight UI flow");
+                    if (form.CurrentSong == null ||
+                        !String.Equals(Path.GetFullPath(path), form.CurrentSong.FilePath, StringComparison.OrdinalIgnoreCase))
+                        throw new Exception("a cancelled preflight generation replaced the newer load");
+                    form.Close();
+                }
+            }
+            finally
+            {
+                if (File.Exists(path)) File.Delete(path);
+                if (File.Exists(statePath)) File.Delete(statePath);
+                if (File.Exists(payloadPath)) File.Delete(payloadPath);
+                if (densePath != null && File.Exists(densePath)) File.Delete(densePath);
+            }
+        }
+
+        private static void AssertPreflightFailureEquivalent(byte[] bytes, string name)
+        {
+            string path = Path.Combine(Path.GetTempPath(), "midi-bottleneck-preflight-malformed-" + Guid.NewGuid().ToString("N") + ".mid");
+            try
+            {
+                File.WriteAllBytes(path, bytes);
+                Type scanType = null;
+                Type parserType = null;
+                try { MidiLargeFilePreflight.Scan(path, CancellationToken.None, null); }
+                catch (Exception ex) { scanType = ex.GetType(); }
+                try { MidiFileParser.Load(path); }
+                catch (Exception ex) { parserType = ex.GetType(); }
+                if (scanType == null || parserType == null) throw new Exception(name + " was not rejected by both paths");
+                Equal(parserType, scanType, name + " exception type parity");
+            }
+            finally { if (File.Exists(path)) File.Delete(path); }
+        }
+
         private static void CompareParsedSongs(MidiSong expected, MidiSong actual, string name)
         {
             Equal(expected.Format, actual.Format, name + " format");
@@ -1623,6 +1846,29 @@ namespace MidiBottleneck.Tests
                         "channel-monitor benchmark sent count");
                 return timer.Elapsed.TotalMilliseconds;
             }
+        }
+
+        private static void BenchmarkLargeFilePreflight(int eventCount)
+        {
+            if (eventCount < 1 || eventCount > 2000000) throw new ArgumentOutOfRangeException("eventCount");
+            string path = CreateDenseMidiFile(eventCount);
+            try
+            {
+                GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+                long managedBefore = GC.GetTotalMemory(true);
+                int gen0Before = GC.CollectionCount(0);
+                Stopwatch timer = Stopwatch.StartNew();
+                MidiPreflightCounts counts = MidiLargeFilePreflight.Scan(path, CancellationToken.None, null);
+                timer.Stop();
+                long managedAfter = GC.GetTotalMemory(false);
+                MidiMemoryProjection projection = MidiLargeFilePreflight.Estimate(counts, IntPtr.Size);
+                Console.WriteLine("Preflight benchmark: architecture={0}, file={1:N0} bytes, events={2:N0}, elapsed={3:N1} ms, managed delta={4:N0} bytes, Gen0={5}",
+                    IntPtr.Size == 8 ? "x64" : "x86", new FileInfo(path).Length, counts.DispatchableEventCount,
+                    timer.Elapsed.TotalMilliseconds, managedAfter - managedBefore, GC.CollectionCount(0) - gen0Before);
+                Console.WriteLine("Projection: retained={0:N0}, peak-low={1:N0}, peak-high={2:N0}",
+                    projection.ProjectedRetainedBytes, projection.ProjectedPeakLowBytes, projection.ProjectedPeakHighBytes);
+            }
+            finally { if (File.Exists(path)) File.Delete(path); }
         }
 
         private static double MeasureChannelOverrideRun(MidiSong song)
@@ -5208,6 +5454,35 @@ namespace MidiBottleneck.Tests
                     bitmap.Save(Path.Combine(outputDirectory, "analysis-live-gate-disclosure.png"));
                 }
                 form.Close();
+            }
+        }
+
+        private static void RenderBuild29Set(string outputDirectory)
+        {
+            Directory.CreateDirectory(outputDirectory);
+            Application.EnableVisualStyles();
+            MidiPreflightCounts counts = new MidiPreflightCounts
+            {
+                TrackCount = 1,
+                DispatchableEventCount = 20000000,
+                EventsByTrack = new long[] { 20000000 },
+                PayloadBytesByTrack = new long[] { 0 },
+                TempoChangesByTrack = new long[] { 0 },
+                SourceEntriesBySlot = new long[16 * ChannelOverrideState.AttributeCount]
+            };
+            counts.SourceEntriesBySlot[0] = 20000000;
+            counts.SourceValueEntryCount = 20000000;
+            MidiLargeFileInspection inspection = new MidiLargeFileInspection(
+                "synthetic-large-workload.mid", counts, MidiLargeFilePreflight.Estimate(counts, 4));
+            using (LargeMidiWarningDialog dialog = new LargeMidiWarningDialog(inspection))
+            {
+                dialog.Show(); PumpFor(80);
+                using (Bitmap bitmap = new Bitmap(dialog.Width, dialog.Height))
+                {
+                    CaptureForm(dialog, bitmap);
+                    bitmap.Save(Path.Combine(outputDirectory, "large-midi-memory-warning.png"));
+                }
+                dialog.Close();
             }
         }
 

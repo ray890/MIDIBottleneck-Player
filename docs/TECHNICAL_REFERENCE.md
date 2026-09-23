@@ -12,6 +12,14 @@ Production parsing reads each declared track through a 64 KiB boundary-limited s
 
 The one-value source chase index stores each channel/attribute history in immutable 4,096-entry segments and performs logarithmic lookup by final event position. Production loading is bounded by the explicit signed 32-bit event-index identity and aggregate address space/commit, not a greater-than-2-GB array. No release package requires `gcAllowVeryLargeObjects`.
 
+### Large-file preflight
+
+Preflight is architecture-aware and deliberately avoids reading ordinary files twice. The file-size gate uses a conservative 64 bytes of possible peak MIDI-storage expansion per source byte plus a 64 MiB fixed allowance. With warning boundaries of 1 GiB on x86 and 4 GiB on x64, this produces scan thresholds of 15 MiB and 63 MiB respectively. File size selects whether an exact scan is worthwhile; it is never used as the displayed estimate.
+
+The count-only scanner shares the production parser's boundary-limited reader, VLQ decoder, header validation, and channel/system message-length rules. It understands running status, meta/tempo events, F0 prefixing, F7 payloads, declared track boundaries, and the same malformed/truncated cases. It allocates no event records, payload copies, tempo histories, or source indexes.
+
+The estimator uses exact event, long-payload, tempo, per-track provisional, and per-channel/attribute source-history counts. It models 40-byte records in 2,048-entry segments, 1 MiB payload segments, 4,096-entry tempo/source segments, segment-reference arrays, architecture-sized references/headers, and track-bounded merge workspace. The retained projection describes the published song structures. The peak range runs from the larger of completed provisional/final storage to a conservative upper bound where both coexist, plus bounded builder/merge workspace. CLR headers, fragmentation, other program memory, and operating-system behavior make this a projection rather than a byte-perfect promise.
+
 A compact per-song index records state-changing channel messages for logarithmic one-attribute source-value chase. It is not automatic whole-song state chase.
 
 ## Scheduler and timing

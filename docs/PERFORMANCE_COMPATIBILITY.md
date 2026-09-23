@@ -16,6 +16,10 @@ On repeated bounded one-million-short-event runs, Build 28 retained about 41.3 M
 
 The historical Build 26 x86 playback result was about 62–70 ms. Same-session Build 27 warm runs ranged about 77–94 ms; Build 28's contained sequential compact-reader path narrowed this to roughly 78–82 ms without harming x64. The remaining percentage difference versus the older historical run cannot be isolated from session/power variation confidently enough to justify a larger hot-path redesign.
 
+Build 29 adds an allocation-light count-only scan only above conservative file-size gates: 15 MiB on x86 and 63 MiB on x64. A generated 250,000-event/750,027-byte dense fixture scanned in about 10.1 ms on x86 and 15.7 ms on x64, changed managed memory by roughly 74 KiB, and caused no Gen0 collection. These are bounded measurements on one machine, not universal throughput promises.
+
+Warnings use exact SMF counts and the current segmented layouts. The x86 warning boundary is 1 GiB because practical 32-bit address-space pressure begins well before an x64-scale load; x64 uses the original 4 GiB product threshold. Projected retained memory and the conservative peak range exclude unrelated application/system memory and therefore remain estimates rather than guarantees.
+
 One user-reported external validation loaded a file containing 484,582,688 dispatchable events in the x64 build, using roughly 50 GB. This was not reproduced by the public deterministic test gate and must not be read as a general memory or load-time guarantee.
 
 ## Performance measurements

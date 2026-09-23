@@ -6,6 +6,10 @@ Use **Open MIDI…** or drag one existing `.mid` or `.midi` file anywhere onto t
 
 Loading is asynchronous and cancellable. The header shows the filename, parser stage, two progress bars, elapsed time, and process-private committed memory. Cancelling or replacing a load retires the older generation so it cannot publish stale results.
 
+Ordinary files enter the one-pass compact parser immediately. Files large enough to plausibly cross the memory-warning boundary are first inspected by a count-only SMF scanner. The loading header shows **Inspecting large MIDI** with monotonic overall/stage progress. Cancel stops either inspection or parsing.
+
+If the exact scan projects substantial use, MIDIBottleneck Player reports the filename, exact dispatchable-event count, projected retained MIDI storage, and a conservative loading-peak range before allocating event stores. **Continue** parses normally; **Cancel** leaves no file loaded. Projections model application-owned MIDI structures and are not guarantees of total process or system memory.
+
 ## Choosing an output
 
 **WinMM** lists MIDI outputs reported by Windows. Choose the executable architecture that matches any native wrapper you use.
