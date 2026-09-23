@@ -8,6 +8,7 @@ This is a direction of travel, not a promise of dates. Correct MIDI behavior, de
 
 ## Recently completed
 
+- **Build 31 — queue-state correctness:** finite mode now reports real backlog behind a blocked output, while an optional forward-only queue model can apply Drop newest or complete-note protection without deliberately delaying accepted MIDI.
 - **Build 30 — human-facing refinement:** direct executable downloads, clearer large-file warnings, paused warning-dialog time, Per-note frame-rate reporting, stable Per-note effective speed, a public changelog, and simpler documentation.
 - **Build 29 — large-file preflight:** exact cancellable counting and storage-aware memory estimates only for files large enough to justify a second pass.
 - **Build 28 — direct compact parser:** bounded track readers, segmented provisional data, direct stable merge, segmented tempo/source histories, and no runtime configuration sidecar.
@@ -20,7 +21,6 @@ See [CHANGELOG.md](CHANGELOG.md) for the complete history.
 ## Needs a product decision
 
 - **Whole-state chase on Play/Seek** — restore earlier bank, program, controller, bend, and pressure state without replaying notes.
-- **Virtual finite capacity without slowdown** — decide which forward-only overflow policies remain honest after events have already been sent.
 - **Channel override extensions** — presets, requested-versus-forced display, and optional static transformations that Analysis can model.
 - **Track routing** — route tracks onto constrained hardware channels with explicit rules for program/controller conflicts, percussion, and overlapping merged notes.
 - **Low-resolution presentation modes** — measured row hiding, roll-up, or non-cumulative scaling without destabilizing the canonical layout.

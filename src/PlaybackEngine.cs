@@ -24,6 +24,8 @@ namespace MidiBottleneck
         private int _serviceDurationMode;
         private int _queueLengthLimit = DefaultQueueLengthLimit;
         private int _simulateSlowdown = 1;
+        private int _applyQueueLimitWithoutSlowdown = 1;
+        private bool _virtualForwardDropActive;
         private int _overflowPolicy;
         private long _transportBaseTicks;
         private long _runStartStamp;
@@ -38,13 +40,23 @@ namespace MidiBottleneck
         private long _processedEvents;
         private long _droppedEvents;
         private long _gateFilteredEvents;
+        private long _virtualQueueLength;
+        private long _virtualOutstandingEvents;
+        private long _virtualMaximumQueueLength;
         private long _lastDispatchedMicroseconds;
         private long _effectiveSpeedFrontierMicroseconds;
         private long _currentLagMicroseconds;
         private long _maximumLagMicroseconds;
         private int _publishedNextProcess;
+        private int _publishedDropNextArrival;
+        private int _publishedDropPending;
         private bool _publishedInService;
         private bool _hasPublishedQueue;
+        private int _snapshotFilterStart = -1;
+        private int _snapshotFilterEnd = -1;
+        private long _snapshotEligibleCount;
+        private int _snapshotRoutingGeneration = -1;
+        private int _snapshotOverrideGeneration = -1;
         private int _usesPreAdmissionFilterAccounting;
         private DropTraceRecorder _dropTrace;
         private readonly ChannelStateTracker _channelState = new ChannelStateTracker();
@@ -103,6 +115,12 @@ namespace MidiBottleneck
             }
         }
 
+        public bool ApplyQueueLimitWithoutSlowdown
+        {
+            get { return Volatile.Read(ref _applyQueueLimitWithoutSlowdown) != 0; }
+            set { Volatile.Write(ref _applyQueueLimitWithoutSlowdown, value ? 1 : 0); }
+        }
+
         public int QueueLengthLimit
         {
             get { return Volatile.Read(ref _queueLengthLimit); }
@@ -142,6 +160,13 @@ namespace MidiBottleneck
         {
             if (song == null) throw new ArgumentNullException("song");
             if (output == null) throw new ArgumentNullException("output");
+            bool virtualForward = mode == ProcessingMode.Drop &&
+                Volatile.Read(ref _simulateSlowdown) == 0 &&
+                Volatile.Read(ref _applyQueueLimitWithoutSlowdown) != 0;
+            OverflowPolicy startPolicy = (OverflowPolicy)Volatile.Read(ref _overflowPolicy);
+            if (virtualForward && startPolicy != OverflowPolicy.DropNewest &&
+                startPolicy != OverflowPolicy.DropIncomingCompleteNotes)
+                throw new InvalidOperationException("This overflow policy can remove MIDI that was already sent. Turn on Simulate slowdown, or choose Drop newest or Drop incoming complete notes.");
             Stop();
             IMidiOutputContext outputContext = output as IMidiOutputContext;
             if (outputContext != null) outputContext.SourceFile = song.FilePath;
@@ -152,6 +177,7 @@ namespace MidiBottleneck
                 _events = song.GetEventReader();
                 _output = output;
                 _mode = mode;
+                _virtualForwardDropActive = virtualForward;
                 _startEventIndex = FindFirstEventAtOrAfter(song, startMicroseconds);
                 _hasPublishedQueue = false;
                 Volatile.Write(ref _usesPreAdmissionFilterAccounting, 0);
@@ -424,6 +450,7 @@ namespace MidiBottleneck
                 _processedEvents = 0;
                 _droppedEvents = 0;
                 _gateFilteredEvents = 0;
+                _virtualMaximumQueueLength = _virtualOutstandingEvents;
                 _maximumLagMicroseconds = _currentLagMicroseconds;
             }
             _channelOverrides.ResetStatistics();
@@ -677,6 +704,15 @@ namespace MidiBottleneck
                     _outstandingEvents = _queueLength + (_publishedInService ? 1 : 0);
                     _maximumQueueLength = Math.Max(_maximumQueueLength, _outstandingEvents);
                 }
+                else if (_mode == ProcessingMode.Drop && _hasPublishedQueue &&
+                    (_state == PlaybackState.Playing || _state == PlaybackState.Paused))
+                {
+                    int due = FindFirstEventAfterTransport(_publishedDropNextArrival, playbackTicks);
+                    long newlyDue = CountSnapshotEligible(_publishedDropNextArrival, due);
+                    _queueLength = Math.Max(0, _publishedDropPending + newlyDue);
+                    _outstandingEvents = _queueLength + (_publishedInService ? 1 : 0);
+                    _maximumQueueLength = Math.Max(_maximumQueueLength, _outstandingEvents);
+                }
                 long playbackUs = TicksToMicroseconds(playbackTicks);
                 PlaybackSnapshot snapshot = new PlaybackSnapshot();
                 snapshot.State = _state;
@@ -694,6 +730,10 @@ namespace MidiBottleneck
                 snapshot.ProcessedEvents = _processedEvents;
                 snapshot.DroppedEvents = _droppedEvents;
                 snapshot.GateFilteredEvents = _gateFilteredEvents;
+                snapshot.VirtualQueueActive = _virtualForwardDropActive;
+                snapshot.VirtualQueueLength = _virtualQueueLength;
+                snapshot.VirtualOutstandingEvents = _virtualOutstandingEvents;
+                snapshot.VirtualMaximumQueueLength = _virtualMaximumQueueLength;
                 snapshot.PlaybackMicroseconds = playbackUs;
                 snapshot.IntendedTimelineMicroseconds = _song == null ? 0 : Math.Min(playbackUs, _song.DurationMicroseconds);
                 snapshot.LastDispatchedTimelineMicroseconds = _lastDispatchedMicroseconds;
@@ -866,6 +906,11 @@ namespace MidiBottleneck
 
         private void RunDropMode(HighResolutionWaiter waiter)
         {
+            if (_virtualForwardDropActive)
+            {
+                RunVirtualForwardDropMode(waiter);
+                return;
+            }
             int nextArrival = _startEventIndex;
             int inService = -1;
             long completionTicks = Int64.MaxValue;
@@ -891,6 +936,7 @@ namespace MidiBottleneck
                 if (!WaitWhilePaused()) return;
                 ApplyPendingOverrides();
                 long now = CurrentTransportTicks();
+                PublishDropQueue(nextArrival, pending.Count, inService >= 0);
 
                 int currentRoutingGeneration = _channelRouting.FilterGeneration;
                 int currentOverrideGeneration = _channelOverrides.FilterGeneration;
@@ -936,9 +982,9 @@ namespace MidiBottleneck
                         int dueEnd = nextArrival + 1;
                         int dueLimit = Math.Min(_events.Count, nextArrival + 2048);
                         while (dueEnd < dueLimit && EventTicks(dueEnd) <= now) dueEnd++;
-                        UpdateQueue(0, true);
+                        PublishDropQueue(nextArrival + 1, 0, true);
                         DispatchImmediateRange(ref nextArrival, dueEnd, now);
-                        UpdateQueue(0, false);
+                        PublishDropQueue(nextArrival, 0, false);
                         continue;
                     }
                     if (traceEnabled && (arrivalTicks != clusterTimestamp || nextArrival >= clusterEnd))
@@ -1114,6 +1160,105 @@ namespace MidiBottleneck
                     SetCurrentLag(0);
                 PublishChannelStateBeforeWait(target, now);
                 WaitUntil(waiter, target, iterationWakeGeneration);
+            }
+        }
+
+        private void RunVirtualForwardDropMode(HighResolutionWaiter waiter)
+        {
+            int nextArrival = _startEventIndex;
+            int bufferCapacity = Volatile.Read(ref _queueLengthLimit);
+            ForwardDropQueue virtualQueue = new ForwardDropQueue(bufferCapacity);
+            CompleteNoteTracker completeNotes = new CompleteNoteTracker();
+            FilteredSourceEvents filtered = new FilteredSourceEvents();
+            int routingGeneration = _channelRouting.FilterGeneration;
+            int overrideGeneration = _channelOverrides.FilterGeneration;
+            if (HasActiveSourceFilters()) Volatile.Write(ref _usesPreAdmissionFilterAccounting, 1);
+
+            while (IsActive())
+            {
+                int iterationWakeGeneration = Volatile.Read(ref _wakeGeneration);
+                ApplyPendingChannelControls();
+                if (!WaitWhilePaused()) return;
+                ApplyPendingOverrides();
+                long nowTicks = CurrentTransportTicks();
+                PublishDropQueue(nextArrival, 0, false);
+
+                int currentRoutingGeneration = _channelRouting.FilterGeneration;
+                int currentOverrideGeneration = _channelOverrides.FilterGeneration;
+                if (currentRoutingGeneration != routingGeneration || currentOverrideGeneration != overrideGeneration)
+                {
+                    routingGeneration = currentRoutingGeneration;
+                    overrideGeneration = currentOverrideGeneration;
+                    if (HasActiveSourceFilters()) Volatile.Write(ref _usesPreAdmissionFilterAccounting, 1);
+                }
+
+                if (nextArrival < _events.Count && EventTicks(nextArrival) <= nowTicks)
+                {
+                    int eventIndex = nextArrival++;
+                    MidiEventView incomingEvent = _events[eventIndex];
+                    long arrival = incomingEvent.IntendedMicroseconds;
+                    virtualQueue.Advance(arrival);
+                    PublishVirtualQueue(virtualQueue);
+
+                    if (HasActiveSourceFilters() && MarkNewSourceFiltered(eventIndex, filtered)) continue;
+
+                    CompleteNoteEventKind noteKind = CompleteNoteTracker.Classify(incomingEvent);
+                    if (noteKind == CompleteNoteEventKind.NoteOff && completeNotes.ShouldSuppressNoteOff(incomingEvent))
+                    {
+                        RecordVirtualDrop(eventIndex);
+                        continue;
+                    }
+
+                    OverflowPolicy policy = (OverflowPolicy)Volatile.Read(ref _overflowPolicy);
+                    if (policy != OverflowPolicy.DropNewest && policy != OverflowPolicy.DropIncomingCompleteNotes)
+                        throw new InvalidOperationException("The selected overflow policy requires Simulate slowdown because it would retract MIDI that the forward-only model has already sent.");
+                    bool safetyAdmission = policy == OverflowPolicy.DropIncomingCompleteNotes &&
+                        noteKind != CompleteNoteEventKind.NoteOn;
+                    long service = ConfiguredServiceMicroseconds(incomingEvent);
+                    bool accepted = virtualQueue.TryAdmit(arrival, service, safetyAdmission);
+                    if (!accepted)
+                    {
+                        if (noteKind == CompleteNoteEventKind.NoteOn)
+                            completeNotes.RecordNoteOn(incomingEvent, false,
+                                policy == OverflowPolicy.DropIncomingCompleteNotes);
+                        RecordVirtualDrop(eventIndex);
+                        PublishVirtualQueue(virtualQueue);
+                        continue;
+                    }
+
+                    if (noteKind == CompleteNoteEventKind.NoteOn)
+                        completeNotes.RecordNoteOn(incomingEvent, true, false);
+                    PublishVirtualQueue(virtualQueue);
+                    PublishDropQueue(nextArrival, 0, true);
+                    Dispatch(eventIndex, nowTicks);
+                    PublishDropQueue(nextArrival, 0, false);
+                    continue;
+                }
+
+                long nowMicroseconds = TicksToMicroseconds(nowTicks);
+                virtualQueue.Advance(nowMicroseconds);
+                PublishVirtualQueue(virtualQueue);
+                if (nextArrival >= _events.Count) return;
+                SetCurrentLag(0);
+                long target = EventTicks(nextArrival);
+                PublishChannelStateBeforeWait(target, nowTicks);
+                WaitUntil(waiter, target, iterationWakeGeneration);
+            }
+        }
+
+        private void RecordVirtualDrop(int eventIndex)
+        {
+            lock (_sync) _droppedEvents++;
+            RecordChannelDrop(eventIndex);
+        }
+
+        private void PublishVirtualQueue(ForwardDropQueue queue)
+        {
+            lock (_sync)
+            {
+                _virtualQueueLength = Math.Max(0, queue.Occupancy - 1);
+                _virtualOutstandingEvents = queue.Occupancy;
+                _virtualMaximumQueueLength = Math.Max(_virtualMaximumQueueLength, queue.Occupancy);
             }
         }
 
@@ -1297,6 +1442,7 @@ namespace MidiBottleneck
                         if ((sent & 63) == 0 && !IsEffectiveZeroService()) break;
                         long intendedMicroseconds;
                         MidiEventView midiEvent = _events.GetSequential(nextIndex, ref cursor, out intendedMicroseconds);
+                        PublishDropQueue(nextIndex + 1, 0, true);
                         SendScheduledEvent(midiEvent, trackChannels);
                         long elapsedTicks = Stopwatch.GetTimestamp() - stopwatchAtBatchStart;
                         long actualTicks = transportAtBatchStart + elapsedTicks;
@@ -1388,6 +1534,65 @@ namespace MidiBottleneck
                 if (_outstandingEvents > _maximumQueueLength) _maximumQueueLength = _outstandingEvents;
             }
             PublishChannelState(false);
+        }
+
+        private void PublishDropQueue(int nextArrival, int pending, bool inService)
+        {
+            lock (_sync)
+            {
+                _publishedDropNextArrival = nextArrival;
+                _publishedDropPending = Math.Max(0, pending);
+                _publishedInService = inService;
+                _hasPublishedQueue = true;
+                _queueLength = _publishedDropPending;
+                _outstandingEvents = _queueLength + (inService ? 1 : 0);
+                if (_outstandingEvents > _maximumQueueLength) _maximumQueueLength = _outstandingEvents;
+            }
+            PublishChannelState(false);
+        }
+
+        // A synchronous native Send can block while source time continues.  The
+        // worker cannot admit those newly-due events until Send returns, so the
+        // snapshot counts that exact candidate range.  Filtered ranges are
+        // cached and extended: an unchanged blocked range is never rescanned on
+        // every UI refresh.
+        private long CountSnapshotEligible(int startInclusive, int endExclusive)
+        {
+            if (startInclusive >= endExclusive) return 0;
+            if (!HasActiveSourceFilters()) return endExclusive - startInclusive;
+
+            int routingGeneration = _channelRouting.FilterGeneration;
+            int overrideGeneration = _channelOverrides.FilterGeneration;
+            int scanStart;
+            long eligible;
+            if (_snapshotFilterStart == startInclusive && _snapshotFilterEnd >= startInclusive &&
+                _snapshotFilterEnd <= endExclusive && _snapshotRoutingGeneration == routingGeneration &&
+                _snapshotOverrideGeneration == overrideGeneration)
+            {
+                scanStart = _snapshotFilterEnd;
+                eligible = _snapshotEligibleCount;
+            }
+            else
+            {
+                scanStart = startInclusive;
+                eligible = 0;
+                _snapshotFilterStart = startInclusive;
+                _snapshotRoutingGeneration = routingGeneration;
+                _snapshotOverrideGeneration = overrideGeneration;
+            }
+
+            for (int index = scanStart; index < endExclusive; index++)
+            {
+                MidiEventView midiEvent = _events[index];
+                if (_channelRouting.ShouldFilter(midiEvent)) continue;
+                ChannelAttribute attribute;
+                int forcedValue;
+                if (_channelOverrides.ShouldSuppress(midiEvent, out attribute, out forcedValue)) continue;
+                eligible++;
+            }
+            _snapshotFilterEnd = endExclusive;
+            _snapshotEligibleCount = eligible;
+            return eligible;
         }
 
         private void RecordChannelDrop(int eventIndex)
@@ -1650,6 +1855,13 @@ namespace MidiBottleneck
             return MicrosecondsToTicks(microseconds);
         }
 
+        private long ConfiguredServiceMicroseconds(MidiEventView midiEvent)
+        {
+            return ServiceDurationCalculator.CalculateMicroseconds(midiEvent,
+                (ServiceDurationMode)Volatile.Read(ref _serviceDurationMode),
+                Interlocked.Read(ref _processingMicroseconds), Interlocked.Read(ref _midiBitrate));
+        }
+
         private bool IsEffectiveZeroService()
         {
             if (Volatile.Read(ref _simulateSlowdown) == 0) return true;
@@ -1758,10 +1970,16 @@ namespace MidiBottleneck
             _processedEvents = 0;
             _droppedEvents = 0;
             _gateFilteredEvents = 0;
+            _virtualQueueLength = 0;
+            _virtualOutstandingEvents = 0;
+            _virtualMaximumQueueLength = 0;
             _lastDispatchedMicroseconds = 0;
             _effectiveSpeedFrontierMicroseconds = 0;
             _currentLagMicroseconds = 0;
             _maximumLagMicroseconds = 0;
+            _snapshotFilterStart = -1;
+            _snapshotFilterEnd = -1;
+            _snapshotEligibleCount = 0;
         }
 
         private static long ClampPosition(MidiSong song, long microseconds)

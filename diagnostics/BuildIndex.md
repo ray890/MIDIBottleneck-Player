@@ -34,6 +34,7 @@ The public history was reconstructed because original Git commits did not exist.
 | 28 | direct-compact-parser | 2026-09-22 12:50 -04:00 | exact | `v1.0.28` |
 | 29 | large-file-preflight | 2026-09-22 20:10 -04:00 | exact | `v1.0.29` |
 | 30 | human-facing-refinement | 2026-09-22 22:50 -04:00 | exact | `v1.0.30` |
+| 31 | queue-state-correctness | 2026-09-23 07:22 -04:00 | exact | `v1.0.31` |
 
 ## Evidence-recovery result
 

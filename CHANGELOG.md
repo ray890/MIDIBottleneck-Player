@@ -355,3 +355,17 @@ This is the human-readable history of MIDIBottleneck Player. Dates are original 
 
 - Changed current and future downloads to loose, versioned x86/x64 executables plus checksums.
 - Added this public changelog and simplified the README, roadmap, packaging instructions, and release descriptions.
+
+## Build 31 — 2026-09-23
+
+### Player changes
+
+- Corrected finite-queue statistics so MIDI that becomes due behind a blocked output call appears in the real unsent backlog, even when simulated slowdown is off.
+- Excludes muted channels and source attribute changes blocked by forced overrides from that backlog.
+- Added the checked-by-default **Apply queue limit without slowdown** option. It uses the selected rate model for virtual pressure and forward-only Drop newest or complete-note rejection while sending accepted MIDI immediately.
+- Shows actual backlog separately from the virtual pressure bar and prevents policies that would claim to retract already-sent MIDI.
+- Gives static Analysis the same forward-drop decisions while clearly excluding real driver/synthesizer blocking.
+
+### Verification
+
+- Deterministic blocked-output, filtering, complete-note, Analysis-equivalence, lifecycle, and system-menu coverage was added on both architectures.

@@ -33,6 +33,10 @@ With slowdown disabled, accepted events are dispatched as soon as their source t
 
 With **Queue length limit** off, the simulated application queue is unlimited. With it on, the configured occupancy includes the event in service plus pending events.
 
+By default, the title-bar system menu checks **Apply queue limit without slowdown**. If Queue length limit is on while Simulate slowdown is off, this keeps a virtual queue using the selected Time/event or MIDI bitrate. It may reject a newly arriving event, but accepted MIDI is sent immediately; the model never removes something already sent. The queue statistic above the pressure bar remains the real unsent scheduler/output backlog. The bar is labelled **Virtual** and shows the separate modeled pressure.
+
+Only **Drop newest** and **Drop incoming complete notes** are valid in this forward-only mode. **Drop oldest** and **Clear buffer and jump to realtime** require Simulate slowdown because they can remove pending MIDI only when the modeled queue is also the real delayed queue. The player keeps the selected policy and explains why Play is unavailable instead of silently changing it. The system-menu option can be changed only while playback is stopped; the choice applies to the next playback start. Turning Simulate slowdown on or off during finite playback uses a safe silence/restart at the same position because it changes between the real delayed queue and the virtual forward-only model.
+
 Overflow choices include:
 
 - **Drop newest** — reject the arriving event when full.
@@ -41,6 +45,8 @@ Overflow choices include:
 - **Drop incoming complete notes** — reject a NoteOn and later suppress its paired NoteOff, while preserving NoteOffs for notes that were actually sent and preserving non-note messages. Protected events can temporarily take occupancy above the configured soft ceiling.
 
 Channel mutes and forced-attribute conflicts are filtered before queue admission. They are reported separately and do not consume simulated service or queue capacity.
+
+A blocked driver or synthesizer call can create a real backlog even when simulated slowdown is off. **Queue now / maximum** counts those due, eligible, unsent events and the call currently in service. Muted channels and source attribute changes blocked by a forced override are excluded. This real backlog is separate from virtual pressure and can exceed the configured virtual limit while a native call is unable to return.
 
 ### Per-note interval gate
 
@@ -102,4 +108,4 @@ Overrides persist across normal playback boundaries for the same file and clear 
 
 The main window switches to a measured compact arrangement below its responsive width boundary. Controls retain full tooltips where captions or values must ellipsize.
 
-The title-bar system menu contains **About**, a session-only **Always on top** option, and **Per-note interval gate**.
+The title-bar system menu contains **About**, a session-only **Always on top** option, **Per-note interval gate**, and the checked-by-default **Apply queue limit without slowdown** option.

@@ -22,6 +22,8 @@ Warnings use exact SMF counts and the current segmented layouts. The x86 warning
 
 Build 30 pauses the displayed loading timer while that warning waits for a decision. The pause is subtracted after Continue or Cancel, so elapsed loading time describes application work rather than reading time.
 
+A Build 31 bounded 200,000-event x64 run measured the count-only preflight separately at 4.8–6.4 ms and production parsing at 45.4–57.2 ms. The preflight produced no Gen0 collection; parsing produced two or three. Warning-sized files intentionally pay both costs, while ordinary files remain one-pass. These figures describe one generated fixture and are not giant-file predictions.
+
 One user-reported external validation loaded a file containing 484,582,688 dispatchable events in the x64 build, using roughly 50 GB. This was not reproduced by the public deterministic test gate and must not be read as a general memory or load-time guarantee.
 
 ## Performance measurements
@@ -33,6 +35,8 @@ Earlier real-provider observations and incomplete native probes are retained onl
 The current success paths avoid per-event diagnostic string construction, module lookup, short-message arrays, and empty SysEx-reclamation work. Ordered checkpoints keep queue/statistics publication responsive without intentionally pacing output.
 
 In Per-note mode, Effective speed uses a monotonic resolved-source frontier that advances only after each interval frame's output batch returns. It advances through empty frames in sparse/filtered passages and stalls behind a blocked output. Individual event lag remains tied to each event's original timestamp, so it can vary within one frame by design.
+
+Build 31 repeated injected short-message boundary measurements without opening a provider. Across five 500,000-send runs, WinMM took 13.1–14.5 ms and KDMAPI took 12.6–14.6 ms, with zero Gen0 collections. Neither boundary had a stable advantage large enough to justify changing the tested adapter path. These numbers measure application/delegate overhead only and say nothing about a synthesizer's internal processing. Warm immediate None playback of the generated 200,000-event fixture was about 6.9–7.2 ms after a 21.3 ms first run, also with zero Gen0 collections.
 
 ## Provider boundaries
 

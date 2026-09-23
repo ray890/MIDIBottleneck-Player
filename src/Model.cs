@@ -398,6 +398,10 @@ namespace MidiBottleneck
         public long ProcessedEvents;
         public long DroppedEvents;
         public long GateFilteredEvents;
+        public bool VirtualQueueActive;
+        public long VirtualQueueLength;
+        public long VirtualOutstandingEvents;
+        public long VirtualMaximumQueueLength;
         public long PlaybackMicroseconds;
         public long IntendedTimelineMicroseconds;
         public long LastDispatchedTimelineMicroseconds;

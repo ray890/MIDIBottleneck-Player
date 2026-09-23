@@ -19,6 +19,7 @@ The policy still needs exact rules for a Note Off that has not arrived, an event
 - **Build 28 — direct compact parser:** parses bounded track streams into provisional segments, merges directly into the final store, and segments tempo/source histories. No runtime configuration sidecar remains.
 - **Build 29 — large-file preflight:** scans only files large enough to justify a second pass, then estimates open-file and loading-peak memory from exact SMF counts.
 - **Build 30 — human-facing refinement:** clarifies memory warnings, gate statistics, downloads, documentation, release history, and roadmap. Effective speed now uses a monotonic gate-progress frontier.
+- **Build 31 — queue-state correctness:** distinguishes real blocked-output backlog from virtual rate-model pressure and applies forward-only Drop newest/complete-note decisions without delaying accepted MIDI.
 
 ## Playback and MIDI state decisions
 
@@ -27,6 +28,8 @@ The policy still needs exact rules for a Note Off that has not arrived, an event
 The eventual product behavior would be enabled by default with a system-menu option to disable it. It should restore bank/program, controllers, bend/pressure, and ordered RPN/NRPN data-entry state before later notes, without replaying notes.
 
 This needs a compact checkpoint index suitable for very large files, explicit SysEx exclusions or bounded rules, forced-override precedence, disabled-channel behavior, and exact reset-before-note ordering. Do not expose a partial menu command.
+
+Build 31 deliberately left this unstarted after the queue work: completing controller reconstruction also requires exact RPN/NRPN parameter-state indexing and ordered data-entry replay, not just reusing the nine-attribute monitor index. A suitable design should use segmented per-controller histories plus compact parameter checkpoints, exclude notes/SysEx/channel-mode commands, and be verified across every reset/restart boundary before the menu appears.
 
 ### Channel-override extensions
 
@@ -40,11 +43,11 @@ A possible static path is:
 
 `source event → optional track-to-output-channel route → queue/service model → runtime override filter → MIDI output`
 
-The parser would need retained track names. The design must handle multiple source programs/channels, merged overlapping notes, bank/controller/bend conflicts, channel-10 percussion, ownership of conflicting state, and warnings for lossy routes. One editable channel cell per track is not automatically safe.
+The parser would need retained track names. The design must handle multiple source programs/channels, merged overlapping notes, bank/controller/bend conflicts, channel-10 percussion, ownership of conflicting state, and warnings for lossy routes. One editable channel cell per track is not automatically safe. The intended planner targets a configurable number of melodic destination channels: merge exact-program material first, then consider instrument-family similarity and temporal overlap. Percussion needs an explicit policy, controller/bend conflicts need warnings, every destination needs a representative patch, and manual routing overrides must remain available.
 
-### Virtual finite capacity without slowdown
+### Build 31 forward-only finite capacity
 
-A shadow queue can honestly reject current arrivals for forward-only policies. It cannot retract an event already sent, so Drop oldest or clear-buffer semantics become misleading without a new ordered producer/consumer contract and explicit real-versus-modeled queue/lag displays.
+Completed for **Drop newest** and **Drop incoming complete notes**. Playback and Analysis share the bounded pressure model, accepted output is not delayed, and real native/scheduler backlog is displayed separately. Drop oldest and clear/catch-up still require Simulate slowdown; supporting them without delay would require an ordered producer/consumer contract and cannot honestly be emulated after output is sent.
 
 ## Presentation decisions
 
@@ -64,7 +67,7 @@ Native `WS_EX_CONTEXTHELP` conflicts with the principal windows' minimize/maximi
 
 ## Public project maintenance
 
-The public repository uses explicit first-party packaging and explicit `main`/tag pushes. Build 30 publishes versioned loose executables plus checksums. Private diagnostics, provider logs, machine paths, and recovery refs stay local.
+The public repository uses explicit first-party packaging and explicit `main`/tag pushes. Build 31 continues to publish versioned loose executables plus checksums. Private diagnostics, provider logs, machine paths, and recovery refs stay local.
 
 A bounded GitHub Actions trial was retired because realized WinForms geometry tests depend on interactive desktop, font, and working-area metrics. Future CI should separate display-independent tests or provide a controlled interactive desktop instead of weakening layout assertions.
 
@@ -75,3 +78,5 @@ A bounded GitHub Actions trial was retired because realized WinForms geometry te
 - **Producer/consumer output separation:** might isolate provider latency, but redefines backlog, lag, cancellation, finite pressure, and Stop/Seek semantics; providers may not be thread-safe.
 - **Extreme-load pause attribution:** further claims need isolated ETW/GC/commit/page-fault evidence after the compact storage improvements.
 - **Legacy Windows or cross-platform portability:** a longer-term direction, not a current compatibility promise.
+- **Static Per-note Analysis:** exact projection means running the shared gate state machine offline and graphing its admitted transitions/events per second. A theoretical frame-rate line alone is not equivalent.
+- **Contextual help:** one F1/system-menu Help window could open at the section associated with the focused control. It should provide real guidance rather than decorative title-bar behavior.

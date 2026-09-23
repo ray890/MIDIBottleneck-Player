@@ -487,6 +487,12 @@ namespace MidiBottleneck.Tests
                     RunFocused("loose executable release packaging", TestProcessArchitecture);
                     return 0;
                 }
+                if (arguments.Length == 1 && arguments[0] == "--test-build31")
+                {
+                    RunFocused("truthful finite queue during blocked output", TestQueueFreshness);
+                    RunFocused("forward-only queue limit without slowdown", TestForwardQueueLimitWithoutSlowdown);
+                    return 0;
+                }
                 if (arguments.Length == 1 && arguments[0] == "--test-interface-only")
                 {
                     RunFocused("WinForms interface construction", TestInterfaceConstruction);
@@ -500,6 +506,11 @@ namespace MidiBottleneck.Tests
                 if (arguments.Length == 1 && arguments[0] == "--benchmark-short-adapters")
                 {
                     BenchmarkShortAdapters();
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--benchmark-build31")
+                {
+                    BenchmarkBuild31Boundaries();
                     return 0;
                 }
                 if (arguments.Length == 2 && arguments[0] == "--benchmark-event-store")
@@ -566,6 +577,7 @@ namespace MidiBottleneck.Tests
                 Run("KDMAPI short-send hot path", TestKdmApiShortHotPath);
                 Run("integer stopwatch conversion matches exact scheduler math", TestStopwatchConversion);
                 Run("live queue snapshots during slow and blocked output", TestQueueFreshness);
+                Run("forward-only queue limit without slowdown", TestForwardQueueLimitWithoutSlowdown);
                 Run("file workload scan reuse with exact projections", TestAnalysisWorkloadReuse);
                 Run("loading cadence and corrected layout", TestCorrectiveLoading);
                 Run("KDMAPI short, SysEx, reset, and stream lifecycle", TestKdmApiOutput);
@@ -737,6 +749,24 @@ namespace MidiBottleneck.Tests
             public void Reset() { }
         }
 
+        private sealed class NoteBlockingOutput : IMidiOutput
+        {
+            public readonly ManualResetEvent Entered = new ManualResetEvent(false);
+            public readonly ManualResetEvent Release = new ManualResetEvent(false);
+            private int _blocked;
+            public void Send(MidiEventView midiEvent)
+            {
+                if ((midiEvent.Status & 0xF0) == 0x90 && ((midiEvent.PackedShortMessage >> 16) & 0xFF) != 0 &&
+                    Interlocked.CompareExchange(ref _blocked, 1, 0) == 0)
+                {
+                    Entered.Set();
+                    Release.WaitOne(2000);
+                }
+            }
+            public void Panic() { }
+            public void Reset() { }
+        }
+
         private static void TestQueueFreshness()
         {
             foreach (ProcessingMode mode in new ProcessingMode[] { ProcessingMode.Queue, ProcessingMode.Drop })
@@ -758,10 +788,8 @@ namespace MidiBottleneck.Tests
                         PlaybackSnapshot blocked = engine.GetSnapshot();
                         Equal(0L, blocked.ProcessedEvents, "blocked send is not counted as sent");
                         Equal(blocked.QueueLength + 1, blocked.OutstandingEvents, "in-service slot distinguished from pending");
-                        if (mode == ProcessingMode.Queue && blocked.QueueLength < 50)
-                            throw new Exception("unlimited source arrivals froze during output blocking");
-                        if (mode == ProcessingMode.Drop && blocked.OutstandingEvents > 16)
-                            throw new Exception("snapshot invented finite admissions beyond capacity");
+                        if (blocked.QueueLength < 50)
+                            throw new Exception(mode + " source arrivals froze during output blocking; queue=" + blocked.QueueLength);
                         output.Release.Set();
                         Stopwatch publication = Stopwatch.StartNew();
                         while (engine.GetSnapshot().ProcessedEvents < 10 && publication.ElapsedMilliseconds < 800) Thread.Sleep(5);
@@ -781,6 +809,44 @@ namespace MidiBottleneck.Tests
                     }
                     finally { output.Release.Set(); }
                 }
+            }
+
+
+            List<MidiEvent> filteredEvents = new List<MidiEvent>();
+            filteredEvents.Add(ChannelMessage(0, 0x92, 50, 100));
+            for (int i = 1; i <= 120; i++)
+            {
+                if (i % 3 == 0) filteredEvents.Add(ChannelMessage(i * 1000, 0x92, (byte)(50 + (i % 12)), 100));
+                else if (i % 3 == 1) filteredEvents.Add(ChannelMessage(i * 1000, 0x90, 60, 100));
+                else filteredEvents.Add(ChannelMessage(i * 1000, 0xC1, 5));
+            }
+            NoteBlockingOutput filteredOutput = new NoteBlockingOutput();
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.SimulateSlowdown = false;
+                engine.ApplyQueueLimitWithoutSlowdown = false;
+                engine.QueueLengthLimit = 8;
+                engine.Start(NewChannelSong("filtered-blocked.mid", 250000, filteredEvents.ToArray()),
+                    filteredOutput, ProcessingMode.Drop, 0, true);
+                engine.SetChannelEnabled(0, false);
+                WaitFor(delegate { return !engine.IsChannelEnabled(0); }, 1000, "muted filter before blocked send");
+                engine.SetChannelOverride(1, ChannelAttribute.Program, 12);
+                engine.Resume();
+                try
+                {
+                    Equal(true, filteredOutput.Entered.WaitOne(1000), "filtered output entered blocked source send");
+                    Thread.Sleep(150);
+                    PlaybackSnapshot blocked = engine.GetSnapshot();
+                    if (blocked.OutstandingEvents < 30 || blocked.OutstandingEvents > 45)
+                        throw new Exception("filtered events polluted actual backlog: " + blocked.OutstandingEvents);
+                    engine.ResetStatistics();
+                    PlaybackSnapshot reset = engine.GetSnapshot();
+                    Equal(reset.OutstandingEvents, reset.MaximumQueueLength,
+                        "Reset statistics rebases blocked actual maximum");
+                }
+                finally { filteredOutput.Release.Set(); }
+                engine.Stop();
+                Equal(0L, engine.GetSnapshot().OutstandingEvents, "filtered blocked Stop clears backlog");
             }
         }
 
@@ -1131,6 +1197,53 @@ namespace MidiBottleneck.Tests
                 }
             }
             Equal(2520000L, native.ShortCount, "KDMAPI adapter benchmark preserves every short message");
+        }
+
+        private static void BenchmarkBuild31Boundaries()
+        {
+            const int eventCount = 200000;
+            string path = CreateDenseMidiFile(eventCount);
+            try
+            {
+                MidiLargeFilePreflight.Scan(path, CancellationToken.None, null);
+                MidiSong warm = MidiFileParser.Load(path);
+                for (int run = 0; run < 3; run++)
+                {
+                    int gen0 = GC.CollectionCount(0);
+                    Stopwatch scan = Stopwatch.StartNew();
+                    MidiPreflightCounts counts = MidiLargeFilePreflight.Scan(path, CancellationToken.None, null);
+                    scan.Stop();
+                    Console.WriteLine("Preflight {0}: {1:N0} events in {2:F2} ms; Gen0={3}", run + 1,
+                        counts.DispatchableEventCount, scan.Elapsed.TotalMilliseconds,
+                        GC.CollectionCount(0) - gen0);
+
+                    gen0 = GC.CollectionCount(0);
+                    Stopwatch parse = Stopwatch.StartNew();
+                    MidiSong song = MidiFileParser.Load(path);
+                    parse.Stop();
+                    Console.WriteLine("Production parse {0}: {1:N0} events in {2:F2} ms; Gen0={3}", run + 1,
+                        song.EventStore.Count, parse.Elapsed.TotalMilliseconds,
+                        GC.CollectionCount(0) - gen0);
+                }
+
+                for (int run = 0; run < 3; run++)
+                using (NullMidiOutput output = new NullMidiOutput())
+                using (PlaybackEngine engine = new PlaybackEngine())
+                {
+                    engine.SimulateSlowdown = false;
+                    int gen0 = GC.CollectionCount(0);
+                    Stopwatch playback = Stopwatch.StartNew();
+                    engine.Start(warm, output, ProcessingMode.Queue);
+                    WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 10000,
+                        "Build 31 None benchmark");
+                    playback.Stop();
+                    Console.WriteLine("Immediate None {0}: {1:N0} events in {2:F2} ms; Gen0={3}", run + 1,
+                        engine.GetSnapshot().ProcessedEvents, playback.Elapsed.TotalMilliseconds,
+                        GC.CollectionCount(0) - gen0);
+                }
+                BenchmarkShortAdapters();
+            }
+            finally { if (File.Exists(path)) File.Delete(path); }
         }
 
         private static void MeasureAdapter(string name, IMidiOutput output, MidiEvent midiEvent, int count)
@@ -2597,6 +2710,7 @@ namespace MidiBottleneck.Tests
             using (PlaybackEngine engine = new PlaybackEngine())
             {
                 engine.SimulateSlowdown = false;
+                engine.ApplyQueueLimitWithoutSlowdown = false;
                 engine.ProcessingMicroseconds = 10000;
                 engine.QueueLengthLimit = 1;
                 engine.Start(song, output, ProcessingMode.Drop);
@@ -2604,6 +2718,126 @@ namespace MidiBottleneck.Tests
                 PlaybackSnapshot snapshot = engine.GetSnapshot();
                 Equal(3L, snapshot.ProcessedEvents, "slowdown-off production processed");
                 Equal(0L, snapshot.DroppedEvents, "slowdown-off production drops");
+            }
+        }
+
+        private static void TestForwardQueueLimitWithoutSlowdown()
+        {
+            MidiSong song = BuildSong(new long[] { 0, 0, 0 });
+            FakeMidiOutput output = new FakeMidiOutput();
+            PlaybackSnapshot playback;
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.SimulateSlowdown = false;
+                engine.ApplyQueueLimitWithoutSlowdown = true;
+                engine.ProcessingMicroseconds = 10000;
+                engine.QueueLengthLimit = 1;
+                engine.OverflowPolicy = OverflowPolicy.DropNewest;
+                engine.Start(song, output, ProcessingMode.Drop);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000,
+                    "forward-only playback completion");
+                playback = engine.GetSnapshot();
+                Equal(1L, playback.ProcessedEvents, "forward-only accepted events");
+                Equal(2L, playback.DroppedEvents, "forward-only rejected events");
+                Equal(true, playback.VirtualQueueActive, "snapshot identifies virtual pressure");
+                Equal(1L, playback.VirtualMaximumQueueLength, "virtual pressure maximum");
+            }
+
+            AnalysisConfiguration configuration = DefaultAnalysisConfiguration();
+            configuration.SimulateSlowdown = false;
+            configuration.ApplyQueueLimitWithoutSlowdown = true;
+            configuration.ProcessingMicroseconds = 10000;
+            configuration.QueueLengthLimitEnabled = true;
+            configuration.QueueLengthLimit = 1;
+            configuration.OverflowPolicy = OverflowPolicy.DropNewest;
+            WorkloadAnalysis analysis = WorkloadAnalyzer.AnalyzeUncached(song, 1000, configuration,
+                CancellationToken.None, null);
+            Equal(playback.DroppedEvents, analysis.PredictedDroppedEvents,
+                "Analysis shares forward-only drop decisions");
+            Equal((int)playback.VirtualMaximumQueueLength, analysis.PredictedMaximumOccupancy,
+                "Analysis shares forward-only virtual occupancy");
+            Equal(0L, analysis.PredictedOutputCompletionMicroseconds,
+                "forward model does not invent output delay");
+            string virtualSummary = (string)typeof(DiagnosticsForm).GetMethod("BuildSummary",
+                BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, new object[] { song, analysis });
+            if (!virtualSummary.Contains("Forward queue limit") ||
+                !virtualSummary.Contains("does not predict delay inside a MIDI driver"))
+                throw new Exception("Analysis did not distinguish virtual pressure from actual provider delay");
+
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.SimulateSlowdown = false;
+                engine.ApplyQueueLimitWithoutSlowdown = false;
+                engine.ProcessingMicroseconds = 10000;
+                engine.QueueLengthLimit = 1;
+                engine.Start(song, new FakeMidiOutput(), ProcessingMode.Drop);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000,
+                    "forward-only opt-out completion");
+                Equal(3L, engine.GetSnapshot().ProcessedEvents, "opt-out retains immediate output");
+                Equal(0L, engine.GetSnapshot().DroppedEvents, "opt-out performs no virtual drops");
+            }
+
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.SimulateSlowdown = false;
+                engine.ApplyQueueLimitWithoutSlowdown = true;
+                engine.OverflowPolicy = OverflowPolicy.DropOldest;
+                bool rejected = false;
+                try { engine.Start(song, new FakeMidiOutput(), ProcessingMode.Drop); }
+                catch (InvalidOperationException exception)
+                { rejected = exception.Message.Contains("already sent"); }
+                Equal(true, rejected, "retractive policy is rejected transparently");
+            }
+
+            MidiSong completeNotes = BuildCompleteNotePolicySong();
+            PlaybackSnapshot completeSnapshot;
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.SimulateSlowdown = false;
+                engine.ApplyQueueLimitWithoutSlowdown = true;
+                engine.ProcessingMicroseconds = 1000;
+                engine.QueueLengthLimit = 1;
+                engine.OverflowPolicy = OverflowPolicy.DropIncomingCompleteNotes;
+                engine.Start(completeNotes, new FakeMidiOutput(), ProcessingMode.Drop);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000,
+                    "forward complete-note playback completion");
+                completeSnapshot = engine.GetSnapshot();
+                Equal(4L, completeSnapshot.ProcessedEvents,
+                    "forward complete-note keeps protected messages");
+                Equal(4L, completeSnapshot.DroppedEvents,
+                    "forward complete-note rejects pairs consistently");
+            }
+            AnalysisConfiguration completeConfiguration = DefaultAnalysisConfiguration();
+            completeConfiguration.SimulateSlowdown = false;
+            completeConfiguration.ApplyQueueLimitWithoutSlowdown = true;
+            completeConfiguration.ProcessingMicroseconds = 1000;
+            completeConfiguration.QueueLengthLimitEnabled = true;
+            completeConfiguration.QueueLengthLimit = 1;
+            completeConfiguration.OverflowPolicy = OverflowPolicy.DropIncomingCompleteNotes;
+            WorkloadAnalysis completeAnalysis = WorkloadAnalyzer.AnalyzeUncached(completeNotes, 1000,
+                completeConfiguration, CancellationToken.None, null);
+            Equal(completeSnapshot.DroppedEvents, completeAnalysis.PredictedDroppedEvents,
+                "forward complete-note Analysis/playback drops match");
+            Equal((int)completeSnapshot.VirtualMaximumQueueLength,
+                completeAnalysis.PredictedMaximumOccupancy,
+                "forward complete-note Analysis/playback pressure matches");
+
+            Application.EnableVisualStyles();
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(30);
+                Equal(true, form.ApplyQueueLimitWithoutSlowdownForTesting,
+                    "forward-only system-menu option defaults checked");
+                IntPtr menu = GetSystemMenu(form.Handle, false);
+                Equal(0x0008U, GetMenuState(menu,
+                    (uint)MainForm.ApplyQueueLimitWithoutSlowdownSystemCommandForTesting, 0) & 0x0008U,
+                    "forward-only menu check starts checked");
+                SendMessage(form.Handle, 0x0112,
+                    (IntPtr)MainForm.ApplyQueueLimitWithoutSlowdownSystemCommandForTesting, IntPtr.Zero);
+                Application.DoEvents();
+                Equal(false, form.ApplyQueueLimitWithoutSlowdownForTesting,
+                    "forward-only option toggles while stopped");
+                form.Close();
             }
         }
 
@@ -8489,7 +8723,8 @@ namespace MidiBottleneck.Tests
                 Application.DoEvents();
                 Equal(50000m, serviceValue.Value, "bitrate value restored");
                 slowdown.Checked = false;
-                Equal(false, serviceValue.Enabled, "service value disabled without slowdown");
+                Equal(true, serviceValue.Enabled,
+                    "service value remains editable for checked forward-only queue pressure without slowdown");
                 form.Close();
             }
         }

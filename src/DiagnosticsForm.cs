@@ -920,16 +920,17 @@ namespace MidiBottleneck
                 QueueLengthLimitEnabled = source.QueueLengthLimitEnabled,
                 QueueLengthLimit = source.QueueLengthLimit,
                 OverflowPolicy = source.OverflowPolicy,
-                PerNoteIntervalGateEnabled = source.PerNoteIntervalGateEnabled
+                PerNoteIntervalGateEnabled = source.PerNoteIntervalGateEnabled,
+                ApplyQueueLimitWithoutSlowdown = source.ApplyQueueLimitWithoutSlowdown
             };
         }
 
         private static string AnalysisCacheKey(AnalysisConfiguration value, long resolution)
         {
             return resolution.ToString(CultureInfo.InvariantCulture) + "|" +
-                value.SimulateSlowdown + "|" + (int)value.ServiceDurationMode + "|" +
-                (value.SimulateSlowdown && value.ServiceDurationMode == ServiceDurationMode.ProcessingTime ? value.ProcessingMicroseconds : 0).ToString(CultureInfo.InvariantCulture) + "|" +
-                (value.SimulateSlowdown && value.ServiceDurationMode == ServiceDurationMode.MidiBitrate ? value.MidiBitrate : 0).ToString(CultureInfo.InvariantCulture) + "|" +
+                value.SimulateSlowdown + "|" + value.ApplyQueueLimitWithoutSlowdown + "|" + (int)value.ServiceDurationMode + "|" +
+                ((value.SimulateSlowdown || value.ApplyQueueLimitWithoutSlowdown && value.QueueLengthLimitEnabled) && value.ServiceDurationMode == ServiceDurationMode.ProcessingTime ? value.ProcessingMicroseconds : 0).ToString(CultureInfo.InvariantCulture) + "|" +
+                ((value.SimulateSlowdown || value.ApplyQueueLimitWithoutSlowdown && value.QueueLengthLimitEnabled) && value.ServiceDurationMode == ServiceDurationMode.MidiBitrate ? value.MidiBitrate : 0).ToString(CultureInfo.InvariantCulture) + "|" +
                 value.QueueLengthLimitEnabled + "|" + (value.QueueLengthLimitEnabled ? value.QueueLengthLimit : 0).ToString(CultureInfo.InvariantCulture) + "|" +
                 (value.QueueLengthLimitEnabled ? (int)value.OverflowPolicy : 0);
         }
@@ -1078,7 +1079,11 @@ namespace MidiBottleneck
                 AnalysisConfiguration configuration = analysis.Configuration;
                 text.AppendLine();
                 text.AppendLine("PROCESSING MODEL");
-                text.AppendLine("Simulate slowdown     " + (configuration.SimulateSlowdown ? "On" : "Off (zero service time)"));
+                bool virtualForward = !configuration.SimulateSlowdown && configuration.QueueLengthLimitEnabled &&
+                    configuration.ApplyQueueLimitWithoutSlowdown;
+                text.AppendLine("Simulate slowdown     " + (configuration.SimulateSlowdown ? "On" : "Off (accepted output is immediate)"));
+                if (virtualForward)
+                    text.AppendLine("Forward queue limit   On — modeled pressure can reject new MIDI, but never delays or retracts sent MIDI");
                 if (configuration.ServiceDurationMode == ServiceDurationMode.MidiBitrate)
                 {
                     text.AppendLine("Rate model            MIDI serial bitrate at " + configuration.MidiBitrate.ToString("N0", CultureInfo.CurrentCulture) + " bit/s");
@@ -1088,7 +1093,7 @@ namespace MidiBottleneck
                 {
                     text.AppendLine("Rate model            Processing time, " + configuration.ProcessingMicroseconds.ToString("N0", CultureInfo.CurrentCulture) + " µs/event");
                     text.AppendLine("Maximum rate          " +
-                        (!configuration.SimulateSlowdown || configuration.ProcessingMicroseconds == 0
+                        ((!configuration.SimulateSlowdown && !virtualForward) || configuration.ProcessingMicroseconds == 0
                             ? "Immediate (simulated)"
                             : analysis.EventServiceCapacityPerSecond.ToString("N1", CultureInfo.CurrentCulture) + " events/sec"));
                 }
@@ -1111,7 +1116,11 @@ namespace MidiBottleneck
                 long predictedOverrun = Math.Max(0, analysis.PredictedOutputCompletionMicroseconds - song.DurationMicroseconds);
                 if (predictedOverrun > 0)
                     text.AppendLine("Predicted overrun     " + FormatClock(predictedOverrun) + " after source end");
-                text.AppendLine("Completion is modeled accepted-event service, not synthesizer or audible-tail completion.");
+                text.AppendLine(virtualForward
+                    ? "Completion is the last accepted source event; virtual queue work does not delay accepted output."
+                    : "Completion is modeled accepted-event service, not synthesizer or audible-tail completion.");
+                if (virtualForward)
+                    text.AppendLine("Virtual pressure does not predict delay inside a MIDI driver or synthesizer.");
                 text.AppendLine("Projection is simulator output, not a hardware measurement.");
                 text.AppendLine("Live channel mutes/overrides are not applied to this static source-file projection.");
             }

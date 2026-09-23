@@ -41,6 +41,7 @@ namespace MidiBottleneck
         private int _lastToolTipCell = -1;
         private string _speedMeasurementDescription = "250 ms";
         private bool _perNoteIntervalGate;
+        private bool _virtualQueuePressure;
 
         internal event EventHandler<MouseEventArgs> EffectiveSpeedContextRequested;
 
@@ -95,14 +96,22 @@ namespace MidiBottleneck
 
         internal void SetQueuePressure(bool limited, long occupied, long limit, bool overflowPulse)
         {
+            SetQueuePressure(limited, occupied, limit, overflowPulse, false);
+        }
+
+        internal void SetQueuePressure(bool limited, long occupied, long limit, bool overflowPulse,
+            bool virtualQueuePressure)
+        {
             occupied = Math.Max(0, occupied);
             limit = Math.Max(1, limit);
             bool visibilityChanged = _queueLimited != limited;
-            if (!visibilityChanged && _occupied == occupied && _limit == limit && _overflowPulse == overflowPulse) return;
+            if (!visibilityChanged && _occupied == occupied && _limit == limit &&
+                _overflowPulse == overflowPulse && _virtualQueuePressure == virtualQueuePressure) return;
             _queueLimited = limited;
             _occupied = occupied;
             _limit = limit;
             _overflowPulse = overflowPulse;
+            _virtualQueuePressure = virtualQueuePressure;
             Invalidate();
         }
 
@@ -193,7 +202,9 @@ namespace MidiBottleneck
             if (_queueLimited && e.Y >= ClientSize.Height - 18)
             {
                 _lastToolTipCell = -2;
-                _toolTip.SetToolTip(this, "Finite-buffer occupancy includes the event currently in service. Safety-preserving overflow policies may temporarily exceed the configured soft limit so a required Note Off or non-note message is not discarded.");
+                _toolTip.SetToolTip(this, _virtualQueuePressure
+                    ? "Virtual pressure uses the selected rate model to decide whether a newly arriving MIDI event fits. Accepted MIDI is sent immediately. This is separate from the actual unsent scheduler/output backlog shown above, and it does not predict delay inside a driver or synthesizer."
+                    : "Finite-buffer occupancy includes the event currently in service. Safety-preserving overflow policies may temporarily exceed the configured soft limit so a required Note Off or non-note message is not discarded.");
                 return;
             }
             if (cell == _lastToolTipCell) return;
@@ -243,7 +254,8 @@ namespace MidiBottleneck
                     (int)Math.Round(bar.Width * Math.Min(1.0, ratio)), bar.Height));
                 graphics.DrawRectangle(outline, bar);
             }
-            string text = _occupied.ToString("N0") + " / " + _limit.ToString("N0") + " — " + Math.Round(100 * ratio).ToString("N0") + "%";
+            string text = (_virtualQueuePressure ? "Virtual " : String.Empty) + _occupied.ToString("N0") + " / " +
+                _limit.ToString("N0") + " — " + Math.Round(100 * ratio).ToString("N0") + "%";
             TextRenderer.DrawText(graphics, text, _valueFont,
                 new Rectangle(bar.Right + 7, bar.Y - 4, Math.Max(110, ClientSize.Width - bar.Right - 10), 18), color,
                 TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);

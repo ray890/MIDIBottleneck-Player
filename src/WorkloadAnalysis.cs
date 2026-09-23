@@ -42,6 +42,7 @@ namespace MidiBottleneck
         public int QueueLengthLimit;
         public OverflowPolicy OverflowPolicy;
         public bool PerNoteIntervalGateEnabled;
+        public bool ApplyQueueLimitWithoutSlowdown = true;
     }
 
     internal sealed class MessageTypeWorkload
@@ -112,7 +113,8 @@ namespace MidiBottleneck
                 Configuration.QueueLengthLimitEnabled == configuration.QueueLengthLimitEnabled &&
                 Configuration.QueueLengthLimit == configuration.QueueLengthLimit &&
                 Configuration.OverflowPolicy == configuration.OverflowPolicy &&
-                Configuration.PerNoteIntervalGateEnabled == configuration.PerNoteIntervalGateEnabled) return this;
+                Configuration.PerNoteIntervalGateEnabled == configuration.PerNoteIntervalGateEnabled &&
+                Configuration.ApplyQueueLimitWithoutSlowdown == configuration.ApplyQueueLimitWithoutSlowdown) return this;
             WorkloadAnalysis copy = (WorkloadAnalysis)MemberwiseClone();
             copy.Configuration = configuration;
             return copy;
@@ -481,6 +483,13 @@ namespace MidiBottleneck
             CancellationToken cancellationToken, Action<WorkloadAnalysisProgress> progress)
         {
             MidiEventReader events = song.GetEventReader();
+            bool virtualForward = !configuration.SimulateSlowdown && configuration.QueueLengthLimitEnabled &&
+                configuration.ApplyQueueLimitWithoutSlowdown;
+            if (virtualForward)
+            {
+                AnalyzeVirtualForwardPressure(song, result, configuration, cancellationToken, progress);
+                return;
+            }
             if (!configuration.SimulateSlowdown ||
                 configuration.ServiceDurationMode == ServiceDurationMode.ProcessingTime && configuration.ProcessingMicroseconds == 0)
             {
@@ -592,6 +601,60 @@ namespace MidiBottleneck
             result.PredictedOutputCompletionMicroseconds = busy
                 ? checked(completion + pendingServiceMicroseconds) : lastCompleted;
             Report(progress, "Projecting finite queue pressure", events.Count, events.Count, 750, 250);
+        }
+
+        private static void AnalyzeVirtualForwardPressure(MidiSong song, WorkloadAnalysis result,
+            AnalysisConfiguration configuration, CancellationToken cancellationToken,
+            Action<WorkloadAnalysisProgress> progress)
+        {
+            if (configuration.OverflowPolicy != OverflowPolicy.DropNewest &&
+                configuration.OverflowPolicy != OverflowPolicy.DropIncomingCompleteNotes)
+                throw new InvalidOperationException("Drop oldest and Clear buffer require Simulate slowdown; a forward-only model cannot retract MIDI that was already sent.");
+
+            MidiEventReader events = song.GetEventReader();
+            ForwardDropQueue queue = new ForwardDropQueue(Math.Max(1, configuration.QueueLengthLimit));
+            CompleteNoteTracker completeNotes = new CompleteNoteTracker();
+            long lastAccepted = 0;
+            for (int i = 0; i < events.Count; i++)
+            {
+                if ((i & 16383) == 0)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    Report(progress, "Projecting forward-only queue pressure", i, events.Count, 750, 250);
+                }
+                MidiEventView incomingEvent = events[i];
+                long arrival = incomingEvent.IntendedMicroseconds;
+                queue.Advance(arrival);
+                int bucketIndex = (int)Math.Min(result.Buckets.Length - 1,
+                    Math.Max(0, arrival / result.BucketMicroseconds));
+                CompleteNoteEventKind noteKind = CompleteNoteTracker.Classify(incomingEvent);
+                if (noteKind == CompleteNoteEventKind.NoteOff && completeNotes.ShouldSuppressNoteOff(incomingEvent))
+                {
+                    RecordDrop(result, bucketIndex, 1);
+                    continue;
+                }
+                bool safetyAdmission = configuration.OverflowPolicy == OverflowPolicy.DropIncomingCompleteNotes &&
+                    noteKind != CompleteNoteEventKind.NoteOn;
+                bool accepted = queue.TryAdmit(arrival, EventServiceMicroseconds(incomingEvent, configuration),
+                    safetyAdmission);
+                if (!accepted)
+                {
+                    if (noteKind == CompleteNoteEventKind.NoteOn)
+                        completeNotes.RecordNoteOn(incomingEvent, false,
+                            configuration.OverflowPolicy == OverflowPolicy.DropIncomingCompleteNotes);
+                    RecordDrop(result, bucketIndex, 1);
+                    continue;
+                }
+                if (noteKind == CompleteNoteEventKind.NoteOn)
+                    completeNotes.RecordNoteOn(incomingEvent, true, false);
+                lastAccepted = arrival;
+                int occupancy = queue.Occupancy;
+                if (occupancy > result.PredictedMaximumOccupancy) result.PredictedMaximumOccupancy = occupancy;
+                if (occupancy > result.Buckets[bucketIndex].PredictedPeakOccupancy)
+                    result.Buckets[bucketIndex].PredictedPeakOccupancy = occupancy;
+            }
+            result.PredictedOutputCompletionMicroseconds = lastAccepted;
+            Report(progress, "Projecting forward-only queue pressure", events.Count, events.Count, 750, 250);
         }
 
         private static void AnalyzeUnlimitedPressure(MidiSong song, WorkloadAnalysis result, AnalysisConfiguration configuration,

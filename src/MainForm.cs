@@ -17,10 +17,13 @@ namespace MidiBottleneck
         private const int SystemMenuAbout = 0x1F20;
         private const int SystemMenuAlwaysOnTop = 0x1F30;
         private const int SystemMenuPerNoteIntervalGate = 0x1F40;
+        private const int SystemMenuApplyQueueLimitWithoutSlowdown = 0x1F50;
         private const uint MfString = 0x0000;
         private const uint MfSeparator = 0x0800;
         private const uint MfChecked = 0x0008;
         private const uint MfUnchecked = 0x0000;
+        private const uint MfEnabled = 0x0000;
+        private const uint MfGrayed = 0x0001;
 
         [DllImport("user32.dll")]
         private static extern IntPtr GetSystemMenu(IntPtr window, bool revert);
@@ -30,6 +33,9 @@ namespace MidiBottleneck
 
         [DllImport("user32.dll")]
         private static extern uint CheckMenuItem(IntPtr menu, uint identifier, uint flags);
+
+        [DllImport("user32.dll")]
+        private static extern uint EnableMenuItem(IntPtr menu, uint identifier, uint flags);
 
         [DllImport("user32.dll")]
         private static extern bool DrawMenuBar(IntPtr window);
@@ -78,6 +84,7 @@ namespace MidiBottleneck
         private bool _forceLargeFileWarningForTests;
         private MidiLargeFileInspection _lastLargeFileInspection;
         private bool _perNoteIntervalGateEnabled;
+        private bool _applyQueueLimitWithoutSlowdown = true;
         private ServiceDurationMode _serviceModeBeforePerNoteGate = ServiceDurationMode.ProcessingTime;
 
         private Label _fileLabel;
@@ -138,6 +145,7 @@ namespace MidiBottleneck
 
             _effectiveSpeed.WindowMicroseconds = UserPreferences.LoadEffectiveSpeedWindow();
             _engine.SimulateSlowdown = false;
+            _engine.ApplyQueueLimitWithoutSlowdown = true;
 
             BuildInterface();
             ConfigureMidiDrop(this);
@@ -170,8 +178,11 @@ namespace MidiBottleneck
                 AppendMenu(menu, MfSeparator, UIntPtr.Zero, null);
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuAlwaysOnTop, "Always on top");
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuPerNoteIntervalGate, "Per-note interval gate");
+                AppendMenu(menu, MfString, (UIntPtr)SystemMenuApplyQueueLimitWithoutSlowdown,
+                    "Apply queue limit without slowdown");
                 UpdateAlwaysOnTopMenuCheck();
                 UpdatePerNoteIntervalGateMenuCheck();
+                UpdateForwardQueueMenuState();
             }
         }
 
@@ -183,6 +194,7 @@ namespace MidiBottleneck
                 if (command == SystemMenuAbout) { ShowAboutDialog(); return; }
                 if (command == SystemMenuAlwaysOnTop) { ToggleAlwaysOnTop(); return; }
                 if (command == SystemMenuPerNoteIntervalGate) { TogglePerNoteIntervalGate(); return; }
+                if (command == SystemMenuApplyQueueLimitWithoutSlowdown) { ToggleForwardQueueLimit(); return; }
             }
             base.WndProc(ref message);
         }
@@ -214,6 +226,33 @@ namespace MidiBottleneck
             if (menu == IntPtr.Zero) return;
             CheckMenuItem(menu, (uint)SystemMenuPerNoteIntervalGate,
                 _perNoteIntervalGateEnabled ? MfChecked : MfUnchecked);
+            DrawMenuBar(Handle);
+        }
+
+        private void ToggleForwardQueueLimit()
+        {
+            PlaybackState state = _engine.State;
+            if (state == PlaybackState.Playing || state == PlaybackState.Paused) return;
+            _applyQueueLimitWithoutSlowdown = !_applyQueueLimitWithoutSlowdown;
+            _engine.ApplyQueueLimitWithoutSlowdown = _applyQueueLimitWithoutSlowdown;
+            UpdateForwardQueueMenuState();
+            UpdatePolicyControlState();
+            UpdateTransportControls();
+            RefreshStatistics();
+            ScheduleAnalysisRefresh();
+        }
+
+        private void UpdateForwardQueueMenuState()
+        {
+            if (!IsHandleCreated) return;
+            IntPtr menu = GetSystemMenu(Handle, false);
+            if (menu == IntPtr.Zero) return;
+            CheckMenuItem(menu, (uint)SystemMenuApplyQueueLimitWithoutSlowdown,
+                _applyQueueLimitWithoutSlowdown ? MfChecked : MfUnchecked);
+            PlaybackState state = _engine.State;
+            bool active = state == PlaybackState.Playing || state == PlaybackState.Paused;
+            EnableMenuItem(menu, (uint)SystemMenuApplyQueueLimitWithoutSlowdown,
+                active ? MfGrayed : MfEnabled);
             DrawMenuBar(Handle);
         }
 
@@ -281,7 +320,7 @@ namespace MidiBottleneck
                 _outputError = ex.Message;
                 UpdateTransportControls();
                 RefreshStatistics();
-                MessageBox.Show(this, ex.Message, "Unable to change per-note interval gate",
+                MessageBox.Show(this, ex.Message, "Unable to change processing mode",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return false;
             }
@@ -341,6 +380,9 @@ namespace MidiBottleneck
         internal static int AlwaysOnTopSystemCommandForTesting { get { return SystemMenuAlwaysOnTop; } }
         internal bool PerNoteIntervalGateForTesting { get { return _perNoteIntervalGateEnabled; } }
         internal static int PerNoteIntervalGateSystemCommandForTesting { get { return SystemMenuPerNoteIntervalGate; } }
+        internal bool ApplyQueueLimitWithoutSlowdownForTesting { get { return _applyQueueLimitWithoutSlowdown; } }
+        internal static int ApplyQueueLimitWithoutSlowdownSystemCommandForTesting
+        { get { return SystemMenuApplyQueueLimitWithoutSlowdown; } }
         internal bool PerNoteGateControlsLockedForTesting
         {
             get
@@ -1092,6 +1134,13 @@ namespace MidiBottleneck
                 MessageBox.Show(this, "Open a MIDI file first.", "No MIDI file", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
+            if (IsUnsupportedForwardQueueSelection())
+            {
+                MessageBox.Show(this,
+                    "Drop oldest and Clear buffer can remove MIDI that has already been sent. Turn on Simulate slowdown, choose Drop newest or Drop incoming complete notes, or turn off Apply queue limit without slowdown in the window menu.",
+                    "Queue policy needs simulated slowdown", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
             if (!_kdmApiCheck.Checked && !(_outputCombo.SelectedItem is MidiOutputDeviceInfo) &&
                 !IsNoOutputSelection(_outputCombo.SelectedItem))
             {
@@ -1355,6 +1404,9 @@ namespace MidiBottleneck
 
         private void SimulateSlowdownChanged(object sender, EventArgs e)
         {
+            PlaybackState previousState = _engine.State;
+            bool restartForwardModel = _queueLimitCheck.Checked && _applyQueueLimitWithoutSlowdown &&
+                (previousState == PlaybackState.Playing || previousState == PlaybackState.Paused);
             _engine.SimulateSlowdown = _simulateSlowdownCheck.Checked;
             UpdatePolicyControlState();
             if (_engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate)
@@ -1363,6 +1415,7 @@ namespace MidiBottleneck
                 UpdateProcessingSummary(_engine.ProcessingMicroseconds);
             RefreshStatistics();
             ScheduleAnalysisRefresh();
+            if (restartForwardModel) TryRestartForProcessingModeChange(previousState);
         }
 
         private void QueueLimitChanged(object sender, EventArgs e)
@@ -1379,8 +1432,19 @@ namespace MidiBottleneck
             _engine.OverflowPolicy = policy;
             _toolTip.SetToolTip(_overflowPolicyCombo, policy == OverflowPolicy.DropIncomingCompleteNotes
                 ? "When full, reject an incoming Note On and later suppress its paired Note Off. Required Note Off and non-note messages are retained, so the configured capacity is a soft safety limit. A live change applies at the next overflow."
-                : "A change made during playback applies at the next overflow.");
+                : policy == OverflowPolicy.DropOldest || policy == OverflowPolicy.ClearBufferAndCatchUp
+                    ? "This policy requires Simulate slowdown. A forward-only queue cannot retract MIDI that has already been sent."
+                    : "A change made during playback applies at the next overflow.");
+            UpdateTransportControls();
             ScheduleAnalysisRefresh();
+        }
+
+        private bool IsUnsupportedForwardQueueSelection()
+        {
+            if (_perNoteIntervalGateEnabled || !_queueLimitCheck.Checked || _simulateSlowdownCheck.Checked ||
+                !_applyQueueLimitWithoutSlowdown) return false;
+            OverflowPolicy policy = (OverflowPolicy)Math.Max(0, _overflowPolicyCombo.SelectedIndex);
+            return policy == OverflowPolicy.DropOldest || policy == OverflowPolicy.ClearBufferAndCatchUp;
         }
 
         private void ResetStatsClicked(object sender, EventArgs e)
@@ -1396,14 +1460,15 @@ namespace MidiBottleneck
             bool slowdown = _simulateSlowdownCheck.Checked;
             bool limited = _queueLimitCheck.Checked;
             bool gate = _perNoteIntervalGateEnabled;
+            bool forwardModel = !gate && limited && !slowdown && _applyQueueLimitWithoutSlowdown;
             _simulateSlowdownCheck.Enabled = !gate;
             _queueLimitCheck.Enabled = !gate && !active;
             _queueLimitValue.Enabled = !gate && limited && !active;
-            _overflowPolicyCombo.Enabled = !gate && limited;
-            _serviceModeCombo.Enabled = !gate && slowdown;
-            _processingValue.Enabled = gate || slowdown;
-            _processingSlider.Enabled = gate || slowdown;
-            _dinPresetButton.Enabled = !gate && slowdown && _engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate;
+            _overflowPolicyCombo.Enabled = !gate && limited && !(active && forwardModel);
+            _serviceModeCombo.Enabled = !gate && (slowdown || forwardModel);
+            _processingValue.Enabled = gate || slowdown || forwardModel;
+            _processingSlider.Enabled = gate || slowdown || forwardModel;
+            _dinPresetButton.Enabled = !gate && (slowdown || forwardModel) && _engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate;
         }
 
         private static int BitrateToSlider(long bitrate)
@@ -1457,7 +1522,8 @@ namespace MidiBottleneck
             _statisticsView.SetValues(new string[]
             {
                 FormatTime(snapshot.IntendedTimelineMicroseconds) + " / " + FormatTime(snapshot.LastDispatchedTimelineMicroseconds),
-                snapshot.OutstandingEvents.ToString("N0", CultureInfo.CurrentCulture) + " / " + snapshot.MaximumQueueLength.ToString("N0", CultureInfo.CurrentCulture),
+                snapshot.OutstandingEvents.ToString("N0", CultureInfo.CurrentCulture) + " / " + snapshot.MaximumQueueLength.ToString("N0", CultureInfo.CurrentCulture) +
+                    (snapshot.VirtualQueueActive ? (_compactLayout ? " actual" : " actual backlog") : String.Empty),
                 configuredRate,
                 _compactLayout && outputRate.HasValue
                     ? outputRate.Value.ToString("N0", CultureInfo.CurrentCulture) + " events/s"
@@ -1467,8 +1533,10 @@ namespace MidiBottleneck
                 FormatLagMilliseconds(snapshot.MaximumLagMicroseconds),
                 FormatLagMilliseconds(snapshot.CurrentLagMicroseconds)
             });
-            _statisticsView.SetQueuePressure(_queueLimitCheck.Checked && !_perNoteIntervalGateEnabled, snapshot.OutstandingEvents,
-                Decimal.ToInt64(_queueLimitValue.Value), sampleTime < _overflowVisibleUntilMicroseconds);
+            _statisticsView.SetQueuePressure(_queueLimitCheck.Checked && !_perNoteIntervalGateEnabled,
+                snapshot.VirtualQueueActive ? snapshot.VirtualOutstandingEvents : snapshot.OutstandingEvents,
+                Decimal.ToInt64(_queueLimitValue.Value), sampleTime < _overflowVisibleUntilMicroseconds,
+                snapshot.VirtualQueueActive);
             string stateText = snapshot.State.ToString();
             if (!String.Equals(_stateLabel.Text, stateText, StringComparison.Ordinal))
                 _stateLabel.Text = stateText;
@@ -1503,7 +1571,7 @@ namespace MidiBottleneck
         {
             PlaybackState state = _engine.State;
             bool active = state == PlaybackState.Playing || state == PlaybackState.Paused;
-            _playButton.Enabled = _song != null && !_loadingSong;
+            _playButton.Enabled = _song != null && !_loadingSong && (active || !IsUnsupportedForwardQueueSelection());
             _playButton.Text = state == PlaybackState.Playing ? "Pause" : state == PlaybackState.Paused ? "Resume" : "Play";
             _stopButton.Enabled = active || state == PlaybackState.Completed;
             _outputCombo.Enabled = !_kdmApiCheck.Checked && _outputCombo.Items.Count > 0;
@@ -1514,6 +1582,10 @@ namespace MidiBottleneck
             _seekForward5Button.Enabled = canSeek;
             _analysisButton.Enabled = canSeek;
             _stateLabel.Text = state.ToString();
+            _toolTip.SetToolTip(_playButton, IsUnsupportedForwardQueueSelection()
+                ? "This overflow policy requires Simulate slowdown because sent MIDI cannot be removed from a forward-only queue."
+                : String.Empty);
+            UpdateForwardQueueMenuState();
         }
 
         private void UpdateLoadStatus()
@@ -1796,6 +1868,7 @@ namespace MidiBottleneck
             configuration.QueueLengthLimit = Decimal.ToInt32(_queueLimitValue.Value);
             configuration.OverflowPolicy = (OverflowPolicy)Math.Max(0, _overflowPolicyCombo.SelectedIndex);
             configuration.PerNoteIntervalGateEnabled = _perNoteIntervalGateEnabled;
+            configuration.ApplyQueueLimitWithoutSlowdown = _applyQueueLimitWithoutSlowdown;
             return configuration;
         }
 

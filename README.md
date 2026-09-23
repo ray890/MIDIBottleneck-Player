@@ -14,7 +14,7 @@ MIDIBottleneck Player is a Windows MIDI player and deterministic workload simula
 - Drag-and-drop loading for `.mid` and `.midi` files.
 - Cancellable background loading with compact, segmented storage for very large event counts.
 - A memory preflight and warning for unusually large files.
-- Optional processing-time, MIDI-bitrate, finite-queue, and overflow simulations.
+- Optional processing-time, MIDI-bitrate, finite-queue, and overflow models, including forward-only dropping without delayed output.
 - Live queue, output-rate, lag, effective-speed, and channel statistics.
 - Whole-file Analysis graphs with predicted queue pressure and output completion.
 - A 16-channel monitor with safe live overrides and per-channel filtering.
@@ -37,7 +37,7 @@ Windows 7 SP1 is untested. Windows XP and cross-platform support are longer-term
 2. Download `MIDIBottleneck-Player-v<version>-x64.exe` for a typical modern system, or the x86 executable when a 32-bit MIDI environment requires it.
 3. Run the downloaded executable. No extraction or adjacent configuration file is required.
 4. Choose an output, then open or drag one `.mid` or `.midi` file onto the window.
-5. Leave **Simulate slowdown** and **Queue length limit** off for ordinary uncapped playback, or enable the model you want to study.
+5. Leave **Simulate slowdown** and **Queue length limit** off for ordinary uncapped playback, or enable the model you want to study. The window menu's checked **Apply queue limit without slowdown** option can reject future arrivals using the selected rate model without deliberately delaying accepted output.
 
 Windows may show its normal warning for a newly downloaded unsigned executable. Verify the file against the release’s `SHA256SUMS.txt` if you want to confirm the download.
 
