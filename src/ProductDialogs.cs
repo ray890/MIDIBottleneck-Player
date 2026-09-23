@@ -16,41 +16,70 @@ namespace MidiBottleneck
             MinimizeBox = false;
             MaximizeBox = false;
             ShowInTaskbar = false;
-            ClientSize = new Size(530, 276);
             Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
+            AutoSize = true;
+            AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            Padding = new Padding(16);
 
             Label heading = new Label
             {
-                Text = "This MIDI is expected to require substantial memory.",
+                Text = "This MIDI may need a large amount of memory.",
                 Font = new Font(Font, FontStyle.Bold),
                 AutoSize = true,
-                Location = new Point(18, 16)
+                MaximumSize = new Size(540, 0),
+                Margin = new Padding(0, 0, 0, 12)
             };
             Label details = new Label
             {
                 Text = CreateMessage(inspection),
-                Location = new Point(18, 48),
-                Size = new Size(494, 166),
-                AutoEllipsis = true
+                AutoSize = true,
+                MaximumSize = new Size(540, 0),
+                Margin = new Padding(0, 0, 0, 14)
             };
             Button continueButton = new Button
             {
                 Text = "Continue",
                 DialogResult = DialogResult.OK,
                 AutoSize = true,
-                Location = new Point(346, 230)
+                Margin = new Padding(0, 0, 8, 0)
             };
             Button cancelButton = new Button
             {
                 Text = "Cancel",
                 DialogResult = DialogResult.Cancel,
                 AutoSize = true,
-                Location = new Point(436, 230)
+                Margin = new Padding(0)
             };
-            Controls.Add(heading);
-            Controls.Add(details);
-            Controls.Add(continueButton);
-            Controls.Add(cancelButton);
+
+            FlowLayoutPanel buttons = new FlowLayoutPanel
+            {
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                Margin = new Padding(0)
+            };
+            buttons.Controls.Add(continueButton);
+            buttons.Controls.Add(cancelButton);
+
+            TableLayoutPanel layout = new TableLayoutPanel
+            {
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                ColumnCount = 1,
+                RowCount = 3,
+                Dock = DockStyle.Fill,
+                Margin = new Padding(0)
+            };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            layout.Controls.Add(heading, 0, 0);
+            layout.Controls.Add(details, 0, 1);
+            layout.Controls.Add(buttons, 0, 2);
+            Controls.Add(layout);
             AcceptButton = continueButton;
             CancelButton = cancelButton;
         }
@@ -60,14 +89,15 @@ namespace MidiBottleneck
             MidiMemoryProjection projection = inspection.Projection;
             string risk = projection.IsArchitectureRisk
                 ? Environment.NewLine + Environment.NewLine +
-                    "32-bit warning: this projection approaches the practical process address-space limit. The x64 build is strongly recommended."
+                    "32-bit warning: this MIDI may be too large for the x86 version. Use the x64 version if possible."
                 : String.Empty;
             return "File: " + System.IO.Path.GetFileName(inspection.FilePath) + Environment.NewLine +
-                "Dispatchable events: " + inspection.Counts.DispatchableEventCount.ToString("N0") + Environment.NewLine +
-                "Projected retained MIDI memory: " + FormatBytes(projection.ProjectedRetainedBytes) + Environment.NewLine +
-                "Conservative loading peak: " + FormatBytes(projection.ProjectedPeakLowBytes) + "–" +
+                "MIDI events to process: " + inspection.Counts.DispatchableEventCount.ToString("N0") +
+                Environment.NewLine + Environment.NewLine +
+                "Estimated memory while the MIDI is open: " + FormatBytes(projection.ProjectedRetainedBytes) + Environment.NewLine +
+                "Estimated highest memory use while loading: " + FormatBytes(projection.ProjectedPeakLowBytes) + "–" +
                     FormatBytes(projection.ProjectedPeakHighBytes) + Environment.NewLine + Environment.NewLine +
-                "These are storage-aware projections, not a guarantee. Other application and system memory is additional." + risk;
+                "These are estimates. Loading may still fail if enough memory is not available." + risk;
         }
 
         internal static string FormatBytes(long bytes)

@@ -1,34 +1,36 @@
 # Roadmap
 
-This is a public product roadmap, not a promise of dates. Correctness, deterministic behavior, x86/x64 parity, and bounded native-output lifecycles take priority over feature count.
+This is a direction of travel, not a promise of dates. Correct MIDI behavior, deterministic results, x86/x64 parity, and safe output lifecycles take priority over feature count.
 
 ## Near term
 
-- **Drop oldest complete note** — add a bounded data structure that can remove the oldest safe complete note without scanning a large queue on every overflow.
+- **Drop oldest complete note** — when a finite queue is full, remove the oldest Note On together with its matching Note Off without scanning a large queue on every overflow. Playback and Analysis must make the same decision.
 
-Build 25 corrected the live per-note interval gate so overlapping source notes no longer create first-channel ownership. Repeated attacks retrigger predictably under one transition per pitch/boundary, while Analysis continues to disclose that it excludes the live gate.
+## Recently completed
 
-Build 26 removes the gate's former 16,384 simultaneously unmatched-note ceiling, restores surviving layered support after a live representative-channel disable, and adds a generation-safe workload-only preview for initial Analysis calculations.
+- **Build 30 — human-facing refinement:** direct executable downloads, clearer large-file warnings, paused warning-dialog time, Per-note frame-rate reporting, stable Per-note effective speed, a public changelog, and simpler documentation.
+- **Build 29 — large-file preflight:** exact cancellable counting and storage-aware memory estimates only for files large enough to justify a second pass.
+- **Build 28 — direct compact parser:** bounded track readers, segmented provisional data, direct stable merge, segmented tempo/source histories, and no runtime configuration sidecar.
+- **Build 27 — compact final store:** immutable 40-byte event records and segmented long payloads with allocation-free playback and Analysis readers.
+- **Build 26 — gate and Analysis hardening:** growable note-occurrence storage, live channel-disable continuity, and an initial workload-only Analysis preview.
+- **Build 25 — corrected Per-note behavior:** overlapping source notes no longer create first-channel ownership; repeated Note On strikes can retrigger through a clean release gap.
 
-Build 27 moves loaded songs to immutable compact record/payload segments, preserves the list backend as a deterministic oracle, and keeps workload preview data visible with a useful reason when queue projection fails.
+See [CHANGELOG.md](CHANGELOG.md) for the complete history.
 
-Build 28 streams track chunks into compact provisional segments and performs timestamp assignment during the stable direct-to-final merge. Tempo and source-value histories are segmented, the post-merge conversion is gone, and neither architecture needs a runtime configuration sidecar.
+## Needs a product decision
 
-Build 29 keeps ordinary files on that one-pass path and adds an exact, cancellable grammar scan only for unusually large inputs. Its architecture-aware warning reports exact dispatchable events plus projected retained and conservative peak MIDI memory before allocating compact stores.
-
-## Needs a product decision or more evidence
-
-- **Whole-state chase on Play/Seek** — restore prior channel state without replaying notes, using a compact index and explicit rules for overrides, disabled channels, RPN/NRPN, and SysEx.
-- **Virtual finite capacity without applied slowdown** — define honest semantics for policies that cannot retract events already sent.
+- **Whole-state chase on Play/Seek** — restore earlier bank, program, controller, bend, and pressure state without replaying notes.
+- **Virtual finite capacity without slowdown** — decide which forward-only overflow policies remain honest after events have already been sent.
 - **Channel override extensions** — presets, requested-versus-forced display, and optional static transformations that Analysis can model.
-- **Track routing** — route tracks onto constrained hardware channels with explicit handling for program/controller conflicts, percussion, and merged notes.
-- **Low-resolution UI modes** — non-cumulative scaling, measured row hiding, roll-up, or classic presentation without destabilizing the canonical layout.
+- **Track routing** — route tracks onto constrained hardware channels with explicit rules for program/controller conflicts, percussion, and overlapping merged notes.
+- **Low-resolution presentation modes** — measured row hiding, roll-up, or non-cumulative scaling without destabilizing the canonical layout.
 
-## Parked/high risk
+## Longer-term research or parked work
 
+- legacy-Windows or cross-platform portability;
 - compositor-synchronized rendering;
 - helper-process isolation for permanently blocked native providers;
-- producer/consumer output separation that would redefine queue and lag semantics;
-- further giant-file pause attribution before storage/paging pressure is materially reduced.
+- producer/consumer output separation, which would redefine queue and lag semantics;
+- further giant-file pause attribution after storage and paging pressure are reduced.
 
-Detailed engineering evidence remains in [Opportunities.md](Opportunities.md), while user-visible limitations are listed in [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
+Detailed engineering notes remain in [Opportunities.md](Opportunities.md). User-visible boundaries are listed in [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).

@@ -33,6 +33,7 @@ The public history was reconstructed because original Git commits did not exist.
 | 27 | compact-segmented-event-store | 2026-09-22 07:55 -04:00 | exact | `v1.0.27` |
 | 28 | direct-compact-parser | 2026-09-22 12:50 -04:00 | exact | `v1.0.28` |
 | 29 | large-file-preflight | 2026-09-22 20:10 -04:00 | exact | `v1.0.29` |
+| 30 | human-facing-refinement | 2026-09-22 22:50 -04:00 | exact | `v1.0.30` |
 
 ## Evidence-recovery result
 

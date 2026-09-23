@@ -480,6 +480,13 @@ namespace MidiBottleneck.Tests
                     RunFocused("large-file count-only preflight and memory projection", TestLargeFilePreflight);
                     return 0;
                 }
+                if (arguments.Length == 1 && arguments[0] == "--test-build30")
+                {
+                    RunFocused("large-MIDI warning and elapsed-time pause", TestLargeFilePreflight);
+                    RunFocused("per-note frame rate and effective-speed frontier", TestBuild30PerNoteStatistics);
+                    RunFocused("loose executable release packaging", TestProcessArchitecture);
+                    return 0;
+                }
                 if (arguments.Length == 1 && arguments[0] == "--test-interface-only")
                 {
                     RunFocused("WinForms interface construction", TestInterfaceConstruction);
@@ -592,6 +599,7 @@ namespace MidiBottleneck.Tests
                 Run("single-source product metadata", TestBuild23ProductMetadata);
                 Run("pre-admission channel and override filtering", TestBuild23PreAdmissionFiltering);
                 Run("corrected per-note interval gate state, scheduler, lifecycle, and UI", TestBuild25PerNoteIntervalGate);
+                Run("per-note frame rate and effective-speed frontier", TestBuild30PerNoteStatistics);
                 Run("channel monitor measured fitting", TestBuild21ChannelMonitorFit);
                 Run("normalized Analysis geometry", TestBuild21AnalysisGeometry);
                 Run("dense 200,000-event MIDI parsing", TestDenseMidiParser);
@@ -1538,14 +1546,57 @@ namespace MidiBottleneck.Tests
                     message.IndexOf("20,000,000", StringComparison.Ordinal) < 0 ||
                     message.IndexOf("32-bit warning", StringComparison.Ordinal) < 0)
                     throw new Exception("large-file warning omits filename, exact count, or architecture risk");
+                if (message.IndexOf("MIDI events to process:", StringComparison.Ordinal) < 0 ||
+                    message.IndexOf("Estimated memory while the MIDI is open:", StringComparison.Ordinal) < 0 ||
+                    message.IndexOf("Estimated highest memory use while loading:", StringComparison.Ordinal) < 0 ||
+                    message.IndexOf(Environment.NewLine + Environment.NewLine + "Estimated memory", StringComparison.Ordinal) < 0 ||
+                    message.IndexOf("Other application and system memory", StringComparison.Ordinal) >= 0 ||
+                    message.IndexOf("retained", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    message.IndexOf("conservative", StringComparison.OrdinalIgnoreCase) >= 0)
+                    throw new Exception("large-file warning is not grouped in the required plain-language form");
+
+                long frequency = 1000;
+                Equal(2L, MainForm.ComputeLoadingElapsedSeconds(1000, 3000, 0, 6000, frequency),
+                    "warning pause freezes displayed elapsed time");
+                Equal(2L, MainForm.ComputeLoadingElapsedSeconds(1000, 0, 3000, 6000, frequency),
+                    "warning pause is excluded after confirmation");
+                Equal(5L, MainForm.ComputeLoadingElapsedSeconds(1000, 0, 0, 6000, frequency),
+                    "ordinary loading elapsed time remains unchanged");
 
                 Application.EnableVisualStyles();
+                using (LargeMidiWarningDialog warning = new LargeMidiWarningDialog(messageInspection))
+                {
+                    warning.Show(); Application.DoEvents();
+                    if (warning.ClientSize.Width < 420 || warning.ClientSize.Height < 220)
+                        throw new Exception("large-file warning realized too small for its grouped content");
+                    List<Control> warningControls = new List<Control>();
+                    CollectControls(warning, warningControls);
+                    Button continueButton = null;
+                    Button cancelButton = null;
+                    foreach (Control control in warningControls)
+                    {
+                        Button button = control as Button;
+                        if (button == null) continue;
+                        if (button.Text == "Continue") continueButton = button;
+                        if (button.Text == "Cancel") cancelButton = button;
+                    }
+                    if (continueButton == null || cancelButton == null ||
+                        continueButton.Bottom > warning.ClientSize.Height || cancelButton.Bottom > warning.ClientSize.Height)
+                        throw new Exception("large-file warning buttons are missing or clipped");
+                    warning.Close();
+                }
                 using (MainForm form = new MainForm())
                 {
                     form.SuppressLoadErrorDialogs = true;
                     form.ForceLargeFilePreflightForTests = true;
                     form.ForceLargeFileWarningForTests = true;
-                    form.LargeFileWarningHandlerForTests = delegate(MidiLargeFileInspection inspection) { return true; };
+                    form.LargeFileWarningHandlerForTests = delegate(MidiLargeFileInspection inspection)
+                    {
+                        var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                        long pauseStarted = (long)typeof(MainForm).GetField("_loadDecisionPauseStartedTimestamp", flags).GetValue(form);
+                        if (pauseStarted == 0) throw new Exception("warning callback did not begin the elapsed-time pause");
+                        return true;
+                    };
                     form.Show(); Application.DoEvents();
                     form.BeginMidiLoad(path);
                     PumpUntil(delegate { return !form.IsLoadingSong; }, 5000, "preflight Continue UI flow");
@@ -1573,6 +1624,88 @@ namespace MidiBottleneck.Tests
                 if (File.Exists(statePath)) File.Delete(statePath);
                 if (File.Exists(payloadPath)) File.Delete(payloadPath);
                 if (densePath != null && File.Exists(densePath)) File.Delete(densePath);
+            }
+        }
+
+        private static void TestBuild30PerNoteStatistics()
+        {
+            PlaybackSnapshot formatted = new PlaybackSnapshot
+            {
+                ProcessingMode = ProcessingMode.PerNoteIntervalGate,
+                ProcessingMicroseconds = 28440
+            };
+            Equal("35.2 frames/sec", MainForm.FormatMaximumRate(formatted, null, false),
+                "normal per-note maximum rate is frame frequency");
+            Equal("35 frames/s", MainForm.FormatMaximumRate(formatted, null, true),
+                "compact per-note maximum rate remains readable");
+            formatted.ProcessingMicroseconds = 1;
+            Equal("1,000,000.0 frames/sec", MainForm.FormatMaximumRate(formatted, null, false),
+                "minimum interval frame frequency");
+            formatted.ProcessingMicroseconds = 1000000;
+            Equal("1.0 frames/sec", MainForm.FormatMaximumRate(formatted, null, false),
+                "maximum interval frame frequency");
+
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.ProcessingMicroseconds = 10000;
+                NullMidiOutput output = new NullMidiOutput();
+                engine.Start(NewChannelSong("gate-frontier-sparse.mid", 90000,
+                    ChannelMessage(0, 0x90, 60, 100),
+                    ChannelMessage(20000, 0x80, 60, 0),
+                    ChannelMessage(80000, 0x90, 61, 100),
+                    ChannelMessage(90000, 0x80, 61, 0)), output, ProcessingMode.PerNoteIntervalGate);
+                long previous = 0;
+                bool advancedThroughSparsePassage = false;
+                Stopwatch watch = Stopwatch.StartNew();
+                while (watch.ElapsedMilliseconds < 1000 && engine.State == PlaybackState.Playing)
+                {
+                    PlaybackSnapshot snapshot = engine.GetSnapshot();
+                    if (snapshot.EffectiveSpeedFrontierMicroseconds < previous)
+                        throw new Exception("per-note effective-speed frontier moved backwards");
+                    previous = snapshot.EffectiveSpeedFrontierMicroseconds;
+                    if (previous >= 50000) advancedThroughSparsePassage = true;
+                    Thread.Sleep(2);
+                }
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1000,
+                    "sparse gate frontier completion");
+                Equal(true, advancedThroughSparsePassage,
+                    "gate frontier advances through a sparse passage without requiring sent events");
+                engine.Seek(40000);
+                Equal(40000L, engine.GetSnapshot().EffectiveSpeedFrontierMicroseconds,
+                    "seek resets the gate-progress frontier to its target");
+                engine.Stop();
+                Equal(0L, engine.GetSnapshot().EffectiveSpeedFrontierMicroseconds,
+                    "Stop clears the gate-progress frontier");
+            }
+
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.ProcessingMicroseconds = 10000;
+                BlockingLifecycleOutput output = new BlockingLifecycleOutput();
+                engine.Start(NewChannelSong("gate-frontier-blocked.mid", 20000,
+                    ChannelMessage(0, 0x90, 62, 100), ChannelMessage(20000, 0x80, 62, 0)),
+                    output, ProcessingMode.PerNoteIntervalGate);
+                WaitFor(delegate { return output.Entered.WaitOne(0); }, 1000, "blocked gate frame send");
+                PlaybackSnapshot blocked = engine.GetSnapshot();
+                Equal(0L, blocked.EffectiveSpeedFrontierMicroseconds,
+                    "blocked output does not let the gate-progress frontier advance");
+                output.Release.Set();
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1000,
+                    "blocked gate frontier release");
+            }
+
+            Application.EnableVisualStyles();
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(40);
+                SendMessage(form.Handle, 0x0112,
+                    (IntPtr)MainForm.PerNoteIntervalGateSystemCommandForTesting, IntPtr.Zero);
+                var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                typeof(MainForm).GetMethod("ApplyProcessingMicroseconds", flags).Invoke(form, new object[] { 28440L, false });
+                typeof(MainForm).GetMethod("RefreshStatistics", flags).Invoke(form, null);
+                StatisticsView view = (StatisticsView)typeof(MainForm).GetField("_statisticsView", flags).GetValue(form);
+                Equal("35.2 frames/sec", view.ValueAt(2), "live interval edit refreshes the frame frequency");
+                form.Close();
             }
         }
 
@@ -5001,14 +5134,15 @@ namespace MidiBottleneck.Tests
             PlaybackSnapshot formatted = new PlaybackSnapshot
             {
                 ProcessingMode = ProcessingMode.PerNoteIntervalGate,
+                ProcessingMicroseconds = 28440,
                 ProcessedEvents = 5,
                 DroppedEvents = 0,
                 GateFilteredEvents = 2
             };
             Equal("5 / 0 (+2 gate-filtered)", MainForm.FormatEventCounts(formatted, false),
                 "gate-filtered statistic is explicit and separate");
-            Equal("Per-note interval gate", MainForm.FormatMaximumRate(formatted, 999, false),
-                "maximum-rate cell does not claim an aggregate gate capacity");
+            Equal("35.2 frames/sec", MainForm.FormatMaximumRate(formatted, 999, false),
+                "maximum-rate cell reports gate frame frequency rather than aggregate capacity");
 
             Application.EnableVisualStyles();
             using (MainForm form = new MainForm())

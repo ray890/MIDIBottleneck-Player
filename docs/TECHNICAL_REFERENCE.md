@@ -48,6 +48,10 @@ If a live channel-disable safety operation silences the channel that supplied th
 
 The gate deliberately has no generic simulated queue. Enabling/disabling it or changing its live interval retires and silences the scheduler, then restarts at the same transport position while preserving playing versus paused state. All pitch state is recreated from later eligible source events; no notes are chased or replayed.
 
+Per-note **Maximum rate** is the frame frequency `1,000,000 / intervalMicroseconds`, not aggregate MIDI throughput. Effective speed uses a separate monotonic gate-resolution frontier. It advances after a boundary's complete output batch returns, including empty boundaries through sparse or filtered passages. It therefore stalls behind a blocked provider without depending on the non-monotonic source timestamps carried by individual transitions in one batch. The visible Timeline/output value keeps its established meaning: the source timestamp of the most recently sent event.
+
+Lag retains event-level meaning. It is dispatch time minus that event's original source time, including deliberate boundary assignment, scheduler delay, and provider blocking. It does not estimate audible or rendering latency.
+
 ## Output boundaries
 
 All outputs implement the same MIDI-output abstraction:

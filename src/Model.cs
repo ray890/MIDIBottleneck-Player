@@ -401,6 +401,7 @@ namespace MidiBottleneck
         public long PlaybackMicroseconds;
         public long IntendedTimelineMicroseconds;
         public long LastDispatchedTimelineMicroseconds;
+        public long EffectiveSpeedFrontierMicroseconds;
         public long CurrentLagMicroseconds;
         public long MaximumLagMicroseconds;
         public ServiceDurationMode ServiceDurationMode;

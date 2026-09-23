@@ -63,6 +63,8 @@ namespace MidiBottleneck
         private string _lastLoadTooltipStage;
         private string _loadingFileName;
         private long _loadStartedTimestamp;
+        private long _loadDecisionPauseStartedTimestamp;
+        private long _loadDecisionPausedTicks;
         private long _lastLoadTelemetrySecond = -1;
         private string _lastLoadTelemetryText;
         private int _loadingTelemetryUpdateCount;
@@ -787,6 +789,8 @@ namespace MidiBottleneck
             _loadProgress = new MidiLoadProgress("Starting", 0, 0);
             _loadingFileName = Path.GetFileName(path);
             _loadStartedTimestamp = Stopwatch.GetTimestamp();
+            _loadDecisionPauseStartedTimestamp = 0;
+            _loadDecisionPausedTicks = 0;
             _lastLoadTelemetrySecond = -1;
             _lastLoadTelemetryText = null;
             _loadingTelemetryUpdateCount = 0;
@@ -886,14 +890,19 @@ namespace MidiBottleneck
                 {
                     if (IsDisposed || generation != _loadGeneration || cancellation != _loadCancellation ||
                         cancellation.IsCancellationRequested) return;
-                    _lastLargeFileInspection = inspection;
-                    if (_largeFileWarningHandlerForTests != null)
-                        accepted = _largeFileWarningHandlerForTests(inspection);
-                    else
+                    BeginLoadingDecisionPause();
+                    try
                     {
-                        using (LargeMidiWarningDialog dialog = new LargeMidiWarningDialog(inspection))
-                            accepted = dialog.ShowDialog(this) == DialogResult.OK;
+                        _lastLargeFileInspection = inspection;
+                        if (_largeFileWarningHandlerForTests != null)
+                            accepted = _largeFileWarningHandlerForTests(inspection);
+                        else
+                        {
+                            using (LargeMidiWarningDialog dialog = new LargeMidiWarningDialog(inspection))
+                                accepted = dialog.ShowDialog(this) == DialogResult.OK;
+                        }
                     }
+                    finally { EndLoadingDecisionPause(); }
                 };
                 if (InvokeRequired) Invoke(show); else show();
             }
@@ -1429,17 +1438,19 @@ namespace MidiBottleneck
                 UpdateSeekDisplay();
             }
             long sampleTime = StopwatchTicksToMicroseconds(Stopwatch.GetTimestamp());
-            bool synchronized = snapshot.OutstandingEvents == 0 && snapshot.CurrentLagMicroseconds == 0 &&
+            bool synchronized = snapshot.ProcessingMode != ProcessingMode.PerNoteIntervalGate &&
+                snapshot.OutstandingEvents == 0 && snapshot.CurrentLagMicroseconds == 0 &&
                 snapshot.LastDispatchedTimelineMicroseconds <= snapshot.IntendedTimelineMicroseconds;
             double? speed = snapshot.State == PlaybackState.Playing
                 ? _effectiveSpeed.Add(snapshot.PlaybackMicroseconds, snapshot.IntendedTimelineMicroseconds,
-                    snapshot.LastDispatchedTimelineMicroseconds, snapshot.ProcessedEvents, synchronized, sampleTime)
+                    snapshot.EffectiveSpeedFrontierMicroseconds, snapshot.ProcessedEvents, synchronized, sampleTime)
                 : (double?)null;
             double? outputRate = snapshot.State == PlaybackState.Playing
                 ? _outputRate.Add(snapshot.ProcessedEvents, sampleTime) : (double?)null;
             string configuredRate = _perNoteIntervalGateEnabled
-                ? (_compactLayout ? "Per-note gate" : "Per-note interval gate")
+                ? FormatPerNoteFrameRate(_engine.ProcessingMicroseconds, _compactLayout)
                 : FormatMaximumRate(snapshot, _outputRate.MaximumObserved, _compactLayout);
+            _statisticsView.PerNoteIntervalGate = _perNoteIntervalGateEnabled;
             if (snapshot.DroppedEvents > _lastDroppedEvents)
                 _overflowVisibleUntilMicroseconds = sampleTime + 800000;
             _lastDroppedEvents = snapshot.DroppedEvents;
@@ -1548,7 +1559,7 @@ namespace MidiBottleneck
         {
             if (!_loadingSong || String.IsNullOrEmpty(_loadingFileName)) return;
             long now = Stopwatch.GetTimestamp();
-            long elapsedSeconds = Math.Max(0, (long)((now - _loadStartedTimestamp) / (double)Stopwatch.Frequency));
+            long elapsedSeconds = LoadingElapsedSeconds(now);
             if (!force && elapsedSeconds == _lastLoadTelemetrySecond) return;
             long privateBytes;
             using (Process process = Process.GetCurrentProcess())
@@ -1569,8 +1580,42 @@ namespace MidiBottleneck
         private void ResetLoadingTelemetryState()
         {
             _loadStartedTimestamp = 0;
+            _loadDecisionPauseStartedTimestamp = 0;
+            _loadDecisionPausedTicks = 0;
             _lastLoadTelemetrySecond = -1;
             _lastLoadTelemetryText = null;
+        }
+
+        private void BeginLoadingDecisionPause()
+        {
+            if (_loadStartedTimestamp == 0 || _loadDecisionPauseStartedTimestamp != 0) return;
+            _loadDecisionPauseStartedTimestamp = Stopwatch.GetTimestamp();
+            UpdateLoadingFileTelemetry(true);
+        }
+
+        private void EndLoadingDecisionPause()
+        {
+            if (_loadDecisionPauseStartedTimestamp == 0) return;
+            long now = Stopwatch.GetTimestamp();
+            if (_loadStartedTimestamp != 0)
+                _loadDecisionPausedTicks += Math.Max(0, now - _loadDecisionPauseStartedTimestamp);
+            _loadDecisionPauseStartedTimestamp = 0;
+            UpdateLoadingFileTelemetry(true);
+        }
+
+        private long LoadingElapsedSeconds(long now)
+        {
+            return ComputeLoadingElapsedSeconds(_loadStartedTimestamp, _loadDecisionPauseStartedTimestamp,
+                _loadDecisionPausedTicks, now, Stopwatch.Frequency);
+        }
+
+        internal static long ComputeLoadingElapsedSeconds(long started, long pauseStarted,
+            long pausedTicks, long now, long frequency)
+        {
+            if (started == 0 || frequency <= 0) return 0;
+            long effectiveNow = pauseStarted == 0 ? now : pauseStarted;
+            long elapsedTicks = Math.Max(0, effectiveNow - started - Math.Max(0, pausedTicks));
+            return Math.Max(0, (long)(elapsedTicks / (double)frequency));
         }
 
         internal static string FormatLoadingTelemetry(long elapsedSeconds, long privateBytes, bool compact)
@@ -2080,7 +2125,7 @@ namespace MidiBottleneck
         {
             if (snapshot == null) return "—";
             if (snapshot.ProcessingMode == ProcessingMode.PerNoteIntervalGate)
-                return compact ? "Per-note gate" : "Per-note interval gate";
+                return FormatPerNoteFrameRate(snapshot.ProcessingMicroseconds, compact);
             bool immediate = !snapshot.SimulateSlowdown ||
                 (snapshot.ServiceDurationMode == ServiceDurationMode.ProcessingTime && snapshot.ProcessingMicroseconds == 0);
             if (immediate) return FormatObservedMaximumRate(observedRate, compact);
@@ -2088,6 +2133,13 @@ namespace MidiBottleneck
                 return snapshot.MidiBitrate.ToString("N0", CultureInfo.CurrentCulture) + " bit/s";
             return (1000000.0 / Math.Max(1, snapshot.ProcessingMicroseconds)).ToString(compact ? "N0" : "N1",
                 CultureInfo.CurrentCulture) + (compact ? " events/s" : " events/sec");
+        }
+
+        internal static string FormatPerNoteFrameRate(long intervalMicroseconds, bool compact)
+        {
+            return (1000000.0 / Math.Max(1, intervalMicroseconds)).ToString(
+                compact ? "N0" : "N1", CultureInfo.CurrentCulture) +
+                (compact ? " frames/s" : " frames/sec");
         }
 
         internal static string FormatEventCounts(PlaybackSnapshot snapshot, bool compact)

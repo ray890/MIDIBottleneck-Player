@@ -39,6 +39,7 @@ namespace MidiBottleneck
         private long _droppedEvents;
         private long _gateFilteredEvents;
         private long _lastDispatchedMicroseconds;
+        private long _effectiveSpeedFrontierMicroseconds;
         private long _currentLagMicroseconds;
         private long _maximumLagMicroseconds;
         private int _publishedNextProcess;
@@ -167,6 +168,7 @@ namespace MidiBottleneck
                 }
                 _channelOverrides.MarkAllForcedPending();
                 _lastDispatchedMicroseconds = startMicroseconds;
+                _effectiveSpeedFrontierMicroseconds = startMicroseconds;
                 _state = startPaused ? PlaybackState.Paused : PlaybackState.Playing;
                 Volatile.Write(ref _dispatchSuspended, startPaused ? 1 : 0);
                 _silenceWhenWorkerExits = false;
@@ -202,6 +204,7 @@ namespace MidiBottleneck
                 Volatile.Write(ref _usesPreAdmissionFilterAccounting, 0);
                 ResetStatisticsLocked();
                 _lastDispatchedMicroseconds = targetMicroseconds;
+                _effectiveSpeedFrontierMicroseconds = targetMicroseconds;
                 _thread = null;
 
                 if (previousState == PlaybackState.Playing || previousState == PlaybackState.Paused)
@@ -245,6 +248,7 @@ namespace MidiBottleneck
                 long pausedMicroseconds = ClampPosition(song, TicksToMicroseconds(_transportBaseTicks));
                 _transportBaseTicks = MicrosecondsToTicks(pausedMicroseconds);
                 _startEventIndex = FindFirstEventAtOrAfter(song, pausedMicroseconds);
+                _effectiveSpeedFrontierMicroseconds = pausedMicroseconds;
                 _hasPublishedQueue = false;
                 Volatile.Write(ref _usesPreAdmissionFilterAccounting, 0);
                 _state = PlaybackState.Paused;
@@ -339,6 +343,8 @@ namespace MidiBottleneck
                 _queueLength = 0;
                 _outstandingEvents = 0;
                 _currentLagMicroseconds = 0;
+                if (channelBoundary == ChannelTransitionBoundary.Stop)
+                    _effectiveSpeedFrontierMicroseconds = 0;
                 retiredControls = DrainChannelControlRequestsLocked();
             }
             CompleteRetiredChannelControls(retiredControls,
@@ -383,6 +389,7 @@ namespace MidiBottleneck
                 _output = null;
                 _startEventIndex = 0;
                 _lastDispatchedMicroseconds = 0;
+                _effectiveSpeedFrontierMicroseconds = 0;
                 _transportBaseTicks = 0;
                 ResetStatisticsLocked();
                 _channelOverrides.Clear();
@@ -690,6 +697,8 @@ namespace MidiBottleneck
                 snapshot.PlaybackMicroseconds = playbackUs;
                 snapshot.IntendedTimelineMicroseconds = _song == null ? 0 : Math.Min(playbackUs, _song.DurationMicroseconds);
                 snapshot.LastDispatchedTimelineMicroseconds = _lastDispatchedMicroseconds;
+                snapshot.EffectiveSpeedFrontierMicroseconds = _mode == ProcessingMode.PerNoteIntervalGate
+                    ? _effectiveSpeedFrontierMicroseconds : _lastDispatchedMicroseconds;
                 snapshot.CurrentLagMicroseconds = _currentLagMicroseconds;
                 snapshot.MaximumLagMicroseconds = _maximumLagMicroseconds;
                 return snapshot;
@@ -1194,6 +1203,7 @@ namespace MidiBottleneck
                             if (Volatile.Read(ref _dispatchSuspended) != 0 || !IsPlaying()) return;
                             DispatchMidiEvent(boundaryEvents[index]);
                         }
+                        AdvanceGateEffectiveSpeedFrontier(nextBoundary);
                         examined += Math.Max(1, count);
                     }
                     didWork = true;
@@ -1228,6 +1238,17 @@ namespace MidiBottleneck
         {
             if (count == 0) return;
             lock (_sync) _gateFilteredEvents += count;
+        }
+
+        private void AdvanceGateEffectiveSpeedFrontier(long sourceMicroseconds)
+        {
+            lock (_sync)
+            {
+                long duration = _song == null ? sourceMicroseconds : _song.DurationMicroseconds;
+                long resolved = Math.Min(sourceMicroseconds, duration);
+                if (resolved > _effectiveSpeedFrontierMicroseconds)
+                    _effectiveSpeedFrontierMicroseconds = resolved;
+            }
         }
 
         private void Dispatch(int eventIndex, long actualTransportTicks)
@@ -1738,6 +1759,7 @@ namespace MidiBottleneck
             _droppedEvents = 0;
             _gateFilteredEvents = 0;
             _lastDispatchedMicroseconds = 0;
+            _effectiveSpeedFrontierMicroseconds = 0;
             _currentLagMicroseconds = 0;
             _maximumLagMicroseconds = 0;
         }

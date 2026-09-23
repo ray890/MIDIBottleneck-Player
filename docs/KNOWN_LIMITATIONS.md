@@ -12,4 +12,5 @@
 - Analysis is a deterministic projection of immutable source events and selected simulator settings. It does not predict synthesizer voice stealing, audible release tails, provider buffering, live Channel Monitor mutes/overrides, or the live-only per-note interval gate.
 - An initial workload-only Analysis preview intentionally omits all queue-projection values until projection completes. Cancelling retains the scanned workload view; projection failure also retains it and reports the failure reason.
 - Per-note gate occurrence storage grows with the maximum number of simultaneously unmatched source notes. It no longer has a 16,384-note pairing ceiling, but an actual segment-allocation failure stops and reports playback rather than continuing with lossy pairing.
+- Per-note **Maximum rate** is interval frames per second, not total MIDI-event throughput. Lag includes deliberate frame assignment; static Analysis still excludes the live gate.
 - KDMAPI prepared SysEx requires a provider exposing the complete prepare/send/unprepare contract. Unsupported combinations fail explicitly.

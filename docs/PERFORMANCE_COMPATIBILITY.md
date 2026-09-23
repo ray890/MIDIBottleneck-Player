@@ -18,7 +18,9 @@ The historical Build 26 x86 playback result was about 62–70 ms. Same-session B
 
 Build 29 adds an allocation-light count-only scan only above conservative file-size gates: 15 MiB on x86 and 63 MiB on x64. A generated 250,000-event/750,027-byte dense fixture scanned in about 10.1 ms on x86 and 15.7 ms on x64, changed managed memory by roughly 74 KiB, and caused no Gen0 collection. These are bounded measurements on one machine, not universal throughput promises.
 
-Warnings use exact SMF counts and the current segmented layouts. The x86 warning boundary is 1 GiB because practical 32-bit address-space pressure begins well before an x64-scale load; x64 uses the original 4 GiB product threshold. Projected retained memory and the conservative peak range exclude unrelated application/system memory and therefore remain estimates rather than guarantees.
+Warnings use exact SMF counts and the current segmented layouts. The x86 warning boundary is 1 GiB because practical 32-bit address-space pressure begins well before an x64-scale load; x64 uses the original 4 GiB product threshold. The dialog calls these figures estimated memory while open and estimated highest memory while loading. They remain projections rather than allocation guarantees.
+
+Build 30 pauses the displayed loading timer while that warning waits for a decision. The pause is subtracted after Continue or Cancel, so elapsed loading time describes application work rather than reading time.
 
 One user-reported external validation loaded a file containing 484,582,688 dispatchable events in the x64 build, using roughly 50 GB. This was not reproduced by the public deterministic test gate and must not be read as a general memory or load-time guarantee.
 
@@ -29,6 +31,8 @@ Deterministic tests use synthetic files, fake outputs, and the None output to is
 Earlier real-provider observations and incomplete native probes are retained only as qualified development evidence. Provider, architecture, wrapper, settings, workload interval, system power state, and instrumentation must match before results are compared.
 
 The current success paths avoid per-event diagnostic string construction, module lookup, short-message arrays, and empty SysEx-reclamation work. Ordered checkpoints keep queue/statistics publication responsive without intentionally pacing output.
+
+In Per-note mode, Effective speed uses a monotonic resolved-source frontier that advances only after each interval frame's output batch returns. It advances through empty frames in sparse/filtered passages and stalls behind a blocked output. Individual event lag remains tied to each event's original timestamp, so it can vary within one frame by design.
 
 ## Provider boundaries
 

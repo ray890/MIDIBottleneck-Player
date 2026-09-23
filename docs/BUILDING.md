@@ -17,7 +17,7 @@ Outputs are written to ignored `build/` and `dist/` directories. The expected ap
 
 Both architectures build and test without an adjacent `.exe.config`. Production parsing and retained-song storage use bounded buffers/segments, so no supported path intentionally requests a greater-than-2-GB CLR array. The icon is embedded as both a native executable icon and a managed resource.
 
-The Build 29 preflight/parser focus group can be run from an already compiled test harness with `--test-build29`. The complete `build.ps1 -Test` run remains the release gate.
+Build-focused groups can be run from an already compiled test harness (for example, `--test-build29` for preflight or `--test-build30` for the warning/statistics/package follow-up). The complete `build.ps1 -Test` run remains the release gate.
 
 Local deterministic testing remains the authoritative release gate. A bounded hosted-Windows experiment showed that display-independent tests run correctly, while realized WinForms checks can see different working-area, wrapping, and font metrics on a hosted 1024-pixel desktop. Future CI should separate those test classes or provide a controlled interactive desktop rather than weakening valid layout assertions. Native-provider integration is deliberately separate.
 

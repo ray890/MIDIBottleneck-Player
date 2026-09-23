@@ -1,0 +1,357 @@
+# Changelog
+
+This is the human-readable history of MIDIBottleneck Player. Dates are original handoff dates, not the later dates on which historical GitHub Release pages were published. See [Public history](docs/PUBLIC_HISTORY.md) for exact-versus-nearest source provenance.
+
+## Build 01 — 2026-08-29 9:23 PM EDT
+
+### Player changes
+
+- Introduced the initial Windows Forms MIDI player.
+- Added file playback and the first per-event processing and queue controls.
+
+### Archive note
+
+- The exact handoff tree is unavailable. The tag uses the nearest source snapshot captured during later Build 02 work; missing lines were not invented.
+
+## Build 02 — 2026-08-29 10:56 PM EDT
+
+### Player changes
+
+- Kept SysEx buffers alive through the complete native send lifecycle.
+- Hardened Stop and Seek cleanup while preserving event order.
+
+### Verification
+
+- The exact implementation snapshot survives. No contemporaneous suite total was recorded.
+
+## Build 03 — 2026-08-30 2:32 AM EDT
+
+### Player changes
+
+- Added bounded queue overflow and event dropping.
+- Added early live queue/playback statistics and capacity measurements.
+
+### Archive note
+
+- Seven private diagnostic artifacts survive, but no reliable suite total or exact source tree does.
+
+## Build 04 — 2026-08-30 9:21 AM EDT
+
+### Player changes
+
+- Separated processing slowdown from queue-limit controls.
+- Introduced whole-file Workload Analysis for event density, bitrate, and modeled dropping.
+
+### Archive note
+
+- The exact tree and a trustworthy suite total are unavailable; the nearest preserved source is used.
+
+## Build 05 — approximately 2026-08-30 9:04 PM EDT
+
+### Player changes
+
+- Refined compact layout, minimum sizing, Analysis presentation, and live-rate display.
+
+### Archive note
+
+- Four visual artifacts survive. The exact handoff time/tree is unavailable; a shortly later snapshot is the nearest implementation evidence.
+
+## Build 06 — 2026-09-02 1:11 AM EDT
+
+### Player changes
+
+- Hardened WinMM and KDMAPI handling, architecture-correct MIDI headers, SysEx lifetime, and live processing controls.
+- Added explicit x86/x64 builds and expanded Analysis/UI verification.
+
+### Archive note
+
+- The exact tree is unavailable. Bounded native evidence was mixed and is not represented as a compatibility success.
+
+## Build 07 — 2026-09-03 12:07 PM EDT
+
+### Player changes
+
+- Added cancellable asynchronous MIDI loading and background Analysis.
+- Completed progress reporting, graph navigation, cleanup, compact layouts, and bounded performance diagnostics.
+
+### Archive note
+
+- Several intermediate work stages belong to this single release. The exact final tree is unavailable; the nearest preserved snapshot is used.
+
+## Build 08 — 2026-09-07 12:18 PM EDT
+
+### Player changes
+
+- Refined WinMM/KDMAPI compatibility handling.
+- Added two-level loading progress and improved Analysis resolution, splitter behavior, compact restoration, and benchmarks.
+
+### Archive note
+
+- The tag uses the nearest preserved source; 54/54 deterministic tests were reported on each architecture.
+
+## Build 09 — 2026-09-08 7:39 AM EDT
+
+### Player changes
+
+- Removed expensive diagnostic work from successful WinMM short-message sends.
+- Restored live queue publication during dense output.
+- Reused Analysis workload scans when only simulator settings changed.
+
+### Archive note
+
+- The tag uses the nearest preserved source. Incomplete native probes are not presented as performance proof.
+
+## Build 10 — 2026-09-10 1:03 AM EDT
+
+### Player changes
+
+- Hardened output-worker lifetime and outbound timing.
+- Improved publication cadence, compact layout, and ordered-output diagnostics.
+
+### Archive note
+
+- The tag uses the nearest preserved source; 62/62 tests were reported on each architecture.
+
+## Build 11 — 2026-09-11 8:19 PM EDT
+
+### Player changes
+
+- Made Pause and Stop safe when a native output call is delayed.
+- Added complete-note-aware overflow behavior and faster clear-and-catch-up.
+- Added aligned adaptive time ticks to Analysis.
+
+### Archive note
+
+- The tag uses the nearest preserved source; 65/65 tests were reported on each architecture.
+
+## Build 12 — 2026-09-12 10:58 AM EDT
+
+### Player changes
+
+- Added the explicit **None** output for silent scheduler playback and benchmarks.
+- Clarified which measurements belong to the application rather than a provider or synthesizer.
+
+### Archive note
+
+- The tag uses the nearest preserved source; 68/68 deterministic tests were reported on each architecture.
+
+## Build 13 — 2026-09-17 12:30 AM EDT
+
+### Player changes
+
+- Added the indexed event-store boundary and inline packed storage for ordinary short messages.
+- Fixed Analysis Cancel restarting itself after layout changes.
+- Made Auto resolution show the accepted graph interval.
+- Added corrected loading telemetry and the first read-only 16-channel monitor.
+
+### Verification
+
+- The exact source is preserved; 73/73 deterministic tests were reported on each architecture.
+
+## Build 14 — 2026-09-17 12:36 PM EDT
+
+### Player changes
+
+- Added safe live overrides for bank, program, volume, expression, pan, sustain, pitch bend, and channel aftertouch.
+- Kept Analysis windows across file replacement without retaining the old song.
+- Refined loading width and Channel Monitor lifecycle behavior.
+
+### Verification
+
+- The exact source is preserved; 75/75 deterministic tests were reported on each architecture.
+
+## Build 15 — 2026-09-17 6:52 PM EDT
+
+### Player changes
+
+- Renamed the product to MIDIBottleneck Player.
+- Added the application icon, About/build identity, live override editor, and persistent detached Analysis/Channel Monitor shells.
+
+### Archive note
+
+- The tag uses the nearest preserved source; the handoff reported 78/78 tests on each architecture.
+
+## Build 16 — 2026-09-18 2:27 AM EDT
+
+### Player changes
+
+- Replaced popup override dialogs with one reusable scrub-or-type editor.
+- Refined compact widths, icon assignment, and form layout.
+
+### Archive note
+
+- The exact handoff tree does not survive; Build 17 is the next complete accumulated source. The handoff reported 81/81 tests on each architecture.
+
+## Build 17 — 2026-09-18 1:33 PM EDT
+
+### Player changes
+
+- Fixed first-gesture handoff in the Channel Monitor scrub/type editor.
+- Distinguished current, forced, and historical values.
+- Added one-shot channel controls, per-channel muting, measured monitor fitting, and cleaner Analysis geometry.
+
+### Verification
+
+- The complete source is preserved; 83/83 deterministic tests were reported on each architecture.
+
+## Build 18 — 2026-09-18 8:20 PM EDT
+
+### Archive and repository milestone
+
+- Established recovery references, a provenance-aware diagnostics archive, reconstructed Git history, and the build index.
+- Made no new application-behavior claim; the application source matches Build 17.
+- Hash-accounted 437 private artifacts, which were deliberately excluded from the sanitized public history.
+
+## Build 19 — 2026-09-18 9:19 PM EDT
+
+### Player changes
+
+- Prevented an unchanged editor click from creating an override.
+- Added non-blocking acknowledgement for one-shot channel messages.
+- Refined Channel Monitor sizing, labels, and interaction.
+
+### Verification
+
+- The complete handoff source is preserved; 84/84 deterministic tests were reported on each architecture.
+
+## Build 20 — 2026-09-19 11:20 AM EDT
+
+### Player changes
+
+- Moved disabled-channel and forced-override filtering before queue admission.
+- Filtered source events no longer consume simulated service, queue space, output rate, or sent counts.
+- Kept mute/override filtering separate from queue-overflow drops.
+- Made assembly metadata the single runtime source of build/version identity.
+
+## Build 21 — 2026-09-19 5:22 PM EDT
+
+### Player changes
+
+- Made right-click on a historical Channel Monitor value restore the latest applicable source-file value for that one attribute.
+- Added a compact lookup index suitable for very large songs.
+- Waited for ordered output confirmation before changing the cell from historical to current; failures stayed visible and retryable.
+
+### Important note
+
+- This is deliberate one-attribute source chase, not automatic whole-state or note reconstruction.
+
+## Build 22 — 2026-09-20 4:21 AM EDT
+
+### Player changes
+
+- Added one-file drag-and-drop loading over the complete main window.
+- Added predicted accepted-output completion and source-end overrun to Queue Projection.
+- Added a session-only **Always on top** system-menu option.
+
+### Project and repository changes
+
+- Completed the sanitized public history, GPL-3.0-or-later licensing, contribution/security documents, and verified first-party release packaging.
+- The complete deterministic suite passed 91/91 on both architectures.
+
+## Build 23 — 2026-09-21 12:12:11 AM EDT
+
+### Player change
+
+- Fixed a scheduler wake/reset race that could delay a live Channel Monitor command until the next source event.
+
+### Project and distribution changes
+
+- Reorganized the public documentation and added the public-safe screenshot and roadmap.
+- Rewrote historical Release descriptions and established architecture-specific packaging.
+- Investigated hosted CI, then documented why realized WinForms layout tests need controlled interactive-desktop metrics.
+
+## Build 24 — 2026-09-21 7:20 AM EDT
+
+### Player changes
+
+- Introduced the first Per-note interval gate and separate gate-filter accounting.
+- Added safe live mode/interval changes through the existing silence-and-restart boundary.
+- Used a first-NoteOn/channel ownership interpretation that could suppress later valid same-pitch strikes; Build 25 corrected that behavior.
+
+### Distribution changes
+
+- Removed the ineffective x86 configuration sidecar. The then-current x64 storage still required its sidecar.
+
+## Build 25 — 2026-09-22 12:48 AM EDT
+
+### Player changes
+
+- Replaced Build 24's first-channel ownership model with distinct source-note occurrences and one global Up/Down output state per pitch.
+- Allowed repeated Note On strikes of a sounding pitch to retrigger through a clean one-interval release gap.
+- Coalesced truly simultaneous layers deterministically, retained the strongest velocity, and gave short notes a complete interval.
+- Added bounded one-boundary look-ahead so dense overload is thinned without an unbounded transition queue.
+
+### Important note
+
+- Static Analysis still excludes this live-only gate and says so explicitly.
+
+## Build 26 — 2026-09-22 5:12 AM EDT
+
+### Player changes
+
+- Replaced the Per-note gate's fixed 16,384-occurrence pool with reusable 4,096-entry segments.
+- Prevented overflowed notes from retiring a different track's valid occurrence.
+- Restored a sounding pitch from surviving enabled support after its representative channel is disabled.
+- Added one immutable workload-only Analysis preview before queue projection completes.
+- Kept completed graphs visible during recalculation and rejected stale preview/final generations independently.
+
+### Verification
+
+- The complete deterministic suite passed 93/93 on x86 and 93/93 on x64.
+
+## Build 27 — 2026-09-22 7:55 AM EDT
+
+### Player changes
+
+- Replaced final per-event objects and reference slots with immutable 40-byte records in bounded segments.
+- Stored long SysEx/system payloads in a byte-exact segmented side store.
+- Moved playback, seeking, Analysis, diagnostics, channel state, source lookup, SysEx assembly, and the Per-note gate to compact event views.
+- Preserved useful workload-preview data and a concise reason when queue projection fails.
+
+### Memory result
+
+- The one-million-event x64 fixture's retained managed memory fell from about 81.3 MB to 41.3 MB.
+- Parsing still used legacy per-track objects and a merged list; Build 28 removed those remaining structures.
+
+## Build 28 — 2026-09-22 12:50 PM EDT
+
+### Player changes
+
+- Replaced whole-track byte arrays and per-event parsing objects with a bounded reader and compact provisional segments.
+- Performed the stable tick/track/source-order merge directly into the final compact store while assigning timestamps.
+- Segmented tempo histories and one-value source-chase histories.
+- Removed the post-merge conversion and progressively released consumed provisional data.
+
+### Distribution and verification
+
+- Removed the last supported need for `gcAllowVeryLargeObjects`; both architectures became configuration-free.
+- The complete deterministic suite passed 95/95 on each architecture.
+
+## Build 29 — 2026-09-22 8:10 PM EDT
+
+### Player changes
+
+- Added a cancellable, allocation-light count-only scan for files large enough to justify a second pass.
+- Kept ordinary files on the direct one-pass compact parser.
+- Counted events, long payloads, tempo changes, and source-value history before allocating the production stores.
+- Added architecture-aware open-file/loading-peak estimates and Continue/Cancel warning behavior.
+
+### Verification and limits
+
+- The complete deterministic suite passed 96/96 on x86 and 96/96 on x64.
+- The generated 250,000-event scan used roughly 74 KiB and no Gen0 collection in the recorded run.
+- Estimates cannot guarantee available commit, fragmentation, or paging behavior.
+
+## Build 30 — 2026-09-22 10:50 PM EDT
+
+### Player changes
+
+- Reworded the Large MIDI warning around events to process, expected memory while open, and highest expected loading use.
+- Pauses and subtracts the user's warning-dialog decision time from the loading timer.
+- Shows the Per-note interval as a frame frequency and explains why it is not total MIDI throughput.
+- Keeps event-level lag behavior and gives Effective speed a monotonic gate-progress frontier that advances through sparse work but stalls behind blocked output.
+
+### Project and distribution changes
+
+- Changed current and future downloads to loose, versioned x86/x64 executables plus checksums.
+- Added this public changelog and simplified the README, roadmap, packaging instructions, and release descriptions.

@@ -40,6 +40,7 @@ namespace MidiBottleneck
         private bool _overflowPulse;
         private int _lastToolTipCell = -1;
         private string _speedMeasurementDescription = "250 ms";
+        private bool _perNoteIntervalGate;
 
         internal event EventHandler<MouseEventArgs> EffectiveSpeedContextRequested;
 
@@ -114,10 +115,16 @@ namespace MidiBottleneck
         internal string SelectedCaptionAt(int index) { return _selectedCaptions[index] ?? (_compact ? CompactCaptionChoices[index][0] : Captions[index]); }
         internal bool ValueWasTruncated(int index) { return _valueTruncated[index]; }
         internal int ValueAllocationWidth(int index) { return _lastValueWidths[index]; }
+        internal string ValueAt(int index) { return _values[index]; }
         internal string SpeedMeasurementDescription
         {
             get { return _speedMeasurementDescription; }
             set { _speedMeasurementDescription = String.IsNullOrEmpty(value) ? "250 ms" : value; }
+        }
+        internal bool PerNoteIntervalGate
+        {
+            get { return _perNoteIntervalGate; }
+            set { _perNoteIntervalGate = value; }
         }
 
         protected override void OnPaint(PaintEventArgs e)
@@ -191,12 +198,18 @@ namespace MidiBottleneck
             }
             if (cell == _lastToolTipCell) return;
             _lastToolTipCell = cell;
-            string text = cell == 5 ? "Output-timeline advancement relative to elapsed playback time. Current measurement window: " +
-                _speedMeasurementDescription + ". Right-click to change it." :
+            string text = cell == 5 ? (_perNoteIntervalGate
+                ? "How quickly the gate has resolved the source timeline compared with real playback time. It advances only after each gate frame and its output calls finish, so a blocked output stalls the measurement. Current measurement window: " + _speedMeasurementDescription + ". Right-click to change it."
+                : "Output-timeline advancement relative to elapsed playback time. Current measurement window: " +
+                    _speedMeasurementDescription + ". Right-click to change it.") :
                 cell == 0 ? "Playback timeline / MIDI output position. The output position is the source timestamp of the most recently sent MIDI event." :
-                cell == 2 ? "With immediate simulated service, this is the highest observed 250 ms rolling dispatch rate since statistics were reset—not a theoretical hardware or scheduler capacity. Nonzero service models show their theoretical configured maximum." :
+                cell == 2 ? (_perNoteIntervalGate
+                    ? "One frame is one configured gate interval. Each of the 128 MIDI pitches can make at most one Note On or Note Off transition in a frame, while different pitches can transition together. Other MIDI messages are not limited by this figure, so it is not the player's total event-throughput ceiling."
+                    : "With immediate simulated service, this is the highest observed 250 ms rolling dispatch rate since statistics were reset—not a theoretical hardware or scheduler capacity. Nonzero service models show their theoretical configured maximum.") :
                 cell == 4 ? "Events successfully dispatched through the selected output / events discarded by queue overflow. In per-note interval-gate mode, the parenthetical gate-filtered count separately records simultaneous coalescing and note messages excluded by interval capacity. With None, sent means logically consumed by the no-output diagnostic sink; no physical MIDI data leaves the application." :
-                cell == 6 || cell == 7 ? "Lag is lateness through MIDI dispatch, including scheduler delay or a blocking output call. It cannot measure synthesizer rendering or audio-device latency." : String.Empty;
+                cell == 6 || cell == 7 ? (_perNoteIntervalGate
+                    ? "Lag is how late the most recently sent MIDI event was compared with its original time in the file. In Per-note mode it includes waiting for a gate frame, scheduler delay, and a blocking output call. Different transitions in one frame can come from different source times, so current lag may vary. It cannot measure synthesizer rendering or audio-device latency."
+                    : "Lag is lateness through MIDI dispatch, including scheduler delay or a blocking output call. It cannot measure synthesizer rendering or audio-device latency.") : String.Empty;
             if (cell >= 0 && (_captionTruncated[cell] || _valueTruncated[cell]))
             {
                 string full = Captions[cell] + " " + _values[cell];

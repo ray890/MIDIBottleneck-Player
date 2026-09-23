@@ -1,36 +1,77 @@
-# Opportunities
+# Engineering opportunities
 
-These are evidence-backed deferred items, not commitments for the current release.
+These are evidence-backed future directions, not promises for a particular release. The shorter public view is [ROADMAP.md](ROADMAP.md).
 
-## Completed archival foundation
+## Near term
 
-- **Corrected atomic diagnostics archive and reconstructed Build 01–20 baseline** — Corrected and validated on 2026-09-19 after a provenance audit found that five intermediate async work stages had been mistaken for five releases. The provenance index and exact/nearest-preserved qualifications are under `diagnostics`; the full private archive and former incorrect chain remain local recovery material. During that archival step no remote or public release existed. The later sanitized public history is the forward-moving baseline.
+### Drop oldest complete note
 
-## Completed playback milestone
+Add a finite-queue policy that removes the oldest safe complete note: its Note On and matching Note Off. A production design needs intrusive pending-queue nodes plus per-channel/key occurrence links so both messages can be unlinked in amortized O(1), without scanning a large queue on every overflow.
 
-- **Per-note interval gate** — Build 25 replaces Build 24's first-NoteOn ownership interpretation with distinct source occurrences and a global Up/Down output constraint per pitch. Representable repeated attacks now retrigger through a clean release gap, simultaneous layers coalesce by velocity, short notes receive a full interval, dense overload uses bounded one-boundary look-ahead, and lifecycle/filter accounting remains explicit. Exact static Analysis projection remains deferred.
-- **Gate occurrence hardening and initial Analysis preview** — Build 26 replaces the gate's fixed 16,384-occurrence pool with reusable on-demand segments, preserves surviving selected support across a representative-channel disable, and publishes one immutable workload-only Analysis preview before queue projection. Preview and final publication have independent generation checks and honest pending/cancelled states.
-- **Compact segmented final event store** — Build 27 replaces final per-event objects/reference slots with immutable 40-byte records in 65,536-record segments and a 1 MiB-segmented long-payload store. Production playback and Analysis use allocation-free value handles, the legacy backend remains an equivalence oracle, and failed queue projection preserves its valid workload preview plus the failure reason.
-- **Direct compact parser and segmented source index** — Build 28 reads declared tracks through a bounded stream reader, stores provisional records and tempo changes in bounded segments, assigns exact timestamps during stable direct-to-final merge, releases consumed provisional segments, and stores one-value chase histories in 4,096-entry segments. It removes the full raw-track array, per-event parsing objects, merged reference list, post-merge conversion, and x64 configuration sidecar.
-- **Accurate large-file preflight and projected-memory warning** — Build 29 keeps ordinary loading one-pass, but scans files at least 15 MiB on x86 or 63 MiB on x64 with the production parser's bounded grammar rules. Exact event/payload/tempo/source-index counts feed architecture-aware retained and conservative peak projections; warnings occur before event-store allocation at 1 GiB on x86 or 4 GiB on x64 and support Continue/Cancel without stale publication.
+The policy still needs exact rules for a Note Off that has not arrived, an event already in service, and a policy changed during playback. Playback and Analysis must share the same decision logic.
 
-## Near-term follow-ups
-- **Drop oldest complete note** — An exact bounded implementation needs intrusive pending-queue nodes plus per-channel/key occurrence links that can unlink both members of the oldest safe note in amortized O(1). It must define a NoteOff not yet arrived, an event already in service, and live policy changes. Playback and Analysis require identical behavior without queue scans or transient rebuilds.
+## Completed foundations
 
-## Awaiting a product decision or more evidence
+- **Build 18 — archive/history foundation:** corrected the private diagnostics chronology after a provenance audit. The sanitized public history keeps exact/nearest-preserved qualifications and excludes private evidence.
+- **Build 25 — corrected Per-note gate:** separates source-note occurrences from one constrained Up/Down output state per pitch. Repeated Note On strikes can retrigger through a clean release gap; simultaneous layers and dense overload are deterministic.
+- **Build 26 — gate/Analysis hardening:** uses growable occurrence segments, preserves surviving same-pitch support after a channel disable, and publishes a generation-safe workload-only Analysis preview.
+- **Build 27 — compact final event store:** uses immutable 40-byte record segments and a segmented long-payload store. Playback and Analysis read compact views without per-event object allocation.
+- **Build 28 — direct compact parser:** parses bounded track streams into provisional segments, merges directly into the final store, and segments tempo/source histories. No runtime configuration sidecar remains.
+- **Build 29 — large-file preflight:** scans only files large enough to justify a second pass, then estimates open-file and loading-peak memory from exact SMF counts.
+- **Build 30 — human-facing refinement:** clarifies memory warnings, gate statistics, downloads, documentation, release history, and roadmap. Effective speed now uses a monotonic gate-progress frontier.
 
-- **Public history and release maintenance** — The sanitized Build 01–22 history, tags, release notes, and verified Build 22 binaries were published at `Ray890/MIDIBottleneck-Player` on 2026-09-20. Private diagnostics, provider logs, machine paths, and local recovery refs were not pushed. Build 23 makes the public documentation concise and standardizes future releases as architecture-specific ZIPs plus checksums. A bounded GitHub Actions trial was deliberately retired: the deterministic engine tests passed, but realized WinForms geometry checks depend on interactive desktop working-area and font metrics that differ on the hosted 1024-pixel display. Future CI should separate display-independent tests from UI checks or provide a controlled interactive display rather than weakening layout assertions. Future releases must continue explicit first-party packaging and explicit ref pushes.
-- **Additional native system-menu presentation modes** — Always on top is the bounded production utility. Hiding Statistics or Processing controls needs measured row collapse, responsive constraint recomputation, and exact restoration. Runtime UI scaling at 50–200% cannot safely use cumulative `Scale()` because native controls, fonts, DPI, and the compact minimum have independent constraints; alternative scales should be derived non-cumulatively from the canonical 100% layout and need only be reasonably faithful on unusual low-resolution displays. A Shift-revealed 25% entry is an undocumented joke and must not be selectable or usable. `WS_EX_TOOLWINDOW` changes taskbar/Alt-Tab identity and non-client dimensions. Inactive opacity uses layered-window behavior and needs accessibility/recovery rules. Roll-up needs exact size restoration across compact/default transitions. A classic-Windows presentation is better designed as a startup mode because WinForms visual styles and font metrics are process/layout-wide.
-- **Help presentation** — Native `WS_EX_CONTEXTHELP` conflicts with the minimize/maximize styles of the principal windows. Reconsider a custom title-bar recreation, F1-accessible help, or a native system-menu Help command only when it opens genuinely useful guidance; do not add a decorative question-mark control.
+## Playback and MIDI state decisions
 
-- **Whole-state chase on Play/Seek** — The desired eventual behavior is enabled by default, with a working native system-menu option that can disable it. A standards-preserving implementation would reproduce latest bank/program, controllers, bend/pressure, and ordered RPN/NRPN/data-entry state before target notes, without replaying notes. It needs a compact checkpoint index suitable for hundreds of millions of events, explicit completed-SysEx exclusions or bounded semantics, forced-override precedence, disabled-channel handling, and exact reset-before-note ordering. Existing None-output evidence weakens the hypothesis that traversing an early controller prefix persistently degrades the scheduler; native provider/synthesizer state and timing remain separate. Do not expose a partial menu option.
-- **Virtual finite capacity without applied slowdown** — A shadow modeled queue can honestly reject current arrivals for forward-only policies, but cannot retract a previously sent event for Drop oldest or clear output already sent. A restricted forward-drop mode is coherent; a general mode requires a new ordered producer/consumer contract and explicit real-versus-virtual queue/lag semantics.
-- **Channel-override extensions** — The bounded first stage is production for Bank MSB/LSB, Program, Volume, Expression, Pan, Sustain, pitch bend, and channel aftertouch. Corrected Build 20 moves conflicting source messages before scheduler admission while retaining separate suppression accounting; explicit controls remain ordered and do not rewrite static Analysis. Build 21 adds one-attribute source-value chase only; automatic whole-state mid-song chase remains a separate opt-in product decision. Future decisions include saved override presets, simultaneous requested/forced display, and whether saved/static transformations should affect Analysis.
-- **Track routing for constrained hardware** — Deprioritize a general track editor in favor of a focused router for hardware that accepts only a limited channel set. A proposed static path is `immutable source event → optional track-to-output-channel route → queue/service model → runtime channel-override filter → MIDI output`; whether Analysis models saved/static overrides is a separate product decision, because today's live overrides intentionally do not rewrite queue projections. The parser would need to retain track names. Multiple source channels/program changes, merged overlapping notes, bank/program/controller/pitch-bend conflicts, channel-10 percussion, controller ownership/suppression, and lossy/ambiguous-route warnings must be designed explicitly; one editable track-channel cell is not automatically safe.
+### Whole-state chase on Play/Seek
 
-## Parked / high risk unless evidence changes priority
+The eventual product behavior would be enabled by default with a system-menu option to disable it. It should restore bank/program, controllers, bend/pressure, and ordered RPN/NRPN data-entry state before later notes, without replaying notes.
 
-- **Genuine compositor synchronization** — The current coalesced custom painting is responsive. A monitor-derived timer is not compositor synchronization; a correct solution requires a different rendering integration for uncertain benefit.
-- **Helper-process isolation for uninterruptible native output** — This could recover from a driver call that never returns, but changes IPC, timing, output lifetime, and SysEx ownership. In-process cancellation cannot interrupt unmanaged code already executing.
-- **Ordered output producer/consumer separation** — It might separate scheduler work from provider latency, but redefines backlog, lag, cancellation, finite pressure, and Stop/Seek semantics; providers may not be thread-safe. Current deterministic adapter overhead does not justify it.
-- **Extreme-load pause/GC/paging attribution** — The externally observed pauses around roughly 50 GB need isolated ETW/GC/commit/page-fault evidence. Compact/segmented storage should materially reduce allocation and paging pressure before another giant-file investigation.
+This needs a compact checkpoint index suitable for very large files, explicit SysEx exclusions or bounded rules, forced-override precedence, disabled-channel behavior, and exact reset-before-note ordering. Do not expose a partial menu command.
+
+### Channel-override extensions
+
+Current overrides safely cover Bank MSB/LSB, Program, Volume, Expression, Pan, Sustain, pitch bend, and channel aftertouch. Source conflicts are filtered before scheduler admission; explicit controls remain ordered. The Channel Monitor also supports one-attribute source-value chase.
+
+Future decisions include presets, simultaneous requested/forced display, and whether saved/static transformations should affect Analysis. Automatic whole-song state chase remains separate.
+
+### Track routing for constrained hardware
+
+A possible static path is:
+
+`source event → optional track-to-output-channel route → queue/service model → runtime override filter → MIDI output`
+
+The parser would need retained track names. The design must handle multiple source programs/channels, merged overlapping notes, bank/controller/bend conflicts, channel-10 percussion, ownership of conflicting state, and warnings for lossy routes. One editable channel cell per track is not automatically safe.
+
+### Virtual finite capacity without slowdown
+
+A shadow queue can honestly reject current arrivals for forward-only policies. It cannot retract an event already sent, so Drop oldest or clear-buffer semantics become misleading without a new ordered producer/consumer contract and explicit real-versus-modeled queue/lag displays.
+
+## Presentation decisions
+
+### Low-resolution and alternate modes
+
+- Hiding Statistics or Processing controls requires measured row collapse, constraint recomputation, and exact restoration.
+- Runtime scaling should derive each size non-cumulatively from the canonical 100% layout. Repeated `Control.Scale()` is unsafe with native controls, fonts, DPI, and compact minimums.
+- A Shift-revealed 25% item may be an undocumented joke, but must not be selectable.
+- A mini title bar changes taskbar/Alt-Tab identity and non-client size.
+- Inactive opacity needs layered-window accessibility and recovery rules.
+- Roll-up needs exact compact/default size restoration.
+- Classic-Windows presentation is best treated as a startup mode because visual styles and fonts affect the entire measured layout.
+
+### Help presentation
+
+Native `WS_EX_CONTEXTHELP` conflicts with the principal windows' minimize/maximize styles. A future system-menu Help command, F1 help, or custom presentation is worthwhile only when it opens useful guidance; do not add a decorative question mark.
+
+## Public project maintenance
+
+The public repository uses explicit first-party packaging and explicit `main`/tag pushes. Build 30 publishes versioned loose executables plus checksums. Private diagnostics, provider logs, machine paths, and recovery refs stay local.
+
+A bounded GitHub Actions trial was retired because realized WinForms geometry tests depend on interactive desktop, font, and working-area metrics. Future CI should separate display-independent tests or provide a controlled interactive desktop instead of weakening layout assertions.
+
+## Longer-term / high-risk research
+
+- **Compositor synchronization:** current painting is responsive; a monitor-derived timer is not real compositor synchronization.
+- **Helper-process native-output isolation:** could recover from a driver call that never returns, but changes IPC, timing, SysEx ownership, and output lifetime.
+- **Producer/consumer output separation:** might isolate provider latency, but redefines backlog, lag, cancellation, finite pressure, and Stop/Seek semantics; providers may not be thread-safe.
+- **Extreme-load pause attribution:** further claims need isolated ETW/GC/commit/page-fault evidence after the compact storage improvements.
+- **Legacy Windows or cross-platform portability:** a longer-term direction, not a current compatibility promise.
