@@ -42,6 +42,8 @@ Build 32 repeated the bounded 200,000-event x64 fixture after adding the whole-s
 
 Build 32 whole-state histories add one 8-byte value entry for each retained state change, plus bounded segment/reference overhead and one small series object per used controller or parameter. A 4,105-change single-controller boundary fixture reported approximately 49 KiB retained by the index. This scales with state changes—not notes or every dispatchable event—and the large-file warning projection includes a conservative allowance for the new histories.
 
+Build 33 measured 1,000,000 direct Events/sec clock advances in about 6 ms on the recorded x64 run, with no Gen0 collection. The deterministic checksum was 22,675,736 microseconds. This isolates the application-side rational clock; it is not a native-provider throughput claim.
+
 ## Provider boundaries
 
 - WinMM behavior depends on the selected Windows MIDI device or user-supplied wrapper.

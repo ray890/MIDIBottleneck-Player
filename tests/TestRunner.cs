@@ -498,6 +498,11 @@ namespace MidiBottleneck.Tests
                     RunFocused("whole-state Play/Seek chase", TestBuild32WholeStateChase);
                     return 0;
                 }
+                if (arguments.Length == 1 && arguments[0] == "--test-build33")
+                {
+                    RunFocused("direct Events/sec service model and UI", TestBuild33DirectEventRate);
+                    return 0;
+                }
                 if (arguments.Length == 1 && arguments[0] == "--test-interface-only")
                 {
                     RunFocused("WinForms interface construction", TestInterfaceConstruction);
@@ -584,6 +589,7 @@ namespace MidiBottleneck.Tests
                 Run("live queue snapshots during slow and blocked output", TestQueueFreshness);
                 Run("forward-only queue limit without slowdown", TestForwardQueueLimitWithoutSlowdown);
                 Run("whole-state Play/Seek chase", TestBuild32WholeStateChase);
+                Run("direct Events/sec service model and UI", TestBuild33DirectEventRate);
                 Run("file workload scan reuse with exact projections", TestAnalysisWorkloadReuse);
                 Run("loading cadence and corrected layout", TestCorrectiveLoading);
                 Run("KDMAPI short, SysEx, reset, and stream lifecycle", TestKdmApiOutput);
@@ -595,7 +601,7 @@ namespace MidiBottleneck.Tests
                 Run("effective playback speed rolling estimate", TestEffectivePlaybackSpeed);
                 Run("current MIDI output-rate rolling estimate", TestRollingOutputRate);
                 Run("observed maximum output-rate retention and reset", TestObservedMaximumOutputRate);
-                Run("live Rate model applies at next service", TestLiveRateModelChange);
+                Run("Rate-model generations do not splice service clocks", TestLiveRateModelChange);
                 Run("live overflow policy applies at next overflow", TestLiveOverflowPolicyChange);
                 Run("output restart preserves paused source position and clears backlog", TestOutputRestartSemantics);
                 Run("None output no-op and allocation-free contract", TestNullMidiOutputContract);
@@ -3077,6 +3083,169 @@ namespace MidiBottleneck.Tests
             return -1;
         }
 
+        private static void TestBuild33DirectEventRate()
+        {
+            MidiEventView sample = MidiEventView.FromEvent(ChannelMessage(0, 0x90, 60, 100), 0);
+            long[] rates = new long[] { 1, 2, 3, 10, 3000, 44100, 999999, 1000000 };
+            for (int rateIndex = 0; rateIndex < rates.Length; rateIndex++)
+            {
+                long rate = rates[rateIndex];
+                ServiceDurationClock clock = new ServiceDurationClock(ServiceDurationMode.EventsPerSecond, 0, 31250, rate);
+                long total = 0;
+                for (long eventIndex = 0; eventIndex < rate; eventIndex++)
+                    total += clock.NextMicroseconds(sample);
+                Equal(1000000L, total, "exact one-second rational accumulation at " + rate + " events/sec");
+            }
+
+            ServiceDurationClock threeThousand = new ServiceDurationClock(
+                ServiceDurationMode.EventsPerSecond, 0, 31250, 3000);
+            Equal(333L, threeThousand.NextMicroseconds(sample), "3,000/s first quantum");
+            Equal(333L, threeThousand.NextMicroseconds(sample), "3,000/s second quantum");
+            Equal(334L, threeThousand.NextMicroseconds(sample), "3,000/s remainder quantum");
+            ServiceDurationClock immediate = new ServiceDurationClock(
+                ServiceDurationMode.EventsPerSecond, 0, 31250, 0);
+            Equal(0L, immediate.NextMicroseconds(sample), "zero event rate means immediate service");
+
+            MidiSong burst = BuildSong(new long[10]);
+            AnalysisConfiguration unlimited = new AnalysisConfiguration
+            {
+                SimulateSlowdown = true,
+                ServiceDurationMode = ServiceDurationMode.EventsPerSecond,
+                EventsPerSecond = 3,
+                QueueLengthLimitEnabled = false
+            };
+            WorkloadAnalysis unlimitedResult = WorkloadAnalyzer.Analyze(burst, 100000, unlimited);
+            Equal(3333333L, unlimitedResult.PredictedOutputCompletionMicroseconds,
+                "unlimited Analysis uses exact rational drain");
+            Equal(3333333L, unlimitedResult.Buckets[0].ServiceDemandMicroseconds,
+                "graph demand uses the shared rational clock");
+            Near(3.0, unlimitedResult.EventServiceCapacityPerSecond, 0.0001,
+                "Analysis direct event capacity");
+
+            AnalysisConfiguration finite = new AnalysisConfiguration
+            {
+                SimulateSlowdown = true,
+                ServiceDurationMode = ServiceDurationMode.EventsPerSecond,
+                EventsPerSecond = 3,
+                QueueLengthLimitEnabled = true,
+                QueueLengthLimit = 2,
+                OverflowPolicy = OverflowPolicy.DropNewest
+            };
+            WorkloadAnalysis finiteResult = WorkloadAnalyzer.Analyze(burst, 100000, finite);
+            Equal(8L, finiteResult.PredictedDroppedEvents, "finite event-rate drop count");
+            Equal(2, finiteResult.PredictedMaximumOccupancy, "finite event-rate occupancy");
+            Equal(666666L, finiteResult.PredictedOutputCompletionMicroseconds,
+                "rejected events consume no service phase");
+
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.ServiceDurationMode = ServiceDurationMode.EventsPerSecond;
+                engine.EventsPerSecond = 3;
+                engine.QueueLengthLimit = 2;
+                engine.OverflowPolicy = OverflowPolicy.DropNewest;
+                engine.SimulateSlowdown = true;
+                engine.Start(burst, new FakeMidiOutput(), ProcessingMode.Drop);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000,
+                    "finite Events/sec playback completion");
+                PlaybackSnapshot snapshot = engine.GetSnapshot();
+                Equal(finiteResult.PredictedDroppedEvents, snapshot.DroppedEvents,
+                    "finite Playback/Analysis event-rate drops");
+                Equal((long)burst.Events.Count - finiteResult.PredictedDroppedEvents, snapshot.ProcessedEvents,
+                    "finite Playback/Analysis event-rate sends");
+            }
+
+            finite.SimulateSlowdown = false;
+            finite.ApplyQueueLimitWithoutSlowdown = true;
+            WorkloadAnalysis forward = WorkloadAnalyzer.Analyze(burst, 100000, finite);
+            Equal(8L, forward.PredictedDroppedEvents, "forward-only event-rate drop count");
+            Equal(2, forward.PredictedMaximumOccupancy, "forward-only event-rate pressure");
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.ServiceDurationMode = ServiceDurationMode.EventsPerSecond;
+                engine.EventsPerSecond = 3;
+                engine.QueueLengthLimit = 2;
+                engine.OverflowPolicy = OverflowPolicy.DropNewest;
+                engine.SimulateSlowdown = false;
+                engine.ApplyQueueLimitWithoutSlowdown = true;
+                engine.Start(burst, new FakeMidiOutput(), ProcessingMode.Drop);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1000,
+                    "forward-only Events/sec playback completion");
+                PlaybackSnapshot snapshot = engine.GetSnapshot();
+                Equal(forward.PredictedDroppedEvents, snapshot.DroppedEvents,
+                    "forward-only Playback/Analysis event-rate drops");
+            }
+
+            Equal(3003L, MainForm.ProcessingToEventRate(333), "processing to nearest event rate");
+            Equal(333L, MainForm.EventRateToProcessing(3000), "event rate to nearest processing time");
+            Equal(0L, MainForm.EventRateToProcessing(0), "unlimited conversion");
+            Equal(0, MainForm.EventRateToSlider(0), "unlimited slider endpoint");
+            Equal(1L, MainForm.SliderToEventRate(1), "minimum finite slider rate");
+            Equal(1000000L, MainForm.SliderToEventRate(ProcessingTrackBar.ScaleMaximum),
+                "maximum slider rate");
+            if (MainForm.EventRateToSlider(44100) >= MainForm.EventRateToSlider(999999))
+                throw new Exception("event-rate slider does not increase toward the right");
+
+            PlaybackSnapshot rateSnapshot = new PlaybackSnapshot
+            {
+                SimulateSlowdown = true,
+                ServiceDurationMode = ServiceDurationMode.EventsPerSecond,
+                EventsPerSecond = 44100
+            };
+            Equal("44,100 events/sec", MainForm.FormatMaximumRate(rateSnapshot, null, false),
+                "direct maximum-rate formatting");
+
+            int gen0 = GC.CollectionCount(0);
+            Stopwatch performance = Stopwatch.StartNew();
+            ServiceDurationClock hotClock = new ServiceDurationClock(
+                ServiceDurationMode.EventsPerSecond, 0, 31250, 44100);
+            long checksum = 0;
+            for (int i = 0; i < 1000000; i++) checksum += hotClock.NextMicroseconds(sample);
+            performance.Stop();
+            Equal(0, GC.CollectionCount(0) - gen0, "event-rate hot clock Gen0 collections");
+            Equal(22675736L, checksum, "one-million-event rational checksum");
+            Console.WriteLine("      Events/sec clock: 1,000,000 steps in " + performance.ElapsedMilliseconds +
+                " ms; Gen0=0; checksum=" + checksum.ToString("N0", CultureInfo.InvariantCulture) + " us");
+
+            Application.EnableVisualStyles();
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(30);
+                BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                ComboBox mode = (ComboBox)typeof(MainForm).GetField("_serviceModeCombo", flags).GetValue(form);
+                NumericUpDown value = (NumericUpDown)typeof(MainForm).GetField("_processingValue", flags).GetValue(form);
+                Label label = (Label)typeof(MainForm).GetField("_serviceValueLabel", flags).GetValue(form);
+                mode.SelectedIndex = (int)ServiceDurationMode.EventsPerSecond; PumpFor(20);
+                Equal("Events per second", mode.SelectedItem.ToString(), "visible Events/sec Rate model");
+                Equal("Events/sec:", label.Text, "event-rate value label");
+                value.Value = 1000000; PumpFor(20);
+                Equal(1000000L, Decimal.ToInt64(value.Value), "full event-rate numeric value");
+                form.Width = 432; PumpFor(50);
+                if (mode.Right > form.ClientSize.Width || value.Right > form.ClientSize.Width)
+                    throw new Exception("compact Events/sec controls are clipped");
+
+                MidiSong restartSong = NewChannelSong("event-rate-restart.mid", 3000000,
+                    ChannelMessage(0, 0xC0, 9), ChannelMessage(2500000, 0x90, 60, 100));
+                FakeMidiOutput restartOutput = new FakeMidiOutput();
+                PlaybackEngine engine = (PlaybackEngine)typeof(MainForm).GetField("_engine", flags).GetValue(form);
+                typeof(MainForm).GetField("_song", flags).SetValue(form, restartSong);
+                typeof(MainForm).GetField("_engineSong", flags).SetValue(form, restartSong);
+                typeof(MainForm).GetField("_activeOutput", flags).SetValue(form, restartOutput);
+                engine.ServiceDurationMode = ServiceDurationMode.ProcessingTime;
+                engine.ProcessingMicroseconds = 500000;
+                mode.SelectedIndex = (int)ServiceDurationMode.ProcessingTime; PumpFor(10);
+                engine.Start(restartSong, restartOutput, ProcessingMode.Queue, 1000000);
+                mode.SelectedIndex = (int)ServiceDurationMode.EventsPerSecond;
+                PumpUntil(delegate { return restartOutput.ResetCount > 0; }, 1000,
+                    "live Rate model uses safe restart boundary");
+                Equal(ServiceDurationMode.EventsPerSecond, engine.ServiceDurationMode,
+                    "live restart selects Events/sec");
+                PumpUntil(delegate { return ContainsMessage(restartOutput.SentPayloads(), 0xC0, 9); }, 1000,
+                    "whole-state chase precedes later source after rate restart");
+                engine.Stop();
+                form.Close();
+            }
+        }
+
         private static void TestDefaultQueueLimit()
         {
             Equal(2000, PlaybackEngine.DefaultQueueLengthLimit, "default queue limit constant");
@@ -3494,11 +3663,11 @@ namespace MidiBottleneck.Tests
                 engine.ProcessingMicroseconds = 0;
                 Stopwatch elapsed = Stopwatch.StartNew();
                 engine.Start(BuildSong(new long[5000]), output, ProcessingMode.Queue);
-                WaitFor(delegate { return engine.State != PlaybackState.Playing; }, 4000, "live zero-to-nonzero change");
+                WaitFor(delegate { return engine.State != PlaybackState.Playing; }, 4000, "generation-scoped zero service");
                 elapsed.Stop();
                 Equal(5000L, output.Count, "zero-to-nonzero output count");
-                if (elapsed.ElapsedMilliseconds < 400)
-                    throw new Exception("live zero-to-nonzero change was not observed within a bounded batch");
+                if (elapsed.ElapsedMilliseconds > 500)
+                    throw new Exception("a direct property edit spliced a new clock into the active zero-service generation");
             }
             using (PlaybackEngine engine = new PlaybackEngine())
             {
@@ -3510,11 +3679,11 @@ namespace MidiBottleneck.Tests
                 engine.ProcessingMicroseconds = 200;
                 Stopwatch elapsed = Stopwatch.StartNew();
                 engine.Start(BuildSong(new long[5000]), output, ProcessingMode.Queue);
-                WaitFor(delegate { return engine.State != PlaybackState.Playing; }, 3000, "live nonzero-to-zero change");
+                WaitFor(delegate { return engine.State != PlaybackState.Playing; }, 3000, "generation-scoped nonzero service");
                 elapsed.Stop();
                 Equal(5000L, output.Count, "nonzero-to-zero output count");
-                if (elapsed.ElapsedMilliseconds > 1000)
-                    throw new Exception("live nonzero-to-zero change did not enter the fast path promptly");
+                if (elapsed.ElapsedMilliseconds < 300)
+                    throw new Exception("a direct property edit spliced zero service into the active generation");
             }
 
             long[] controlledTimes = new long[100000];
@@ -3964,10 +4133,19 @@ namespace MidiBottleneck.Tests
                 WaitFor(delegate { return engine.GetSnapshot().QueueLength >= 1; }, 1000, "queued event before live Rate model change");
                 engine.MidiBitrate = 100000000;
                 engine.ServiceDurationMode = ServiceDurationMode.MidiBitrate;
-                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1000, "completion after live Rate model change");
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1500, "completion after generation-scoped Rate model change");
                 elapsed.Stop();
-                if (elapsed.ElapsedMilliseconds < 240 || elapsed.ElapsedMilliseconds > 520)
-                    throw new Exception("live Rate model did not preserve current service then accelerate the next one: " + elapsed.ElapsedMilliseconds + " ms");
+                if (elapsed.ElapsedMilliseconds < 520 || elapsed.ElapsedMilliseconds > 900)
+                    throw new Exception("an active generation spliced two service clocks: " + elapsed.ElapsedMilliseconds + " ms");
+
+                output = new FakeMidiOutput();
+                elapsed.Restart();
+                engine.Start(song, output, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1000,
+                    "fresh generation uses changed Rate model");
+                elapsed.Stop();
+                if (elapsed.ElapsedMilliseconds > 250)
+                    throw new Exception("fresh generation did not use the selected bitrate: " + elapsed.ElapsedMilliseconds + " ms");
             }
         }
 

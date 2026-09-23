@@ -14,7 +14,7 @@ MIDIBottleneck Player is a Windows MIDI player and deterministic workload simula
 - Drag-and-drop loading for `.mid` and `.midi` files.
 - Cancellable background loading with compact, segmented storage for very large event counts.
 - A memory preflight and warning for unusually large files.
-- Optional processing-time, MIDI-bitrate, finite-queue, and overflow models, including forward-only dropping without delayed output.
+- Optional processing-time, direct events-per-second, MIDI-bitrate, finite-queue, and overflow models, including forward-only dropping without delayed output.
 - Live queue, output-rate, lag, effective-speed, and channel statistics.
 - Whole-file Analysis graphs with predicted queue pressure and output completion.
 - A 16-channel monitor with safe live overrides and per-channel filtering.

@@ -30,6 +30,10 @@ A compact per-song index records state-changing channel messages for logarithmic
 
 A dedicated above-normal-priority worker uses `Stopwatch` as the monotonic transport clock. A Windows waitable timer handles coarse waits; only the short final interval uses yield/spin checks.
 
+The direct Events/sec model uses one generation-owned rational service clock. Each service start adds 1,000,000 microseconds to an integer numerator, divides by the selected rate, and carries the remainder. This produces exact long-run rates without floating-point drift or a rounded reciprocal. Rejected arrivals and pending entries consume no phase; Clear or a newly applied filter rolls back an in-service quantum when that source event is retired. Playback, forward-only admission, and Analysis use the same rule. A selected rate of zero follows the immediate-service path.
+
+Rate-model and live rate edits retire and safely restart playback at the same source position. A worker generation therefore never splices two rational phases together.
+
 Immediate dispatch returns to admission/statistics publication after at most 2,048 sends or about 8 ms of completed output work. Those checkpoints add no deliberate sleep and preserve payload/order exactly. Stop, Pause, and Seek are observed before the next send after any blocked native call returns.
 
 The scheduler is the sole ordered writer to output state. UI control requests—overrides, one-value chase, mute safety, and output restarts—cross the same serialized boundary rather than calling native output concurrently. A monotonic wake generation closes the race between signalling the manual-reset wake event and the worker resetting it, so a control request cannot sleep until the next source event merely because those operations crossed.

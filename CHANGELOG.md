@@ -383,3 +383,17 @@ This is the human-readable history of MIDIBottleneck Player. Dates are original 
 
 - Builds immutable segmented state histories during the compact merge; seeking uses binary lookup instead of rescanning the file.
 - Reset, Pause/Resume, Seek, output replacement, cancellation, and output-failure behavior use the existing ordered safety boundary.
+
+## Build 33 — 2026-09-23
+
+### Player changes
+
+- Added **Events per second** as a third visible service-rate model from 0 through 1,000,000 events/sec; zero means unlimited/immediate service.
+- Uses an exact integer rational clock, so non-divisor rates such as 3,000 events/sec do not accumulate reciprocal-rounding drift.
+- Shares service-phase rules among delayed playback, forward-only queue admission, and static Analysis. Rejected events consume no service phase.
+- Converts directly between Processing time and Events/sec using the nearest whole equivalent. Active edits retire and restart the scheduler safely at the same source position.
+
+### Verification
+
+- Added deterministic boundary, drift, finite/unlimited queue, forward-drop, conversion, responsive-layout, live-restart, and whole-state-chase interaction coverage.
+- The one-million-step clock benchmark completed without a Gen0 collection in the recorded x64 run.

@@ -430,6 +430,7 @@ namespace MidiBottleneck
         public long MaximumLagMicroseconds;
         public ServiceDurationMode ServiceDurationMode;
         public long MidiBitrate;
+        public long EventsPerSecond;
         public bool SimulateSlowdown;
         public bool QueueLengthLimitEnabled;
         public int QueueLengthLimit;

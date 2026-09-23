@@ -917,6 +917,7 @@ namespace MidiBottleneck
                 ServiceDurationMode = source.ServiceDurationMode,
                 ProcessingMicroseconds = source.ProcessingMicroseconds,
                 MidiBitrate = source.MidiBitrate,
+                EventsPerSecond = source.EventsPerSecond,
                 QueueLengthLimitEnabled = source.QueueLengthLimitEnabled,
                 QueueLengthLimit = source.QueueLengthLimit,
                 OverflowPolicy = source.OverflowPolicy,
@@ -931,6 +932,7 @@ namespace MidiBottleneck
                 value.SimulateSlowdown + "|" + value.ApplyQueueLimitWithoutSlowdown + "|" + (int)value.ServiceDurationMode + "|" +
                 ((value.SimulateSlowdown || value.ApplyQueueLimitWithoutSlowdown && value.QueueLengthLimitEnabled) && value.ServiceDurationMode == ServiceDurationMode.ProcessingTime ? value.ProcessingMicroseconds : 0).ToString(CultureInfo.InvariantCulture) + "|" +
                 ((value.SimulateSlowdown || value.ApplyQueueLimitWithoutSlowdown && value.QueueLengthLimitEnabled) && value.ServiceDurationMode == ServiceDurationMode.MidiBitrate ? value.MidiBitrate : 0).ToString(CultureInfo.InvariantCulture) + "|" +
+                ((value.SimulateSlowdown || value.ApplyQueueLimitWithoutSlowdown && value.QueueLengthLimitEnabled) && value.ServiceDurationMode == ServiceDurationMode.EventsPerSecond ? value.EventsPerSecond : 0).ToString(CultureInfo.InvariantCulture) + "|" +
                 value.QueueLengthLimitEnabled + "|" + (value.QueueLengthLimitEnabled ? value.QueueLengthLimit : 0).ToString(CultureInfo.InvariantCulture) + "|" +
                 (value.QueueLengthLimitEnabled ? (int)value.OverflowPolicy : 0);
         }
@@ -1088,6 +1090,15 @@ namespace MidiBottleneck
                 {
                     text.AppendLine("Rate model            MIDI serial bitrate at " + configuration.MidiBitrate.ToString("N0", CultureInfo.CurrentCulture) + " bit/s");
                     text.AppendLine("Maximum rate          " + analysis.ByteServiceCapacityPerSecond.ToString("N1", CultureInfo.CurrentCulture) + " bytes/sec");
+                }
+                else if (configuration.ServiceDurationMode == ServiceDurationMode.EventsPerSecond)
+                {
+                    text.AppendLine("Rate model            Events per second, " +
+                        (configuration.EventsPerSecond == 0 ? "Unlimited / immediate" :
+                            configuration.EventsPerSecond.ToString("N0", CultureInfo.CurrentCulture) + " events/sec"));
+                    text.AppendLine("Maximum rate          " +
+                        (configuration.EventsPerSecond == 0 ? "Immediate (simulated)" :
+                            configuration.EventsPerSecond.ToString("N0", CultureInfo.CurrentCulture) + " events/sec"));
                 }
                 else
                 {

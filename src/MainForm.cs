@@ -312,7 +312,7 @@ namespace MidiBottleneck
                 _perNoteIntervalGateEnabled = false;
                 _engine.ServiceDurationMode = _serviceModeBeforePerNoteGate;
                 _updatingProcessingControls = true;
-                try { _serviceModeCombo.SelectedIndex = _engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate ? 1 : 0; }
+                try { _serviceModeCombo.SelectedIndex = (int)_engine.ServiceDurationMode; }
                 finally { _updatingProcessingControls = false; }
                 ConfigureServiceControls();
             }
@@ -646,11 +646,12 @@ namespace MidiBottleneck
             _serviceModeCombo.DropDownStyle = ComboBoxStyle.DropDownList;
             _serviceModeCombo.Items.Add("Processing time per event");
             _serviceModeCombo.Items.Add("MIDI serial bitrate");
+            _serviceModeCombo.Items.Add("Events per second");
             _serviceModeCombo.SelectedIndex = 0;
             _serviceModeCombo.Width = 210;
             _serviceModeCombo.Anchor = AnchorStyles.Left;
             _serviceModeCombo.SelectedIndexChanged += ServiceModeChanged;
-            _toolTip.SetToolTip(_serviceModeCombo, "A change made during playback applies to the next event that begins service.");
+            _toolTip.SetToolTip(_serviceModeCombo, "Changing the rate model during playback safely restarts from the same position.");
 
             _serviceValueLabel = new Label();
             _serviceValueLabel.Text = "Processing time per event:";
@@ -673,7 +674,7 @@ namespace MidiBottleneck
             _processingValue.Anchor = AnchorStyles.Left;
             _processingValue.ThousandsSeparator = true;
             _processingValue.ValueChanged += ProcessingValueChanged;
-            _toolTip.SetToolTip(_processingValue, "A live edit applies to the next event that begins service.");
+            _toolTip.SetToolTip(_processingValue, "A live edit safely restarts playback from the same position.");
 
             _serviceUnitLabel = new Label();
             _serviceUnitLabel.Text = "µs";
@@ -697,7 +698,7 @@ namespace MidiBottleneck
             _processingSlider.Dock = DockStyle.Fill;
             _processingSlider.AutoSize = true;
             _processingSlider.ValueChanged += ProcessingSliderChanged;
-            _toolTip.SetToolTip(_processingSlider, "Click or drag to set the rate. A live edit applies to the next event that begins service.");
+            _toolTip.SetToolTip(_processingSlider, "Click or drag to set the rate. A live edit safely restarts playback from the same position.");
             table.Controls.Add(_processingSlider, 0, 3);
             table.SetColumnSpan(_processingSlider, 2);
 
@@ -1305,6 +1306,11 @@ namespace MidiBottleneck
                 ApplyMidiBitrate(Decimal.ToInt64(_processingValue.Value), true);
                 return;
             }
+            if (_engine.ServiceDurationMode == ServiceDurationMode.EventsPerSecond)
+            {
+                ApplyEventsPerSecond(Decimal.ToInt64(_processingValue.Value), true);
+                return;
+            }
             long microseconds = Decimal.ToInt64(_processingValue.Value);
             ApplyProcessingMicroseconds(microseconds, true);
         }
@@ -1315,6 +1321,11 @@ namespace MidiBottleneck
             if (_engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate)
             {
                 ApplyMidiBitrate(SliderToBitrate(_processingSlider.Value), false);
+                return;
+            }
+            if (_engine.ServiceDurationMode == ServiceDurationMode.EventsPerSecond)
+            {
+                ApplyEventsPerSecond(SliderToEventRate(_processingSlider.Value), false);
                 return;
             }
             long microseconds = SliderToMicroseconds(_processingSlider.Value);
@@ -1349,7 +1360,7 @@ namespace MidiBottleneck
             }
             finally { _updatingProcessingControls = false; }
             UpdateProcessingSummary(microseconds);
-            if (_perNoteIntervalGateEnabled && previousMicroseconds != microseconds &&
+            if (previousMicroseconds != microseconds &&
                 (previousState == PlaybackState.Playing || previousState == PlaybackState.Paused))
                 TryRestartForProcessingModeChange(previousState);
             RefreshStatistics();
@@ -1361,15 +1372,24 @@ namespace MidiBottleneck
             _toolTip.SetToolTip(_processingSlider,
                 _perNoteIntervalGateEnabled
                     ? "Sets the nonzero interval for the per-note gate. A live edit safely silences and restarts the scheduler at the same position."
-                    : "Click or drag to set the rate. Fine adjustment to 5,000 µs; logarithmic above. A live edit applies to the next event that begins service.");
+                    : "Click or drag to set the rate. Fine adjustment to 5,000 µs; logarithmic above. A live edit safely restarts playback from the same position.");
         }
 
         private void ServiceModeChanged(object sender, EventArgs e)
         {
             if (_updatingProcessingControls) return;
-            ServiceDurationMode mode = _serviceModeCombo.SelectedIndex == 1 ? ServiceDurationMode.MidiBitrate : ServiceDurationMode.ProcessingTime;
+            PlaybackState previousState = _engine.State;
+            ServiceDurationMode previousMode = _engine.ServiceDurationMode;
+            ServiceDurationMode mode = (ServiceDurationMode)Math.Max(0, _serviceModeCombo.SelectedIndex);
+            if (mode == ServiceDurationMode.EventsPerSecond && previousMode == ServiceDurationMode.ProcessingTime)
+                _engine.EventsPerSecond = ProcessingToEventRate(_engine.ProcessingMicroseconds);
+            else if (mode == ServiceDurationMode.ProcessingTime && previousMode == ServiceDurationMode.EventsPerSecond)
+                _engine.ProcessingMicroseconds = EventRateToProcessing(_engine.EventsPerSecond);
             _engine.ServiceDurationMode = mode;
             ConfigureServiceControls();
+            if (previousMode != mode &&
+                (previousState == PlaybackState.Playing || previousState == PlaybackState.Paused))
+                TryRestartForProcessingModeChange(previousState);
             RefreshStatistics();
             ScheduleAnalysisRefresh();
         }
@@ -1392,6 +1412,19 @@ namespace MidiBottleneck
                     _dinPresetButton.Visible = !_compactLayout;
                     _processingSlider.Value = BitrateToSlider(_engine.MidiBitrate);
                 }
+                else if (_engine.ServiceDurationMode == ServiceDurationMode.EventsPerSecond)
+                {
+                    _serviceValueLabel.Text = "Events/sec:";
+                    _processingValue.Width = _compactLayout ? 77 : 100;
+                    _processingValue.DecimalPlaces = 0;
+                    _processingValue.Minimum = 0;
+                    _processingValue.Maximum = 1000000;
+                    _processingValue.Increment = 1;
+                    _processingValue.Value = _engine.EventsPerSecond;
+                    _serviceUnitLabel.Text = String.Empty;
+                    _dinPresetButton.Visible = false;
+                    _processingSlider.Value = EventRateToSlider(_engine.EventsPerSecond);
+                }
                 else
                 {
                     _serviceValueLabel.Text = _compactLayout ? "Time/event:" : "Processing time per event:";
@@ -1404,6 +1437,8 @@ namespace MidiBottleneck
             finally { _updatingProcessingControls = false; }
             if (_engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate)
                 UpdateBitrateSummary(_engine.MidiBitrate);
+            else if (_engine.ServiceDurationMode == ServiceDurationMode.EventsPerSecond)
+                UpdateEventRateSummary(_engine.EventsPerSecond);
             else
                 SetProcessingMicroseconds(_engine.ProcessingMicroseconds);
             UpdatePolicyControlState();
@@ -1413,6 +1448,8 @@ namespace MidiBottleneck
         {
             if (bitrate < 1) bitrate = 1;
             if (bitrate > 100000000) bitrate = 100000000;
+            long previous = _engine.MidiBitrate;
+            PlaybackState previousState = _engine.State;
             _engine.MidiBitrate = bitrate;
             _updatingProcessingControls = true;
             try
@@ -1423,6 +1460,9 @@ namespace MidiBottleneck
             }
             finally { _updatingProcessingControls = false; }
             UpdateBitrateSummary(bitrate);
+            if (previous != bitrate &&
+                (previousState == PlaybackState.Playing || previousState == PlaybackState.Paused))
+                TryRestartForProcessingModeChange(previousState);
             RefreshStatistics();
             ScheduleAnalysisRefresh();
         }
@@ -1430,7 +1470,36 @@ namespace MidiBottleneck
         private void UpdateBitrateSummary(long bitrate)
         {
             _toolTip.SetToolTip(_processingSlider,
-                "Click or drag to set the bitrate. Uses 10 transmitted bits per MIDI byte. A live edit applies to the next event that begins service.");
+                "Click or drag to set the bitrate. Uses 10 transmitted bits per MIDI byte. A live edit safely restarts playback from the same position.");
+        }
+
+        private void ApplyEventsPerSecond(long rate, bool fromNumeric)
+        {
+            rate = Math.Max(0, Math.Min(1000000, rate));
+            long previous = _engine.EventsPerSecond;
+            PlaybackState previousState = _engine.State;
+            _engine.EventsPerSecond = rate;
+            _updatingProcessingControls = true;
+            try
+            {
+                if (!fromNumeric) _processingValue.Value = rate;
+                int slider = EventRateToSlider(rate);
+                if (_processingSlider.Value != slider) _processingSlider.Value = slider;
+            }
+            finally { _updatingProcessingControls = false; }
+            UpdateEventRateSummary(rate);
+            if (previous != rate &&
+                (previousState == PlaybackState.Playing || previousState == PlaybackState.Paused))
+                TryRestartForProcessingModeChange(previousState);
+            RefreshStatistics();
+            ScheduleAnalysisRefresh();
+        }
+
+        private void UpdateEventRateSummary(long rate)
+        {
+            _toolTip.SetToolTip(_processingSlider, rate == 0
+                ? "Unlimited: modeled service is immediate. Move right to choose 1 through 1,000,000 events per second."
+                : "Click or drag from lower to higher event rates. Fractional microseconds are distributed exactly across events. A live edit safely restarts at the same position.");
         }
 
         private void SimulateSlowdownChanged(object sender, EventArgs e)
@@ -1442,6 +1511,8 @@ namespace MidiBottleneck
             UpdatePolicyControlState();
             if (_engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate)
                 UpdateBitrateSummary(_engine.MidiBitrate);
+            else if (_engine.ServiceDurationMode == ServiceDurationMode.EventsPerSecond)
+                UpdateEventRateSummary(_engine.EventsPerSecond);
             else
                 UpdateProcessingSummary(_engine.ProcessingMicroseconds);
             RefreshStatistics();
@@ -1512,6 +1583,36 @@ namespace MidiBottleneck
         {
             double exponent = 2.0 + (Math.Max(0, Math.Min(ProcessingTrackBar.ScaleMaximum, slider)) / (double)ProcessingTrackBar.ScaleMaximum) * 6.0;
             return (long)Math.Round(Math.Pow(10.0, exponent));
+        }
+
+        internal static int EventRateToSlider(long rate)
+        {
+            if (rate <= 0) return 0;
+            double normalized = Math.Log10(Math.Max(1, Math.Min(1000000, rate))) / 6.0;
+            return 1 + Math.Max(0, Math.Min(ProcessingTrackBar.ScaleMaximum - 1,
+                (int)Math.Round(normalized * (ProcessingTrackBar.ScaleMaximum - 1))));
+        }
+
+        internal static long SliderToEventRate(int slider)
+        {
+            if (slider <= 0) return 0;
+            double normalized = (Math.Min(ProcessingTrackBar.ScaleMaximum, slider) - 1) /
+                (double)(ProcessingTrackBar.ScaleMaximum - 1);
+            return Math.Max(1, Math.Min(1000000, (long)Math.Round(Math.Pow(10.0, normalized * 6.0))));
+        }
+
+        internal static long ProcessingToEventRate(long microseconds)
+        {
+            if (microseconds <= 0) return 0;
+            return Math.Max(1, Math.Min(1000000,
+                (long)Math.Round(1000000.0 / microseconds, MidpointRounding.AwayFromZero)));
+        }
+
+        internal static long EventRateToProcessing(long rate)
+        {
+            if (rate <= 0) return 0;
+            return Math.Max(1, Math.Min(1000000,
+                (long)Math.Round(1000000.0 / rate, MidpointRounding.AwayFromZero)));
         }
 
         internal static int MicrosecondsToSlider(long microseconds)
@@ -1896,6 +1997,7 @@ namespace MidiBottleneck
             configuration.ServiceDurationMode = _engine.ServiceDurationMode;
             configuration.ProcessingMicroseconds = _engine.ProcessingMicroseconds;
             configuration.MidiBitrate = _engine.MidiBitrate;
+            configuration.EventsPerSecond = _engine.EventsPerSecond;
             configuration.QueueLengthLimitEnabled = _queueLimitCheck.Checked;
             configuration.QueueLengthLimit = Decimal.ToInt32(_queueLimitValue.Value);
             configuration.OverflowPolicy = (OverflowPolicy)Math.Max(0, _overflowPolicyCombo.SelectedIndex);
@@ -2016,7 +2118,9 @@ namespace MidiBottleneck
                 _serviceModeLabel.Text = compact ? "Rate:" : "Rate model:";
                 _serviceValueLabel.Text = _engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate
                     ? (compact ? "Bitrate:" : "MIDI bitrate:")
-                    : (compact ? "Time/event:" : "Processing time per event:");
+                    : _engine.ServiceDurationMode == ServiceDurationMode.EventsPerSecond
+                        ? "Events/sec:"
+                        : (compact ? "Time/event:" : "Processing time per event:");
                 _serviceModeCombo.Width = compact ? 170 : 210;
                 _overflowPolicyCombo.Width = compact ? 132 : 235;
                 _overflowCluster.Margin = compact ? new Padding(0) : new Padding(4, 0, 0, 0);
@@ -2231,11 +2335,15 @@ namespace MidiBottleneck
             if (snapshot == null) return "—";
             if (snapshot.ProcessingMode == ProcessingMode.PerNoteIntervalGate)
                 return FormatPerNoteFrameRate(snapshot.ProcessingMicroseconds, compact);
-            bool immediate = !snapshot.SimulateSlowdown ||
-                (snapshot.ServiceDurationMode == ServiceDurationMode.ProcessingTime && snapshot.ProcessingMicroseconds == 0);
+            bool immediate = !snapshot.SimulateSlowdown && !snapshot.VirtualQueueActive ||
+                (snapshot.ServiceDurationMode == ServiceDurationMode.ProcessingTime && snapshot.ProcessingMicroseconds == 0) ||
+                (snapshot.ServiceDurationMode == ServiceDurationMode.EventsPerSecond && snapshot.EventsPerSecond == 0);
             if (immediate) return FormatObservedMaximumRate(observedRate, compact);
             if (snapshot.ServiceDurationMode == ServiceDurationMode.MidiBitrate)
                 return snapshot.MidiBitrate.ToString("N0", CultureInfo.CurrentCulture) + " bit/s";
+            if (snapshot.ServiceDurationMode == ServiceDurationMode.EventsPerSecond)
+                return snapshot.EventsPerSecond.ToString("N0", CultureInfo.CurrentCulture) +
+                    (compact ? " events/s" : " events/sec");
             return (1000000.0 / Math.Max(1, snapshot.ProcessingMicroseconds)).ToString(compact ? "N0" : "N1",
                 CultureInfo.CurrentCulture) + (compact ? " events/s" : " events/sec");
         }

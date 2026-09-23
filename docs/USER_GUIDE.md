@@ -33,15 +33,18 @@ Pause resets and silences the output, so state is restored once when Resume cont
 **Simulate slowdown** applies the selected service model:
 
 - **Processing time per event** assigns the configured time to every accepted dispatchable event.
+- **Events per second** directly sets the service rate from 0 through 1,000,000 events/sec. Zero means unlimited/immediate service.
 - **MIDI bitrate** derives service time from the message’s serialized byte count and selected bitrate.
 
 With slowdown disabled, accepted events are dispatched as soon as their source time and output calls permit. A configured processing time of exactly 0 µs uses the same effective-immediate scheduler path while retaining the logical setting.
+
+The Events/sec model carries fractional microseconds between events, so rates such as 3,000 events/sec remain exact over time rather than being rounded event by event. Switching directly between Processing time and Events/sec chooses the nearest whole equivalent. Changing a rate or model during playback uses a safe same-position restart so one scheduler generation never mixes two service clocks.
 
 ## Queue length and overflow
 
 With **Queue length limit** off, the simulated application queue is unlimited. With it on, the configured occupancy includes the event in service plus pending events.
 
-By default, the title-bar system menu checks **Apply queue limit without slowdown**. If Queue length limit is on while Simulate slowdown is off, this keeps a virtual queue using the selected Time/event or MIDI bitrate. It may reject a newly arriving event, but accepted MIDI is sent immediately; the model never removes something already sent. The queue statistic above the pressure bar remains the real unsent scheduler/output backlog. The bar is labelled **Virtual** and shows the separate modeled pressure.
+By default, the title-bar system menu checks **Apply queue limit without slowdown**. If Queue length limit is on while Simulate slowdown is off, this keeps a virtual queue using the selected processing-time, Events/sec, or MIDI-bitrate model. It may reject a newly arriving event, but accepted MIDI is sent immediately; the model never removes something already sent. The queue statistic above the pressure bar remains the real unsent scheduler/output backlog. The bar is labelled **Virtual** and shows the separate modeled pressure.
 
 Only **Drop newest** and **Drop incoming complete notes** are valid in this forward-only mode. **Drop oldest** and **Clear buffer and jump to realtime** require Simulate slowdown because they can remove pending MIDI only when the modeled queue is also the real delayed queue. The player keeps the selected policy and explains why Play is unavailable instead of silently changing it. The system-menu option can be changed only while playback is stopped; the choice applies to the next playback start. Turning Simulate slowdown on or off during finite playback uses a safe silence/restart at the same position because it changes between the real delayed queue and the virtual forward-only model.
 

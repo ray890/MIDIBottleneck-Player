@@ -4,10 +4,6 @@ These are evidence-backed future directions, not promises for a particular relea
 
 ## Near term
 
-### Direct Events per second rate input
-
-Add **Events per second** as a third visible Rate model rather than reinterpreting Queue limit. Processing time already defines service rate, while Queue limit independently defines burst capacity. The direct model should use fixed-point/rational service accumulation so selected rates are not distorted by integer-microsecond reciprocals; switching models should preserve the nearest equivalent behavior. Playback and Analysis must share the calculation and Build 31's forward-only policy restrictions remain unchanged.
-
 ### Drop oldest complete note
 
 Add a finite-queue policy that removes the oldest safe complete note: its Note On and matching Note Off. A production design needs intrusive pending-queue nodes plus per-channel/key occurrence links so both messages can be unlinked in amortized O(1), without scanning a large queue on every overflow.
@@ -24,6 +20,7 @@ The policy still needs exact rules for a Note Off that has not arrived, an event
 - **Build 29 — large-file preflight:** scans only files large enough to justify a second pass, then estimates open-file and loading-peak memory from exact SMF counts.
 - **Build 30 — human-facing refinement:** clarifies memory warnings, gate statistics, downloads, documentation, release history, and roadmap. Effective speed now uses a monotonic gate-progress frontier.
 - **Build 31 — queue-state correctness:** distinguishes real blocked-output backlog from virtual rate-model pressure and applies forward-only Drop newest/complete-note decisions without delaying accepted MIDI.
+- **Build 33 — direct event rate:** adds a third visible rate model with an integer rational clock shared by playback, virtual forward admission, and Analysis. Rejected work consumes no service phase, zero is unlimited/immediate, and active edits use a same-position generation restart.
 
 ## Playback and MIDI state decisions
 

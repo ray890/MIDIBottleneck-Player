@@ -38,6 +38,7 @@ namespace MidiBottleneck
         public ServiceDurationMode ServiceDurationMode;
         public long ProcessingMicroseconds;
         public long MidiBitrate;
+        public long EventsPerSecond;
         public bool QueueLengthLimitEnabled;
         public int QueueLengthLimit;
         public OverflowPolicy OverflowPolicy;
@@ -110,6 +111,7 @@ namespace MidiBottleneck
                 Configuration.ServiceDurationMode == configuration.ServiceDurationMode &&
                 Configuration.ProcessingMicroseconds == configuration.ProcessingMicroseconds &&
                 Configuration.MidiBitrate == configuration.MidiBitrate &&
+                Configuration.EventsPerSecond == configuration.EventsPerSecond &&
                 Configuration.QueueLengthLimitEnabled == configuration.QueueLengthLimitEnabled &&
                 Configuration.QueueLengthLimit == configuration.QueueLengthLimit &&
                 Configuration.OverflowPolicy == configuration.OverflowPolicy &&
@@ -240,7 +242,7 @@ namespace MidiBottleneck
             WorkloadAnalysis result = workload.CopyWorkload(configuration, cancellationToken);
             Report(progress, "Reusing file workload", 1, 1, 0, 750);
             if (configuration == null) { Report(progress, "Complete", 1, 1, 0, 1000); return result; }
-            if (configuration.SimulateSlowdown)
+            if (UsesConfiguredService(configuration))
             {
                 if (configuration.ServiceDurationMode == ServiceDurationMode.ProcessingTime)
                 {
@@ -252,7 +254,7 @@ namespace MidiBottleneck
                     if (configuration.ProcessingMicroseconds > 0)
                         result.EventServiceCapacityPerSecond = 1000000.0 / configuration.ProcessingMicroseconds;
                 }
-                else
+                else if (configuration.ServiceDurationMode == ServiceDurationMode.MidiBitrate)
                 {
                     // Per-message rounding is exact; aggregate byte totals
                     // cannot substitute for the sum of rounded service times.
@@ -268,6 +270,12 @@ namespace MidiBottleneck
                         result.Buckets[bucket].ServiceDemandMicroseconds += EventServiceMicroseconds(midiEvent, configuration);
                     }
                     result.ByteServiceCapacityPerSecond = configuration.MidiBitrate / 10.0;
+                }
+                else
+                {
+                    AddEventRateDemand(events, result, bucketMicroseconds, configuration,
+                        cancellationToken, progress);
+                    result.EventServiceCapacityPerSecond = configuration.EventsPerSecond;
                 }
             }
             AnalyzePressure(song, result, configuration, cancellationToken, progress);
@@ -342,10 +350,16 @@ namespace MidiBottleneck
 
             if (configuration != null)
             {
-                if (configuration.SimulateSlowdown && configuration.ServiceDurationMode == ServiceDurationMode.ProcessingTime && configuration.ProcessingMicroseconds > 0)
+                if (UsesConfiguredService(configuration) && configuration.ServiceDurationMode == ServiceDurationMode.ProcessingTime && configuration.ProcessingMicroseconds > 0)
                     result.EventServiceCapacityPerSecond = 1000000.0 / configuration.ProcessingMicroseconds;
-                if (configuration.SimulateSlowdown && configuration.ServiceDurationMode == ServiceDurationMode.MidiBitrate && configuration.MidiBitrate > 0)
+                if (UsesConfiguredService(configuration) && configuration.ServiceDurationMode == ServiceDurationMode.MidiBitrate && configuration.MidiBitrate > 0)
                     result.ByteServiceCapacityPerSecond = configuration.MidiBitrate / 10.0;
+                if (UsesConfiguredService(configuration) && configuration.ServiceDurationMode == ServiceDurationMode.EventsPerSecond)
+                {
+                    AddEventRateDemand(events, result, bucketMicroseconds, configuration,
+                        cancellationToken, progress);
+                    result.EventServiceCapacityPerSecond = configuration.EventsPerSecond;
+                }
                 AnalyzePressure(song, result, configuration, cancellationToken, progress);
             }
             else Report(progress, "File workload complete", 1, 1, 0, 750);
@@ -387,7 +401,8 @@ namespace MidiBottleneck
                     result.TotalBytes += bytes;
                     result.Buckets[bucketIndex].EventCount++;
                     result.Buckets[bucketIndex].ByteCount += bytes;
-                    if (configuration != null && configuration.SimulateSlowdown)
+                    if (configuration != null && UsesConfiguredService(configuration) &&
+                        configuration.ServiceDurationMode != ServiceDurationMode.EventsPerSecond)
                         result.Buckets[bucketIndex].ServiceDemandMicroseconds +=
                             configuration.ServiceDurationMode == ServiceDurationMode.ProcessingTime
                                 ? Math.Max(0, configuration.ProcessingMicroseconds)
@@ -432,7 +447,8 @@ namespace MidiBottleneck
                     result.TotalBytes += bytes;
                     result.Buckets[bucketIndex].EventCount++;
                     result.Buckets[bucketIndex].ByteCount += bytes;
-                    if (configuration != null && configuration.SimulateSlowdown)
+                    if (configuration != null && UsesConfiguredService(configuration) &&
+                        configuration.ServiceDurationMode != ServiceDurationMode.EventsPerSecond)
                         result.Buckets[bucketIndex].ServiceDemandMicroseconds += ServiceDurationCalculator.CalculateMicroseconds(
                             midiEvent, configuration.ServiceDurationMode, configuration.ProcessingMicroseconds, configuration.MidiBitrate);
                     int kind = (int)midiEvent.Kind;
@@ -479,6 +495,38 @@ namespace MidiBottleneck
             return Math.Max(1, (int)bucketCount);
         }
 
+        private static void AddEventRateDemand(MidiEventReader events, WorkloadAnalysis result,
+            long bucketMicroseconds, AnalysisConfiguration configuration,
+            CancellationToken cancellationToken, Action<WorkloadAnalysisProgress> progress)
+        {
+            ServiceDurationClock clock = CreateServiceClock(configuration);
+            for (int i = 0; i < events.Count; i++)
+            {
+                if ((i & 16383) == 0)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    Report(progress, "Calculating event-rate service demand", i, events.Count, 750, 0);
+                }
+                MidiEventView midiEvent = events[i];
+                int bucket = (int)Math.Min(result.Buckets.Length - 1,
+                    Math.Max(0, midiEvent.IntendedMicroseconds / bucketMicroseconds));
+                result.Buckets[bucket].ServiceDemandMicroseconds += clock.NextMicroseconds(midiEvent);
+            }
+        }
+
+        private static ServiceDurationClock CreateServiceClock(AnalysisConfiguration configuration)
+        {
+            return new ServiceDurationClock(configuration.ServiceDurationMode,
+                configuration.ProcessingMicroseconds, configuration.MidiBitrate,
+                configuration.EventsPerSecond);
+        }
+
+        private static bool UsesConfiguredService(AnalysisConfiguration configuration)
+        {
+            return configuration != null && (configuration.SimulateSlowdown ||
+                configuration.ApplyQueueLimitWithoutSlowdown && configuration.QueueLengthLimitEnabled);
+        }
+
         private static void AnalyzePressure(MidiSong song, WorkloadAnalysis result, AnalysisConfiguration configuration,
             CancellationToken cancellationToken, Action<WorkloadAnalysisProgress> progress)
         {
@@ -491,7 +539,8 @@ namespace MidiBottleneck
                 return;
             }
             if (!configuration.SimulateSlowdown ||
-                configuration.ServiceDurationMode == ServiceDurationMode.ProcessingTime && configuration.ProcessingMicroseconds == 0)
+                configuration.ServiceDurationMode == ServiceDurationMode.ProcessingTime && configuration.ProcessingMicroseconds == 0 ||
+                configuration.ServiceDurationMode == ServiceDurationMode.EventsPerSecond && configuration.EventsPerSecond == 0)
             {
                 result.PredictedMaximumOccupancy = events.Count == 0 ? 0 : 1;
                 result.PredictedOutputCompletionMicroseconds = events.Count == 0
@@ -511,7 +560,8 @@ namespace MidiBottleneck
             bool busy = false;
             long completion = 0;
             long lastCompleted = 0;
-            long pendingServiceMicroseconds = 0;
+            ServiceDurationClock serviceClock = CreateServiceClock(configuration);
+            ServiceDurationClock beforeCurrentService = serviceClock;
             int limit = Math.Max(1, configuration.QueueLengthLimit);
             CompleteNoteTracker completeNotes = new CompleteNoteTracker();
             for (int i = 0; i < events.Count; i++)
@@ -529,8 +579,8 @@ namespace MidiBottleneck
                     if (pending.Count > 0)
                     {
                         int next = pending.Dequeue();
-                        long nextService = EventServiceMicroseconds(events[next], configuration);
-                        pendingServiceMicroseconds = checked(pendingServiceMicroseconds - nextService);
+                        beforeCurrentService = serviceClock;
+                        long nextService = serviceClock.NextMicroseconds(events[next]);
                         completion = checked(completion + nextService);
                     }
                     else busy = false;
@@ -551,25 +601,17 @@ namespace MidiBottleneck
                     if (!busy)
                     {
                         busy = true;
-                        completion = checked(arrival + EventServiceMicroseconds(incomingEvent, configuration));
+                        beforeCurrentService = serviceClock;
+                        completion = checked(arrival + serviceClock.NextMicroseconds(incomingEvent));
                     }
-                    else
-                    {
-                        pending.Enqueue(i);
-                        pendingServiceMicroseconds = checked(pendingServiceMicroseconds +
-                            EventServiceMicroseconds(incomingEvent, configuration));
-                    }
+                    else pending.Enqueue(i);
                     if (noteKind == CompleteNoteEventKind.NoteOn)
                         completeNotes.RecordNoteOn(incomingEvent, true, false);
                 }
                 else if (configuration.OverflowPolicy == OverflowPolicy.DropOldest && pending.Count > 0)
                 {
-                    int removed = pending.Dequeue();
-                    pendingServiceMicroseconds = checked(pendingServiceMicroseconds -
-                        EventServiceMicroseconds(events[removed], configuration));
+                    pending.Dequeue();
                     pending.Enqueue(i);
-                    pendingServiceMicroseconds = checked(pendingServiceMicroseconds +
-                        EventServiceMicroseconds(incomingEvent, configuration));
                     if (noteKind == CompleteNoteEventKind.NoteOn)
                         completeNotes.RecordNoteOn(incomingEvent, true, false);
                     RecordDrop(result, bucketIndex, 1);
@@ -578,7 +620,7 @@ namespace MidiBottleneck
                 {
                     int dropped = occupancy + 1;
                     pending.Clear();
-                    pendingServiceMicroseconds = 0;
+                    serviceClock = beforeCurrentService;
                     busy = false;
                     while (i + 1 < events.Count && events[i + 1].IntendedMicroseconds <= arrival) { dropped++; i++; }
                     RecordDrop(result, bucketIndex, dropped);
@@ -598,8 +640,10 @@ namespace MidiBottleneck
                 if (occupancy > result.Buckets[bucketIndex].PredictedPeakOccupancy)
                     result.Buckets[bucketIndex].PredictedPeakOccupancy = occupancy;
             }
-            result.PredictedOutputCompletionMicroseconds = busy
-                ? checked(completion + pendingServiceMicroseconds) : lastCompleted;
+            if (busy)
+                while (pending.Count > 0)
+                    completion = checked(completion + serviceClock.NextMicroseconds(events[pending.Dequeue()]));
+            result.PredictedOutputCompletionMicroseconds = busy ? completion : lastCompleted;
             Report(progress, "Projecting finite queue pressure", events.Count, events.Count, 750, 250);
         }
 
@@ -613,6 +657,7 @@ namespace MidiBottleneck
 
             MidiEventReader events = song.GetEventReader();
             ForwardDropQueue queue = new ForwardDropQueue(Math.Max(1, configuration.QueueLengthLimit));
+            ServiceDurationClock serviceClock = CreateServiceClock(configuration);
             CompleteNoteTracker completeNotes = new CompleteNoteTracker();
             long lastAccepted = 0;
             for (int i = 0; i < events.Count; i++)
@@ -635,8 +680,9 @@ namespace MidiBottleneck
                 }
                 bool safetyAdmission = configuration.OverflowPolicy == OverflowPolicy.DropIncomingCompleteNotes &&
                     noteKind != CompleteNoteEventKind.NoteOn;
-                bool accepted = queue.TryAdmit(arrival, EventServiceMicroseconds(incomingEvent, configuration),
-                    safetyAdmission);
+                ServiceDurationClock admittedClock = serviceClock;
+                long service = admittedClock.NextMicroseconds(incomingEvent);
+                bool accepted = queue.TryAdmit(arrival, service, safetyAdmission);
                 if (!accepted)
                 {
                     if (noteKind == CompleteNoteEventKind.NoteOn)
@@ -645,6 +691,7 @@ namespace MidiBottleneck
                     RecordDrop(result, bucketIndex, 1);
                     continue;
                 }
+                serviceClock = admittedClock;
                 if (noteKind == CompleteNoteEventKind.NoteOn)
                     completeNotes.RecordNoteOn(incomingEvent, true, false);
                 lastAccepted = arrival;
@@ -664,7 +711,7 @@ namespace MidiBottleneck
             bool busy = false;
             long completion = 0;
             long lastCompleted = 0;
-            long pendingServiceMicroseconds = 0;
+            ServiceDurationClock serviceClock = CreateServiceClock(configuration);
             int nextPending = 0;
             for (int i = 0; i < events.Count; i++)
             {
@@ -680,8 +727,7 @@ namespace MidiBottleneck
                     lastCompleted = completion;
                     if (nextPending < i)
                     {
-                        long nextService = EventServiceMicroseconds(events[nextPending], configuration);
-                        pendingServiceMicroseconds = checked(pendingServiceMicroseconds - nextService);
+                        long nextService = serviceClock.NextMicroseconds(events[nextPending]);
                         completion = checked(completion + nextService);
                         nextPending++;
                     }
@@ -690,20 +736,19 @@ namespace MidiBottleneck
                 if (!busy)
                 {
                     busy = true;
-                    completion = checked(arrival + EventServiceMicroseconds(incomingEvent, configuration));
+                    completion = checked(arrival + serviceClock.NextMicroseconds(incomingEvent));
                     nextPending = i + 1;
                 }
-                else
-                    pendingServiceMicroseconds = checked(pendingServiceMicroseconds +
-                        EventServiceMicroseconds(incomingEvent, configuration));
                 int occupancy = 1 + Math.Max(0, i + 1 - nextPending);
                 int bucketIndex = (int)Math.Min(result.Buckets.Length - 1, Math.Max(0, arrival / result.BucketMicroseconds));
                 if (occupancy > result.PredictedMaximumOccupancy) result.PredictedMaximumOccupancy = occupancy;
                 if (occupancy > result.Buckets[bucketIndex].PredictedPeakOccupancy)
                     result.Buckets[bucketIndex].PredictedPeakOccupancy = occupancy;
             }
-            result.PredictedOutputCompletionMicroseconds = busy
-                ? checked(completion + pendingServiceMicroseconds) : lastCompleted;
+            if (busy)
+                while (nextPending < events.Count)
+                    completion = checked(completion + serviceClock.NextMicroseconds(events[nextPending++]));
+            result.PredictedOutputCompletionMicroseconds = busy ? completion : lastCompleted;
             Report(progress, "Projecting unlimited queue pressure", events.Count, events.Count, 750, 250);
         }
 

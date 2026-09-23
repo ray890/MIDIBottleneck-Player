@@ -5,10 +5,10 @@ This is a direction of travel, not a promise of dates. Correct MIDI behavior, de
 ## Near term
 
 - **Drop oldest complete note** — when a finite queue is full, remove the oldest Note On together with its matching Note Off without scanning a large queue on every overflow. Playback and Analysis must make the same decision.
-- **Direct Events/sec rate input** — add a third visible rate model mathematically equivalent to processing time while retaining queue length as independent burst capacity.
 
 ## Recently completed
 
+- **Build 33 — direct event rate:** added an exact Events/sec service model shared by playback and Analysis, with generation-safe live changes and zero as unlimited/immediate service.
 - **Build 32 — whole-state chase:** checked-by-default Play/Seek restoration for bank, Program, ordinary controllers, bend, pressure, and ordered RPN/NRPN values without replaying notes.
 - **Build 31 — queue-state correctness:** finite mode now reports real backlog behind a blocked output, while an optional forward-only queue model can apply Drop newest or complete-note protection without deliberately delaying accepted MIDI.
 - **Build 30 — human-facing refinement:** direct executable downloads, clearer large-file warnings, paused warning-dialog time, Per-note frame-rate reporting, stable Per-note effective speed, a public changelog, and simpler documentation.
