@@ -47,6 +47,8 @@ namespace MidiBottleneck
         private readonly HashSet<Control> _midiDropTargets = new HashSet<Control>();
         private readonly List<DiagnosticsForm> _analysisWindows = new List<DiagnosticsForm>();
         private ChannelMonitorForm _channelMonitor;
+        private MidiSong _sourceReadoutSong;
+        private int _sourceReadoutEventIndex = -1;
         private readonly ToolTip _toolTip = new ToolTip();
         private IMidiOutput _activeOutput;
         private MidiSong _song;
@@ -85,7 +87,7 @@ namespace MidiBottleneck
         private bool _forceLargeFileWarningForTests;
         private MidiLargeFileInspection _lastLargeFileInspection;
         private bool _perNoteIntervalGateEnabled;
-        private bool _applyQueueLimitWithoutSlowdown = true;
+        private bool _applyQueueLimitWithoutSlowdown;
         private bool _chaseMidiStateOnPlaySeek = true;
         private ServiceDurationMode _serviceModeBeforePerNoteGate = ServiceDurationMode.ProcessingTime;
 
@@ -147,7 +149,7 @@ namespace MidiBottleneck
 
             _effectiveSpeed.WindowMicroseconds = UserPreferences.LoadEffectiveSpeedWindow();
             _engine.SimulateSlowdown = false;
-            _engine.ApplyQueueLimitWithoutSlowdown = true;
+            _engine.ApplyQueueLimitWithoutSlowdown = false;
             _engine.ChaseMidiStateOnPlaySeek = true;
 
             BuildInterface();
@@ -179,12 +181,12 @@ namespace MidiBottleneck
                 AppendMenu(menu, MfSeparator, UIntPtr.Zero, null);
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuAbout, "About " + ProductIdentity.Name + "…");
                 AppendMenu(menu, MfSeparator, UIntPtr.Zero, null);
+                AppendMenu(menu, MfString, (UIntPtr)SystemMenuChaseMidiState,
+                    "Chase MIDI state on Play/Seek");
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuAlwaysOnTop, "Always on top");
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuPerNoteIntervalGate, "Per-note interval gate");
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuApplyQueueLimitWithoutSlowdown,
                     "Apply queue limit without slowdown");
-                AppendMenu(menu, MfString, (UIntPtr)SystemMenuChaseMidiState,
-                    "Chase MIDI state on Play/Seek");
                 UpdateAlwaysOnTopMenuCheck();
                 UpdatePerNoteIntervalGateMenuCheck();
                 UpdateForwardQueueMenuState();
@@ -269,6 +271,8 @@ namespace MidiBottleneck
             if (state == PlaybackState.Playing || state == PlaybackState.Paused) return;
             _chaseMidiStateOnPlaySeek = !_chaseMidiStateOnPlaySeek;
             _engine.ChaseMidiStateOnPlaySeek = _chaseMidiStateOnPlaySeek;
+            _sourceReadoutEventIndex = -1;
+            RefreshStatistics();
             UpdateStateChaseMenuState();
         }
 
@@ -651,7 +655,7 @@ namespace MidiBottleneck
             _serviceModeCombo.Width = 210;
             _serviceModeCombo.Anchor = AnchorStyles.Left;
             _serviceModeCombo.SelectedIndexChanged += ServiceModeChanged;
-            _toolTip.SetToolTip(_serviceModeCombo, "Changing the rate model during playback safely restarts from the same position.");
+            _toolTip.SetToolTip(_serviceModeCombo, "A live change applies when the next event begins service.");
 
             _serviceValueLabel = new Label();
             _serviceValueLabel.Text = "Processing time per event:";
@@ -674,7 +678,7 @@ namespace MidiBottleneck
             _processingValue.Anchor = AnchorStyles.Left;
             _processingValue.ThousandsSeparator = true;
             _processingValue.ValueChanged += ProcessingValueChanged;
-            _toolTip.SetToolTip(_processingValue, "A live edit safely restarts playback from the same position.");
+            _toolTip.SetToolTip(_processingValue, "A live edit applies when the next event begins service.");
 
             _serviceUnitLabel = new Label();
             _serviceUnitLabel.Text = "µs";
@@ -698,7 +702,7 @@ namespace MidiBottleneck
             _processingSlider.Dock = DockStyle.Fill;
             _processingSlider.AutoSize = true;
             _processingSlider.ValueChanged += ProcessingSliderChanged;
-            _toolTip.SetToolTip(_processingSlider, "Click or drag to set the rate. A live edit safely restarts playback from the same position.");
+            _toolTip.SetToolTip(_processingSlider, "Click or drag to set the rate. A live edit applies when the next event begins service.");
             table.Controls.Add(_processingSlider, 0, 3);
             table.SetColumnSpan(_processingSlider, 2);
 
@@ -1360,7 +1364,7 @@ namespace MidiBottleneck
             }
             finally { _updatingProcessingControls = false; }
             UpdateProcessingSummary(microseconds);
-            if (previousMicroseconds != microseconds &&
+            if (_perNoteIntervalGateEnabled && previousMicroseconds != microseconds &&
                 (previousState == PlaybackState.Playing || previousState == PlaybackState.Paused))
                 TryRestartForProcessingModeChange(previousState);
             RefreshStatistics();
@@ -1372,7 +1376,7 @@ namespace MidiBottleneck
             _toolTip.SetToolTip(_processingSlider,
                 _perNoteIntervalGateEnabled
                     ? "Sets the nonzero interval for the per-note gate. A live edit safely silences and restarts the scheduler at the same position."
-                    : "Click or drag to set the rate. Fine adjustment to 5,000 µs; logarithmic above. A live edit safely restarts playback from the same position.");
+                    : "Click or drag to set the rate. Fine adjustment to 5,000 µs; logarithmic above. A live edit applies when the next event begins service.");
         }
 
         private void ServiceModeChanged(object sender, EventArgs e)
@@ -1381,15 +1385,14 @@ namespace MidiBottleneck
             PlaybackState previousState = _engine.State;
             ServiceDurationMode previousMode = _engine.ServiceDurationMode;
             ServiceDurationMode mode = (ServiceDurationMode)Math.Max(0, _serviceModeCombo.SelectedIndex);
+            long processing = _engine.ProcessingMicroseconds;
+            long eventRate = _engine.EventsPerSecond;
             if (mode == ServiceDurationMode.EventsPerSecond && previousMode == ServiceDurationMode.ProcessingTime)
-                _engine.EventsPerSecond = ProcessingToEventRate(_engine.ProcessingMicroseconds);
+                eventRate = ProcessingToEventRate(processing);
             else if (mode == ServiceDurationMode.ProcessingTime && previousMode == ServiceDurationMode.EventsPerSecond)
-                _engine.ProcessingMicroseconds = EventRateToProcessing(_engine.EventsPerSecond);
-            _engine.ServiceDurationMode = mode;
+                processing = EventRateToProcessing(eventRate);
+            _engine.SetServiceConfiguration(mode, processing, _engine.MidiBitrate, eventRate);
             ConfigureServiceControls();
-            if (previousMode != mode &&
-                (previousState == PlaybackState.Playing || previousState == PlaybackState.Paused))
-                TryRestartForProcessingModeChange(previousState);
             RefreshStatistics();
             ScheduleAnalysisRefresh();
         }
@@ -1460,9 +1463,6 @@ namespace MidiBottleneck
             }
             finally { _updatingProcessingControls = false; }
             UpdateBitrateSummary(bitrate);
-            if (previous != bitrate &&
-                (previousState == PlaybackState.Playing || previousState == PlaybackState.Paused))
-                TryRestartForProcessingModeChange(previousState);
             RefreshStatistics();
             ScheduleAnalysisRefresh();
         }
@@ -1470,7 +1470,7 @@ namespace MidiBottleneck
         private void UpdateBitrateSummary(long bitrate)
         {
             _toolTip.SetToolTip(_processingSlider,
-                "Click or drag to set the bitrate. Uses 10 transmitted bits per MIDI byte. A live edit safely restarts playback from the same position.");
+                "Click or drag to set the bitrate. Uses 10 transmitted bits per MIDI byte. A live edit applies when the next event begins service.");
         }
 
         private void ApplyEventsPerSecond(long rate, bool fromNumeric)
@@ -1488,9 +1488,6 @@ namespace MidiBottleneck
             }
             finally { _updatingProcessingControls = false; }
             UpdateEventRateSummary(rate);
-            if (previous != rate &&
-                (previousState == PlaybackState.Playing || previousState == PlaybackState.Paused))
-                TryRestartForProcessingModeChange(previousState);
             RefreshStatistics();
             ScheduleAnalysisRefresh();
         }
@@ -1499,7 +1496,7 @@ namespace MidiBottleneck
         {
             _toolTip.SetToolTip(_processingSlider, rate == 0
                 ? "Unlimited: modeled service is immediate. Move right to choose 1 through 1,000,000 events per second."
-                : "Click or drag from lower to higher event rates. Fractional microseconds are distributed exactly across events. A live edit safely restarts at the same position.");
+                : "Click or drag from lower to higher event rates. Fractional microseconds are distributed exactly across events. A live edit applies when the next event begins service.");
         }
 
         private void SimulateSlowdownChanged(object sender, EventArgs e)
@@ -1691,7 +1688,11 @@ namespace MidiBottleneck
                         Lag = FormatLagMilliseconds(snapshot.CurrentLagMicroseconds) + " / " + FormatLagMilliseconds(snapshot.MaximumLagMicroseconds)
                     });
             if (_channelMonitor != null && !_channelMonitor.IsDisposed)
+            {
+                UpdateChannelSourceReadouts(snapshot.State == PlaybackState.Stopped
+                    ? _selectedPositionMicroseconds : snapshot.IntendedTimelineMicroseconds);
                 _channelMonitor.UpdateSnapshot(_engine.GetChannelSnapshot());
+            }
         }
 
         private static long StopwatchTicksToMicroseconds(long ticks)
@@ -1890,6 +1891,7 @@ namespace MidiBottleneck
             _engine.SetChannelMonitoring(true);
             ChannelMonitorForm monitor = new ChannelMonitorForm(_song == null ? null : Path.GetFileName(_song.FilePath));
             _channelMonitor = monitor;
+            _sourceReadoutEventIndex = -1;
             monitor.OverrideRequested += delegate(object sender, ChannelOverrideRequestEventArgs request)
             {
                 try
@@ -1951,7 +1953,29 @@ namespace MidiBottleneck
             monitor.Location = proposed;
             monitor.Show();
             if (_song == null) monitor.DetachForSongReplacement("No MIDI file is loaded.");
-            else monitor.UpdateSnapshot(_engine.GetChannelSnapshot());
+            else
+            {
+                UpdateChannelSourceReadouts(_engine.State == PlaybackState.Stopped
+                    ? _selectedPositionMicroseconds : _engine.GetSnapshot().IntendedTimelineMicroseconds);
+                monitor.UpdateSnapshot(_engine.GetChannelSnapshot());
+            }
+        }
+
+        private void UpdateChannelSourceReadouts(long positionMicroseconds)
+        {
+            ChannelMonitorForm monitor = _channelMonitor;
+            if (monitor == null || monitor.IsDisposed || _song == null) return;
+            if (!_chaseMidiStateOnPlaySeek)
+            {
+                monitor.SetSourceReadouts(null);
+                _sourceReadoutEventIndex = -1;
+                return;
+            }
+            int exclusive = _song.EventStore.LowerBoundByTime(positionMicroseconds);
+            if (Object.ReferenceEquals(_song, _sourceReadoutSong) && exclusive == _sourceReadoutEventIndex) return;
+            monitor.SetSourceReadouts(_song.GetMidiStateChaseIndex().CreateAttributeReadouts(exclusive));
+            _sourceReadoutSong = _song;
+            _sourceReadoutEventIndex = exclusive;
         }
 
         private void CloseChannelMonitor()

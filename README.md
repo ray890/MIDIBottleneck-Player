@@ -38,7 +38,7 @@ Windows 7 SP1 is untested. Windows XP and cross-platform support are longer-term
 2. Download `MIDIBottleneck-Player-v<version>-x64.exe` for a typical modern system, or the x86 executable when a 32-bit MIDI environment requires it.
 3. Run the downloaded executable. No extraction or adjacent configuration file is required.
 4. Choose an output, then open or drag one `.mid` or `.midi` file onto the window.
-5. Leave **Simulate slowdown** and **Queue length limit** off for ordinary uncapped playback, or enable the model you want to study. The window menu's checked **Apply queue limit without slowdown** option can reject future arrivals using the selected rate model without deliberately delaying accepted output.
+5. Leave **Simulate slowdown** and **Queue length limit** off for ordinary uncapped playback, or enable the model you want to study. **Apply queue limit without slowdown** is off by default; enable it in the window menu to reject future arrivals using the selected rate model without deliberately delaying accepted output.
 
 The window menu also enables **Chase MIDI state on Play/Seek** by default. Starting in the middle restores ordinary channel state before later notes without replaying earlier notes.
 

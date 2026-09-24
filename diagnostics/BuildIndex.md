@@ -37,6 +37,7 @@ The public history was reconstructed because original Git commits did not exist.
 | 31 | queue-state-correctness | 2026-09-23 07:22 -04:00 | exact | `v1.0.31` |
 | 32 | whole-state-chase | 2026-09-23 12:20 -04:00 | exact | `v1.0.32` |
 | 33 | direct-event-rate | 2026-09-23 | exact | `v1.0.33` |
+| 34 | uninterrupted-rate-and-source-readouts | 2026-09-23 | exact | `v1.0.34` |
 
 ## Evidence-recovery result
 

@@ -56,6 +56,7 @@ namespace MidiBottleneck
         private readonly ScrubOrTypeTextBox _editor;
         private readonly ToolTip _feedbackTip = new ToolTip();
         private MidiChannelSnapshot[] _lastChannels;
+        private MidiChannelSnapshot[] _sourceReadouts;
         private int _editorChannel = -1;
         private ChannelAttribute _editorAttribute;
         private bool _fittingWindow;
@@ -251,6 +252,11 @@ namespace MidiBottleneck
             }
         }
 
+        internal void SetSourceReadouts(ChannelPlaybackSnapshot source)
+        {
+            _sourceReadouts = source == null ? null : source.Channels;
+        }
+
         internal bool IsDetached { get { return _detachedOverlay.Visible; } }
         internal string DetachedMessage { get { return _detachedOverlay.Text; } }
 
@@ -258,6 +264,7 @@ namespace MidiBottleneck
         {
             HideEditor(false);
             _lastChannels = null;
+            _sourceReadouts = null;
             ClearDisplayedState();
             _grid.Enabled = false;
             _detachedOverlay.Text = message ?? "No MIDI file is loaded.";
@@ -311,9 +318,26 @@ namespace MidiBottleneck
             bool pending = (state.PendingForcedAttributeMask & bit) != 0;
             bool historical = !forced && (state.HistoricalAttributeMask & bit) != 0;
             int displayed = forced ? ForcedValue(state, attribute) : observed;
+            bool sourceDerived = false;
+            if (!forced && IsUnknownAttribute(attribute, displayed) && _sourceReadouts != null)
+            {
+                int source = ObservedValue(_sourceReadouts[channel], attribute);
+                if (!IsUnknownAttribute(attribute, source))
+                {
+                    displayed = source;
+                    historical = true;
+                    sourceDerived = true;
+                }
+            }
             string value = FormatAttribute(attribute, displayed);
             SetCell(channel, columnName, value, forced, historical, pending);
+            if (sourceDerived)
+                _grid.Rows[channel].Cells[columnName].ToolTipText = value + Environment.NewLine +
+                    "Source-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.";
         }
+
+        private static bool IsUnknownAttribute(ChannelAttribute attribute, int value)
+        { return attribute == ChannelAttribute.PitchBend ? value == Int32.MinValue : value < 0; }
 
         private void SetCell(int channel, string columnName, string value, bool forced, bool historical)
         {
@@ -466,8 +490,11 @@ namespace MidiBottleneck
 
         private bool IsHistorical(int channel, ChannelAttribute attribute)
         {
-            return _lastChannels != null && channel >= 0 && channel < _lastChannels.Length &&
-                (_lastChannels[channel].HistoricalAttributeMask & (1 << (int)attribute)) != 0;
+            if (_lastChannels == null || channel < 0 || channel >= _lastChannels.Length) return false;
+            if ((_lastChannels[channel].HistoricalAttributeMask & (1 << (int)attribute)) != 0) return true;
+            return _sourceReadouts != null && !IsForced(channel, attribute) &&
+                IsUnknownAttribute(attribute, ObservedValue(_lastChannels[channel], attribute)) &&
+                !IsUnknownAttribute(attribute, ObservedValue(_sourceReadouts[channel], attribute));
         }
 
         private static string AttributeHelp(ChannelAttribute attribute)
@@ -627,6 +654,8 @@ namespace MidiBottleneck
             MidiChannelSnapshot state = _lastChannels[channel];
             int bit = 1 << (int)attribute;
             int value = (state.ForcedAttributeMask & bit) != 0 ? ForcedValue(state, attribute) : ObservedValue(state, attribute);
+            if (IsUnknownAttribute(attribute, value) && _sourceReadouts != null)
+                value = ObservedValue(_sourceReadouts[channel], attribute);
             return value == Int32.MinValue || value < 0 && attribute != ChannelAttribute.PitchBend
                 ? DefaultEditorSeed(attribute) : value;
         }

@@ -21,6 +21,7 @@ The policy still needs exact rules for a Note Off that has not arrived, an event
 - **Build 30 — human-facing refinement:** clarifies memory warnings, gate statistics, downloads, documentation, release history, and roadmap. Effective speed now uses a monotonic gate-progress frontier.
 - **Build 31 — queue-state correctness:** distinguishes real blocked-output backlog from virtual rate-model pressure and applies forward-only Drop newest/complete-note decisions without delaying accepted MIDI.
 - **Build 33 — direct event rate:** adds a third visible rate model with an integer rational clock shared by playback, virtual forward admission, and Analysis. Rejected work consumes no service phase, zero is unlimited/immediate, and active edits use a same-position generation restart.
+- **Build 34 — live edits and Channels provenance:** ordinary rate edits now apply at the next service start without silencing or restarting. Channels can show indexed source values as gray historical readouts when no output observation exists; these never count as sent MIDI. Forward-only queue limiting now starts off.
 
 ## Playback and MIDI state decisions
 
@@ -33,6 +34,12 @@ Completed in Build 32. The checked-by-default power-user option uses segmented c
 Current overrides safely cover Bank MSB/LSB, Program, Volume, Expression, Pan, Sustain, pitch bend, and channel aftertouch. Source conflicts are filtered before scheduler admission; explicit controls remain ordered. The Channel Monitor also supports one-attribute source-value chase.
 
 Future decisions include presets, simultaneous requested/forced display, and whether saved/static transformations should affect Analysis. Automatic whole-song state chase remains separate.
+
+### Preserving playback on Pause or Seek
+
+The current Pause retires the worker, waits for any synchronous native send to return, resets the provider, silences notes, and reconstructs channel state once on Resume. Preserving the exact pending queue and sounding notes would instead require freezing the worker clock and service remainder, deciding whether an in-progress native send finishes, and trusting provider buffers and sustain through an unbounded pause. A blocked native send cannot be frozen or recalled. A defensible future option would have to be named **Preserve sounding state on Pause**, be default-off, and define provider failure/closure behavior before implementation.
+
+Seek has a different source position: pending events belong to the old position and cannot be carried over without replaying or contradicting the selected target. A combined Pause/Seek preservation switch would be misleading. The existing safe Seek boundary remains the coherent behavior.
 
 ### Track routing for constrained hardware
 

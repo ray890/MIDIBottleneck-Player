@@ -397,3 +397,17 @@ This is the human-readable history of MIDIBottleneck Player. Dates are original 
 
 - Added deterministic boundary, drift, finite/unlimited queue, forward-drop, conversion, responsive-layout, live-restart, and whole-state-chase interaction coverage.
 - The one-million-step clock benchmark completed without a Gen0 collection in the recorded x64 run.
+
+## Build 34 — 2026-09-23
+
+### Player changes
+
+- Restored uninterrupted edits for Processing time, MIDI bitrate, and Events/sec. Each edit applies when the next event starts service; the current service duration, pending queue, sounding notes, transport, and statistics continue.
+- An Events/sec configuration change starts a fresh fractional remainder at the next service start.
+- Channels can show indexed source values that precede the current position as gray historical readouts when output has not confirmed a value. Forced values remain blue and take precedence.
+- **Apply queue limit without slowdown** now starts unchecked. The system menu places **Chase MIDI state on Play/Seek** above **Always on top**.
+
+### Design and verification
+
+- Investigated Pause/Seek preservation; a combined switch would give misleading Seek behavior and is deferred.
+- Focused tests cover live finite and virtual queues, rapid edits, output continuity, strict source-history boundaries, monitor presentation, and the new default.

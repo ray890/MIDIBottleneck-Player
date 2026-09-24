@@ -38,6 +38,45 @@ namespace MidiBottleneck
             return builder.Complete(CancellationToken.None);
         }
 
+        internal ChannelPlaybackSnapshot CreateAttributeReadouts(int eventIndexExclusive)
+        {
+            ChannelPlaybackSnapshot result = ChannelPlaybackSnapshot.Empty();
+            if (eventIndexExclusive <= 0) return result;
+            for (int channel = 0; channel < 16; channel++)
+            {
+                MidiChannelSnapshot state = result.Channels[channel];
+                int resetIndex = LatestValue(_resets[channel], eventIndexExclusive, Int32.MinValue);
+                state.BankMsb = ReadController(channel, 0, eventIndexExclusive, resetIndex);
+                state.BankLsb = ReadController(channel, 32, eventIndexExclusive, resetIndex);
+                state.Volume = ReadController(channel, 7, eventIndexExclusive, resetIndex);
+                state.Expression = ReadController(channel, 11, eventIndexExclusive, resetIndex);
+                state.Pan = ReadController(channel, 10, eventIndexExclusive, resetIndex);
+                state.Sustain = ReadController(channel, 64, eventIndexExclusive, resetIndex);
+                state.Program = ReadSpecial(channel, ProgramSlot, eventIndexExclusive, resetIndex);
+                state.PitchBend = ReadSpecial(channel, PitchBendSlot, eventIndexExclusive, resetIndex);
+                state.ChannelPressure = ReadSpecial(channel, ChannelPressureSlot, eventIndexExclusive, resetIndex);
+                result.Channels[channel] = state;
+            }
+            return result;
+        }
+
+        private int ReadController(int channel, int controller, int exclusive, int resetIndex)
+        {
+            ValueChange change;
+            if (!TryLatest(_state[Slot(channel, controller)], exclusive, out change) ||
+                (change.EventIndex <= resetIndex && !PreservedAcrossReset(controller))) return -1;
+            return change.Value;
+        }
+
+        private int ReadSpecial(int channel, int slot, int exclusive, int resetIndex)
+        {
+            ValueChange change;
+            if (!TryLatest(_state[Slot(channel, slot)], exclusive, out change) ||
+                (slot != ProgramSlot && change.EventIndex <= resetIndex))
+                return slot == PitchBendSlot ? Int32.MinValue : -1;
+            return change.Value;
+        }
+
         internal IList<MidiEvent> CreateMessages(int eventIndexExclusive, ChannelRoutingState routing,
             ChannelOverrideState overrides)
         {

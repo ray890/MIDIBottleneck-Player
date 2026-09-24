@@ -8,6 +8,7 @@ This is a direction of travel, not a promise of dates. Correct MIDI behavior, de
 
 ## Recently completed
 
+- **Build 34 — uninterrupted rate edits and Channels provenance:** live rate changes keep the queue and sounding state, while source-indexed channel values appear as historical when output has not confirmed them.
 - **Build 33 — direct event rate:** added an exact Events/sec service model shared by playback and Analysis, with generation-safe live changes and zero as unlimited/immediate service.
 - **Build 32 — whole-state chase:** checked-by-default Play/Seek restoration for bank, Program, ordinary controllers, bend, pressure, and ordered RPN/NRPN values without replaying notes.
 - **Build 31 — queue-state correctness:** finite mode now reports real backlog behind a blocked output, while an optional forward-only queue model can apply Drop newest or complete-note protection without deliberately delaying accepted MIDI.

@@ -9,6 +9,32 @@ namespace MidiBottleneck
         EventsPerSecond
     }
 
+    // Published as one reference so a worker never combines a new mode with
+    // values from an older UI edit. Replaced only when a setting changes.
+    internal sealed class ServiceDurationSettings
+    {
+        internal readonly ServiceDurationMode Mode;
+        internal readonly long ProcessingMicroseconds;
+        internal readonly long MidiBitrate;
+        internal readonly long EventsPerSecond;
+
+        internal ServiceDurationSettings(ServiceDurationMode mode, long processingMicroseconds,
+            long midiBitrate, long eventsPerSecond)
+        {
+            Mode = mode;
+            ProcessingMicroseconds = processingMicroseconds;
+            MidiBitrate = midiBitrate;
+            EventsPerSecond = eventsPerSecond;
+        }
+
+        internal ServiceDurationClock CreateClock()
+        { return new ServiceDurationClock(Mode, ProcessingMicroseconds, MidiBitrate, EventsPerSecond); }
+
+        internal bool IsImmediate
+        { get { return Mode == ServiceDurationMode.ProcessingTime && ProcessingMicroseconds == 0 ||
+            Mode == ServiceDurationMode.EventsPerSecond && EventsPerSecond == 0; } }
+    }
+
     // One playback/Analysis generation owns one clock. For a direct event
     // rate, the remainder carries the fractional microsecond between accepted
     // service starts: 3,000 events/sec becomes 333, 333, 334 us, not a

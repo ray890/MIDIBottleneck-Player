@@ -38,13 +38,13 @@ Pause resets and silences the output, so state is restored once when Resume cont
 
 With slowdown disabled, accepted events are dispatched as soon as their source time and output calls permit. A configured processing time of exactly 0 µs uses the same effective-immediate scheduler path while retaining the logical setting.
 
-The Events/sec model carries fractional microseconds between events, so rates such as 3,000 events/sec remain exact over time rather than being rounded event by event. Switching directly between Processing time and Events/sec chooses the nearest whole equivalent. Changing a rate or model during playback uses a safe same-position restart so one scheduler generation never mixes two service clocks.
+The Events/sec model carries fractional microseconds between events, so rates such as 3,000 events/sec remain exact over time rather than being rounded event by event. Switching directly between Processing time and Events/sec chooses the nearest whole equivalent. A live rate or ordinary model change applies when the next event begins service. The event already in service keeps its assigned duration; the pending queue, sounding notes, transport, and statistics continue. A changed Events/sec setting starts a fresh fractional phase at that next service start.
 
 ## Queue length and overflow
 
 With **Queue length limit** off, the simulated application queue is unlimited. With it on, the configured occupancy includes the event in service plus pending events.
 
-By default, the title-bar system menu checks **Apply queue limit without slowdown**. If Queue length limit is on while Simulate slowdown is off, this keeps a virtual queue using the selected processing-time, Events/sec, or MIDI-bitrate model. It may reject a newly arriving event, but accepted MIDI is sent immediately; the model never removes something already sent. The queue statistic above the pressure bar remains the real unsent scheduler/output backlog. The bar is labelled **Virtual** and shows the separate modeled pressure.
+The title-bar system menu's **Apply queue limit without slowdown** option is off by default. If you enable it while Queue length limit is on and Simulate slowdown is off, it keeps a virtual queue using the selected processing-time, Events/sec, or MIDI-bitrate model. It may reject a newly arriving event, but accepted MIDI is sent immediately; the model never removes something already sent. The queue statistic above the pressure bar remains the real unsent scheduler/output backlog. The bar is labelled **Virtual** and shows the separate modeled pressure.
 
 Only **Drop newest** and **Drop incoming complete notes** are valid in this forward-only mode. **Drop oldest** and **Clear buffer and jump to realtime** require Simulate slowdown because they can remove pending MIDI only when the modeled queue is also the real delayed queue. The player keeps the selected policy and explains why Play is unavailable instead of silently changing it. The system-menu option can be changed only while playback is stopped; the choice applies to the next playback start. Turning Simulate slowdown on or off during finite playback uses a safe silence/restart at the same position because it changes between the real delayed queue and the virtual forward-only model.
 
@@ -99,9 +99,11 @@ The final projection replaces that preview atomically. Cancelling keeps the last
 
 ## MIDI Channel Monitor
 
-**Channels…** opens a modeless 16-row monitor sourced from successfully dispatched channel messages and filtering decisions—not from a rescan of the file.
+**Channels…** opens a modeless 16-row monitor. Sent, filtering, polyphony, and output position come from actual dispatch decisions. If Play/Seek state chase is enabled, attributes with no confirmed output observation can also show the latest indexed source-file value before the current position. This uses the song's existing state index and does not send MIDI.
 
 It shows MIDI-observed held-key polyphony, peak polyphony, sent/filtered counts, bank, program, volume, expression, pan, sustain, pitch bend, channel aftertouch, and last output position. These are MIDI observations, not a synthesizer’s internal voice count.
+
+Ordinary black attributes were observed at the output. Bold blue attributes are forced. Gray italic attributes are historical; a source-derived gray value describes the file and does not prove the output received it. Forced values take precedence. No unknown value is invented, and opening Channels does not change Sent, polyphony, or output position.
 
 Double-click an adjustable attribute to activate its scrub-or-type editor:
 
@@ -119,4 +121,4 @@ Overrides persist across normal playback boundaries for the same file and clear 
 
 The main window switches to a measured compact arrangement below its responsive width boundary. Controls retain full tooltips where captions or values must ellipsize.
 
-The title-bar system menu contains **About**, a session-only **Always on top** option, **Per-note interval gate**, checked-by-default **Apply queue limit without slowdown**, and checked-by-default **Chase MIDI state on Play/Seek**.
+The title-bar system menu contains **About**, checked-by-default **Chase MIDI state on Play/Seek**, session-only **Always on top**, **Per-note interval gate**, and **Apply queue limit without slowdown**, which starts unchecked.

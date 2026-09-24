@@ -503,6 +503,13 @@ namespace MidiBottleneck.Tests
                     RunFocused("direct Events/sec service model and UI", TestBuild33DirectEventRate);
                     return 0;
                 }
+                if (arguments.Length == 1 && arguments[0] == "--test-build34")
+                {
+                    RunFocused("uninterrupted live service edits", TestLiveRateModelChange);
+                    RunFocused("indexed source readouts in Channels", TestBuild34SourceReadouts);
+                    RunFocused("forward queue option defaults off", TestForwardQueueLimitWithoutSlowdown);
+                    return 0;
+                }
                 if (arguments.Length == 1 && arguments[0] == "--test-interface-only")
                 {
                     RunFocused("WinForms interface construction", TestInterfaceConstruction);
@@ -602,6 +609,7 @@ namespace MidiBottleneck.Tests
                 Run("current MIDI output-rate rolling estimate", TestRollingOutputRate);
                 Run("observed maximum output-rate retention and reset", TestObservedMaximumOutputRate);
                 Run("Rate-model generations do not splice service clocks", TestLiveRateModelChange);
+                Run("indexed source readouts in Channels", TestBuild34SourceReadouts);
                 Run("live overflow policy applies at next overflow", TestLiveOverflowPolicyChange);
                 Run("output restart preserves paused source position and clears backlog", TestOutputRestartSemantics);
                 Run("None output no-op and allocation-free contract", TestNullMidiOutputContract);
@@ -2838,16 +2846,16 @@ namespace MidiBottleneck.Tests
             using (MainForm form = new MainForm())
             {
                 form.Show(); PumpFor(30);
-                Equal(true, form.ApplyQueueLimitWithoutSlowdownForTesting,
-                    "forward-only system-menu option defaults checked");
+                Equal(false, form.ApplyQueueLimitWithoutSlowdownForTesting,
+                    "forward-only system-menu option defaults unchecked");
                 IntPtr menu = GetSystemMenu(form.Handle, false);
-                Equal(0x0008U, GetMenuState(menu,
+                Equal(0U, GetMenuState(menu,
                     (uint)MainForm.ApplyQueueLimitWithoutSlowdownSystemCommandForTesting, 0) & 0x0008U,
-                    "forward-only menu check starts checked");
+                    "forward-only menu check starts unchecked");
                 SendMessage(form.Handle, 0x0112,
                     (IntPtr)MainForm.ApplyQueueLimitWithoutSlowdownSystemCommandForTesting, IntPtr.Zero);
                 Application.DoEvents();
-                Equal(false, form.ApplyQueueLimitWithoutSlowdownForTesting,
+                Equal(true, form.ApplyQueueLimitWithoutSlowdownForTesting,
                     "forward-only option toggles while stopped");
                 form.Close();
             }
@@ -3234,13 +3242,19 @@ namespace MidiBottleneck.Tests
                 engine.ProcessingMicroseconds = 500000;
                 mode.SelectedIndex = (int)ServiceDurationMode.ProcessingTime; PumpFor(10);
                 engine.Start(restartSong, restartOutput, ProcessingMode.Queue, 1000000);
-                mode.SelectedIndex = (int)ServiceDurationMode.EventsPerSecond;
-                PumpUntil(delegate { return restartOutput.ResetCount > 0; }, 1000,
-                    "live Rate model uses safe restart boundary");
-                Equal(ServiceDurationMode.EventsPerSecond, engine.ServiceDurationMode,
-                    "live restart selects Events/sec");
                 PumpUntil(delegate { return ContainsMessage(restartOutput.SentPayloads(), 0xC0, 9); }, 1000,
-                    "whole-state chase precedes later source after rate restart");
+                    "initial whole-state chase at nonzero start");
+                int resetsBeforeEdit = restartOutput.ResetCount;
+                int sendsBeforeEdit = restartOutput.SentPayloads().Count;
+                mode.SelectedIndex = (int)ServiceDurationMode.EventsPerSecond;
+                PumpFor(50);
+                Equal(resetsBeforeEdit, restartOutput.ResetCount,
+                    "live Rate model leaves the output session sounding");
+                Equal(sendsBeforeEdit, restartOutput.SentPayloads().Count,
+                    "live Rate model does not repeat whole-state chase");
+                Equal(PlaybackState.Playing, engine.State, "live Rate model keeps playing");
+                Equal(ServiceDurationMode.EventsPerSecond, engine.ServiceDurationMode,
+                    "live edit selects Events/sec");
                 engine.Stop();
                 form.Close();
             }
@@ -3666,8 +3680,8 @@ namespace MidiBottleneck.Tests
                 WaitFor(delegate { return engine.State != PlaybackState.Playing; }, 4000, "generation-scoped zero service");
                 elapsed.Stop();
                 Equal(5000L, output.Count, "zero-to-nonzero output count");
-                if (elapsed.ElapsedMilliseconds > 500)
-                    throw new Exception("a direct property edit spliced a new clock into the active zero-service generation");
+                if (elapsed.ElapsedMilliseconds < 500 || elapsed.ElapsedMilliseconds > 3000)
+                    throw new Exception("zero-to-nonzero service did not take effect on later events");
             }
             using (PlaybackEngine engine = new PlaybackEngine())
             {
@@ -3682,8 +3696,8 @@ namespace MidiBottleneck.Tests
                 WaitFor(delegate { return engine.State != PlaybackState.Playing; }, 3000, "generation-scoped nonzero service");
                 elapsed.Stop();
                 Equal(5000L, output.Count, "nonzero-to-zero output count");
-                if (elapsed.ElapsedMilliseconds < 300)
-                    throw new Exception("a direct property edit spliced zero service into the active generation");
+                if (elapsed.ElapsedMilliseconds > 500)
+                    throw new Exception("nonzero-to-zero service did not take effect on later events");
             }
 
             long[] controlledTimes = new long[100000];
@@ -4135,8 +4149,8 @@ namespace MidiBottleneck.Tests
                 engine.ServiceDurationMode = ServiceDurationMode.MidiBitrate;
                 WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1500, "completion after generation-scoped Rate model change");
                 elapsed.Stop();
-                if (elapsed.ElapsedMilliseconds < 520 || elapsed.ElapsedMilliseconds > 900)
-                    throw new Exception("an active generation spliced two service clocks: " + elapsed.ElapsedMilliseconds + " ms");
+                if (elapsed.ElapsedMilliseconds < 260 || elapsed.ElapsedMilliseconds > 650)
+                    throw new Exception("the in-service event changed duration or pending work did not use the new rate: " + elapsed.ElapsedMilliseconds + " ms");
 
                 output = new FakeMidiOutput();
                 elapsed.Restart();
@@ -4146,6 +4160,105 @@ namespace MidiBottleneck.Tests
                 elapsed.Stop();
                 if (elapsed.ElapsedMilliseconds > 250)
                     throw new Exception("fresh generation did not use the selected bitrate: " + elapsed.ElapsedMilliseconds + " ms");
+            }
+
+            long[] denseTimes = new long[30];
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput denseOutput = new FakeMidiOutput();
+                engine.QueueLengthLimit = 30;
+                engine.OverflowPolicy = OverflowPolicy.DropNewest;
+                engine.ProcessingMicroseconds = 300000;
+                engine.Start(BuildSong(denseTimes), denseOutput, ProcessingMode.Drop);
+                WaitFor(delegate { return engine.GetSnapshot().OutstandingEvents == 30; }, 1000,
+                    "finite backlog before rapid rate edits");
+                for (int i = 0; i < 40; i++)
+                {
+                    engine.SetServiceConfiguration(ServiceDurationMode.EventsPerSecond, 300000,
+                        31250, 5000 + i);
+                    engine.SetServiceConfiguration(ServiceDurationMode.MidiBitrate, 300000,
+                        100000000, 5000 + i);
+                }
+                Equal(30L, engine.GetSnapshot().OutstandingEvents,
+                    "live model edits preserve finite queue occupancy");
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1800,
+                    "finite backlog drains after live edits");
+                Equal(30L, engine.GetSnapshot().ProcessedEvents, "live edits preserve every admitted event");
+                Equal(0L, engine.GetSnapshot().DroppedEvents, "live edits do not invent overflow");
+                Equal(0, denseOutput.ResetCount, "live edits do not reset output");
+                Equal(30, denseOutput.SentEventIndices().Count, "live edits preserve sent order length");
+                for (int i = 0; i < 30; i++) Equal(i, denseOutput.SentEventIndices()[i],
+                    "live edits preserve finite event order");
+            }
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput virtualOutput = new FakeMidiOutput();
+                engine.SimulateSlowdown = false;
+                engine.ApplyQueueLimitWithoutSlowdown = true;
+                engine.QueueLengthLimit = 1;
+                engine.OverflowPolicy = OverflowPolicy.DropNewest;
+                engine.ProcessingMicroseconds = 1000000;
+                engine.Start(BuildSong(new long[] { 0, 100000, 2000000 }), virtualOutput, ProcessingMode.Drop);
+                WaitFor(delegate { return engine.GetSnapshot().ProcessedEvents == 1; }, 1000,
+                    "first virtual admission before edit");
+                engine.SetServiceConfiguration(ServiceDurationMode.EventsPerSecond, 1000000,
+                    31250, 1000000);
+                WaitFor(delegate { return engine.GetSnapshot().DroppedEvents == 1; }, 1000,
+                    "pre-edit virtual entry retains its deadline");
+                Equal(0, virtualOutput.ResetCount, "virtual model edit does not reset output");
+                engine.Stop();
+            }
+        }
+
+        private static void TestBuild34SourceReadouts()
+        {
+            MidiSong song = NewChannelSong("source-readouts.mid", 1000000,
+                ChannelMessage(10, 0xB1, 0, 2), ChannelMessage(11, 0xB1, 32, 3),
+                ChannelMessage(20, 0xC1, 2), ChannelMessage(21, 0xB1, 7, 100),
+                ChannelMessage(22, 0xB1, 11, 80), ChannelMessage(23, 0xB1, 10, 64),
+                ChannelMessage(24, 0xB1, 64, 127), ChannelMessage(25, 0xE1, 0, 64),
+                ChannelMessage(26, 0xD1, 37), ChannelMessage(500000, 0x90, 60, 100));
+            MidiStateChaseIndex index = song.GetMidiStateChaseIndex();
+            MidiChannelSnapshot beforeProgram = index.CreateAttributeReadouts(
+                song.EventStore.LowerBoundByTime(20)).Channels[1];
+            Equal(-1, beforeProgram.Program, "event at target is not source history");
+            MidiChannelSnapshot source = index.CreateAttributeReadouts(
+                song.EventStore.LowerBoundByTime(100)).Channels[1];
+            Equal(2, source.BankMsb, "indexed bank MSB");
+            Equal(3, source.BankLsb, "indexed bank LSB");
+            Equal(2, source.Program, "indexed Program wire value");
+            Equal(100, source.Volume, "indexed Volume");
+            Equal(80, source.Expression, "indexed Expression");
+            Equal(64, source.Pan, "indexed Pan");
+            Equal(127, source.Sustain, "indexed Sustain");
+            Equal(0, source.PitchBend, "indexed centered bend");
+            Equal(37, source.ChannelPressure, "indexed Aftertouch");
+
+            Application.EnableVisualStyles();
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(25);
+                BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                typeof(MainForm).GetField("_song", flags).SetValue(form, song);
+                typeof(MainForm).GetField("_selectedPositionMicroseconds", flags).SetValue(form, 100L);
+                form.ShowChannelMonitorForTesting(); PumpFor(25);
+                ChannelMonitorForm monitor = form.ChannelMonitorForTesting;
+                Equal("3 — Electric Grand Piano", monitor.CellText(1, "Program"),
+                    "monitor presents source Program with user-facing numbering");
+                Equal(FontStyle.Italic, monitor.CellFontStyle(1, "Program"),
+                    "source-derived readout is historical");
+                if (monitor.GridForTesting.Rows[1].Cells["Program"].ToolTipText.IndexOf(
+                    "not been confirmed at MIDI output", StringComparison.Ordinal) < 0)
+                    throw new Exception("source provenance tooltip is missing");
+                PlaybackEngine engine = (PlaybackEngine)typeof(MainForm).GetField("_engine", flags).GetValue(form);
+                Equal(0L, engine.GetSnapshot().ProcessedEvents, "opening Channels sends no MIDI");
+                engine.SetChannelOverride(1, ChannelAttribute.Program, 5);
+                monitor.UpdateSnapshot(engine.GetChannelSnapshot());
+                Equal("6 — Electric Piano 2", monitor.CellText(1, "Program"),
+                    "forced value wins over indexed source");
+                if ((monitor.CellFontStyle(1, "Program") & FontStyle.Bold) == 0)
+                    throw new Exception("forced source overlay lost bold styling");
+                monitor.Close(); form.Close();
             }
         }
 
@@ -9140,8 +9253,13 @@ namespace MidiBottleneck.Tests
                 Application.DoEvents();
                 Equal(50000m, serviceValue.Value, "bitrate value restored");
                 slowdown.Checked = false;
+                Equal(false, serviceValue.Enabled,
+                    "service value is disabled when both slowdown and forward-only queue mode are off");
+                SendMessage(form.Handle, 0x0112,
+                    (IntPtr)MainForm.ApplyQueueLimitWithoutSlowdownSystemCommandForTesting, IntPtr.Zero);
+                Application.DoEvents();
                 Equal(true, serviceValue.Enabled,
-                    "service value remains editable for checked forward-only queue pressure without slowdown");
+                    "service value remains editable when forward-only queue pressure is explicitly enabled");
                 form.Close();
             }
         }

@@ -32,7 +32,7 @@ A dedicated above-normal-priority worker uses `Stopwatch` as the monotonic trans
 
 The direct Events/sec model uses one generation-owned rational service clock. Each service start adds 1,000,000 microseconds to an integer numerator, divides by the selected rate, and carries the remainder. This produces exact long-run rates without floating-point drift or a rounded reciprocal. Rejected arrivals and pending entries consume no phase; Clear or a newly applied filter rolls back an in-service quantum when that source event is retired. Playback, forward-only admission, and Analysis use the same rule. A selected rate of zero follows the immediate-service path.
 
-Rate-model and live rate edits retire and safely restart playback at the same source position. A worker generation therefore never splices two rational phases together.
+Ordinary rate-model and live value edits publish one immutable mode/value snapshot. The worker reads it at the next service start. A current service quantum and already scheduled virtual completions retain their old durations; pending events retain their order. A new snapshot resets the Events/sec fractional remainder to zero at that next start. The immediate path checks for edits between sends and returns to admission when the model changes. Per-note interval changes still use their separate safety restart because they alter pending pitch decisions.
 
 Immediate dispatch returns to admission/statistics publication after at most 2,048 sends or about 8 ms of completed output work. Those checkpoints add no deliberate sleep and preserve payload/order exactly. Stop, Pause, and Seek are observed before the next send after any blocked native call returns.
 

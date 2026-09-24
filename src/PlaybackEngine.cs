@@ -19,13 +19,11 @@ namespace MidiBottleneck
         private ProcessingMode _mode;
         private int _startEventIndex;
         private PlaybackState _state = PlaybackState.Stopped;
-        private long _processingMicroseconds;
-        private long _midiBitrate = ServiceDurationCalculator.FivePinDinBitrate;
-        private long _eventsPerSecond = 10000;
-        private int _serviceDurationMode;
+        private ServiceDurationSettings _serviceSettings = new ServiceDurationSettings(
+            ServiceDurationMode.ProcessingTime, 0, ServiceDurationCalculator.FivePinDinBitrate, 10000);
         private int _queueLengthLimit = DefaultQueueLengthLimit;
         private int _simulateSlowdown = 1;
-        private int _applyQueueLimitWithoutSlowdown = 1;
+        private int _applyQueueLimitWithoutSlowdown;
         private int _chaseMidiStateOnPlaySeek = 1;
         private int _pendingStateChaseEventIndex = -1;
         private bool _virtualForwardDropActive;
@@ -78,46 +76,80 @@ namespace MidiBottleneck
 
         public long ProcessingMicroseconds
         {
-            get { return Interlocked.Read(ref _processingMicroseconds); }
+            get { return Volatile.Read(ref _serviceSettings).ProcessingMicroseconds; }
             set
             {
                 if (value < 0) value = 0;
-                Interlocked.Exchange(ref _processingMicroseconds, value);
+                lock (_sync)
+                {
+                    ServiceDurationSettings previous = _serviceSettings;
+                    if (previous.ProcessingMicroseconds == value) return;
+                    Volatile.Write(ref _serviceSettings, new ServiceDurationSettings(previous.Mode,
+                        value, previous.MidiBitrate, previous.EventsPerSecond));
+                }
                 SignalWake();
             }
         }
 
         public ServiceDurationMode ServiceDurationMode
         {
-            get { return (ServiceDurationMode)Volatile.Read(ref _serviceDurationMode); }
+            get { return Volatile.Read(ref _serviceSettings).Mode; }
             set
             {
-                Volatile.Write(ref _serviceDurationMode, (int)value);
+                lock (_sync)
+                {
+                    ServiceDurationSettings previous = _serviceSettings;
+                    if (previous.Mode == value) return;
+                    Volatile.Write(ref _serviceSettings, new ServiceDurationSettings(value,
+                        previous.ProcessingMicroseconds, previous.MidiBitrate, previous.EventsPerSecond));
+                }
                 SignalWake();
             }
         }
 
         public long MidiBitrate
         {
-            get { return Interlocked.Read(ref _midiBitrate); }
+            get { return Volatile.Read(ref _serviceSettings).MidiBitrate; }
             set
             {
                 if (value < 1) value = 1;
-                Interlocked.Exchange(ref _midiBitrate, value);
+                lock (_sync)
+                {
+                    ServiceDurationSettings previous = _serviceSettings;
+                    if (previous.MidiBitrate == value) return;
+                    Volatile.Write(ref _serviceSettings, new ServiceDurationSettings(previous.Mode,
+                        previous.ProcessingMicroseconds, value, previous.EventsPerSecond));
+                }
                 SignalWake();
             }
         }
 
         public long EventsPerSecond
         {
-            get { return Interlocked.Read(ref _eventsPerSecond); }
+            get { return Volatile.Read(ref _serviceSettings).EventsPerSecond; }
             set
             {
                 if (value < 0) value = 0;
                 if (value > 1000000) value = 1000000;
-                Interlocked.Exchange(ref _eventsPerSecond, value);
+                lock (_sync)
+                {
+                    ServiceDurationSettings previous = _serviceSettings;
+                    if (previous.EventsPerSecond == value) return;
+                    Volatile.Write(ref _serviceSettings, new ServiceDurationSettings(previous.Mode,
+                        previous.ProcessingMicroseconds, previous.MidiBitrate, value));
+                }
                 SignalWake();
             }
+        }
+
+        internal void SetServiceConfiguration(ServiceDurationMode mode, long processingMicroseconds,
+            long midiBitrate, long eventsPerSecond)
+        {
+            lock (_sync)
+                Volatile.Write(ref _serviceSettings, new ServiceDurationSettings(mode,
+                    Math.Max(0, processingMicroseconds), Math.Max(1, midiBitrate),
+                    Math.Max(0, Math.Min(1000000, eventsPerSecond))));
+            SignalWake();
         }
 
         public bool SimulateSlowdown
@@ -748,10 +780,11 @@ namespace MidiBottleneck
                 long playbackUs = TicksToMicroseconds(playbackTicks);
                 PlaybackSnapshot snapshot = new PlaybackSnapshot();
                 snapshot.State = _state;
-                snapshot.ProcessingMicroseconds = Interlocked.Read(ref _processingMicroseconds);
-                snapshot.ServiceDurationMode = (ServiceDurationMode)Volatile.Read(ref _serviceDurationMode);
-                snapshot.MidiBitrate = Interlocked.Read(ref _midiBitrate);
-                snapshot.EventsPerSecond = Interlocked.Read(ref _eventsPerSecond);
+                ServiceDurationSettings settings = Volatile.Read(ref _serviceSettings);
+                snapshot.ProcessingMicroseconds = settings.ProcessingMicroseconds;
+                snapshot.ServiceDurationMode = settings.Mode;
+                snapshot.MidiBitrate = settings.MidiBitrate;
+                snapshot.EventsPerSecond = settings.EventsPerSecond;
                 snapshot.SimulateSlowdown = Volatile.Read(ref _simulateSlowdown) != 0;
                 snapshot.QueueLengthLimitEnabled = _mode == ProcessingMode.Drop;
                 snapshot.ProcessingMode = _mode;
@@ -859,8 +892,8 @@ namespace MidiBottleneck
 
         private void RunQueueMode(HighResolutionWaiter waiter)
         {
-            ServiceDurationClock serviceClock = CreateServiceClock();
-            bool immediateService = Volatile.Read(ref _simulateSlowdown) == 0 || serviceClock.IsImmediate;
+            ServiceDurationSettings serviceSettings = Volatile.Read(ref _serviceSettings);
+            ServiceDurationClock serviceClock = serviceSettings.CreateClock();
             ServiceDurationClock beforeCurrentService = serviceClock;
             int nextArrival = _startEventIndex;
             int nextProcess = _startEventIndex;
@@ -909,11 +942,12 @@ namespace MidiBottleneck
 
                 if (inService < 0 && eligiblePending > 0)
                 {
-                    if (immediateService)
+                    UpdateServiceClock(ref serviceClock, ref serviceSettings);
+                    if (Volatile.Read(ref _simulateSlowdown) == 0 || serviceClock.IsImmediate)
                     {
                         PublishUnlimitedQueue(nextProcess, Math.Max(0, eligiblePending - 1), true);
                         DispatchImmediateFilteredRange(ref nextProcess, nextArrival, now, filtered, ref eligiblePending,
-                            immediateService);
+                            serviceSettings);
                         long afterDispatch = CurrentTransportTicks();
                         due = FindFirstEventAfterTransport(nextArrival, afterDispatch);
                         AdmitUnlimitedRange(nextArrival, due, filtered, ref eligiblePending);
@@ -925,6 +959,7 @@ namespace MidiBottleneck
                     if (inService < 0) { eligiblePending = 0; continue; }
                     eligiblePending--;
                     long startTicks = Math.Max(EventTicks(inService), lastCompletionTicks);
+                    UpdateServiceClock(ref serviceClock, ref serviceSettings);
                     beforeCurrentService = serviceClock;
                     completionTicks = checked(startTicks +
                         MicrosecondsToTicks(serviceClock.NextMicroseconds(_events[inService])));
@@ -952,8 +987,8 @@ namespace MidiBottleneck
                 RunVirtualForwardDropMode(waiter);
                 return;
             }
-            ServiceDurationClock serviceClock = CreateServiceClock();
-            bool immediateService = Volatile.Read(ref _simulateSlowdown) == 0 || serviceClock.IsImmediate;
+            ServiceDurationSettings serviceSettings = Volatile.Read(ref _serviceSettings);
+            ServiceDurationClock serviceClock = serviceSettings.CreateClock();
             ServiceDurationClock beforeCurrentService = serviceClock;
             int nextArrival = _startEventIndex;
             int inService = -1;
@@ -1007,6 +1042,7 @@ namespace MidiBottleneck
                         // Backlogged service begins at the preceding logical
                         // completion, not at the scheduler thread's wake time.
                         long serviceStart = completedAt;
+                        UpdateServiceClock(ref serviceClock, ref serviceSettings);
                         beforeCurrentService = serviceClock;
                         completionTicks = checked(serviceStart +
                             MicrosecondsToTicks(serviceClock.NextMicroseconds(_events[inService])));
@@ -1026,13 +1062,15 @@ namespace MidiBottleneck
                         UpdateQueue(pending.Count, inService >= 0);
                         continue;
                     }
-                    if (!traceEnabled && !HasActiveSourceFilters() && inService < 0 && pending.Count == 0 && immediateService)
+                    UpdateServiceClock(ref serviceClock, ref serviceSettings);
+                    if (!traceEnabled && !HasActiveSourceFilters() && inService < 0 && pending.Count == 0 &&
+                        (Volatile.Read(ref _simulateSlowdown) == 0 || serviceClock.IsImmediate))
                     {
                         int dueEnd = nextArrival + 1;
                         int dueLimit = Math.Min(_events.Count, nextArrival + 2048);
                         while (dueEnd < dueLimit && EventTicks(dueEnd) <= now) dueEnd++;
                         PublishDropQueue(nextArrival + 1, 0, true);
-                        DispatchImmediateRange(ref nextArrival, dueEnd, now, immediateService);
+                        DispatchImmediateRange(ref nextArrival, dueEnd, now, serviceSettings);
                         PublishDropQueue(nextArrival, 0, false);
                         continue;
                     }
@@ -1072,6 +1110,7 @@ namespace MidiBottleneck
                         {
                             inService = acceptedIndex;
                             long serviceStart = arrivalTicks;
+                            UpdateServiceClock(ref serviceClock, ref serviceSettings);
                             beforeCurrentService = serviceClock;
                             completionTicks = checked(serviceStart +
                                 MicrosecondsToTicks(serviceClock.NextMicroseconds(_events[inService])));
@@ -1217,7 +1256,8 @@ namespace MidiBottleneck
 
         private void RunVirtualForwardDropMode(HighResolutionWaiter waiter)
         {
-            ServiceDurationClock serviceClock = CreateServiceClock();
+            ServiceDurationSettings serviceSettings = Volatile.Read(ref _serviceSettings);
+            ServiceDurationClock serviceClock = serviceSettings.CreateClock();
             int nextArrival = _startEventIndex;
             int bufferCapacity = Volatile.Read(ref _queueLengthLimit);
             ForwardDropQueue virtualQueue = new ForwardDropQueue(bufferCapacity);
@@ -1268,6 +1308,7 @@ namespace MidiBottleneck
                         throw new InvalidOperationException("The selected overflow policy requires Simulate slowdown because it would retract MIDI that the forward-only model has already sent.");
                     bool safetyAdmission = policy == OverflowPolicy.DropIncomingCompleteNotes &&
                         noteKind != CompleteNoteEventKind.NoteOn;
+                    UpdateServiceClock(ref serviceClock, ref serviceSettings);
                     ServiceDurationClock admittedClock = serviceClock;
                     long service = admittedClock.NextMicroseconds(incomingEvent);
                     bool accepted = virtualQueue.TryAdmit(arrival, service, safetyAdmission);
@@ -1321,7 +1362,7 @@ namespace MidiBottleneck
 
         private void RunPerNoteIntervalGate(HighResolutionWaiter waiter)
         {
-            long interval = Interlocked.Read(ref _processingMicroseconds);
+            long interval = ProcessingMicroseconds;
             if (interval <= 0)
                 throw new InvalidOperationException("Per-note interval gate requires a nonzero processing interval.");
 
@@ -1475,11 +1516,11 @@ namespace MidiBottleneck
         }
 
         private void DispatchImmediateRange(ref int nextIndex, int endExclusive, long transportAtBatchStart,
-            bool immediateService)
+            ServiceDurationSettings serviceSettings)
         {
             const int chunkSize = 2048;
             long stopwatchAtBatchStart = Stopwatch.GetTimestamp();
-            if (nextIndex < endExclusive && Volatile.Read(ref _dispatchSuspended) == 0 && immediateService)
+            if (nextIndex < endExclusive && Volatile.Read(ref _dispatchSuspended) == 0)
             {
                 int chunkEnd = Math.Min(endExclusive, nextIndex + chunkSize);
                 int sent = 0;
@@ -1498,6 +1539,7 @@ namespace MidiBottleneck
                         // the successful hot path.  Rate-model changes retain
                         // the established 64-event check cadence.
                         if (Volatile.Read(ref _dispatchSuspended) != 0) break;
+                        if (!Object.ReferenceEquals(Volatile.Read(ref _serviceSettings), serviceSettings)) break;
                         long intendedMicroseconds;
                         MidiEventView midiEvent = _events.GetSequential(nextIndex, ref cursor, out intendedMicroseconds);
                         PublishDropQueue(nextIndex + 1, 0, true);
@@ -1533,11 +1575,11 @@ namespace MidiBottleneck
         }
 
         private void DispatchImmediateFilteredRange(ref int nextIndex, int endExclusive, long transportAtBatchStart,
-            FilteredSourceEvents filtered, ref long eligiblePending, bool immediateService)
+            FilteredSourceEvents filtered, ref long eligiblePending, ServiceDurationSettings serviceSettings)
         {
             const int chunkSize = 2048;
             long stopwatchAtBatchStart = Stopwatch.GetTimestamp();
-            if (nextIndex >= endExclusive || Volatile.Read(ref _dispatchSuspended) != 0 || !immediateService) return;
+            if (nextIndex >= endExclusive || Volatile.Read(ref _dispatchSuspended) != 0) return;
             int examined = 0;
             int sent = 0;
             long lastTimeline = 0;
@@ -1550,6 +1592,7 @@ namespace MidiBottleneck
                 while (nextIndex < endExclusive && examined < chunkSize)
                 {
                     if (Volatile.Read(ref _dispatchSuspended) != 0) break;
+                    if (!Object.ReferenceEquals(Volatile.Read(ref _serviceSettings), serviceSettings)) break;
                     int eventIndex = nextIndex++;
                     examined++;
                     if (filtered.Any && filtered.Contains(eventIndex)) continue;
@@ -1933,17 +1976,24 @@ namespace MidiBottleneck
 
         private ServiceDurationClock CreateServiceClock()
         {
-            return new ServiceDurationClock((ServiceDurationMode)Volatile.Read(ref _serviceDurationMode),
-                Interlocked.Read(ref _processingMicroseconds), Interlocked.Read(ref _midiBitrate),
-                Interlocked.Read(ref _eventsPerSecond));
+            return Volatile.Read(ref _serviceSettings).CreateClock();
+        }
+
+        private void UpdateServiceClock(ref ServiceDurationClock clock, ref ServiceDurationSettings settings)
+        {
+            ServiceDurationSettings current = Volatile.Read(ref _serviceSettings);
+            if (Object.ReferenceEquals(current, settings)) return;
+            settings = current;
+            // A new model starts with a fresh fractional phase at the next
+            // service start. Existing in-service and virtual entries retain
+            // their assigned completion times.
+            clock = current.CreateClock();
         }
 
         private bool IsEffectiveZeroService()
         {
             if (Volatile.Read(ref _simulateSlowdown) == 0) return true;
-            ServiceDurationMode mode = (ServiceDurationMode)Volatile.Read(ref _serviceDurationMode);
-            return mode == ServiceDurationMode.ProcessingTime && Interlocked.Read(ref _processingMicroseconds) == 0 ||
-                mode == ServiceDurationMode.EventsPerSecond && Interlocked.Read(ref _eventsPerSecond) == 0;
+            return Volatile.Read(ref _serviceSettings).IsImmediate;
         }
 
         private bool WaitWhilePaused()
