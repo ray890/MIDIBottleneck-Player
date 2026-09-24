@@ -635,8 +635,10 @@ namespace MidiBottleneck
             _overflowPolicyCombo.Items.Add("Drop oldest");
             _overflowPolicyCombo.Items.Add("Clear buffer and jump to realtime");
             _overflowPolicyCombo.Items.Add("Drop incoming complete notes");
+            _overflowPolicyCombo.Items.Add("Drop oldest complete note");
             _overflowPolicyCombo.SelectedIndex = 0;
             _overflowPolicyCombo.Width = 245;
+            _overflowPolicyCombo.DropDownWidth = 245;
             _overflowPolicyCombo.SelectedIndexChanged += OverflowPolicyChanged;
             _toolTip.SetToolTip(_overflowPolicyCombo, "A change made during playback applies at the next overflow.");
             _overflowCluster.Controls.Add(_overflowPolicyCombo);
@@ -1173,7 +1175,7 @@ namespace MidiBottleneck
             if (IsUnsupportedForwardQueueSelection())
             {
                 MessageBox.Show(this,
-                    "Drop oldest and Clear buffer can remove MIDI that has already been sent. Turn on Simulate slowdown, choose Drop newest or Drop incoming complete notes, or turn off Apply queue limit without slowdown in the window menu.",
+                    "This policy needs Simulate slowdown: a forward-only queue cannot remove MIDI that was already sent. Turn on Simulate slowdown, choose Drop newest or Drop incoming complete notes, or turn off Apply queue limit without slowdown in the window menu.",
                     "Queue policy needs simulated slowdown", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
@@ -1531,6 +1533,8 @@ namespace MidiBottleneck
             _engine.OverflowPolicy = policy;
             _toolTip.SetToolTip(_overflowPolicyCombo, policy == OverflowPolicy.DropIncomingCompleteNotes
                 ? "When full, reject an incoming Note On and later suppress its paired Note Off. Required Note Off and non-note messages are retained, so the configured capacity is a soft safety limit. A live change applies at the next overflow."
+                : policy == OverflowPolicy.DropOldestCompleteNote
+                    ? "When full, remove the oldest queued Note On that has not begun service, including its queued release. A later matching release is suppressed. Required releases may exceed the limit; if no old note is eligible, other incoming MIDI is rejected. Requires Simulate slowdown."
                 : policy == OverflowPolicy.DropOldest || policy == OverflowPolicy.ClearBufferAndCatchUp
                     ? "This policy requires Simulate slowdown. A forward-only queue cannot retract MIDI that has already been sent."
                     : "A change made during playback applies at the next overflow.");
@@ -1543,7 +1547,9 @@ namespace MidiBottleneck
             if (_perNoteIntervalGateEnabled || !_queueLimitCheck.Checked || _simulateSlowdownCheck.Checked ||
                 !_applyQueueLimitWithoutSlowdown) return false;
             OverflowPolicy policy = (OverflowPolicy)Math.Max(0, _overflowPolicyCombo.SelectedIndex);
-            return policy == OverflowPolicy.DropOldest || policy == OverflowPolicy.ClearBufferAndCatchUp;
+            return policy == OverflowPolicy.DropOldest ||
+                policy == OverflowPolicy.DropOldestCompleteNote ||
+                policy == OverflowPolicy.ClearBufferAndCatchUp;
         }
 
         private void ResetStatsClicked(object sender, EventArgs e)

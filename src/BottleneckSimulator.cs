@@ -31,6 +31,8 @@ namespace MidiBottleneck
             bool queueLengthLimitEnabled, int queueLengthLimit, OverflowPolicy overflowPolicy)
         {
             if (arrivals == null) throw new ArgumentNullException("arrivals");
+            if (overflowPolicy == OverflowPolicy.DropOldestCompleteNote)
+                throw new NotSupportedException("This timestamp-only reference model has no note identities; use the MIDI-event Analysis projection.");
             if (serviceMicroseconds < 0) throw new ArgumentOutOfRangeException("serviceMicroseconds");
             if (queueLengthLimit < 1) throw new ArgumentOutOfRangeException("queueLengthLimit");
             if (!simulateSlowdown) serviceMicroseconds = 0;

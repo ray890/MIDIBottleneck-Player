@@ -556,7 +556,8 @@ namespace MidiBottleneck
                 return;
             }
 
-            Queue<int> pending = new Queue<int>(Math.Min(Math.Max(4, configuration.QueueLengthLimit), 1000000));
+            PendingMidiQueue pending = new PendingMidiQueue(configuration.QueueLengthLimit,
+                configuration.OverflowPolicy == OverflowPolicy.DropOldestCompleteNote);
             bool busy = false;
             long completion = 0;
             long lastCompleted = 0;
@@ -588,11 +589,21 @@ namespace MidiBottleneck
 
                 int bucketIndex = (int)Math.Min(result.Buckets.Length - 1, Math.Max(0, arrival / result.BucketMicroseconds));
                 CompleteNoteEventKind noteKind = CompleteNoteTracker.Classify(incomingEvent);
-                if (noteKind == CompleteNoteEventKind.NoteOff && completeNotes.ShouldSuppressNoteOff(incomingEvent))
+                CompleteNoteTracker.NoteOffMatch noteMatch = noteKind == CompleteNoteEventKind.NoteOff
+                    ? completeNotes.TakeNoteOff(incomingEvent)
+                    : new CompleteNoteTracker.NoteOffMatch { AttackIndex = -1 };
+                if (noteMatch.Suppress)
                 {
                     RecordDrop(result, bucketIndex, 1);
                     continue;
                 }
+                PendingMidiQueue.Entry incomingEntry = new PendingMidiQueue.Entry
+                {
+                    EventIndex = i,
+                    PairedAttackIndex = noteMatch.AttackIndex,
+                    IsNoteOn = noteKind == CompleteNoteEventKind.NoteOn,
+                    IsNoteOff = noteKind == CompleteNoteEventKind.NoteOff
+                };
                 int occupancy = pending.Count + (busy ? 1 : 0);
                 bool safetyAdmission = configuration.OverflowPolicy == OverflowPolicy.DropIncomingCompleteNotes &&
                     noteKind != CompleteNoteEventKind.NoteOn;
@@ -604,17 +615,44 @@ namespace MidiBottleneck
                         beforeCurrentService = serviceClock;
                         completion = checked(arrival + serviceClock.NextMicroseconds(incomingEvent));
                     }
-                    else pending.Enqueue(i);
+                    else pending.Enqueue(incomingEntry);
                     if (noteKind == CompleteNoteEventKind.NoteOn)
-                        completeNotes.RecordNoteOn(incomingEvent, true, false);
+                        completeNotes.RecordNoteOn(incomingEvent, i, true, false);
                 }
                 else if (configuration.OverflowPolicy == OverflowPolicy.DropOldest && pending.Count > 0)
                 {
                     pending.Dequeue();
-                    pending.Enqueue(i);
+                    pending.Enqueue(incomingEntry);
                     if (noteKind == CompleteNoteEventKind.NoteOn)
-                        completeNotes.RecordNoteOn(incomingEvent, true, false);
+                        completeNotes.RecordNoteOn(incomingEvent, i, true, false);
                     RecordDrop(result, bucketIndex, 1);
+                }
+                else if (configuration.OverflowPolicy == OverflowPolicy.DropOldestCompleteNote)
+                {
+                    int evictedAttack;
+                    int evictedRelease;
+                    bool evicted = pending.TryEvictOldestCompleteNote(out evictedAttack, out evictedRelease);
+                    if (evicted)
+                    {
+                        if (evictedRelease < 0) completeNotes.MarkUnsentAttackEvicted(evictedAttack);
+                        RecordDrop(result, bucketIndex, evictedRelease >= 0 ? 2 : 1);
+                    }
+                    bool ownAttackEvicted = evicted && noteKind == CompleteNoteEventKind.NoteOff &&
+                        noteMatch.AttackIndex == evictedAttack;
+                    bool protectedTraffic = noteKind == CompleteNoteEventKind.NoteOff ||
+                        CompleteNoteTracker.IsSafetyControl(incomingEvent);
+                    if (ownAttackEvicted || (!evicted && !protectedTraffic))
+                    {
+                        if (noteKind == CompleteNoteEventKind.NoteOn)
+                            completeNotes.RecordNoteOn(incomingEvent, i, false, true);
+                        RecordDrop(result, bucketIndex, 1);
+                    }
+                    else
+                    {
+                        pending.Enqueue(incomingEntry);
+                        if (noteKind == CompleteNoteEventKind.NoteOn)
+                            completeNotes.RecordNoteOn(incomingEvent, i, true, false);
+                    }
                 }
                 else if (configuration.OverflowPolicy == OverflowPolicy.ClearBufferAndCatchUp)
                 {

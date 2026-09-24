@@ -179,6 +179,11 @@ namespace MidiBottleneck.Tests
                     RenderMainWindow(arguments[1], false, false, true);
                     return 0;
                 }
+                if (arguments.Length == 2 && arguments[0] == "--render-ui-oldest-complete")
+                {
+                    RenderMainWindow(arguments[1], false, true, true, true, true);
+                    return 0;
+                }
                 if (arguments.Length == 2 && arguments[0] == "--render-ui-none")
                 {
                     RenderMainWindow(arguments[1], false, false, false, true);
@@ -365,6 +370,29 @@ namespace MidiBottleneck.Tests
                     RunFocused("Drop incoming complete notes scheduler and Analysis equivalence", TestCompleteNoteOverflow);
                     RunFocused("Clear-buffer exact binary catch-up", TestClearCatchUpOptimization);
                     RunFocused("adaptive aligned Analysis time-axis ticks", TestAdaptiveTimelineTicks);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-oldest-complete-note")
+                {
+                    RunFocused("oldest complete-note queue, Playback, and Analysis", TestOldestCompleteNoteOverflow);
+                    RunFocused("oldest complete-note lifecycle boundaries", TestOldestCompleteNoteLifecycle);
+                    RunFocused("dense oldest-complete Playback and Analysis decisions", TestOldestCompleteDenseParity);
+                    RunFocused("oldest complete-note UI and forward-only restriction", TestOldestCompleteNoteUi);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--benchmark-oldest-complete-note")
+                {
+                    BenchmarkOldestCompleteNoteQueue(2048);
+                    return 0;
+                }
+                if (arguments.Length == 2 && arguments[0] == "--benchmark-oldest-complete-note")
+                {
+                    BenchmarkOldestCompleteNoteQueue(Int32.Parse(arguments[1], CultureInfo.InvariantCulture));
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--benchmark-oldest-complete-analysis")
+                {
+                    BenchmarkOldestCompleteAnalysis();
                     return 0;
                 }
                 if (arguments.Length == 1 && arguments[0] == "--test-null-output")
@@ -576,6 +604,10 @@ namespace MidiBottleneck.Tests
                 Run("experimental Drop capacities", TestDropCapacities);
                 Run("overflow policy behavior", TestOverflowPolicies);
                 Run("Drop incoming complete notes scheduler and Analysis equivalence", TestCompleteNoteOverflow);
+                Run("Drop oldest complete note scheduler and Analysis equivalence", TestOldestCompleteNoteOverflow);
+                Run("Drop oldest complete note lifecycle boundaries", TestOldestCompleteNoteLifecycle);
+                Run("dense oldest-complete Playback and Analysis decisions", TestOldestCompleteDenseParity);
+                Run("oldest complete-note UI and forward-only restriction", TestOldestCompleteNoteUi);
                 Run("clear buffer and catch up production behavior", TestClearBufferCatchUpPlaybackEngine);
                 Run("clear buffer uses exact binary catch-up", TestClearCatchUpOptimization);
                 Run("zero processing time", TestZeroServiceTime);
@@ -2193,7 +2225,7 @@ namespace MidiBottleneck.Tests
         }
 
         private static void RenderMainWindow(string outputPath, bool bitrateMode, bool minimumSize, bool finite,
-            bool noOutput = false)
+            bool noOutput = false, bool oldestComplete = false)
         {
             Application.EnableVisualStyles();
             using (MainForm form = new MainForm())
@@ -2238,6 +2270,15 @@ namespace MidiBottleneck.Tests
                     CheckBox queueLimit = FindCheckBox(controls, minimumSize ? "Queue limit:" : "Queue length limit:");
                     if (queueLimit == null) throw new Exception("Queue limit was not found for UI rendering");
                     queueLimit.Checked = true;
+                    if (oldestComplete)
+                    {
+                        ComboBox policy = FindComboContaining(controls, "Drop oldest complete note");
+                        if (policy == null) throw new Exception("The complete-note overflow choice is missing.");
+                        policy.SelectedIndex = (int)OverflowPolicy.DropOldestCompleteNote;
+                        CheckBox slowdown = FindCheckBox(controls, "Simulate slowdown");
+                        if (slowdown == null) throw new Exception("Simulate slowdown was not found.");
+                        slowdown.Checked = true;
+                    }
                     Application.DoEvents();
                 }
                 using (Bitmap bitmap = new Bitmap(form.Width, form.Height))
@@ -3468,6 +3509,507 @@ namespace MidiBottleneck.Tests
             }
         }
 
+        private static void TestOldestCompleteNoteOverflow()
+        {
+            PendingMidiQueue pending = new PendingMidiQueue(3, true);
+            pending.Enqueue(new PendingMidiQueue.Entry { EventIndex = 1, PairedAttackIndex = -1, IsNoteOn = true });
+            pending.Enqueue(new PendingMidiQueue.Entry { EventIndex = 2, PairedAttackIndex = 1, IsNoteOff = true });
+            pending.Enqueue(new PendingMidiQueue.Entry { EventIndex = 3, PairedAttackIndex = -1, IsNoteOn = true });
+            int attack;
+            int release;
+            if (!pending.TryEvictOldestCompleteNote(out attack, out release))
+                throw new Exception("an unsent attack was not eligible");
+            Equal(1, attack, "oldest eligible attack is selected");
+            Equal(2, release, "its pending matching release is removed atomically");
+            Equal(1, pending.Count, "paired eviction removes exactly two pending events");
+            Equal(3, pending.Dequeue(), "later pending attack remains in service order");
+            pending.Enqueue(new PendingMidiQueue.Entry { EventIndex = 4, PairedAttackIndex = -1, IsNoteOn = true });
+            pending.Clear();
+            pending.Enqueue(new PendingMidiQueue.Entry { EventIndex = 5, PairedAttackIndex = -1, IsNoteOn = true });
+            Equal(5, pending.Dequeue(), "Clear and node reuse leave no stale eligible attack");
+            Equal(0, pending.Count, "Clear and reuse drain exactly");
+
+            PendingMidiQueue switched = new PendingMidiQueue(3);
+            switched.Enqueue(new PendingMidiQueue.Entry { EventIndex = 11, PairedAttackIndex = -1, IsNoteOn = true });
+            switched.Enqueue(new PendingMidiQueue.Entry { EventIndex = 12, PairedAttackIndex = 11, IsNoteOff = true });
+            switched.Enqueue(new PendingMidiQueue.Entry { EventIndex = 13, PairedAttackIndex = -1, IsNoteOn = true });
+            switched.SetNoteIndexEnabled(true);
+            if (!switched.TryEvictOldestCompleteNote(out attack, out release))
+                throw new Exception("live policy change failed to index pending notes");
+            Equal(11, attack, "live policy change finds oldest existing attack");
+            Equal(12, release, "live policy change reconnects its existing release");
+            switched.SetNoteIndexEnabled(false);
+            Equal(13, switched.Dequeue(), "switching away retains pending service order");
+
+            MidiSong paired = BuildSong(new long[] { 0, 0, 0, 0 });
+            paired.Events[0] = ChannelEvent(0, 0xB0, 7, 100, 0);
+            paired.Events[1] = ChannelEvent(0, 0x90, 60, 100, 1);
+            paired.Events[2] = ChannelEvent(0, 0x80, 60, 0, 2);
+            paired.Events[3] = ChannelEvent(0, 0x90, 61, 100, 3);
+            VerifyOldestCompleteSong(paired, 3, new int[] { 0, 3 }, 2, 3,
+                "pending paired release eviction");
+
+            MidiSong future = BuildSong(new long[] { 0, 0, 0, 50000, 50000 });
+            future.Events[0] = ChannelEvent(0, 0xB0, 7, 100, 0);
+            future.Events[1] = ChannelEvent(0, 0x90, 60, 100, 1);
+            future.Events[2] = ChannelEvent(0, 0x90, 61, 100, 2);
+            future.Events[3] = ChannelEvent(50000, 0x80, 60, 0, 3);
+            future.Events[4] = ChannelEvent(50000, 0x80, 61, 0, 4);
+            VerifyOldestCompleteSong(future, 2, new int[] { 0, 2, 4 }, 2, 2,
+                "future release of evicted attack is suppressed");
+
+            MidiSong protectedRelease = BuildSong(new long[] { 0, 0, 0, 0 });
+            protectedRelease.Events[0] = ChannelEvent(0, 0x90, 60, 100, 0);
+            protectedRelease.Events[1] = ChannelEvent(0, 0x90, 61, 100, 1);
+            protectedRelease.Events[2] = ChannelEvent(0, 0x80, 60, 0, 2);
+            protectedRelease.Events[3] = ChannelEvent(0, 0xB0, 7, 100, 3);
+            VerifyOldestCompleteSong(protectedRelease, 1, new int[] { 0, 2 }, 2, 2,
+                "in-service attack release is protected above capacity");
+
+            MidiSong overlapping = BuildSong(new long[] { 0, 0, 0, 0, 50000 });
+            overlapping.Events[0] = ChannelEvent(0, 0xB0, 7, 100, 0);
+            overlapping.Events[1] = ChannelEvent(0, 0x90, 60, 90, 1);
+            overlapping.Events[2] = ChannelEvent(0, 0x90, 60, 110, 2);
+            overlapping.Events[3] = ChannelEvent(0, 0x90, 60, 0, 3);
+            overlapping.Events[4] = ChannelEvent(50000, 0x80, 60, 32, 4);
+            VerifyOldestCompleteSong(overlapping, 2, new int[] { 0, 2, 4 }, 2, 2,
+                "overlapping same-key FIFO and velocity-zero release");
+
+            MidiSong channels = BuildSong(new long[] { 0, 0, 0, 50000, 50000 });
+            channels.Events[0] = ChannelEvent(0, 0xB0, 7, 100, 0);
+            channels.Events[1] = ChannelEvent(0, 0x90, 60, 90, 1);
+            channels.Events[2] = ChannelEvent(0, 0x91, 60, 110, 2);
+            channels.Events[3] = ChannelEvent(50000, 0x81, 60, 0, 3);
+            channels.Events[4] = ChannelEvent(50000, 0x80, 60, 0, 4);
+            VerifyOldestCompleteSong(channels, 2, new int[] { 0, 2, 3 }, 2, 2,
+                "same pitch on different channels pairs independently");
+
+            MidiSong safety = BuildSong(new long[] { 0, 0, 0, 0, 0 });
+            safety.Events[0] = ChannelEvent(0, 0x90, 60, 100, 0);
+            safety.Events[1] = ChannelEvent(0, 0xB0, 64, 0, 1);
+            safety.Events[2] = ChannelEvent(0, 0xB0, 7, 100, 2);
+            safety.Events[3] = ChannelEvent(0, 0x80, 60, 0, 3);
+            safety.Events[4] = ChannelEvent(0, 0x80, 61, 0, 4);
+            VerifyOldestCompleteSong(safety, 1, new int[] { 0, 1, 3, 4 }, 1, 4,
+                "sustain-off and matched/unmatched releases protect sound above capacity");
+
+            MidiSong filtered = BuildSong(new long[] { 0, 0, 0, 0 });
+            filtered.Events[0] = ChannelEvent(0, 0x90, 60, 100, 0);
+            filtered.Events[1] = ChannelEvent(0, 0x80, 60, 0, 1);
+            filtered.Events[2] = ChannelEvent(0, 0x91, 61, 100, 2);
+            filtered.Events[3] = ChannelEvent(0, 0x81, 61, 0, 3);
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.SetChannelMonitoring(true);
+                engine.SetChannelEnabled(0, false);
+                engine.SimulateSlowdown = true;
+                engine.ProcessingMicroseconds = 5000;
+                engine.QueueLengthLimit = 1;
+                engine.OverflowPolicy = OverflowPolicy.DropOldestCompleteNote;
+                engine.Start(filtered, output, ProcessingMode.Drop);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000,
+                    "muted-channel complete-note completion");
+                Sequence(new int[] { 2, 3 }, output.SentEventIndices(),
+                    "muted source events never consume complete-note capacity");
+                Equal(0L, engine.GetSnapshot().DroppedEvents,
+                    "muted source events are not queue drops");
+                Equal(2L, engine.GetChannelSnapshot().Channels[0].MutedFilteredEvents,
+                    "both muted note messages are counted separately");
+            }
+
+            MidiSong reenabled = BuildSong(new long[] { 0, 500000, 600000, 700000 });
+            reenabled.Events[0] = ChannelEvent(0, 0x90, 60, 100, 0);
+            reenabled.Events[1] = ChannelEvent(500000, 0x90, 60, 100, 1);
+            reenabled.Events[2] = ChannelEvent(600000, 0x80, 60, 0, 2);
+            reenabled.Events[3] = ChannelEvent(700000, 0x80, 60, 0, 3);
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.SetChannelMonitoring(true);
+                engine.SetChannelEnabled(0, false);
+                engine.SimulateSlowdown = true;
+                engine.ProcessingMicroseconds = 1000;
+                engine.QueueLengthLimit = 1;
+                engine.OverflowPolicy = OverflowPolicy.DropOldestCompleteNote;
+                engine.Start(reenabled, output, ProcessingMode.Drop);
+                WaitFor(delegate { return engine.GetChannelSnapshot().Channels[0].MutedFilteredEvents >= 1; },
+                    1000, "first source attack filtered before re-enable");
+                engine.SetChannelEnabled(0, true);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000,
+                    "filtered occurrence release after re-enable");
+                Sequence(new int[] { 1, 3 }, output.SentEventIndices(),
+                    "a release for a previously muted attack cannot terminate a later attack");
+                Equal(2L, engine.GetChannelSnapshot().Channels[0].MutedFilteredEvents,
+                    "suppressed former-muted release remains a filter, not a queue drop");
+                Equal(0L, engine.GetSnapshot().DroppedEvents,
+                    "former-muted release does not inflate overflow count");
+            }
+
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.SetChannelMonitoring(true);
+                engine.SetChannelOverride(0, ChannelAttribute.Volume, 80);
+                engine.SimulateSlowdown = true;
+                engine.ProcessingMicroseconds = 5000;
+                engine.QueueLengthLimit = 1;
+                engine.OverflowPolicy = OverflowPolicy.DropOldestCompleteNote;
+                MidiSong overrideSong = BuildSong(new long[] { 0, 0 });
+                overrideSong.Events[0] = ChannelEvent(0, 0xB0, 7, 20, 0);
+                overrideSong.Events[1] = ChannelEvent(0, 0x90, 60, 100, 1);
+                engine.Start(overrideSong, output, ProcessingMode.Drop);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000,
+                    "override-filtered event complete-note completion");
+                Equal(1L, engine.GetSnapshot().ProcessedEvents,
+                    "override-filtered source control consumes no queue slot");
+                Equal(0L, engine.GetSnapshot().DroppedEvents,
+                    "override filtering is not overflow");
+                Equal(1L, engine.GetChannelSnapshot().Channels[0].OverrideSuppressedEvents,
+                    "forced override conflict is counted separately");
+            }
+
+            MidiSong policyChange = BuildSong(new long[] { 0, 0, 0, 50000 });
+            policyChange.Events[0] = ChannelEvent(0, 0xB0, 7, 100, 0);
+            policyChange.Events[1] = ChannelEvent(0, 0x90, 60, 100, 1);
+            policyChange.Events[2] = ChannelEvent(0, 0x90, 61, 100, 2);
+            policyChange.Events[3] = ChannelEvent(50000, 0x80, 60, 0, 3);
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.SimulateSlowdown = true;
+                engine.ProcessingMicroseconds = 5000;
+                engine.QueueLengthLimit = 2;
+                engine.OverflowPolicy = OverflowPolicy.DropNewest;
+                engine.Start(policyChange, output, ProcessingMode.Drop);
+                WaitFor(delegate { return engine.GetSnapshot().OutstandingEvents >= 1; }, 1000,
+                    "policy change while finite service is active");
+                engine.OverflowPolicy = OverflowPolicy.DropOldestCompleteNote;
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000,
+                    "policy change completion");
+                Equal(0, output.ResetCount, "changing overflow policy does not reset the output");
+                Equal(0L, engine.GetSnapshot().OutstandingEvents,
+                    "changing overflow policy leaves no pending queue entry");
+            }
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.SimulateSlowdown = true;
+                engine.ProcessingMicroseconds = 5000;
+                engine.QueueLengthLimit = 2;
+                engine.OverflowPolicy = OverflowPolicy.DropOldestCompleteNote;
+                engine.Start(policyChange, output, ProcessingMode.Drop);
+                WaitFor(delegate { return engine.GetSnapshot().DroppedEvents >= 1; }, 1000,
+                    "old complete note evicted before policy change");
+                engine.OverflowPolicy = OverflowPolicy.DropNewest;
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000,
+                    "policy change after eviction completion");
+                Sequence(new int[] { 0, 2 }, output.SentEventIndices(),
+                    "later release remains suppressed after selecting a different policy");
+                Equal(2L, engine.GetSnapshot().DroppedEvents,
+                    "evicted attack and later suppressed release remain counted separately");
+            }
+
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.SimulateSlowdown = true;
+                engine.ProcessingMicroseconds = 5000;
+                engine.QueueLengthLimit = 1;
+                engine.OverflowPolicy = OverflowPolicy.DropOldestCompleteNote;
+                engine.Start(protectedRelease, new ThrowingMidiOutput(), ProcessingMode.Drop);
+                WaitFor(delegate { return engine.State == PlaybackState.Stopped; }, 2000,
+                    "output failure stops complete-note worker");
+                Equal(0L, engine.GetSnapshot().OutstandingEvents,
+                    "failure cleanup clears complete-note backlog");
+            }
+        }
+
+        private static void VerifyOldestCompleteSong(MidiSong song, int capacity, int[] expectedSent,
+            long expectedDropped, long expectedMaximum, string name)
+        {
+            FakeMidiOutput output = new FakeMidiOutput();
+            PlaybackSnapshot snapshot;
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.SimulateSlowdown = true;
+                engine.ProcessingMicroseconds = 5000;
+                engine.QueueLengthLimit = capacity;
+                engine.OverflowPolicy = OverflowPolicy.DropOldestCompleteNote;
+                engine.Start(song, output, ProcessingMode.Drop);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000, name);
+                snapshot = engine.GetSnapshot();
+                Sequence(expectedSent, output.SentEventIndices(), name + " sent order");
+            }
+            Equal(expectedDropped, snapshot.DroppedEvents, name + " dropped events");
+            Equal(expectedMaximum, snapshot.MaximumQueueLength, name + " maximum occupancy");
+            AnalysisConfiguration configuration = DefaultAnalysisConfiguration();
+            configuration.ProcessingMicroseconds = 5000;
+            configuration.QueueLengthLimitEnabled = true;
+            configuration.QueueLengthLimit = capacity;
+            configuration.OverflowPolicy = OverflowPolicy.DropOldestCompleteNote;
+            WorkloadAnalysis analysis = WorkloadAnalyzer.Analyze(song, 1000, configuration);
+            Equal(snapshot.DroppedEvents, analysis.PredictedDroppedEvents, name + " Analysis drop parity");
+            Equal((int)snapshot.MaximumQueueLength, analysis.PredictedMaximumOccupancy,
+                name + " Analysis occupancy parity");
+        }
+
+        private static void TestOldestCompleteNoteLifecycle()
+        {
+            MidiSong song = BuildSong(new long[] { 0, 0, 100000, 100000, 500000 });
+            song.Events[0] = ChannelEvent(0, 0x90, 60, 100, 0);
+            song.Events[1] = ChannelEvent(0, 0x90, 61, 100, 1);
+            song.Events[2] = ChannelEvent(100000, 0x80, 60, 0, 2);
+            song.Events[3] = ChannelEvent(100000, 0x80, 61, 0, 3);
+            song.Events[4] = ChannelEvent(500000, 0x90, 62, 100, 4);
+            FakeMidiOutput output = new FakeMidiOutput();
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.SimulateSlowdown = true;
+                engine.ProcessingMicroseconds = 50000;
+                engine.QueueLengthLimit = 2;
+                engine.OverflowPolicy = OverflowPolicy.DropOldestCompleteNote;
+                engine.Start(song, output, ProcessingMode.Drop);
+                WaitFor(delegate { return engine.GetSnapshot().OutstandingEvents >= 2; }, 1000,
+                    "complete-note pending work before Pause");
+                long beforeResetOutstanding = engine.GetSnapshot().OutstandingEvents;
+                engine.ResetStatistics();
+                Equal(beforeResetOutstanding, engine.GetSnapshot().OutstandingEvents,
+                    "Reset statistics does not discard pending notes");
+                Equal(0L, engine.GetSnapshot().DroppedEvents,
+                    "Reset statistics clears the complete-note drop counter");
+                engine.Pause();
+                Equal(PlaybackState.Paused, engine.State, "Pause remains a clean provider boundary");
+                Equal(0L, engine.GetSnapshot().OutstandingEvents, "Pause retires pending complete-note work");
+                engine.Resume();
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000,
+                    "complete-note Resume completion");
+                Equal(0L, engine.GetSnapshot().OutstandingEvents,
+                    "Resume leaves no stale complete-note queue entry");
+                if (output.PanicCount < 1) throw new Exception("Pause did not silence sounding MIDI");
+
+                engine.Start(song, output, ProcessingMode.Drop);
+                WaitFor(delegate { return engine.GetSnapshot().OutstandingEvents >= 2; }, 1000,
+                    "complete-note pending work before Seek");
+                engine.Seek(500000);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000,
+                    "complete-note Seek completion");
+                Sequence(new int[] { 4 }, output.SentEventIndices(),
+                    "Seek does not leak pre-seek complete-note transitions");
+
+                engine.Stop();
+                engine.Stop();
+                Equal(0L, engine.GetSnapshot().OutstandingEvents, "repeated Stop remains idempotent");
+                FakeMidiOutput replacement = new FakeMidiOutput();
+                engine.Start(song, replacement, ProcessingMode.Drop, 500000);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000,
+                    "complete-note output restart completion");
+                Sequence(new int[] { 4 }, replacement.SentEventIndices(),
+                    "output restart has no stale prior queue entries");
+            }
+
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput mutedOutput = new FakeMidiOutput();
+                engine.SetChannelMonitoring(true);
+                engine.SimulateSlowdown = true;
+                engine.ProcessingMicroseconds = 50000;
+                engine.QueueLengthLimit = 2;
+                engine.OverflowPolicy = OverflowPolicy.DropOldestCompleteNote;
+                engine.Start(song, mutedOutput, ProcessingMode.Drop);
+                WaitFor(delegate { return engine.GetSnapshot().OutstandingEvents >= 2; }, 1000,
+                    "complete-note backlog before live channel disable");
+                engine.SetChannelEnabled(0, false);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000,
+                    "complete-note completion after channel disable");
+                Equal(0L, engine.GetSnapshot().OutstandingEvents,
+                    "channel disable retires stale pending notes");
+                List<byte[]> safetyMessages = mutedOutput.SentPayloads();
+                int sustainOff = IndexOfMessage(safetyMessages, 0xB0, 64, 0);
+                int soundOff = IndexOfMessage(safetyMessages, 0xB0, 120, 0);
+                int notesOff = IndexOfMessage(safetyMessages, 0xB0, 123, 0);
+                if (!(sustainOff >= 0 && soundOff > sustainOff && notesOff > soundOff))
+                    throw new Exception("channel disable did not issue ordered safety messages");
+            }
+
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.SimulateSlowdown = false;
+                engine.ApplyQueueLimitWithoutSlowdown = true;
+                engine.OverflowPolicy = OverflowPolicy.DropOldestCompleteNote;
+                bool rejected = false;
+                try { engine.Start(song, new FakeMidiOutput(), ProcessingMode.Drop); }
+                catch (InvalidOperationException) { rejected = true; }
+                Equal(true, rejected, "forward-only model cannot retract an already-sent old note");
+            }
+        }
+
+        private static void TestOldestCompleteDenseParity()
+        {
+            const int count = 1200;
+            MidiSong song = BuildSong(new long[count]);
+            Random random = new Random(35);
+            long time = 0;
+            for (int i = 0; i < count; i++)
+            {
+                time += random.Next(0, 80);
+                int key = 48 + random.Next(0, 8);
+                int channel = random.Next(0, 2);
+                int choice = random.Next(0, 10);
+                byte status = (byte)((choice < 5 ? 0x90 : choice < 8 ? 0x80 : 0xB0) | channel);
+                byte data1 = (byte)(choice >= 8 ? 7 : key);
+                byte data2 = (byte)(choice < 5 ? random.Next(1, 127) : choice < 8 ? 0 : 90);
+                song.Events[i] = ChannelEvent(time, status, data1, data2, i);
+            }
+            song.DurationMicroseconds = time;
+            int[] capacities = { 1, 8, 64 };
+            for (int capacityIndex = 0; capacityIndex < capacities.Length; capacityIndex++)
+            {
+                int capacity = capacities[capacityIndex];
+                PlaybackSnapshot playback;
+                using (PlaybackEngine engine = new PlaybackEngine())
+                {
+                    engine.SimulateSlowdown = true;
+                    engine.ProcessingMicroseconds = 500;
+                    engine.QueueLengthLimit = capacity;
+                    engine.OverflowPolicy = OverflowPolicy.DropOldestCompleteNote;
+                    engine.Start(song, new CountingMidiOutput(), ProcessingMode.Drop);
+                    WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2500,
+                        "dense complete-note completion at capacity " + capacity);
+                    playback = engine.GetSnapshot();
+                }
+                AnalysisConfiguration configuration = DefaultAnalysisConfiguration();
+                configuration.ProcessingMicroseconds = 500;
+                configuration.QueueLengthLimitEnabled = true;
+                configuration.QueueLengthLimit = capacity;
+                configuration.OverflowPolicy = OverflowPolicy.DropOldestCompleteNote;
+                WorkloadAnalysis analysis = WorkloadAnalyzer.Analyze(song, 1000, configuration);
+                Equal(playback.DroppedEvents, analysis.PredictedDroppedEvents,
+                    "dense drop parity at capacity " + capacity);
+                Equal(playback.ProcessedEvents, (long)count - analysis.PredictedDroppedEvents,
+                    "dense accepted-event parity at capacity " + capacity);
+                Equal((int)playback.MaximumQueueLength, analysis.PredictedMaximumOccupancy,
+                    "dense occupancy parity at capacity " + capacity);
+                Equal((long)count, playback.ProcessedEvents + playback.DroppedEvents,
+                    "every dense source event is sent or dropped at capacity " + capacity);
+            }
+        }
+
+        private static void TestOldestCompleteNoteUi()
+        {
+            Application.EnableVisualStyles();
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); Application.DoEvents();
+                BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                ComboBox policy = (ComboBox)typeof(MainForm).GetField("_overflowPolicyCombo", flags).GetValue(form);
+                CheckBox queue = (CheckBox)typeof(MainForm).GetField("_queueLimitCheck", flags).GetValue(form);
+                CheckBox slowdown = (CheckBox)typeof(MainForm).GetField("_simulateSlowdownCheck", flags).GetValue(form);
+                Equal("Drop oldest complete note", policy.Items[(int)OverflowPolicy.DropOldestCompleteNote].ToString(),
+                    "new visible policy is distinct from old single-event Drop oldest");
+                if (policy.DropDownWidth < 200) throw new Exception("full policy name is clipped in the dropdown");
+                policy.SelectedIndex = (int)OverflowPolicy.DropOldestCompleteNote;
+                queue.Checked = true;
+                slowdown.Checked = false;
+                typeof(MainForm).GetField("_applyQueueLimitWithoutSlowdown", flags).SetValue(form, true);
+                MethodInfo restriction = typeof(MainForm).GetMethod("IsUnsupportedForwardQueueSelection", flags);
+                Equal(true, (bool)restriction.Invoke(form, null),
+                    "the new oldest-note policy cannot run as forward-only virtual dropping");
+                slowdown.Checked = true;
+                Equal(false, (bool)restriction.Invoke(form, null),
+                    "simulated slowdown permits the delayed oldest-note policy");
+                form.Close();
+            }
+        }
+
+        private static void BenchmarkOldestCompleteNoteQueue(int capacity)
+        {
+            const int operations = 300000;
+            if (capacity < 1 || capacity > 100000) throw new ArgumentOutOfRangeException("capacity");
+            GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+            long baselineBefore = GC.GetTotalMemory(true);
+            int baselineGen0 = GC.CollectionCount(0);
+            Stopwatch baselineTime = Stopwatch.StartNew();
+            Queue<int> baseline = new Queue<int>(capacity);
+            for (int i = 0; i < operations; i++)
+            {
+                if (baseline.Count == capacity) baseline.Dequeue();
+                baseline.Enqueue(i);
+            }
+            baselineTime.Stop();
+            int baselineCollections = GC.CollectionCount(0) - baselineGen0;
+            long baselineRetained = GC.GetTotalMemory(true) - baselineBefore;
+            GC.KeepAlive(baseline);
+            baseline = null;
+            GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+            long before = GC.GetTotalMemory(true);
+            int completeGen0 = GC.CollectionCount(0);
+            Stopwatch completeTime = Stopwatch.StartNew();
+            PendingMidiQueue pending = new PendingMidiQueue(capacity, true);
+            for (int i = 0; i < operations; i++)
+            {
+                if (pending.Count == capacity)
+                {
+                    int attack;
+                    int release;
+                    if (!pending.TryEvictOldestCompleteNote(out attack, out release) || release >= 0)
+                        throw new Exception("dense queue benchmark eviction was not constant-shape");
+                }
+                pending.Enqueue(new PendingMidiQueue.Entry
+                {
+                    EventIndex = i, PairedAttackIndex = -1, IsNoteOn = true
+                });
+            }
+            completeTime.Stop();
+            int completeCollections = GC.CollectionCount(0) - completeGen0;
+            long retained = GC.GetTotalMemory(true) - before;
+            Equal(capacity, pending.Count, "dense queue benchmark live occupancy");
+            if (pending.BackingEntryCount > capacity * 2 + 4096 ||
+                pending.EligibleBackingCount > capacity * 2 + 4096)
+                throw new Exception("dense queue benchmark retained an unbounded stale index");
+            Console.WriteLine("Oldest-complete queue benchmark, " + operations + " admissions, capacity " + capacity +
+                ": Queue<int> replacement " + baselineTime.Elapsed.TotalMilliseconds.ToString("F3", CultureInfo.InvariantCulture) +
+                " ms / Gen0 " + baselineCollections + " / retained " + baselineRetained +
+                " bytes; indexed occurrence replacement " +
+                completeTime.Elapsed.TotalMilliseconds.ToString("F3", CultureInfo.InvariantCulture) +
+                " ms / Gen0 " + completeCollections + "; retained managed delta " + retained +
+                " bytes; peak nodes/segments " + pending.PeakBackingCount + "/" +
+                pending.AllocatedSegmentCount +
+                "; final raw/eligible/active " + pending.BackingEntryCount + "/" +
+                pending.EligibleBackingCount + "/" + pending.ActiveEligibleCount + ".");
+        }
+
+        private static void BenchmarkOldestCompleteAnalysis()
+        {
+            const int count = 60000;
+            MidiSong song = BuildSong(new long[count]);
+            for (int i = 0; i < count; i++)
+                song.Events[i] = (i & 1) == 0
+                    ? ChannelEvent(0, 0x90, (byte)(48 + (i / 2 % 24)), 100, i)
+                    : ChannelEvent(0, 0x80, (byte)(48 + (i / 2 % 24)), 0, i);
+            AnalysisConfiguration configuration = DefaultAnalysisConfiguration();
+            configuration.ProcessingMicroseconds = 1000;
+            configuration.QueueLengthLimitEnabled = true;
+            configuration.QueueLengthLimit = 2048;
+            OverflowPolicy[] policies = { OverflowPolicy.DropNewest, OverflowPolicy.DropOldest,
+                OverflowPolicy.DropIncomingCompleteNotes, OverflowPolicy.DropOldestCompleteNote };
+            for (int i = 0; i < policies.Length; i++)
+            {
+                configuration.OverflowPolicy = policies[i];
+                WorkloadAnalyzer.Analyze(song, 1000, configuration); // warm the workload cache and policy path
+                GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
+                int gen0 = GC.CollectionCount(0);
+                Stopwatch timer = Stopwatch.StartNew();
+                WorkloadAnalysis result = WorkloadAnalyzer.Analyze(song, 1000, configuration);
+                timer.Stop();
+                int collections = GC.CollectionCount(0) - gen0;
+                Console.WriteLine("Finite Analysis " + policies[i] + ", " + count +
+                    " note messages / capacity 2048: " +
+                    timer.Elapsed.TotalMilliseconds.ToString("F3", CultureInfo.InvariantCulture) +
+                    " ms; Gen0 " + collections + "; dropped " + result.PredictedDroppedEvents +
+                    "; maximum occupancy " + result.PredictedMaximumOccupancy + ".");
+            }
+        }
+
         private static void TestClearCatchUpOptimization()
         {
             const int count = 200000;
@@ -4574,7 +5116,8 @@ namespace MidiBottleneck.Tests
                 OverflowPolicy.DropNewest,
                 OverflowPolicy.DropOldest,
                 OverflowPolicy.ClearBufferAndCatchUp,
-                OverflowPolicy.DropIncomingCompleteNotes
+                OverflowPolicy.DropIncomingCompleteNotes,
+                OverflowPolicy.DropOldestCompleteNote
             };
             for (int policyIndex = 0; policyIndex < policies.Length; policyIndex++)
             {

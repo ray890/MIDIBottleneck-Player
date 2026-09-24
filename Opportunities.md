@@ -4,11 +4,7 @@ These are evidence-backed future directions, not promises for a particular relea
 
 ## Near term
 
-### Drop oldest complete note
-
-Add a finite-queue policy that removes the oldest safe complete note: its Note On and matching Note Off. A production design needs intrusive pending-queue nodes plus per-channel/key occurrence links so both messages can be unlinked in amortized O(1), without scanning a large queue on every overflow.
-
-The policy still needs exact rules for a Note Off that has not arrived, an event already in service, and a policy changed during playback. Playback and Analysis must share the same decision logic.
+The next dedicated feature is not yet selected. Session-only hiding of Processing model and Statistics is a bounded presentation candidate, but it still needs exact standard/compact row collapse and restoration tests.
 
 ## Completed foundations
 
@@ -22,6 +18,7 @@ The policy still needs exact rules for a Note Off that has not arrived, an event
 - **Build 31 — queue-state correctness:** distinguishes real blocked-output backlog from virtual rate-model pressure and applies forward-only Drop newest/complete-note decisions without delaying accepted MIDI.
 - **Build 33 — direct event rate:** adds a third visible rate model with an integer rational clock shared by playback, virtual forward admission, and Analysis. Rejected work consumes no service phase, zero is unlimited/immediate, and active edits use a same-position generation restart.
 - **Build 34 — live edits and Channels provenance:** ordinary rate edits now apply at the next service start without silencing or restarting. Channels can show indexed source values as gray historical readouts when no output observation exists; these never count as sent MIDI. Forward-only queue limiting now starts off.
+- **Build 35 — oldest complete-note overflow:** the finite delayed queue can evict the oldest unsent note occurrence and its queued release in constant-time indexed operations. A later release is suppressed, in-service attacks remain protected, and static Analysis makes matching decisions. Protected releases and note-silencing controls can exceed the nominal soft capacity.
 
 ## Playback and MIDI state decisions
 

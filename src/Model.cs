@@ -397,7 +397,8 @@ namespace MidiBottleneck
         DropNewest,
         DropOldest,
         ClearBufferAndCatchUp,
-        DropIncomingCompleteNotes
+        DropIncomingCompleteNotes,
+        DropOldestCompleteNote
     }
 
     internal enum PlaybackState

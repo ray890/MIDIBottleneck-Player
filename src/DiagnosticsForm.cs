@@ -1180,6 +1180,7 @@ namespace MidiBottleneck
         private static string FormatOverflowPolicy(OverflowPolicy policy)
         {
             if (policy == OverflowPolicy.DropOldest) return "Drop oldest pending event";
+            if (policy == OverflowPolicy.DropOldestCompleteNote) return "Drop oldest complete note";
             if (policy == OverflowPolicy.ClearBufferAndCatchUp) return "Clear buffer and jump to realtime";
             if (policy == OverflowPolicy.DropIncomingCompleteNotes) return "Drop incoming complete notes";
             return "Drop newest";

@@ -994,7 +994,8 @@ namespace MidiBottleneck
             int inService = -1;
             long completionTicks = Int64.MaxValue;
             int bufferCapacity = Volatile.Read(ref _queueLengthLimit);
-            System.Collections.Generic.Queue<int> pending = new System.Collections.Generic.Queue<int>(bufferCapacity);
+            PendingMidiQueue pending = new PendingMidiQueue(bufferCapacity,
+                (OverflowPolicy)Volatile.Read(ref _overflowPolicy) == OverflowPolicy.DropOldestCompleteNote);
             int consecutiveDrops = 0;
             long clusterTimestamp = Int64.MinValue;
             int clusterEnd = nextArrival;
@@ -1023,7 +1024,7 @@ namespace MidiBottleneck
                 if (currentRoutingGeneration != routingGeneration || currentOverrideGeneration != overrideGeneration)
                 {
                     if (HasActiveSourceFilters()) Volatile.Write(ref _usesPreAdmissionFilterAccounting, 1);
-                    RetireDropFilteredBacklog(filtered, pending, ref inService, ref completionTicks, now,
+                    RetireDropFilteredBacklog(filtered, pending, completeNotes, ref inService, ref completionTicks, now,
                         ref serviceClock, ref beforeCurrentService);
                     routingGeneration = currentRoutingGeneration;
                     overrideGeneration = currentOverrideGeneration;
@@ -1058,6 +1059,12 @@ namespace MidiBottleneck
                 {
                     if (HasActiveSourceFilters() && MarkNewSourceFiltered(nextArrival, filtered))
                     {
+                        MidiEventView filteredEvent = _events[nextArrival];
+                        CompleteNoteEventKind filteredKind = CompleteNoteTracker.Classify(filteredEvent);
+                        if (filteredKind == CompleteNoteEventKind.NoteOn)
+                            completeNotes.RecordFilteredNoteOn(filteredEvent, nextArrival);
+                        else if (filteredKind == CompleteNoteEventKind.NoteOff)
+                            completeNotes.TakeNoteOff(filteredEvent);
                         nextArrival++;
                         UpdateQueue(pending.Count, inService >= 0);
                         continue;
@@ -1084,7 +1091,21 @@ namespace MidiBottleneck
 
                     MidiEventView incomingEvent = _events[nextArrival];
                     CompleteNoteEventKind noteKind = CompleteNoteTracker.Classify(incomingEvent);
-                    if (noteKind == CompleteNoteEventKind.NoteOff && completeNotes.ShouldSuppressNoteOff(incomingEvent))
+                    OverflowPolicy overflowPolicy = (OverflowPolicy)Volatile.Read(ref _overflowPolicy);
+                    pending.SetNoteIndexEnabled(overflowPolicy == OverflowPolicy.DropOldestCompleteNote);
+                    CompleteNoteTracker.NoteOffMatch noteMatch = noteKind == CompleteNoteEventKind.NoteOff
+                        ? completeNotes.TakeNoteOff(incomingEvent)
+                        : new CompleteNoteTracker.NoteOffMatch { AttackIndex = -1 };
+                    if (noteMatch.Filtered)
+                    {
+                        _channelRouting.RecordFiltered(incomingEvent.Channel);
+                        Volatile.Write(ref _usesPreAdmissionFilterAccounting, 1);
+                        nextArrival++;
+                        UpdateQueue(pending.Count, inService >= 0);
+                        continue;
+                    }
+                    if (noteMatch.Suppress || (overflowPolicy == OverflowPolicy.DropOldestCompleteNote &&
+                        noteKind == CompleteNoteEventKind.NoteOff && noteMatch.AttackIndex >= 0 && !noteMatch.Accepted))
                     {
                         consecutiveDrops++;
                         lock (_sync) _droppedEvents++;
@@ -1098,7 +1119,13 @@ namespace MidiBottleneck
                         continue;
                     }
 
-                    OverflowPolicy overflowPolicy = (OverflowPolicy)Volatile.Read(ref _overflowPolicy);
+                    PendingMidiQueue.Entry incomingEntry = new PendingMidiQueue.Entry
+                    {
+                        EventIndex = nextArrival,
+                        PairedAttackIndex = noteMatch.AttackIndex,
+                        IsNoteOn = noteKind == CompleteNoteEventKind.NoteOn,
+                        IsNoteOff = noteKind == CompleteNoteEventKind.NoteOff
+                    };
                     int outstanding = pending.Count + (inService >= 0 ? 1 : 0);
                     bool safetyAdmission = overflowPolicy == OverflowPolicy.DropIncomingCompleteNotes &&
                         noteKind != CompleteNoteEventKind.NoteOn;
@@ -1117,12 +1144,12 @@ namespace MidiBottleneck
                         }
                         else
                         {
-                            pending.Enqueue(acceptedIndex);
+                            pending.Enqueue(incomingEntry);
                         }
                         int occupancy = pending.Count + (inService >= 0 ? 1 : 0);
                         if (occupancy > maximumBufferOccupancy) maximumBufferOccupancy = occupancy;
                         if (noteKind == CompleteNoteEventKind.NoteOn)
-                            completeNotes.RecordNoteOn(incomingEvent, true, false);
+                            completeNotes.RecordNoteOn(incomingEvent, acceptedIndex, true, false);
                         if (traceEnabled)
                         {
                             long busyUntil = EstimateBusyUntil(completionTicks, pending, serviceClock);
@@ -1145,9 +1172,9 @@ namespace MidiBottleneck
                                     EstimateBusyUntil(completionTicks, pending, serviceClock), outstanding - 1, maximumBufferOccupancy);
 
                             int acceptedIndex = nextArrival;
-                            pending.Enqueue(acceptedIndex);
+                            pending.Enqueue(incomingEntry);
                             if (noteKind == CompleteNoteEventKind.NoteOn)
-                                completeNotes.RecordNoteOn(incomingEvent, true, false);
+                                completeNotes.RecordNoteOn(incomingEvent, acceptedIndex, true, false);
                             if (traceEnabled)
                             {
                                 long busyUntil = EstimateBusyUntil(completionTicks, pending, serviceClock);
@@ -1155,6 +1182,66 @@ namespace MidiBottleneck
                             }
                             UpdateQueue(pending.Count, inService >= 0);
                             consecutiveDrops = 0;
+                        }
+                        else if (overflowPolicy == OverflowPolicy.DropOldestCompleteNote)
+                        {
+                            int evictedAttack;
+                            int evictedRelease;
+                            bool evicted = pending.TryEvictOldestCompleteNote(out evictedAttack, out evictedRelease);
+                            if (evicted)
+                            {
+                                if (evictedRelease < 0) completeNotes.MarkUnsentAttackEvicted(evictedAttack);
+                                int discarded = evictedRelease >= 0 ? 2 : 1;
+                                consecutiveDrops += discarded;
+                                lock (_sync) _droppedEvents += discarded;
+                                RecordChannelDrop(evictedAttack);
+                                if (evictedRelease >= 0) RecordChannelDrop(evictedRelease);
+                                if (traceEnabled)
+                                {
+                                    TraceDropped(evictedAttack, now, "oldest unsent note occurrence evicted",
+                                        ClusterSizeAt(evictedAttack), consecutiveDrops,
+                                        EstimateBusyUntil(completionTicks, pending, serviceClock),
+                                        pending.Count + (inService >= 0 ? 1 : 0), maximumBufferOccupancy);
+                                    if (evictedRelease >= 0)
+                                        TraceDropped(evictedRelease, now, "paired pending release evicted with its attack",
+                                            ClusterSizeAt(evictedRelease), consecutiveDrops,
+                                            EstimateBusyUntil(completionTicks, pending, serviceClock),
+                                            pending.Count + (inService >= 0 ? 1 : 0), maximumBufferOccupancy);
+                                }
+                            }
+                            bool ownAttackEvicted = evicted && noteKind == CompleteNoteEventKind.NoteOff &&
+                                noteMatch.AttackIndex == evictedAttack;
+                            bool protectedTraffic = noteKind == CompleteNoteEventKind.NoteOff ||
+                                CompleteNoteTracker.IsSafetyControl(incomingEvent);
+                            if (ownAttackEvicted || (!evicted && !protectedTraffic))
+                            {
+                                if (noteKind == CompleteNoteEventKind.NoteOn)
+                                    completeNotes.RecordNoteOn(incomingEvent, nextArrival, false, true);
+                                consecutiveDrops++;
+                                lock (_sync) _droppedEvents++;
+                                RecordChannelDrop(nextArrival);
+                                if (traceEnabled)
+                                    TraceDropped(nextArrival, now, ownAttackEvicted
+                                        ? "release suppressed with its evicted unsent attack"
+                                        : "no eligible old unsent note; incoming event rejected",
+                                        clusterSize, consecutiveDrops,
+                                        EstimateBusyUntil(completionTicks, pending, serviceClock),
+                                        pending.Count + (inService >= 0 ? 1 : 0), maximumBufferOccupancy);
+                            }
+                            else
+                            {
+                                pending.Enqueue(incomingEntry);
+                                if (noteKind == CompleteNoteEventKind.NoteOn)
+                                    completeNotes.RecordNoteOn(incomingEvent, nextArrival, true, false);
+                                int occupancy = pending.Count + (inService >= 0 ? 1 : 0);
+                                if (occupancy > maximumBufferOccupancy) maximumBufferOccupancy = occupancy;
+                                if (traceEnabled)
+                                    TraceAcceptedAdmission(nextArrival, now, clusterSize, occupancy,
+                                        maximumBufferOccupancy,
+                                        EstimateBusyUntil(completionTicks, pending, serviceClock));
+                                consecutiveDrops = 0;
+                            }
+                            UpdateQueue(pending.Count, inService >= 0);
                         }
                         else if (overflowPolicy == OverflowPolicy.ClearBufferAndCatchUp)
                         {
@@ -1218,7 +1305,7 @@ namespace MidiBottleneck
                         else if (overflowPolicy == OverflowPolicy.DropIncomingCompleteNotes &&
                             noteKind == CompleteNoteEventKind.NoteOn)
                         {
-                            completeNotes.RecordNoteOn(incomingEvent, false, true);
+                            completeNotes.RecordNoteOn(incomingEvent, nextArrival, false, true);
                             consecutiveDrops++;
                             lock (_sync) _droppedEvents++;
                             RecordChannelDrop(nextArrival);
@@ -1230,7 +1317,7 @@ namespace MidiBottleneck
                         else
                         {
                             if (noteKind == CompleteNoteEventKind.NoteOn)
-                                completeNotes.RecordNoteOn(incomingEvent, false, false);
+                                completeNotes.RecordNoteOn(incomingEvent, nextArrival, false, false);
                             consecutiveDrops++;
                             lock (_sync) _droppedEvents++;
                             RecordChannelDrop(nextArrival);
@@ -1722,13 +1809,16 @@ namespace MidiBottleneck
             return true;
         }
 
-        private void RetireDropFilteredBacklog(FilteredSourceEvents filtered, Queue<int> pending,
+        private void RetireDropFilteredBacklog(FilteredSourceEvents filtered, PendingMidiQueue pending,
+            CompleteNoteTracker completeNotes,
             ref int inService, ref long completionTicks, long now,
             ref ServiceDurationClock serviceClock, ref ServiceDurationClock beforeCurrentService)
         {
             bool changed = false;
             if (inService >= 0 && MarkSourceFiltered(inService, filtered))
             {
+                if (CompleteNoteTracker.Classify(_events[inService]) == CompleteNoteEventKind.NoteOn)
+                    completeNotes.MarkUnsentAttackFiltered(inService);
                 inService = -1;
                 completionTicks = Int64.MaxValue;
                 serviceClock = beforeCurrentService;
@@ -1737,9 +1827,15 @@ namespace MidiBottleneck
             int pendingCount = pending.Count;
             for (int i = 0; i < pendingCount; i++)
             {
-                int eventIndex = pending.Dequeue();
-                if (MarkSourceFiltered(eventIndex, filtered)) changed = true;
-                else pending.Enqueue(eventIndex);
+                PendingMidiQueue.Entry entry = pending.DequeueEntry();
+                int eventIndex = entry.EventIndex;
+                if (MarkSourceFiltered(eventIndex, filtered))
+                {
+                    if (CompleteNoteTracker.Classify(_events[eventIndex]) == CompleteNoteEventKind.NoteOn)
+                        completeNotes.MarkUnsentAttackFiltered(eventIndex);
+                    changed = true;
+                }
+                else pending.Enqueue(entry);
             }
             if (inService < 0 && pending.Count > 0)
             {
@@ -1964,7 +2060,7 @@ namespace MidiBottleneck
         }
 
         private long EstimateBusyUntil(long currentCompletionTicks,
-            System.Collections.Generic.Queue<int> queuedEvents, ServiceDurationClock serviceClock)
+            System.Collections.Generic.IEnumerable<int> queuedEvents, ServiceDurationClock serviceClock)
         {
             if (currentCompletionTicks == Int64.MaxValue) return 0;
             long busyUntil = currentCompletionTicks;

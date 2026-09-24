@@ -4,10 +4,11 @@ This is a direction of travel, not a promise of dates. Correct MIDI behavior, de
 
 ## Near term
 
-- **Drop oldest complete note** — when a finite queue is full, remove the oldest Note On together with its matching Note Off without scanning a large queue on every overflow. Playback and Analysis must make the same decision.
+- The next feature is not committed to a release. Session-only hiding of the Processing model and Statistics sections is one contained candidate, provided both standard and compact layouts restore exactly.
 
 ## Recently completed
 
+- **Build 35 — oldest complete-note overflow:** a finite delayed queue can remove the oldest eligible unsent note and its matching release without scanning the queue. Protected releases may raise occupancy above the configured soft limit; Analysis applies the same source-file policy.
 - **Build 34 — uninterrupted rate edits and Channels provenance:** live rate changes keep the queue and sounding state, while source-indexed channel values appear as historical when output has not confirmed them.
 - **Build 33 — direct event rate:** added an exact Events/sec service model shared by playback and Analysis, with generation-safe live changes and zero as unlimited/immediate service.
 - **Build 32 — whole-state chase:** checked-by-default Play/Seek restoration for bank, Program, ordinary controllers, bend, pressure, and ordered RPN/NRPN values without replaying notes.

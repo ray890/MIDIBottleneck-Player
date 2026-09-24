@@ -411,3 +411,17 @@ This is the human-readable history of MIDIBottleneck Player. Dates are original 
 
 - Investigated Pause/Seek preservation; a combined switch would give misleading Seek behavior and is deferred.
 - Focused tests cover live finite and virtual queues, rapid edits, output continuity, strict source-history boundaries, monitor presentation, and the new default.
+
+## Build 35 — 2026-09-24
+
+### Player changes
+
+- Added **Drop oldest complete note** as a separate finite-queue overflow choice when simulated slowdown is on. It removes the oldest queued NoteOn that has not begun service and removes or later suppresses its matching NoteOff.
+- Kept attacks already in service or sent safe from eviction. Required NoteOffs, sustain-off, and channel-mode safety controls can temporarily take queue occupancy above the configured limit; ordinary arrivals with no eligible older note are rejected explicitly.
+- Kept channel-mute and forced-override filtering before queue admission. A release paired with a previously muted attack remains filtered if the channel is re-enabled before that release.
+- Static Analysis projects the same complete-note overflow decisions from the unfiltered source file. Existing **Drop oldest** remains the single-event policy, while forward-only limiting without slowdown still cannot remove already-sent MIDI.
+
+### Implementation and verification
+
+- Added reusable value-node segments with separate service-order and oldest-eligible-attack links. Pending nodes are recycled; overflow does not scan the queue or allocate one object per source event.
+- Added focused Playback/Analysis pairing, soft-capacity, filtering, live-policy, lifecycle, failure, and dense-decision tests, plus a bounded queue-index benchmark on both architectures.
