@@ -24,6 +24,10 @@ namespace MidiBottleneck.Tests
         [DllImport("user32.dll")]
         private static extern int GetMenuItemCount(IntPtr menu);
 
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern int GetMenuString(IntPtr menu, uint identifier,
+            System.Text.StringBuilder text, int capacity, uint flags);
+
         [STAThread]
         private static int Main(string[] arguments)
         {
@@ -182,6 +186,11 @@ namespace MidiBottleneck.Tests
                 if (arguments.Length == 2 && arguments[0] == "--render-ui-oldest-complete")
                 {
                     RenderMainWindow(arguments[1], false, true, true, true, true);
+                    return 0;
+                }
+                if (arguments.Length == 2 && arguments[0] == "--render-build36")
+                {
+                    RenderBuild36SessionViews(arguments[1]);
                     return 0;
                 }
                 if (arguments.Length == 2 && arguments[0] == "--render-ui-none")
@@ -538,6 +547,11 @@ namespace MidiBottleneck.Tests
                     RunFocused("forward queue option defaults off", TestForwardQueueLimitWithoutSlowdown);
                     return 0;
                 }
+                if (arguments.Length == 1 && arguments[0] == "--test-build36")
+                {
+                    RunFocused("session-only Processing and Statistics visibility", TestBuild36SessionViewControls);
+                    return 0;
+                }
                 if (arguments.Length == 1 && arguments[0] == "--test-interface-only")
                 {
                     RunFocused("WinForms interface construction", TestInterfaceConstruction);
@@ -660,6 +674,7 @@ namespace MidiBottleneck.Tests
                 Run("main-window MIDI file drag and drop", TestBuild22MidiFileDrop);
                 Run("Analysis predicted output completion", TestAnalysisPredictedCompletion);
                 Run("Always-on-top native system-menu command", TestBuild22AlwaysOnTopMenu);
+                Run("session-only Processing and Statistics visibility", TestBuild36SessionViewControls);
                 Run("single-source product metadata", TestBuild23ProductMetadata);
                 Run("pre-admission channel and override filtering", TestBuild23PreAdmissionFiltering);
                 Run("corrected per-note interval gate state, scheduler, lifecycle, and UI", TestBuild25PerNoteIntervalGate);
@@ -8442,6 +8457,237 @@ namespace MidiBottleneck.Tests
             typeof(Control).GetMethod("OnDragEnter", BindingFlags.Instance | BindingFlags.NonPublic)
                 .Invoke(target, new object[] { arguments });
             return arguments.Effect;
+        }
+
+        private static void ToggleBuild36Section(MainForm form, bool processing)
+        {
+            int command = processing ? MainForm.ShowProcessingModelSystemCommandForTesting :
+                MainForm.ShowStatisticsSystemCommandForTesting;
+            SendMessage(form.Handle, 0x0112, (IntPtr)command, IntPtr.Zero);
+            Application.DoEvents();
+        }
+
+        private static void AssertBuild36SectionLayout(MainForm form, bool processing, bool statistics, string stage)
+        {
+            BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            TableLayoutPanel root = (TableLayoutPanel)typeof(MainForm).GetField("_rootLayout", flags).GetValue(form);
+            GroupBox file = (GroupBox)typeof(MainForm).GetField("_fileOutputGroup", flags).GetValue(form);
+            GroupBox playback = (GroupBox)typeof(MainForm).GetField("_playbackGroup", flags).GetValue(form);
+            GroupBox stats = (GroupBox)typeof(MainForm).GetField("_statisticsGroup", flags).GetValue(form);
+            GroupBox model = (GroupBox)root.GetControlFromPosition(0, 1);
+            Equal(processing, form.ShowProcessingModelForTesting, stage + " processing setting");
+            Equal(statistics, form.ShowStatisticsForTesting, stage + " statistics setting");
+            Equal(processing, model.Visible, stage + " processing visibility");
+            Equal(statistics, stats.Visible, stage + " statistics visibility");
+            int[] rows = root.GetRowHeights();
+            if (rows.Length < 4) throw new Exception(stage + " lost a root layout row");
+            if (processing) Equal(true, rows[1] > 0, stage + " processing row height");
+            else if (root.RowStyles[1].SizeType != SizeType.Absolute || root.RowStyles[1].Height != 0)
+                throw new Exception(stage + " Processing row was not collapsed");
+            if (statistics) Equal(true, rows[3] > 0, stage + " statistics row height");
+            else if (root.RowStyles[3].SizeType != SizeType.Absolute || root.RowStyles[3].Height != 0)
+                throw new Exception(stage + " Statistics row was not collapsed");
+            if (file.Bottom > playback.Top || playback.Bottom > form.ClientSize.Height)
+                throw new Exception(stage + " clips or overlaps the permanent groups: file bottom=" + file.Bottom +
+                    ", playback top/bottom=" + playback.Top + "/" + playback.Bottom +
+                    ", client height=" + form.ClientSize.Height + ", form height=" + form.Height);
+            if (statistics && (playback.Bottom > stats.Top || stats.Bottom > form.ClientSize.Height))
+                throw new Exception(stage + " clips or overlaps Statistics");
+            Equal(form.RealizedRequiredWindowHeight, form.MinimumSize.Height, stage + " measured minimum");
+            if (form.Width < form.MinimumSize.Width || form.Height < form.MinimumSize.Height)
+                throw new Exception(stage + " form violates measured minimum");
+            if (form.ClientSize.Width < 640)
+                Equal(form.MinimumSize.Height, form.MaximumSize.Height, stage + " compact fixed height");
+            else Equal(Size.Empty, form.MaximumSize, stage + " standard maximum cleared");
+            IntPtr menu = GetSystemMenu(form.Handle, false);
+            uint modelState = GetMenuState(menu, (uint)MainForm.ShowProcessingModelSystemCommandForTesting, 0);
+            uint statsState = GetMenuState(menu, (uint)MainForm.ShowStatisticsSystemCommandForTesting, 0);
+            if (modelState == UInt32.MaxValue || statsState == UInt32.MaxValue)
+                throw new Exception(stage + " missing native system-menu commands");
+            Equal(processing, (modelState & 0x0008U) != 0, stage + " processing checkmark");
+            Equal(statistics, (statsState & 0x0008U) != 0, stage + " statistics checkmark");
+            System.Text.StringBuilder itemText = new System.Text.StringBuilder(80);
+            GetMenuString(menu, (uint)MainForm.ShowProcessingModelSystemCommandForTesting,
+                itemText, itemText.Capacity, 0);
+            if (!itemText.ToString().Contains("&Processing"))
+                throw new Exception(stage + " Processing command lost its keyboard mnemonic");
+            itemText.Length = 0;
+            GetMenuString(menu, (uint)MainForm.ShowStatisticsSystemCommandForTesting,
+                itemText, itemText.Capacity, 0);
+            if (!itemText.ToString().Contains("&Statistics"))
+                throw new Exception(stage + " Statistics command lost its keyboard mnemonic");
+        }
+
+        private static void TestBuild36SessionViewControls()
+        {
+            Application.EnableVisualStyles();
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(40);
+                AssertBuild36SectionLayout(form, true, true, "standard initial");
+                int menuCount = GetMenuItemCount(GetSystemMenu(form.Handle, false));
+                int normalMinimum = form.MinimumSize.Height;
+                Equal(normalMinimum, form.Height, "standard initial window starts at measured minimum");
+                BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                GroupBox model = (GroupBox)((TableLayoutPanel)typeof(MainForm).GetField("_rootLayout", flags).GetValue(form))
+                    .GetControlFromPosition(0, 1);
+                GroupBox stats = (GroupBox)typeof(MainForm).GetField("_statisticsGroup", flags).GetValue(form);
+                GroupBox playback = (GroupBox)typeof(MainForm).GetField("_playbackGroup", flags).GetValue(form);
+                int initialPlaybackTop = playback.Top;
+                int initialStatisticsTop = stats.Top;
+
+                form.Height = normalMinimum + 80; Application.DoEvents();
+                NumericUpDown processingValue = (NumericUpDown)typeof(MainForm).GetField("_processingValue", flags).GetValue(form);
+                processingValue.Focus();
+                ToggleBuild36Section(form, true);
+                AssertBuild36SectionLayout(form, false, true, "standard processing hidden");
+                if (model.ContainsFocus) throw new Exception("focus remained in hidden Processing model");
+                if (form.MinimumSize.Height >= normalMinimum || playback.Top >= initialPlaybackTop)
+                    throw new Exception("hiding Processing model failed to reclaim its row");
+                Equal(form.MinimumSize.Height + 80, form.Height, "manual standard height surplus survives hide");
+                ToggleBuild36Section(form, false);
+                AssertBuild36SectionLayout(form, false, false, "standard both hidden");
+                if (form.MinimumSize.Height >= normalMinimum - model.Height)
+                    throw new Exception("hiding both groups failed to reclaim Statistics");
+                ToggleBuild36Section(form, true);
+                AssertBuild36SectionLayout(form, true, false, "standard Statistics hidden");
+                ToggleBuild36Section(form, false);
+                AssertBuild36SectionLayout(form, true, true, "standard restored");
+                Equal(normalMinimum, form.MinimumSize.Height, "standard minimum restores exactly");
+                Equal(normalMinimum + 80, form.Height, "standard enlarged height restores exactly");
+                Equal(initialPlaybackTop, playback.Top, "standard Playback top restores exactly");
+                Equal(initialStatisticsTop, stats.Top, "standard Statistics top restores exactly");
+
+                form.ClientSize = new Size(416, form.ClientSize.Height); Application.DoEvents();
+                form.Size = form.MinimumSize; Application.DoEvents();
+                AssertBuild36SectionLayout(form, true, true, "compact initial");
+                int compactMinimum = form.MinimumSize.Height;
+                int compactPlaybackTop = playback.Top;
+                int compactStatisticsTop = stats.Top;
+                for (int pass = 0; pass < 3; pass++)
+                {
+                    ToggleBuild36Section(form, false);
+                    AssertBuild36SectionLayout(form, true, false, "compact Statistics hidden");
+                    ToggleBuild36Section(form, true);
+                    AssertBuild36SectionLayout(form, false, false, "compact both hidden");
+                    ToggleBuild36Section(form, false);
+                    AssertBuild36SectionLayout(form, false, true, "compact Processing hidden");
+                    ToggleBuild36Section(form, true);
+                    AssertBuild36SectionLayout(form, true, true, "compact restored");
+                    Equal(compactMinimum, form.MinimumSize.Height, "compact minimum has no repeated-toggle drift");
+                    Equal(compactPlaybackTop, playback.Top, "compact Playback position has no drift");
+                    Equal(compactStatisticsTop, stats.Top, "compact Statistics position has no drift");
+                }
+
+                ToggleBuild36Section(form, true);
+                ToggleBuild36Section(form, false);
+                int chromeWidth = form.Width - form.ClientSize.Width;
+                form.Width = 640 + chromeWidth; Application.DoEvents();
+                AssertBuild36SectionLayout(form, false, false, "standard both hidden after breakpoint");
+                Equal(form.MinimumSize.Height + 80, form.Height, "remembered standard surplus crosses breakpoint");
+                form.Width = 639 + chromeWidth; Application.DoEvents();
+                AssertBuild36SectionLayout(form, false, false, "compact both hidden after breakpoint");
+                ToggleBuild36Section(form, false);
+                ToggleBuild36Section(form, true);
+                AssertBuild36SectionLayout(form, true, true, "compact restore after breakpoint");
+                Equal(compactMinimum, form.MinimumSize.Height, "compact baseline restored after breakpoint");
+
+                typeof(Control).GetMethod("RecreateHandle", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .Invoke(form, null);
+                Application.DoEvents();
+                Equal(menuCount, GetMenuItemCount(GetSystemMenu(form.Handle, false)),
+                    "handle recreation does not duplicate section commands");
+                AssertBuild36SectionLayout(form, true, true, "handle recreated");
+
+                List<Control> controls = new List<Control>(); CollectControls(form, controls);
+                CheckBox queueLimit = FindCheckBox(controls, "Queue limit:");
+                CheckBox slowdown = FindCheckBox(controls, "Simulate slowdown");
+                ComboBox policy = FindComboContaining(controls, "Drop oldest complete note");
+                NumericUpDown queueValue = (NumericUpDown)typeof(MainForm).GetField("_queueLimitValue", flags).GetValue(form);
+                StatisticsView view = FindControl<StatisticsView>(controls);
+                slowdown.Checked = true;
+                queueLimit.Checked = true;
+                processingValue.Value = 321;
+                queueValue.Value = 777;
+                policy.SelectedIndex = (int)OverflowPolicy.DropOldestCompleteNote;
+                Application.DoEvents();
+                Equal(true, view.QueuePressureVisible, "Build 35 queue pressure is visible");
+                ToggleBuild36Section(form, false);
+                ToggleBuild36Section(form, true);
+                Equal(true, view.QueuePressureVisible, "queue pressure is current after Statistics restoration");
+                Equal((int)OverflowPolicy.DropOldestCompleteNote, policy.SelectedIndex,
+                    "view toggle preserves Build 35 overflow selection");
+                Equal(true, slowdown.Checked, "view toggle preserves slowdown");
+                Equal(true, queueLimit.Checked, "view toggle preserves queue limit");
+                Equal(321m, processingValue.Value, "view toggle preserves processing value");
+                Equal(777m, queueValue.Value, "view toggle preserves queue capacity");
+
+                ToggleBuild36Section(form, true);
+                ToggleBuild36Section(form, false);
+                AssertBuild36SectionLayout(form, true, true, "queue controls restored");
+
+                typeof(MainForm).GetField("_loadingSong", flags).SetValue(form, true);
+                typeof(MainForm).GetMethod("SetLoadingPresentation", flags).Invoke(form, new object[] { true });
+                ToggleBuild36Section(form, true);
+                Equal(false, form.ShowProcessingModelForTesting, "loading processing command remains usable");
+                ToggleBuild36Section(form, false);
+                AssertBuild36SectionLayout(form, false, false, "loading with both groups hidden");
+                typeof(MainForm).GetField("_loadingSong", flags).SetValue(form, false);
+                typeof(MainForm).GetMethod("SetLoadingPresentation", flags).Invoke(form, new object[] { false });
+
+                MidiSong song = NewChannelSong("session-view-controls.mid", 10000000,
+                    ChannelMessage(0, 0x90, 60, 100), ChannelMessage(9000000, 0x80, 60, 0));
+                FakeMidiOutput output = new FakeMidiOutput();
+                PlaybackEngine engine = (PlaybackEngine)typeof(MainForm).GetField("_engine", flags).GetValue(form);
+                typeof(MainForm).GetField("_song", flags).SetValue(form, song);
+                typeof(MainForm).GetField("_engineSong", flags).SetValue(form, song);
+                typeof(MainForm).GetField("_activeOutput", flags).SetValue(form, output);
+                engine.Start(song, output, ProcessingMode.Drop, 0, true);
+                int resetsBeforeViewChanges = output.ResetCount;
+                Equal(PlaybackState.Paused, engine.State, "view controls remain available while paused");
+                ToggleBuild36Section(form, true);
+                ToggleBuild36Section(form, false);
+                Equal(PlaybackState.Paused, engine.State, "view controls do not change paused transport");
+                engine.Resume();
+                PumpUntil(delegate { return output.SentPayloads().Count > 0; }, 1500,
+                    "playback remains active while both optional sections are hidden");
+                Equal(PlaybackState.Playing, engine.State, "view controls preserve playing transport");
+                ToggleBuild36Section(form, false);
+                ToggleBuild36Section(form, true);
+                Equal(PlaybackState.Playing, engine.State, "restoring views does not restart playback");
+                Equal(resetsBeforeViewChanges, output.ResetCount,
+                    "view changes do not reset or silence the MIDI output");
+                Equal(true, view.QueuePressureVisible, "Statistics returns with live finite queue pressure");
+                Equal(MainForm.FormatEventCounts(engine.GetSnapshot(), true), view.ValueAt(4),
+                    "restored Statistics shows the current sent/drop counters");
+                engine.Stop();
+                form.Close();
+            }
+        }
+
+        private static void RenderBuild36SessionViews(string directory)
+        {
+            Directory.CreateDirectory(directory);
+            Application.EnableVisualStyles();
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(40);
+                for (int view = 0; view < 2; view++)
+                {
+                    if (view == 1) { form.ClientSize = new Size(416, form.ClientSize.Height); PumpFor(40); }
+                    form.Size = form.MinimumSize; PumpFor(40);
+                    string prefix = view == 0 ? "standard" : "compact";
+                    CaptureCorrectiveState(form, directory, prefix + "-both-shown");
+                    ToggleBuild36Section(form, true);
+                    CaptureCorrectiveState(form, directory, prefix + "-processing-hidden");
+                    ToggleBuild36Section(form, false);
+                    CaptureCorrectiveState(form, directory, prefix + "-both-hidden");
+                    ToggleBuild36Section(form, true);
+                    CaptureCorrectiveState(form, directory, prefix + "-statistics-hidden");
+                    ToggleBuild36Section(form, false);
+                }
+                form.Close();
+            }
         }
 
         private static void TestBuild22AlwaysOnTopMenu()

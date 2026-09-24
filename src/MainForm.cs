@@ -19,6 +19,8 @@ namespace MidiBottleneck
         private const int SystemMenuPerNoteIntervalGate = 0x1F40;
         private const int SystemMenuApplyQueueLimitWithoutSlowdown = 0x1F50;
         private const int SystemMenuChaseMidiState = 0x1F60;
+        private const int SystemMenuShowProcessingModel = 0x1F70;
+        private const int SystemMenuShowStatistics = 0x1F80;
         private const uint MfString = 0x0000;
         private const uint MfSeparator = 0x0800;
         private const uint MfChecked = 0x0008;
@@ -78,6 +80,7 @@ namespace MidiBottleneck
         private string _lastLoadTelemetryText;
         private int _loadingTelemetryUpdateCount;
         private int _lastDefaultHeight = 565;
+        private int _lastDefaultHeightSurplus;
         private int _lastCompactHeight;
         private int _lastDefaultRequiredHeight;
         private bool _suppressLoadErrorDialogs;
@@ -89,6 +92,8 @@ namespace MidiBottleneck
         private bool _perNoteIntervalGateEnabled;
         private bool _applyQueueLimitWithoutSlowdown;
         private bool _chaseMidiStateOnPlaySeek = true;
+        private bool _showProcessingModel = true;
+        private bool _showStatistics = true;
         private ServiceDurationMode _serviceModeBeforePerNoteGate = ServiceDurationMode.ProcessingTime;
 
         private Label _fileLabel;
@@ -187,10 +192,14 @@ namespace MidiBottleneck
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuPerNoteIntervalGate, "Per-note interval gate");
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuApplyQueueLimitWithoutSlowdown,
                     "Apply queue limit without slowdown");
+                AppendMenu(menu, MfSeparator, UIntPtr.Zero, null);
+                AppendMenu(menu, MfString, (UIntPtr)SystemMenuShowProcessingModel, "Show &Processing model");
+                AppendMenu(menu, MfString, (UIntPtr)SystemMenuShowStatistics, "Show &Statistics");
                 UpdateAlwaysOnTopMenuCheck();
                 UpdatePerNoteIntervalGateMenuCheck();
                 UpdateForwardQueueMenuState();
                 UpdateStateChaseMenuState();
+                UpdateSectionVisibilityMenuChecks();
             }
         }
 
@@ -204,6 +213,8 @@ namespace MidiBottleneck
                 if (command == SystemMenuPerNoteIntervalGate) { TogglePerNoteIntervalGate(); return; }
                 if (command == SystemMenuApplyQueueLimitWithoutSlowdown) { ToggleForwardQueueLimit(); return; }
                 if (command == SystemMenuChaseMidiState) { ToggleStateChase(); return; }
+                if (command == SystemMenuShowProcessingModel) { SetSectionVisibility(true, !_showProcessingModel); return; }
+                if (command == SystemMenuShowStatistics) { SetSectionVisibility(false, !_showStatistics); return; }
             }
             base.WndProc(ref message);
         }
@@ -226,6 +237,68 @@ namespace MidiBottleneck
             if (menu == IntPtr.Zero) return;
             CheckMenuItem(menu, (uint)SystemMenuAlwaysOnTop, TopMost ? MfChecked : MfUnchecked);
             DrawMenuBar(Handle);
+        }
+
+        private void UpdateSectionVisibilityMenuChecks()
+        {
+            if (!IsHandleCreated) return;
+            IntPtr menu = GetSystemMenu(Handle, false);
+            if (menu == IntPtr.Zero) return;
+            CheckMenuItem(menu, (uint)SystemMenuShowProcessingModel,
+                _showProcessingModel ? MfChecked : MfUnchecked);
+            CheckMenuItem(menu, (uint)SystemMenuShowStatistics,
+                _showStatistics ? MfChecked : MfUnchecked);
+            DrawMenuBar(Handle);
+        }
+
+        private void SetSectionVisibility(bool processingModel, bool visible)
+        {
+            bool current = processingModel ? _showProcessingModel : _showStatistics;
+            if (current == visible) return;
+
+            GroupBox group = processingModel ? (GroupBox)_rootLayout.GetControlFromPosition(0, 1) : _statisticsGroup;
+            int row = processingModel ? 1 : 3;
+            if (group.ContainsFocus)
+            {
+                ActiveControl = null;
+                if (_openButton.CanFocus) _openButton.Focus();
+                else if (_outputCombo.CanFocus) _outputCombo.Focus();
+            }
+
+            // Carry only the user's extra standard-view height. A hidden row
+            // changes the content minimum, so retaining an absolute old height
+            // would leave avoidable blank space or impose a stale minimum.
+            int standardSurplus = _compactLayout ? _lastDefaultHeightSurplus :
+                Math.Max(0, Height - CalculateRequiredWindowHeight());
+            SuspendLayout();
+            _rootLayout.SuspendLayout();
+            try
+            {
+                if (processingModel) _showProcessingModel = visible;
+                else _showStatistics = visible;
+                group.Visible = visible;
+                RowStyle style = _rootLayout.RowStyles[row];
+                style.SizeType = visible ? SizeType.AutoSize : SizeType.Absolute;
+                if (!visible) style.Height = 0;
+            }
+            finally
+            {
+                _rootLayout.ResumeLayout(false);
+                ResumeLayout(false);
+            }
+
+            _rootLayout.PerformLayout();
+            PerformLayout();
+            ApplyMeasuredWindowConstraints();
+            if (!_compactLayout)
+            {
+                Height = _lastDefaultRequiredHeight + standardSurplus;
+                _lastDefaultHeight = Height;
+            }
+            _lastDefaultHeightSurplus = standardSurplus;
+            UpdateSectionVisibilityMenuChecks();
+            if (visible && !processingModel) RefreshStatistics();
+            else if (_statisticsGroup.Visible) _statisticsView.Invalidate();
         }
 
         private void UpdatePerNoteIntervalGateMenuCheck()
@@ -418,6 +491,10 @@ namespace MidiBottleneck
         { get { return SystemMenuApplyQueueLimitWithoutSlowdown; } }
         internal bool ChaseMidiStateOnPlaySeekForTesting { get { return _chaseMidiStateOnPlaySeek; } }
         internal static int ChaseMidiStateSystemCommandForTesting { get { return SystemMenuChaseMidiState; } }
+        internal static int ShowProcessingModelSystemCommandForTesting { get { return SystemMenuShowProcessingModel; } }
+        internal static int ShowStatisticsSystemCommandForTesting { get { return SystemMenuShowStatistics; } }
+        internal bool ShowProcessingModelForTesting { get { return _showProcessingModel; } }
+        internal bool ShowStatisticsForTesting { get { return _showStatistics; } }
         internal bool PerNoteGateControlsLockedForTesting
         {
             get
@@ -2101,7 +2178,12 @@ namespace MidiBottleneck
             bool compact = ClientSize.Width < 640;
             if (_responsiveLayoutInitialized && compact == _compactLayout) return;
             _responsiveLayoutInitialized = true;
-            if (compact && !_compactLayout) _lastDefaultHeight = Math.Max(MinimumSize.Height, Height);
+            bool leavingCompact = !compact && _compactLayout;
+            if (compact && !_compactLayout)
+            {
+                _lastDefaultHeight = Math.Max(MinimumSize.Height, Height);
+                _lastDefaultHeightSurplus = Math.Max(0, Height - CalculateRequiredWindowHeight());
+            }
             _compactLayout = compact;
             List<Control> suspended = new List<Control>();
             SuspendLayout();
@@ -2224,7 +2306,12 @@ namespace MidiBottleneck
                 // pixels until a statistic happens to change.
                 _rootLayout.PerformLayout();
                 PerformLayout();
-                ApplyMeasuredWindowConstraints(true);
+                ApplyMeasuredWindowConstraints();
+                if (leavingCompact)
+                {
+                    Height = _lastDefaultRequiredHeight + _lastDefaultHeightSurplus;
+                    _lastDefaultHeight = Height;
+                }
                 // Queue one double-buffered repaint after the layout settles.  A
                 // synchronous Refresh here made every responsive breakpoint
                 // crossing wait for an immediate paint, even though the next
@@ -2241,15 +2328,16 @@ namespace MidiBottleneck
             _statisticsGroup.PerformLayout();
             _rootLayout.PerformLayout();
             PerformLayout();
-            ApplyMeasuredWindowConstraints(false);
+            ApplyMeasuredWindowConstraints();
             if (!_compactLayout)
             {
                 Height = RealizedRequiredWindowHeight;
                 _lastDefaultHeight = Height;
+                _lastDefaultHeightSurplus = 0;
             }
         }
 
-        private void ApplyMeasuredWindowConstraints(bool restoreDefaultHeight)
+        private void ApplyMeasuredWindowConstraints()
         {
             int requiredHeight = CalculateRequiredWindowHeight();
             if (_compactLayout)
@@ -2267,8 +2355,6 @@ namespace MidiBottleneck
                 if (MaximumSize != Size.Empty) MaximumSize = Size.Empty;
                 Size defaultMinimum = new Size(560, requiredHeight);
                 if (MinimumSize != defaultMinimum) MinimumSize = defaultMinimum;
-                if (restoreDefaultHeight && Height < Math.Max(requiredHeight, _lastDefaultHeight))
-                    Height = Math.Max(requiredHeight, _lastDefaultHeight);
             }
         }
 

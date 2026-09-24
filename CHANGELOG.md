@@ -425,3 +425,15 @@ This is the human-readable history of MIDIBottleneck Player. Dates are original 
 
 - Added reusable value-node segments with separate service-order and oldest-eligible-attack links. Pending nodes are recycled; overflow does not scan the queue or allocate one object per source event.
 - Added focused Playback/Analysis pairing, soft-capacity, filtering, live-policy, lifecycle, failure, and dense-decision tests, plus a bounded queue-index benchmark on both architectures.
+
+## Build 36 — 2026-09-24
+
+### Player changes
+
+- Added checked-by-default **Show Processing model** and **Show Statistics** commands to the main window's native system menu. Either section, or both, can be hidden for the current session without changing playback settings or statistics.
+- Hidden sections relinquish their layout rows. Compact view remeasures its fixed height; standard view remeasures its minimum while preserving any height the user added above that minimum. Restoring both returns to the established layouts.
+- Commands remain available during loading, playback, and Pause, including through the normal keyboard system-menu route. The File/output and Playback sections remain visible.
+
+### Verification
+
+- Added realized WinForms tests for independent toggles, repeated restoration, compact/default breakpoint crossings, menu-handle recreation, loading and playback state, focus, and finite queue-pressure presentation. Scheduler and note-overflow behavior were not changed.

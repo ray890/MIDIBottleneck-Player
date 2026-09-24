@@ -4,10 +4,11 @@ This is a direction of travel, not a promise of dates. Correct MIDI behavior, de
 
 ## Near term
 
-- The next feature is not committed to a release. Session-only hiding of the Processing model and Statistics sections is one contained candidate, provided both standard and compact layouts restore exactly.
+- The next feature is not committed to a release. Remaining presentation modes and playback-model additions need separate design and verification.
 
 ## Recently completed
 
+- **Build 36 — session view controls:** two checked-by-default system-menu commands independently hide Processing model and Statistics, collapsing their rows in standard and compact layouts without changing playback or model state.
 - **Build 35 — oldest complete-note overflow:** a finite delayed queue can remove the oldest eligible unsent note and its matching release without scanning the queue. Protected releases may raise occupancy above the configured soft limit; Analysis applies the same source-file policy.
 - **Build 34 — uninterrupted rate edits and Channels provenance:** live rate changes keep the queue and sounding state, while source-indexed channel values appear as historical when output has not confirmed them.
 - **Build 33 — direct event rate:** added an exact Events/sec service model shared by playback and Analysis, with generation-safe live changes and zero as unlimited/immediate service.
@@ -26,7 +27,7 @@ See [CHANGELOG.md](CHANGELOG.md) for the complete history.
 
 - **Channel override extensions** — presets, requested-versus-forced display, and optional static transformations that Analysis can model.
 - **Track routing** — route tracks onto constrained hardware channels with explicit rules for program/controller conflicts, percussion, and overlapping merged notes.
-- **Low-resolution presentation modes** — measured row hiding, roll-up, or non-cumulative scaling without destabilizing the canonical layout.
+- **Other low-resolution presentation modes** — roll-up or non-cumulative scaling without destabilizing the canonical layout. Session-only section hiding is complete.
 
 ## Longer-term research or parked work
 

@@ -22,6 +22,7 @@ MIDIBottleneck Player is a Windows MIDI player and deterministic workload simula
 - Checked-by-default bank, program, controller, bend, pressure, and RPN/NRPN restoration when Play or Seek begins in the middle of a file.
 - A Per-note interval gate for limiting how often each pitch can change state.
 - Responsive compact layout and separate x86/x64 executables.
+- Session-only window-menu choices can hide Processing model, Statistics, or both to reclaim vertical space without changing playback settings.
 
 MIDIBottleneck is an independent project. It is not based on, and is not intended to compete with, any particular MIDI player.
 
@@ -42,6 +43,8 @@ Windows 7 SP1 is untested. Windows XP and cross-platform support are longer-term
 5. Leave **Simulate slowdown** and **Queue length limit** off for ordinary uncapped playback, or enable the model you want to study. **Apply queue limit without slowdown** is off by default; enable it in the window menu to reject future arrivals using the selected rate model without deliberately delaying accepted output.
 
 The window menu also enables **Chase MIDI state on Play/Seek** by default. Starting in the middle restores ordinary channel state before later notes without replaying earlier notes.
+
+To make the main window shorter, use **Show Processing model** and **Show Statistics** in its Windows title-bar menu (Alt+Space). Both start checked. Hiding a section changes only the view; its settings and statistics continue normally.
 
 Windows may show its normal warning for a newly downloaded unsigned executable. Verify the file against the release’s `SHA256SUMS.txt` if you want to confirm the download.
 

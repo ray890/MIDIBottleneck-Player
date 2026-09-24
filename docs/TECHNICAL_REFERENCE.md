@@ -86,6 +86,8 @@ Play at a nonzero position and Seek set one pending whole-state lookup. Pause al
 
 The custom system menu remains a deliberate power-user surface. Per-note gating, forward-only queue admission, and state chase change playback models but do not justify enlarging the stable main layout; Always on top is a session preference. About belongs there, while future contextual Help should be one F1/menu window rather than a decorative title-bar control.
 
+Build 36's Processing-model and Statistics visibility commands alter only main-window presentation. Hidden TableLayout rows have zero configured height. After each toggle, the form measures realized visible content and recomputes compact fixed height or the standard minimum. Standard-window height above the measured minimum is remembered across toggles and responsive-width transitions; the canonical shown-both layout remains the reference. Playback settings and the statistics sampler are unchanged, so returning a hidden group does not require an engine restart or counter reset.
+
 ## Analysis
 
 Whole-file Analysis separates reusable file/resolution workload scanning from configuration-dependent queue projection. Workload counts and buckets can be reused when only service settings change; exact queue projections still recompute when their inputs change.

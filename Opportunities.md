@@ -4,7 +4,7 @@ These are evidence-backed future directions, not promises for a particular relea
 
 ## Near term
 
-The next dedicated feature is not yet selected. Session-only hiding of Processing model and Statistics is a bounded presentation candidate, but it still needs exact standard/compact row collapse and restoration tests.
+The next dedicated feature is not yet selected. A future presentation or playback feature should have its own measured contract and tests.
 
 ## Completed foundations
 
@@ -19,6 +19,9 @@ The next dedicated feature is not yet selected. Session-only hiding of Processin
 - **Build 33 — direct event rate:** adds a third visible rate model with an integer rational clock shared by playback, virtual forward admission, and Analysis. Rejected work consumes no service phase, zero is unlimited/immediate, and active edits use a same-position generation restart.
 - **Build 34 — live edits and Channels provenance:** ordinary rate edits now apply at the next service start without silencing or restarting. Channels can show indexed source values as gray historical readouts when no output observation exists; these never count as sent MIDI. Forward-only queue limiting now starts off.
 - **Build 35 — oldest complete-note overflow:** the finite delayed queue can evict the oldest unsent note occurrence and its queued release in constant-time indexed operations. A later release is suppressed, in-service attacks remain protected, and static Analysis makes matching decisions. Protected releases and note-silencing controls can exceed the nominal soft capacity.
+- **Build 36 — session view controls:** native system-menu choices independently collapse and restore Processing model and Statistics. They preserve settings, counters, queue and output state, and the user's extra standard-window height. Compact height is remeasured from visible rows.
+
+Build 35 moved all finite simulated policies onto `PendingMidiQueue`. Its bounded measurements did not establish a before/after throughput baseline for the older policies. Build 36 changes only the presentation path; it does not claim that the older queue policies have unchanged performance.
 
 ## Playback and MIDI state decisions
 
@@ -54,7 +57,7 @@ Completed for **Drop newest** and **Drop incoming complete notes**. Playback and
 
 ### Low-resolution and alternate modes
 
-- Hiding Statistics or Processing controls requires measured row collapse, constraint recomputation, and exact restoration.
+- Hiding Statistics or Processing controls is complete in Build 36; the canonical shown-both layout and native DPI measurements remain authoritative.
 - Runtime scaling should derive each size non-cumulatively from the canonical 100% layout. Repeated `Control.Scale()` is unsafe with native controls, fonts, DPI, and compact minimums.
 - A Shift-revealed 25% item may be an undocumented joke, but must not be selectable.
 - A mini title bar changes taskbar/Alt-Tab identity and non-client size.

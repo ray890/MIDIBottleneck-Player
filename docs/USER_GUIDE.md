@@ -30,6 +30,8 @@ Pause resets and silences the output, so state is restored once when Resume cont
 
 ## Processing model
 
+The title-bar menu (Alt+Space) has checked **Show Processing model** and **Show Statistics** commands. Uncheck either to reclaim that section's height; both can be hidden together. File/output and Playback stay visible. These choices last only until the application closes. Hiding a section does not turn off its model, reset statistics, or interrupt playback; current values appear when the section returns. The same commands work while loading, playing, paused, or stopped.
+
 **Simulate slowdown** applies the selected service model:
 
 - **Processing time per event** assigns the configured time to every accepted dispatchable event.
