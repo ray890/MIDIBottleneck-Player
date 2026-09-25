@@ -456,3 +456,19 @@ This is the human-readable history of MIDIBottleneck Player. Dates are original 
 ### Verification
 
 - Focused x86/x64 tests cover the changed controls, menu, graph shortcut and readout, ordered Channels opening, rational high rates, policy transitions, finite queue, and lifecycle behavior. Full deterministic architecture totals and exact release hashes are recorded in the private Build 37 checkpoint.
+
+## Build 38 — 2026-09-25
+
+### Player changes
+
+- Processing value and Queue limit now grow or shrink from the width of the number actually displayed. This keeps long values legible without giving short values an unnecessarily wide field. Compact and standard layouts were measured again for label alignment and control fit.
+- Horizontal scrubbing of the processing value follows the selected rate slider's scale: small Events/sec values change gently, while high values can be reached without thousands of pixels of dragging. Holding Shift gives one displayed unit per pixel. The drag begins at the exact typed number, so an untouched or reversed gesture does not round it to a slider position.
+- Queue-limit scrubbing keeps its established four-pixels-per-step behavior, or eight with Shift. The Channel Monitor's force, Auto, and historical editor behavior is unchanged.
+
+### Project work
+
+- Recorded a bounded feasibility assessment for non-cumulative UI scaling; no scaling control or partial runtime mode was added. Added separate future-design notes for rate-model presentation, delayed note release, and a distinct drop-based Events/sec limit.
+
+### Verification
+
+- Focused realized WinForms tests cover default/compact layout, maximum numeric values, text growth/settling, enlarged font, exact typed-value preservation, model-specific drag mapping, and modifier behavior. The full x86/x64 deterministic totals and release hashes are recorded in the private Build 38 checkpoint.

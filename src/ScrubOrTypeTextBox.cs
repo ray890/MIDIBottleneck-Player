@@ -40,6 +40,10 @@ namespace MidiBottleneck
         private bool _forced;
         private bool _historical;
         private bool _numericOnly;
+        private Func<int, long, int> _numericScrubMapping;
+        private int _numericScrubStartValue;
+        private long _numericScrubPixels;
+        private bool _numericScrubInitialized;
         private int _numericIncrement = 1;
         private bool _thousandsSeparator;
         private int _typingStartValue;
@@ -55,6 +59,7 @@ namespace MidiBottleneck
         internal event EventHandler<ScrubValueEventArgs> AutoRequested;
         internal event EventHandler<ScrubValueEventArgs> ChaseRequested;
         internal event EventHandler ValueChanged;
+        internal event EventHandler NumericPresentationSettled;
 
         internal ScrubOrTypeTextBox()
         {
@@ -83,6 +88,15 @@ namespace MidiBottleneck
             _thousandsSeparator = true;
             TabStop = true;
             SetFlatText();
+        }
+
+        // Numeric settings may follow a non-linear slider without rounding an
+        // untouched typed value to a slider tick. The callback maps a signed
+        // pixel displacement from an exact starting value to a new value.
+        internal void SetNumericScrubMapping(Func<int, long, int> mapping)
+        {
+            _numericScrubMapping = mapping;
+            _numericScrubInitialized = false;
         }
 
         internal decimal Value
@@ -334,6 +348,7 @@ namespace MidiBottleneck
             _scrubAnchorScreen = screenPosition;
             _pixelRemainder = 0;
             _remainderFine = false;
+            _numericScrubInitialized = false;
             Capture = true;
             if (!_cursorHidden)
             {
@@ -348,6 +363,23 @@ namespace MidiBottleneck
             {
                 if (pixels > 0) RequestValue(1);
                 else if (pixels < 0) RequestValue(0);
+                return;
+            }
+            if (_numericOnly && _numericScrubMapping != null)
+            {
+                if (!_numericScrubInitialized || _remainderFine != fine)
+                {
+                    _numericScrubStartValue = _value;
+                    _numericScrubPixels = 0;
+                    _numericScrubInitialized = true;
+                    _remainderFine = fine;
+                }
+                _numericScrubPixels = Math.Max(-1000000L,
+                    Math.Min(1000000L, _numericScrubPixels + pixels));
+                int mapped = fine
+                    ? ClampLong((long)_numericScrubStartValue + _numericScrubPixels)
+                    : _numericScrubMapping(_numericScrubStartValue, _numericScrubPixels);
+                RequestValue(mapped);
                 return;
             }
             if (_remainderFine != fine)
@@ -430,6 +462,11 @@ namespace MidiBottleneck
             if (Focused && IsHandleCreated) HideCaret(Handle);
             SelectionLength = 0;
             SetFlatText();
+            if (_numericOnly)
+            {
+                EventHandler settled = NumericPresentationSettled;
+                if (settled != null) settled(this, EventArgs.Empty);
+            }
             if (!String.IsNullOrEmpty(_lastError)) _toolTip.Show(_lastError, this, 0, Height, 2500);
         }
 
@@ -450,6 +487,7 @@ namespace MidiBottleneck
             _scrubbing = false;
             _ignoreWarpMove = false;
             _pixelRemainder = 0;
+            _numericScrubInitialized = false;
             if (Capture) Capture = false;
             if (_cursorHidden)
             {

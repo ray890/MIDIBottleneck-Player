@@ -41,6 +41,7 @@ The public history was reconstructed because original Git commits did not exist.
 | 35 | oldest-complete-note-overflow | 2026-09-24 | exact | `v1.0.35` |
 | 36 | session-view-controls | 2026-09-24 | exact | `v1.0.36` |
 | 37 | interface-refinements | 2026-09-24 | exact | `v1.0.37` |
+| 38 | main-scrub-refinement | 2026-09-25 | exact | `v1.0.38` |
 
 ## Evidence-recovery result
 

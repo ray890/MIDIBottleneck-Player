@@ -559,6 +559,12 @@ namespace MidiBottleneck.Tests
                     RunFocused("ordered Channels opening chase provenance", TestBuild37MonitorOpeningChase);
                     return 0;
                 }
+                if (arguments.Length == 1 && arguments[0] == "--test-build38")
+                {
+                    RunFocused("measured main numeric fields and slider-scaled scrubbing",
+                        TestBuild38MainNumericRefinement);
+                    return 0;
+                }
                 if (arguments.Length == 1 && arguments[0] == "--test-queue-baseline")
                 {
                     RunFocused("segmented FIFO and note-index policy transitions", TestBuild37PendingQueueFastPath);
@@ -690,6 +696,8 @@ namespace MidiBottleneck.Tests
                 Run("Analysis predicted output completion", TestAnalysisPredictedCompletion);
                 Run("Always-on-top native system-menu command", TestBuild22AlwaysOnTopMenu);
                 Run("session-only Processing and Statistics visibility", TestBuild36SessionViewControls);
+                Run("measured main numeric fields and slider-scaled scrubbing",
+                    TestBuild38MainNumericRefinement);
                 Run("single-source product metadata", TestBuild23ProductMetadata);
                 Run("pre-admission channel and override filtering", TestBuild23PreAdmissionFiltering);
                 Run("corrected per-note interval gate state, scheduler, lifecycle, and UI", TestBuild25PerNoteIntervalGate);
@@ -5629,7 +5637,11 @@ namespace MidiBottleneck.Tests
                 int notesOff = IndexOfMessage(sent, 0xB0, 123, 0);
                 if (!(sustain >= 0 && soundOff > sustain && notesOff > soundOff))
                     throw new Exception("channel disable safety messages were not ordered sustain-off, all-sound-off, all-notes-off");
-                Equal(0, engine.GetChannelSnapshot().Channels[0].KeysDown, "disable safety clears tracked held keys");
+                // The routing bit becomes visible just before the ordered
+                // worker clears monitor keys. Wait for that same safety
+                // boundary to finish instead of racing its final write.
+                WaitFor(delegate { return engine.GetChannelSnapshot().Channels[0].KeysDown == 0; },
+                    1000, "disable safety clears tracked held keys");
                 engine.Stop();
                 Equal(false, engine.IsChannelEnabled(0), "disabled channel persists across Stop");
                 engine.Unload();
@@ -6708,24 +6720,29 @@ namespace MidiBottleneck.Tests
                 ScrubOrTypeTextBox queue = (ScrubOrTypeTextBox)type.GetField("_queueLimitValue", flags).GetValue(form);
                 ScrubOrTypeTextBox value = (ScrubOrTypeTextBox)type.GetField("_processingValue", flags).GetValue(form);
                 Label eventsUnit = (Label)type.GetField("_eventsLabel", flags).GetValue(form);
-                Equal(77, queue.Width, "compact Queue measured numeric width");
+                Equal(MainForm.MeasureMainNumericWidth(queue), queue.Width,
+                    "compact Queue starts at measured content width");
                 queue.Value = queue.Maximum;
                 AssertNumericFullyVisible(queue, "compact Queue maximum");
                 if (eventsUnit.Visible && eventsUnit.Right > eventsUnit.Parent.ClientSize.Width)
                     throw new Exception("compact events unit is visible while clipped");
                 ComboBox mode = (ComboBox)type.GetField("_serviceModeCombo", flags).GetValue(form);
                 mode.SelectedIndex = 1; Application.DoEvents();
-                Equal(89, value.Width, "compact bitrate measured numeric width");
+                Equal(MainForm.MeasureMainNumericWidth(value), value.Width,
+                    "compact bitrate uses measured content width");
                 value.Value = value.Maximum;
                 AssertNumericFullyVisible(value, "compact bitrate maximum");
                 mode.SelectedIndex = 0; Application.DoEvents();
-                Equal(77, value.Width, "compact processing-time measured numeric width");
+                Equal(MainForm.MeasureMainNumericWidth(value), value.Width,
+                    "compact processing-time uses measured content width");
                 value.Value = value.Maximum;
                 AssertNumericFullyVisible(value, "compact processing-time maximum");
                 form.ClientSize = new Size(640, form.ClientSize.Height); Application.DoEvents();
                 Equal(true, eventsUnit.Visible, "events unit returns when its complete cluster fits");
-                Equal(100, queue.Width, "standard Queue width restored");
-                Equal(100, value.Width, "standard processing-time width restored");
+                Equal(MainForm.MeasureMainNumericWidth(queue), queue.Width,
+                    "standard Queue measured width restored");
+                Equal(MainForm.MeasureMainNumericWidth(value), value.Width,
+                    "standard processing-time measured width restored");
                 form.Close();
             }
             using (StatisticsView statistics = new StatisticsView())
@@ -8758,6 +8775,130 @@ namespace MidiBottleneck.Tests
             }
         }
 
+        private static void TestBuild38MainNumericRefinement()
+        {
+            foreach (ServiceDurationMode mode in new ServiceDurationMode[]
+            { ServiceDurationMode.ProcessingTime, ServiceDurationMode.MidiBitrate,
+                ServiceDurationMode.EventsPerSecond })
+            {
+                int[] starts = mode == ServiceDurationMode.MidiBitrate
+                    ? new int[] { 1, 99, 100, 31250, 1000000, 100000000 }
+                    : mode == ServiceDurationMode.EventsPerSecond
+                        ? new int[] { 0, 1, 50, 99, 100, 101, 1234567, 9999999 }
+                        : new int[] { 0, 1, 99, 999, 5000, 1000000 };
+                foreach (int start in starts)
+                {
+                    Equal(start, MainForm.MapRateScrubValue(mode, start, 0),
+                        mode + " unchanged scrub keeps exact typed " + start);
+                    int previous = MainForm.MapRateScrubValue(mode, start, -60);
+                    for (int pixels = -59; pixels <= 60; pixels++)
+                    {
+                        int current = MainForm.MapRateScrubValue(mode, start, pixels);
+                        if (current < previous) throw new Exception(mode + " scrub is not monotonic at " + start);
+                        previous = current;
+                    }
+                }
+            }
+            Equal(1, MainForm.MapRateScrubValue(ServiceDurationMode.EventsPerSecond, 0, 1),
+                "first event-rate drag leaves unlimited endpoint deliberately");
+            if (MainForm.MapRateScrubValue(ServiceDurationMode.EventsPerSecond, 50, 5) <= 50)
+                throw new Exception("low event-rate scrub remained too coarse");
+            int high = MainForm.MapRateScrubValue(ServiceDurationMode.EventsPerSecond, 1234567, 1);
+            if (high <= 1234567 || high - 1234567 > 10000)
+                throw new Exception("high event-rate scrub lost useful relative precision");
+
+            Application.EnableVisualStyles();
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(25);
+                Type type = typeof(MainForm);
+                BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                ScrubOrTypeTextBox queue = (ScrubOrTypeTextBox)type.GetField("_queueLimitValue", flags).GetValue(form);
+                ScrubOrTypeTextBox rate = (ScrubOrTypeTextBox)type.GetField("_processingValue", flags).GetValue(form);
+                Label events = (Label)type.GetField("_eventsLabel", flags).GetValue(form);
+                Label unit = (Label)type.GetField("_serviceUnitLabel", flags).GetValue(form);
+                ComboBox overflow = (ComboBox)type.GetField("_overflowPolicyCombo", flags).GetValue(form);
+                ComboBox model = (ComboBox)type.GetField("_serviceModeCombo", flags).GetValue(form);
+                Func<Control, Point> location = delegate(Control control)
+                { return form.PointToClient(control.PointToScreen(Point.Empty)); };
+                Equal(BorderStyle.None, queue.BorderStyle, "numeric-only Queue retains flat treatment");
+                Equal(BorderStyle.None, rate.BorderStyle, "numeric-only Rate retains flat treatment");
+                using (Graphics graphics = form.CreateGraphics())
+                {
+                    if (Math.Abs(graphics.DpiX - 96F) < 0.5F && form.Font.Name == "Segoe UI")
+                    {
+                        Equal(143, location(queue).X, "default Queue moves three pixels left");
+                        Equal(126, location(queue).Y, "default Queue moves five pixels down");
+                        Equal(124, location(events).Y, "default events label moves one pixel up");
+                        Equal(443, location(overflow).X, "default Overflow dropdown moves three pixels left");
+                        Equal(185, location(rate).Y, "default Rate moves three pixels down");
+                    }
+                }
+                Equal(MainForm.MeasureMainNumericWidth(rate), rate.Width,
+                    "default three-digit Rate width is measured");
+                int rateWidth = rate.Width;
+                int unitX = location(unit).X;
+                rate.Value = 1000; PumpFor(5);
+                Equal(rate.Width - rateWidth, location(unit).X - unitX,
+                    "only adjacent Rate unit follows width expansion exactly");
+                AssertNumericFullyVisible(rate, "default expanded Rate");
+                foreach (int number in new int[] { 1, 99, 999, 1000, 1000000 })
+                {
+                    queue.Value = number; PumpFor(3);
+                    AssertNumericFullyVisible(queue, "Queue " + number);
+                    if (events.Visible && events.Left < queue.Right)
+                        throw new Exception("Queue units overlap value " + number);
+                }
+                model.SelectedIndex = (int)ServiceDurationMode.MidiBitrate;
+                rate.Value = 100000000; PumpFor(5);
+                AssertNumericFullyVisible(rate, "default maximum bitrate");
+                model.SelectedIndex = (int)ServiceDurationMode.EventsPerSecond;
+                rate.Value = 1234567; PumpFor(5);
+                Equal(1234567m, rate.Value, "model switch preserves exact typed event rate");
+                rate.ApplyScrubDeltaForTesting(1, false);
+                if (rate.Value <= 1234567m) throw new Exception("slider-scaled high-rate drag did not advance");
+                rate.ApplyScrubDeltaForTesting(-1, false);
+                Equal(1234567m, rate.Value, "coarse scrub reversal restores exact typed rate");
+                rate.ApplyScrubDeltaForTesting(1, true);
+                Equal(1234568m, rate.Value, "Shift retains one-unit precision");
+                rate.ApplyScrubDeltaForTesting(-1, true);
+                Equal(1234567m, rate.Value, "Shift reversal restores exact value");
+
+                form.Size = form.MinimumSize; PumpFor(10);
+                form.Size = form.MinimumSize; PumpFor(10);
+                using (Graphics graphics = form.CreateGraphics())
+                {
+                    if (Math.Abs(graphics.DpiX - 96F) < 0.5F && form.Font.Name == "Segoe UI")
+                    {
+                        Equal(96, location(queue).X, "compact Queue moves three pixels left");
+                        Equal(111, location(queue).Y, "compact Queue moves five pixels down");
+                        Equal(109, location(events).Y, "compact events label moves one pixel up");
+                        Equal(271, location(overflow).X, "compact Overflow moves three pixels left");
+                        Equal(164, location(rate).Y, "compact Rate moves three pixels down");
+                    }
+                }
+                rate.Value = 9999999; queue.Value = 1000000; PumpFor(8);
+                AssertNumericFullyVisible(rate, "compact maximum Events/sec");
+                AssertNumericFullyVisible(queue, "compact maximum Queue");
+                using (Font larger = new Font(rate.Font.FontFamily, rate.Font.SizeInPoints * 1.5F))
+                {
+                    Font normal = rate.Font;
+                    int before = rate.Width;
+                    rate.Font = larger; PumpFor(5);
+                    if (rate.Width <= before)
+                        throw new Exception("numeric width did not follow a larger DPI-like font");
+                    AssertNumericFullyVisible(rate, "larger-font event rate");
+                    rate.Font = normal; PumpFor(5);
+                }
+                form.ClientSize = new Size(640, form.ClientSize.Height); PumpFor(10);
+                form.Size = new Size(806, Math.Max(544, form.Height)); PumpFor(10);
+                Equal(MainForm.MeasureMainNumericWidth(rate), rate.Width,
+                    "default width after compact transition has no drift");
+                AssertNumericFullyVisible(rate, "restored default event rate");
+                form.Close();
+            }
+        }
+
         private static void TestBuild37MonitorOpeningChase()
         {
             MidiSong song = NewChannelSong("monitor-open-chase.mid", 5000000,
@@ -10617,18 +10758,15 @@ namespace MidiBottleneck.Tests
         {
             if (numeric.Parent == null || numeric.Left < 0 || numeric.Top < 0 ||
                 numeric.Right > numeric.Parent.ClientSize.Width || numeric.Bottom > numeric.Parent.ClientSize.Height)
-                throw new Exception(name + " outer bounds are clipped");
+                throw new Exception(name + " outer bounds are clipped: " + numeric.Bounds +
+                    " within " + numeric.Parent.ClientRectangle);
             int textWidth = TextRenderer.MeasureText(numeric.Text, numeric.Font, Size.Empty,
                 TextFormatFlags.NoPadding | TextFormatFlags.SingleLine).Width;
             if (textWidth > numeric.ClientSize.Width - 2)
                 throw new Exception(name + " numeric text is clipped: " + textWidth +
                     " pixels within " + numeric.ClientSize.Width);
-            string maximum = numeric.Maximum.ToString("N0");
-            int maximumWidth = TextRenderer.MeasureText(maximum, numeric.Font, Size.Empty,
-                TextFormatFlags.NoPadding | TextFormatFlags.SingleLine).Width;
-            if (numeric.ClientSize.Width < maximumWidth + 2)
-                throw new Exception(name + " is too narrow for its maximum value: client " +
-                    numeric.ClientSize.Width + ", text " + maximumWidth);
+            if (numeric.Width != MainForm.MeasureMainNumericWidth(numeric) && !numeric.IsTyping)
+                throw new Exception(name + " did not settle to its measured displayed width");
         }
 
         private static void AssertComboFullyVisible(ComboBox combo, string longestText, string name)

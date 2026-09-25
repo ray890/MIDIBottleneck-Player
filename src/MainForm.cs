@@ -684,7 +684,9 @@ namespace MidiBottleneck
             _queueLimitValue.AccessibleName = "Queue length limit";
             _queueLimitValue.Increment = 100;
             _queueLimitValue.ThousandsSeparator = true;
-            _queueLimitValue.Width = 100;
+            _queueLimitValue.TextChanged += MainNumericTextChanged;
+            _queueLimitValue.FontChanged += MainNumericFontChanged;
+            _queueLimitValue.NumericPresentationSettled += MainNumericTextChanged;
             _toolTip.SetToolTip(_queueLimitValue,
                 "Click to type; Enter applies, Escape cancels. Drag sideways: one event per 4 pixels, or 8 with Shift. Up/Down adjusts by 100. Queue structure is locked while playback is active.");
             _queueLimitValue.ValueChanged += delegate
@@ -717,6 +719,7 @@ namespace MidiBottleneck
             _overflowPolicyCombo.SelectedIndex = 0;
             _overflowPolicyCombo.Width = 245;
             _overflowPolicyCombo.DropDownWidth = 245;
+            _overflowPolicyCombo.Margin = new Padding(0, 3, 3, 3);
             _overflowPolicyCombo.SelectedIndexChanged += OverflowPolicyChanged;
             _toolTip.SetToolTip(_overflowPolicyCombo, "A change made during playback applies at the next overflow.");
             _overflowCluster.Controls.Add(_overflowPolicyCombo);
@@ -753,13 +756,17 @@ namespace MidiBottleneck
 
             _processingValue = new ScrubOrTypeTextBox();
             _processingValue.ConfigureNumeric(0, 0, 1000000, 16, 1, 1, 1);
+            _processingValue.SetNumericScrubMapping(delegate(int start, long pixels)
+            { return MapRateScrubValue(_engine.ServiceDurationMode, start, pixels); });
             _processingValue.AccessibleName = "Processing time per event";
-            _processingValue.Width = 100;
+            _processingValue.TextChanged += MainNumericTextChanged;
+            _processingValue.FontChanged += MainNumericFontChanged;
+            _processingValue.NumericPresentationSettled += MainNumericTextChanged;
             _processingValue.Anchor = AnchorStyles.Left;
             _processingValue.ThousandsSeparator = true;
             _processingValue.ValueChanged += ProcessingValueChanged;
             _toolTip.SetToolTip(_processingValue,
-                "Click to type; Enter applies, Escape cancels. Drag sideways: 16 units per pixel, or one with Shift. A live ordinary rate edit applies when the next event begins service.");
+                "Click to type; Enter applies, Escape cancels. Drag sideways to follow the selected rate slider's scale; Shift adjusts one unit per pixel. A live ordinary rate edit applies when the next event begins service.");
 
             _serviceUnitLabel = new Label();
             _serviceUnitLabel.Text = "µs";
@@ -771,6 +778,8 @@ namespace MidiBottleneck
             _serviceCluster.Controls.Add(_processingValue);
             _serviceCluster.Controls.Add(_serviceUnitLabel);
             _serviceCluster.Controls.Add(_dinPresetButton);
+            UpdateMainNumericWidth(_queueLimitValue);
+            UpdateMainNumericWidth(_processingValue);
             table.Controls.Add(_queueCluster, 0, 0);
             table.Controls.Add(_overflowCluster, 1, 0);
             table.Controls.Add(_rateCluster, 0, 2);
@@ -802,6 +811,74 @@ namespace MidiBottleneck
             cluster.Anchor = AnchorStyles.Left;
             cluster.Margin = new Padding(0);
             return cluster;
+        }
+
+        private void MainNumericTextChanged(object sender, EventArgs e)
+        {
+            UpdateMainNumericWidth((ScrubOrTypeTextBox)sender);
+        }
+
+        private void MainNumericFontChanged(object sender, EventArgs e)
+        {
+            ScrubOrTypeTextBox field = (ScrubOrTypeTextBox)sender;
+            UpdateMainNumericWidth(field);
+            AdjustMainNumericVerticalMargin(field);
+            if (_rootLayout != null && IsHandleCreated && !Disposing)
+            {
+                EnsureMainNumericInsideRow(field);
+                ApplyMeasuredWindowConstraints();
+            }
+        }
+
+        private void AdjustMainNumericVerticalMargin(ScrubOrTypeTextBox field)
+        {
+            if (field == null || field.Parent == null || field.Parent.ClientSize.Height <= 0) return;
+            int canonicalTop = Object.ReferenceEquals(field, _queueLimitValue)
+                ? (_compactLayout ? 6 : 7) : (_compactLayout ? 9 : 10);
+            int top = Math.Min(canonicalTop,
+                Math.Max(0, field.Parent.ClientSize.Height - field.Height));
+            Padding margin = field.Margin;
+            if (margin.Top != top)
+                field.Margin = new Padding(margin.Left, top, margin.Right, margin.Bottom);
+        }
+
+        private void EnsureMainNumericInsideRow(ScrubOrTypeTextBox field)
+        {
+            if (_rootLayout == null || field == null || field.Parent == null) return;
+            // Native TextBox height may grow with DPI/font changes while a
+            // FlowLayoutPanel's preferred row shrinks after each margin edit.
+            // Settle a bounded number of layout passes from measured bounds.
+            for (int pass = 0; pass < 4; pass++)
+            {
+                _rootLayout.PerformLayout();
+                int overrun = field.Bottom - field.Parent.ClientSize.Height;
+                if (overrun <= 0 || field.Margin.Top == 0) break;
+                Padding margin = field.Margin;
+                field.Margin = new Padding(margin.Left,
+                    Math.Max(0, margin.Top - overrun), margin.Right, margin.Bottom);
+            }
+        }
+
+        internal static int MeasureMainNumericWidth(ScrubOrTypeTextBox field)
+        {
+            const TextFormatFlags flags = TextFormatFlags.NoPadding | TextFormatFlags.SingleLine;
+            int minimum = TextRenderer.MeasureText("999", field.Font, Size.Empty, flags).Width;
+            int actual = String.IsNullOrEmpty(field.Text) ? 0 :
+                TextRenderer.MeasureText(field.Text, field.Font, Size.Empty, flags).Width;
+            int inset = Math.Max(8, (int)Math.Ceiling(8.0 * field.Font.GetHeight() / 15.0));
+            return Math.Max(minimum, actual) + inset + Math.Max(0, field.Width - field.ClientSize.Width);
+        }
+
+        private void UpdateMainNumericWidth(ScrubOrTypeTextBox field)
+        {
+            if (field == null || IsDisposed || Disposing || field.IsDisposed || field.Disposing) return;
+            int required = MeasureMainNumericWidth(field);
+            // Do not pull the adjacent unit back and forth as a pending typed
+            // value is edited. Settle to its exact measured width on commit.
+            if (field.IsTyping && required < field.Width) required = field.Width;
+            if (field.Width != required) field.Width = required;
+            if (Object.ReferenceEquals(field, _queueLimitValue) && field.Parent != null)
+                UpdateCompactUnitVisibility();
         }
 
         private Control BuildPlaybackGroup()
@@ -1455,8 +1532,8 @@ namespace MidiBottleneck
         private void UpdateProcessingSummary(long microseconds)
         {
             _toolTip.SetToolTip(_processingValue, _perNoteIntervalGateEnabled
-                ? "Click to type or drag sideways: 16 microseconds per pixel, or one with Shift. Enter applies; Escape cancels. Changing the per-note interval safely silences and restarts at the same position."
-                : "Click to type or drag sideways: 16 microseconds per pixel, or one with Shift. Enter applies; Escape cancels. A live change applies when the next event begins service.");
+                ? "Click to type or drag sideways following the interval slider's scale; Shift adjusts one microsecond per pixel. Enter applies; Escape cancels. Changing the per-note interval safely silences and restarts at the same position."
+                : "Click to type or drag sideways following the processing-time slider's scale; Shift adjusts one microsecond per pixel. Enter applies; Escape cancels. A live change applies when the next event begins service.");
             _toolTip.SetToolTip(_processingSlider,
                 _perNoteIntervalGateEnabled
                     ? "Sets the nonzero interval for the per-note gate. A live edit safely silences and restarts the scheduler at the same position."
@@ -1490,7 +1567,6 @@ namespace MidiBottleneck
                 {
                     _serviceValueLabel.Text = _compactLayout ? "Bitrate:" : "MIDI bitrate:";
                     _processingValue.AccessibleName = "MIDI bitrate in bits per second";
-                    _processingValue.Width = _compactLayout ? 89 : 110;
                     _processingValue.DecimalPlaces = 0;
                     _processingValue.Minimum = 1;
                     _processingValue.Maximum = 100000000;
@@ -1504,7 +1580,6 @@ namespace MidiBottleneck
                 {
                     _serviceValueLabel.Text = "Events/sec:";
                     _processingValue.AccessibleName = "Events per second";
-                    _processingValue.Width = _compactLayout ? 77 : 100;
                     _processingValue.DecimalPlaces = 0;
                     _processingValue.Minimum = 0;
                     _processingValue.Maximum = 9999999;
@@ -1518,13 +1593,15 @@ namespace MidiBottleneck
                 {
                     _serviceValueLabel.Text = _compactLayout ? "Time/event:" : "Processing time per event:";
                     _processingValue.AccessibleName = "Processing time per event in microseconds";
-                    _processingValue.Width = _compactLayout ? 77 : 100;
                     _processingValue.Minimum = _perNoteIntervalGateEnabled ? 1 : 0;
                     _serviceUnitLabel.Text = "µs";
                     _dinPresetButton.Visible = false;
                 }
             }
             finally { _updatingProcessingControls = false; }
+            _processingValue.SetNumericScrubMapping(delegate(int start, long pixels)
+            { return MapRateScrubValue(_engine.ServiceDurationMode, start, pixels); });
+            UpdateMainNumericWidth(_processingValue);
             if (_engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate)
                 UpdateBitrateSummary(_engine.MidiBitrate);
             else if (_engine.ServiceDurationMode == ServiceDurationMode.EventsPerSecond)
@@ -1557,7 +1634,7 @@ namespace MidiBottleneck
         private void UpdateBitrateSummary(long bitrate)
         {
             _toolTip.SetToolTip(_processingValue,
-                "Click to type or drag sideways: 16 bit/s per pixel, or one with Shift. Enter applies; Escape cancels. Up/Down adjusts by 100. A live change applies when the next event begins service.");
+                "Click to type or drag sideways following the bitrate slider's scale; Shift adjusts one bit/s per pixel. Enter applies; Escape cancels. Up/Down adjusts by 100. A live change applies when the next event begins service.");
             _toolTip.SetToolTip(_processingSlider,
                 "Click or drag to set the bitrate. Uses 10 transmitted bits per MIDI byte. A live edit applies when the next event begins service.");
         }
@@ -1584,7 +1661,7 @@ namespace MidiBottleneck
         private void UpdateEventRateSummary(long rate)
         {
             _toolTip.SetToolTip(_processingValue,
-                "Click to type an exact rate or drag sideways: 16 events/sec per pixel, or one with Shift. Enter applies; Escape cancels. Up/Down adjusts by one. A live change applies when the next event begins service.");
+                "Click to type an exact rate or drag sideways. Low rates change about one event/sec per five pixels; higher rates follow the slider's scale. Shift adjusts one event/sec per pixel. Enter applies; Escape cancels. A live change applies when the next event begins service.");
             _toolTip.SetToolTip(_processingSlider, rate == 0
                 ? "Unlimited: modeled service is immediate. Move right to choose 1 through 9,999,999 events per second."
                 : "The lower half adjusts 1–100 events/sec in small, even steps; the upper half covers higher rates. Type an exact value if needed. Fractional microseconds are shared across events, so rates above one million remain modeled precisely. A live edit applies when the next event begins service.");
@@ -1698,6 +1775,50 @@ namespace MidiBottleneck
             double normalized = (slider - lowEnd) / (double)(ProcessingTrackBar.ScaleMaximum - lowEnd);
             return Math.Max(100, Math.Min(9999999,
                 (long)Math.Round(100.0 * Math.Pow(9999999.0 / 100.0, normalized))));
+        }
+
+        // Convert pointer distance through the selected slider's local scale,
+        // but add only the mapped delta to the exact typed starting value.
+        // An untouched or reversed scrub therefore cannot quantize a value
+        // merely because the slider has fewer positions than the number box.
+        internal static int MapRateScrubValue(ServiceDurationMode mode, int startValue, long pixels)
+        {
+            pixels = Math.Max(-1000000L, Math.Min(1000000L, pixels));
+            if (mode == ServiceDurationMode.MidiBitrate && startValue < 100)
+                return (int)Math.Max(1L, Math.Min(100000000L, (long)startValue + pixels));
+            int startSlider = mode == ServiceDurationMode.MidiBitrate
+                ? BitrateToSlider(startValue)
+                : mode == ServiceDurationMode.EventsPerSecond
+                    ? EventRateToSlider(startValue) : MicrosecondsToSlider(startValue);
+            int targetSlider;
+            if (mode == ServiceDurationMode.EventsPerSecond)
+            {
+                // Ten slider ticks per pointer pixel in the fine 1–100
+                // region; one tick per pixel in the logarithmic high range.
+                // This continuous coordinate makes boundary crossings and
+                // reversal deterministic in either direction.
+                double coordinate = startSlider <= 5000
+                    ? startSlider / 10.0 : 500.0 + startSlider - 5000;
+                coordinate = Math.Max(0.0, Math.Min(5500.0, coordinate + pixels));
+                targetSlider = coordinate <= 500.0
+                    ? (int)Math.Round(coordinate * 10.0)
+                    : 5000 + (int)Math.Round(coordinate - 500.0);
+            }
+            else targetSlider = (int)Math.Max(0L,
+                Math.Min(ProcessingTrackBar.ScaleMaximum, (long)startSlider + pixels));
+            long startMapped = mode == ServiceDurationMode.MidiBitrate
+                ? SliderToBitrate(startSlider)
+                : mode == ServiceDurationMode.EventsPerSecond
+                    ? SliderToEventRate(startSlider) : SliderToMicroseconds(startSlider);
+            long targetMapped = mode == ServiceDurationMode.MidiBitrate
+                ? SliderToBitrate(targetSlider)
+                : mode == ServiceDurationMode.EventsPerSecond
+                    ? SliderToEventRate(targetSlider) : SliderToMicroseconds(targetSlider);
+            long minimum = mode == ServiceDurationMode.MidiBitrate ? 1L : 0L;
+            long maximum = mode == ServiceDurationMode.MidiBitrate ? 100000000L
+                : mode == ServiceDurationMode.EventsPerSecond ? 9999999L : 1000000L;
+            return (int)Math.Max(minimum, Math.Min(maximum,
+                (long)startValue + targetMapped - startMapped));
         }
 
         internal static long ProcessingToEventRate(long microseconds)
@@ -2275,18 +2396,14 @@ namespace MidiBottleneck
                 _overflowCluster.Margin = compact ? new Padding(0) : new Padding(4, 0, 0, 0);
                 _serviceCluster.Margin = compact ? new Padding(0) : new Padding(4, 0, 0, 0);
                 _overflowLabel.Margin = compact ? new Padding(0, 5, 3, 2) : new Padding(0, 6, 4, 3);
-                _queueLimitValue.Width = compact ? 77 : 100;
-                _processingValue.Width = compact
-                    ? (_engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate ? 89 : 77)
-                    : (_engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate ? 110 : 100);
-                _queueLimitCheck.Margin = compact ? new Padding(0, 4, 3, 2) : new Padding(0, 5, 4, 3);
-                _queueLimitValue.Margin = compact ? new Padding(0, 1, 3, 1) : new Padding(0, 2, 4, 2);
+                _queueLimitCheck.Margin = compact ? new Padding(0, 4, 0, 2) : new Padding(0, 5, 1, 3);
+                _queueLimitValue.Margin = compact ? new Padding(0, 6, 3, 1) : new Padding(0, 7, 4, 2);
                 _simulateSlowdownCheck.Margin = compact ? new Padding(0, 0, 2, 0) : new Padding(0, 2, 3, 2);
-                _eventsLabel.Margin = compact ? new Padding(0, 5, 1, 2) : new Padding(0, 6, 2, 3);
+                _eventsLabel.Margin = compact ? new Padding(0, 4, 1, 2) : new Padding(0, 5, 2, 3);
                 _serviceModeLabel.Margin = compact ? new Padding(0, 5, 1, 2) : new Padding(0, 6, 4, 3);
                 _serviceModeCombo.Margin = compact ? new Padding(0, 1, 0, 1) : new Padding(0, 2, 3, 2);
                 _serviceValueLabel.Margin = compact ? new Padding(0, 5, 3, 2) : new Padding(0, 6, 4, 3);
-                _processingValue.Margin = compact ? new Padding(0, 1, 3, 1) : new Padding(0, 2, 3, 2);
+                _processingValue.Margin = compact ? new Padding(0, 9, 3, 0) : new Padding(0, 10, 3, 0);
                 _serviceUnitLabel.Margin = compact ? new Padding(0, 5, 2, 2) : new Padding(0, 6, 3, 3);
                 _dinPresetButton.Margin = compact ? new Padding(1, 0, 1, 0) : new Padding(3, 0, 3, 0);
                 _processingTable.Padding = compact ? new Padding(0) : new Padding(1);
@@ -2297,6 +2414,8 @@ namespace MidiBottleneck
                 _processingSlider.AutoSize = false;
                 _processingSlider.Height = compact ? 32 : 36;
                 _dinPresetButton.Visible = !_compactLayout && _engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate;
+                UpdateMainNumericWidth(_queueLimitValue);
+                UpdateMainNumericWidth(_processingValue);
                 UpdateCompactUnitVisibility();
                 _timelineView.MinimumSize = new Size(300, compact ? 20 : 38);
                 _timelineView.Height = compact ? 20 : 38;
@@ -2342,6 +2461,10 @@ namespace MidiBottleneck
                 // otherwise the lower rows retain the old clipped backing
                 // pixels until a statistic happens to change.
                 _rootLayout.PerformLayout();
+                AdjustMainNumericVerticalMargin(_queueLimitValue);
+                AdjustMainNumericVerticalMargin(_processingValue);
+                EnsureMainNumericInsideRow(_queueLimitValue);
+                EnsureMainNumericInsideRow(_processingValue);
                 PerformLayout();
                 ApplyMeasuredWindowConstraints();
                 if (leavingCompact)

@@ -21,6 +21,7 @@ The next dedicated feature is not yet selected. A future presentation or playbac
 - **Build 35 — oldest complete-note overflow:** the finite delayed queue can evict the oldest unsent note occurrence and its queued release in constant-time indexed operations. A later release is suppressed, in-service attacks remain protected, and static Analysis makes matching decisions. Protected releases and note-silencing controls can exceed the nominal soft capacity.
 - **Build 36 — session view controls:** native system-menu choices independently collapse and restore Processing model and Statistics. They preserve settings, counters, queue and output state, and the user's extra standard-window height. Compact height is remeasured from visible rows.
 - **Build 37 — interface refinements:** shorter gate-filter and compact slash readouts, measured Analysis-panel readout fallback, graph-hover Space transport, ordered observed-state Chase when first opening Channels, scrub-or-type main numeric values, a finer low-rate Events/sec slider, and exact 9,999,999/sec service-clock support.
+- **Build 38 — main numeric refinement:** content-measured processing and queue fields, closer numeric/label alignment, and processing scrubbing that follows the selected slider scale without rounding an exact typed starting value. The Channel Monitor editor's semantics remain separate. A bounded UI-scaling feasibility note records why no partial scale menu was added.
 
 Build 37 compared the older finite policies with Build 34 on the same bounded 120,000-event synthetic fixture. The Build 35 linked-node path showed a local Analysis slowdown, especially for Drop oldest. A segmented FIFO now handles policies that do not need complete-note eviction. This recovered much, but not all, of the baseline time, with matching projected drop and occupancy decisions and zero measured Gen0 collections. Further throughput conclusions require representative repeated workloads; this is not a claim about native provider speed.
 
@@ -60,7 +61,7 @@ Completed for **Drop newest** and **Drop incoming complete notes**. Playback and
 
 - Hiding Statistics or Processing controls is complete in Build 36; the canonical shown-both layout and native DPI measurements remain authoritative.
 - Runtime scaling should derive each size non-cumulatively from the canonical 100% layout. Repeated `Control.Scale()` is unsafe with native controls, fonts, DPI, and compact minimums.
-- Build 37 did not start runtime scaling: it still needs a complete canonical-bounds/font/constraint design and realized default/compact/DPI testing. A partial scale menu would be harder to recover from than the existing 100% interface.
+- Build 38's private feasibility note inventories explicit layout dimensions and native text-edit measurements. Runtime scaling still needs a complete canonical-bounds/font/constraint design and realized default/compact/DPI testing. A partial scale menu would be harder to recover from than the existing 100% interface.
 - A Shift-revealed 25% item may be an undocumented joke, but must not be selectable.
 - A mini title bar changes taskbar/Alt-Tab identity and non-client size.
 - Inactive opacity needs layered-window accessibility and recovery rules.
@@ -68,6 +69,18 @@ Completed for **Drop newest** and **Drop incoming complete notes**. Playback and
 - Classic-Windows presentation is best treated as a startup mode because visual styles and fonts affect the entire measured layout.
 
 Build 32's placement audit kept Per-note gate, forward-only queue admission, state chase, and Always on top in the system menu. They are model/session switches used less often than transport controls, and no superior visible location fits both default and compact layouts without adding clutter.
+
+### Tentative rate-model presentation
+
+Moving Per-note interval gate out of the system menu and removing the separate slowdown checkbox could make the choices easier to discover: a top-level **None** model, a grouped **Simulated slowdown** section, and a **Bandwidth / note gating** section. This is a product-design proposal, not an implemented mode. It first needs an inventory of the current queue-limit combinations, live-change boundaries, Analysis descriptions, and compact-layout space. Any redesign must preserve the existing model and playback semantics rather than merely renaming controls.
+
+### Delayed NoteOff treatment
+
+An optional future rule could hold a NoteOff briefly and cancel it if a matching same-pitch retrigger arrives within a specified fraction of the note's interval. This would need an explicit channel/track ownership rule, a bounded pending-release store, and safety behavior for Pause, Seek, Stop, output failure, and disabled channels. It cannot simply omit a release after the corresponding output NoteOn has sounded.
+
+### A separate real-time Events/sec limit
+
+A direct output-rate cap that rejects excess *note occurrences* would be distinct from the current Events/sec service-time model and from queue overflow. A future design must specify its time window, deterministic admission priority, NoteOn/NoteOff pairing, protected releases, channel filters, and how Playback and Analysis present the resulting counts. It should not be inferred from the current slider or implemented as a silent second drop stage.
 
 ### Help presentation
 

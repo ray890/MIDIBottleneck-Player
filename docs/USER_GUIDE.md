@@ -44,7 +44,9 @@ The Events/sec model carries fractional microseconds between events, so rates su
 
 The Events/sec slider gives its lower half to small, evenly spaced changes from 1 to 100 events/sec; its upper half covers higher rates. The numeric field keeps an exact typed value even when the slider can only point near it. Above one million events/sec, some individual modeled service times are zero microseconds and others are one; the shared fractional clock keeps the long-run rate exact.
 
-The processing value and queue limit use flat scrub-or-type fields. Click to type, then press Enter or leave the field after a change; Escape cancels. Drag sideways to adjust without opening a dialog. A small movement or an unchanged click does not change a setting. The rate field changes by 16 units per pixel, or one with Shift. Queue limit changes by one event per four pixels, or one per eight with Shift. Up/Down also adjusts the focused value. The field's tooltip gives its current units and keyboard step.
+The processing value and queue limit use flat scrub-or-type fields. Click to type, then press Enter or leave the field after a change; Escape cancels. Drag sideways to adjust without opening a dialog. A small movement or an unchanged click does not change a setting. Queue limit changes by one event per four pixels, or one per eight with Shift. Up/Down also adjusts the focused value.
+
+The processing value follows the selected slider's scale when dragged: fine control for small Events/sec values and larger steps toward the high end of each model. Hold Shift for one displayed unit per pixel. Dragging begins from the exact typed value; simply touching or reversing a drag does not round it to a slider position. The field's tooltip gives its current units and keyboard step. Both fields grow to fit the displayed number and return to its measured width when editing ends.
 
 ## Queue length and overflow
 
