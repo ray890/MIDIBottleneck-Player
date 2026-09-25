@@ -42,6 +42,7 @@ The public history was reconstructed because original Git commits did not exist.
 | 36 | session-view-controls | 2026-09-24 | exact | `v1.0.36` |
 | 37 | interface-refinements | 2026-09-24 | exact | `v1.0.37` |
 | 38 | main-scrub-refinement | 2026-09-25 | exact | `v1.0.38` |
+| 39 | numeric-and-analysis | 2026-09-25 | exact | `v1.0.39` |
 
 ## Evidence-recovery result
 

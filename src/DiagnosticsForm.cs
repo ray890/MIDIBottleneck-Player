@@ -597,7 +597,9 @@ namespace MidiBottleneck
                                 _graph.EmptyMessage = message;
                             }
                             EndBusyPeriod();
-                            _calculationStatus.Text = (retainedPreview ? "Queue projection failed — " : "Analysis failed — ") + reason;
+                            _calculationStatus.Text = (retainedPreview
+                                ? requested.PerNoteIntervalGateEnabled ? "Per-note projection failed — " : "Queue projection failed — "
+                                : "Analysis failed — ") + reason;
                             _calculationStatus.Visible = true;
                             return;
                         }
@@ -992,6 +994,9 @@ namespace MidiBottleneck
 
         private static string AnalysisCacheKey(AnalysisConfiguration value, long resolution)
         {
+            if (value.PerNoteIntervalGateEnabled)
+                return resolution.ToString(CultureInfo.InvariantCulture) + "|per-note|" +
+                    value.ProcessingMicroseconds.ToString(CultureInfo.InvariantCulture);
             return resolution.ToString(CultureInfo.InvariantCulture) + "|" +
                 value.SimulateSlowdown + "|" + value.ApplyQueueLimitWithoutSlowdown + "|" + (int)value.ServiceDurationMode + "|" +
                 ((value.SimulateSlowdown || value.ApplyQueueLimitWithoutSlowdown && value.QueueLengthLimitEnabled) && value.ServiceDurationMode == ServiceDurationMode.ProcessingTime ? value.ProcessingMicroseconds : 0).ToString(CultureInfo.InvariantCulture) + "|" +
@@ -1073,7 +1078,11 @@ namespace MidiBottleneck
             text.Append("Bucket: ").Append(FormatClock(start)).Append("–").AppendLine(FormatClock(end));
             if (bucket != null)
             {
-                text.Append("Events/sec: ").Append((bucket.EventCount / seconds).ToString("N1", CultureInfo.CurrentCulture));
+                text.Append(_analysis.HasGateProjection ? "Source events/sec: " : "Events/sec: ")
+                    .Append((bucket.EventCount / seconds).ToString("N1", CultureInfo.CurrentCulture));
+                if (_analysis.HasGateProjection)
+                    text.Append("   Gate output/sec: ").Append((_analysis.GateOutputBuckets[bucketIndex] / seconds)
+                        .ToString("N1", CultureInfo.CurrentCulture));
                 text.Append("   MIDI bytes/sec: ").AppendLine((bucket.ByteCount / seconds).ToString("N1", CultureInfo.CurrentCulture));
                 text.Append("Largest simultaneous cluster: ").Append(bucket.LargestCluster.ToString("N0", CultureInfo.CurrentCulture));
                 if (_analysis.HasQueueProjection && _analysis.Configuration != null &&
@@ -1092,7 +1101,7 @@ namespace MidiBottleneck
         private void ApplySummary(string text)
         {
             _summary.Text = text;
-            string[] headings = new string[] { "MIDI FILE", "WORKLOAD", "PROCESSING MODEL", "QUEUE PROJECTION", "EVENT CLUSTERS", "MESSAGE TYPES" };
+            string[] headings = new string[] { "MIDI FILE", "WORKLOAD", "PROCESSING MODEL", "QUEUE PROJECTION", "PER-NOTE PROJECTION", "EVENT CLUSTERS", "MESSAGE TYPES" };
             for (int i = 0; i < headings.Length; i++)
             {
                 int start = _summary.Text.IndexOf(headings[i], StringComparison.Ordinal);
@@ -1125,20 +1134,41 @@ namespace MidiBottleneck
             text.AppendLine("Average events/sec    " + analysis.AverageEventsPerSecond.ToString("N1", CultureInfo.CurrentCulture));
             text.AppendLine("Peak events/sec       " + analysis.PeakEventsPerSecond.ToString("N1", CultureInfo.CurrentCulture));
             text.AppendLine("Peak bytes/sec        " + analysis.PeakBytesPerSecond.ToString("N1", CultureInfo.CurrentCulture));
-            if (!analysis.HasQueueProjection)
+            if (!analysis.HasQueueProjection && !analysis.HasGateProjection)
             {
                 text.AppendLine();
-                text.AppendLine("QUEUE PROJECTION");
+                bool gatePending = analysis.Configuration != null && analysis.Configuration.PerNoteIntervalGateEnabled;
+                text.AppendLine(gatePending ? "PER-NOTE PROJECTION" : "QUEUE PROJECTION");
                 if (analysis.ProjectionState == AnalysisProjectionState.Pending)
-                    text.AppendLine("Status                Queue projection pending");
+                    text.AppendLine("Status                " + (gatePending ? "Per-note gate" : "Queue") + " projection pending");
                 else if (analysis.ProjectionState == AnalysisProjectionState.Cancelled)
                     text.AppendLine("Status                Workload only — projection cancelled");
                 else
                 {
-                    text.AppendLine("Status                Workload only — queue projection failed");
+                    text.AppendLine("Status                Workload only — " + (gatePending ? "Per-note" : "queue") + " projection failed");
                     if (!String.IsNullOrEmpty(analysis.ProjectionFailureReason))
                         text.AppendLine("Failure               " + analysis.ProjectionFailureReason);
                 }
+            }
+            if (analysis.HasGateProjection)
+            {
+                text.AppendLine();
+                text.AppendLine("PER-NOTE PROJECTION");
+                text.AppendLine("Gate interval         " + analysis.Configuration.ProcessingMicroseconds.ToString("N0", CultureInfo.CurrentCulture) + " µs");
+                text.AppendLine("Source events         " + analysis.TotalEvents.ToString("N0", CultureInfo.CurrentCulture));
+                text.AppendLine("Projected output      " + analysis.GateOutputEvents.ToString("N0", CultureInfo.CurrentCulture) + " MIDI messages");
+                text.AppendLine("Note transitions      " + analysis.GateOutputNoteTransitions.ToString("N0", CultureInfo.CurrentCulture) +
+                    " (including required retrigger releases)");
+                text.AppendLine("Other MIDI messages   " + analysis.GateOutputNonNoteEvents.ToString("N0", CultureInfo.CurrentCulture));
+                text.AppendLine("Gate-filtered notes   " + analysis.GateFilteredNoteEvents.ToString("N0", CultureInfo.CurrentCulture) +
+                    " source note messages");
+                text.AppendLine("Peak gate output      " + analysis.GatePeakEventsPerSecond.ToString("N1", CultureInfo.CurrentCulture) + " messages/sec");
+                text.AppendLine("Source end            " + FormatClock(song.DurationMicroseconds));
+                text.AppendLine("Projected last send   " + (analysis.GateOutputEvents == 0
+                    ? "No MIDI messages" : FormatClock(analysis.GateOutputCompletionMicroseconds)));
+                text.AppendLine("Blue graph: source MIDI; amber graph: projected messages at gate emission times.");
+                text.AppendLine("This is a static source-file projection, not a queue-overflow or native-output prediction.");
+                text.AppendLine("It excludes driver delays, synth tails, live channel mutes, and forced overrides.");
             }
             if (analysis.HasQueueProjection && analysis.Configuration != null)
             {
@@ -1175,11 +1205,6 @@ namespace MidiBottleneck
                 text.AppendLine();
                 text.AppendLine("QUEUE PROJECTION");
                 text.AppendLine("Queue length limit    " + (configuration.QueueLengthLimitEnabled ? configuration.QueueLengthLimit.ToString("N0", CultureInfo.CurrentCulture) + " event slots" : "Unlimited"));
-                if (configuration.PerNoteIntervalGateEnabled)
-                {
-                    text.AppendLine("Per-note interval gate Live playback only");
-                    text.AppendLine("Gate projection       Not included in this static source/configuration Analysis");
-                }
                 if (configuration.QueueLengthLimitEnabled)
                     text.AppendLine("Overflow policy       " + FormatOverflowPolicy(configuration.OverflowPolicy));
                 text.AppendLine("Predicted peak        " + analysis.PredictedMaximumOccupancy.ToString("N0", CultureInfo.CurrentCulture) + " outstanding events");

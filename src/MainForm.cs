@@ -680,7 +680,8 @@ namespace MidiBottleneck
 
             _queueLimitValue = new ScrubOrTypeTextBox();
             _queueLimitValue.ConfigureNumeric(PlaybackEngine.DefaultQueueLengthLimit, 1, 1000000,
-                1, 4, 1, 8);
+                1, 4, 1, 2);
+            _queueLimitValue.SetNumericScrubMapping(MapQueueScrubValue);
             _queueLimitValue.AccessibleName = "Queue length limit";
             _queueLimitValue.Increment = 100;
             _queueLimitValue.ThousandsSeparator = true;
@@ -688,7 +689,7 @@ namespace MidiBottleneck
             _queueLimitValue.FontChanged += MainNumericFontChanged;
             _queueLimitValue.NumericPresentationSettled += MainNumericTextChanged;
             _toolTip.SetToolTip(_queueLimitValue,
-                "Click to type; Enter applies, Escape cancels. Drag sideways: one event per 4 pixels, or 8 with Shift. Up/Down adjusts by 100. Queue structure is locked while playback is active.");
+                "Click to type; Enter applies, Escape cancels. Drag sideways: fine at small limits, gradually faster at larger limits. Shift adjusts one event per 2 pixels. Up/Down adjusts by 100. Queue structure is locked while playback is active.");
             _queueLimitValue.ValueChanged += delegate
             {
                 _engine.QueueLengthLimit = Decimal.ToInt32(_queueLimitValue.Value);
@@ -861,12 +862,18 @@ namespace MidiBottleneck
 
         internal static int MeasureMainNumericWidth(ScrubOrTypeTextBox field)
         {
-            const TextFormatFlags flags = TextFormatFlags.NoPadding | TextFormatFlags.SingleLine;
-            int minimum = TextRenderer.MeasureText("999", field.Font, Size.Empty, flags).Width;
-            int actual = String.IsNullOrEmpty(field.Text) ? 0 :
-                TextRenderer.MeasureText(field.Text, field.Font, Size.Empty, flags).Width;
-            int inset = Math.Max(8, (int)Math.Ceiling(8.0 * field.Font.GetHeight() / 15.0));
-            return Math.Max(minimum, actual) + inset + Math.Max(0, field.Width - field.ClientSize.Width);
+            // Native EDIT uses the font's text advance, not TextRenderer's
+            // wider layout rectangle. Measure the actual typographic advance
+            // so centered grown values retain only a small white edge.
+            using (Graphics graphics = Graphics.FromHwnd(field.IsHandleCreated ? field.Handle : IntPtr.Zero))
+            {
+                StringFormat format = StringFormat.GenericTypographic;
+                float minimum = graphics.MeasureString("999", field.Font, PointF.Empty, format).Width;
+                float actual = String.IsNullOrEmpty(field.Text) ? 0F :
+                    graphics.MeasureString(field.Text, field.Font, PointF.Empty, format).Width;
+                return (int)Math.Ceiling(Math.Max(minimum, actual)) +
+                    Math.Max(0, field.Width - field.ClientSize.Width);
+            }
         }
 
         private void UpdateMainNumericWidth(ScrubOrTypeTextBox field)
@@ -1819,6 +1826,26 @@ namespace MidiBottleneck
                 : mode == ServiceDurationMode.EventsPerSecond ? 9999999L : 1000000L;
             return (int)Math.Max(minimum, Math.Min(maximum,
                 (long)startValue + targetMapped - startMapped));
+        }
+
+        // Continuous queue scale: four pointer pixels per event below 500;
+        // above that, sensitivity grows smoothly with the displayed limit.
+        // Mapping the signed displacement from the exact start makes reversal
+        // deterministic and never quantizes an untouched typed value.
+        internal static int MapQueueScrubValue(int startValue, long pixels)
+        {
+            const double knee = 500.0;
+            const double scale = 2000.0;
+            double start = Math.Max(1, Math.Min(1000000, startValue));
+            double coordinate = start <= knee ? start * 4.0 :
+                knee * 4.0 + scale * Math.Log(start / knee);
+            double maximum = knee * 4.0 + scale * Math.Log(1000000.0 / knee);
+            coordinate = Math.Max(4.0, Math.Min(maximum, coordinate +
+                Math.Max(-1000000L, Math.Min(1000000L, pixels))));
+            double target = coordinate <= knee * 4.0 ? coordinate / 4.0 :
+                knee * Math.Exp((coordinate - knee * 4.0) / scale);
+            long delta = (long)Math.Round(target - start, MidpointRounding.AwayFromZero);
+            return (int)Math.Max(1L, Math.Min(1000000L, (long)startValue + delta));
         }
 
         internal static long ProcessingToEventRate(long microseconds)

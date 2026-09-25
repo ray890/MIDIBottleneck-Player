@@ -8,6 +8,7 @@ This is a direction of travel, not a promise of dates. Correct MIDI behavior, de
 
 ## Recently completed
 
+- **Build 39 — numeric controls and Per-note Analysis:** centered measured numeric fields and gentler Queue scrubbing; Analysis now projects the shared Per-note gate's actual selected messages and their logical emission times alongside raw source workload.
 - **Build 38 — main numeric refinement:** the Processing and Queue fields size to the visible number, and processing scrubbing follows the selected rate scale without rounding exact typed values. UI scaling remains a separate measured design.
 - **Build 37 — interface refinements:** clearer statistics, graph-hover Space transport, ordered observed-state Channels opening, scrub-or-type main numeric fields, finer low-rate Events/sec adjustment, and a segmented FIFO recovery for older finite-queue policy throughput.
 - **Build 36 — session view controls:** two checked-by-default system-menu commands independently hide Processing model and Statistics, collapsing their rows in standard and compact layouts without changing playback or model state.
@@ -30,7 +31,6 @@ See [CHANGELOG.md](CHANGELOG.md) for the complete history.
 - **Channel override extensions** — presets, requested-versus-forced display, and optional static transformations that Analysis can model.
 - **Track routing** — route tracks onto constrained hardware channels with explicit rules for program/controller conflicts, percussion, and overlapping merged notes.
 - **Other low-resolution presentation modes** — roll-up or non-cumulative scaling without destabilizing the canonical layout. Session-only section hiding is complete.
-- **Exact static Per-note Analysis** — would run the same gate state machine offline and graph actual admitted transitions, with Playback/Analysis parity tests; a frame-rate reference line alone would not be an exact projection.
 - **Rate-model presentation** — consider more discoverable grouping of None, simulated slowdown, and note gating without changing their established scheduler behavior.
 - **Note-release and real-time rate ideas** — a delayed matching NoteOff or a separate drop-based Events/sec cap each needs its own note-pairing and safety contract before becoming a control.
 

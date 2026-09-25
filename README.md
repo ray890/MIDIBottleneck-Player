@@ -17,13 +17,13 @@ MIDIBottleneck Player is a Windows MIDI player and deterministic workload simula
 - Optional processing-time, direct events-per-second, MIDI-bitrate, finite-queue, and overflow models, including forward-only dropping without delayed output.
 - A delayed finite-queue choice that can discard an old unsent note together with its matching release, instead of dropping an arbitrary single MIDI event.
 - Live queue, output-rate, lag, effective-speed, and channel statistics.
-- Whole-file Analysis graphs with predicted queue pressure and output completion.
+- Whole-file Analysis graphs with predicted queue pressure, output completion, and the selected messages from the Per-note interval gate.
 - A 16-channel monitor with safe live overrides and per-channel filtering.
 - Checked-by-default bank, program, controller, bend, pressure, and RPN/NRPN restoration when Play or Seek begins in the middle of a file.
 - A Per-note interval gate for limiting how often each pitch can change state.
 - Responsive compact layout and separate x86/x64 executables.
 - Session-only window-menu choices can hide Processing model, Statistics, or both to reclaim vertical space without changing playback settings.
-- Click or scrub the processing value and queue limit directly. Their widths follow the displayed value, while the processing drag follows the selected slider's scale. The Events/sec slider gives finer control at low rates and accepts exact typed rates up to 9,999,999.
+- Click or scrub the processing value and queue limit directly. The centered fields fit the number shown; dragging Queue limit is gentle for small limits and quicker for large ones. The Events/sec slider gives finer control at low rates and accepts exact typed rates up to 9,999,999.
 
 MIDIBottleneck is an independent project. It is not based on, and is not intended to compete with, any particular MIDI player.
 

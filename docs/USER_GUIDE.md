@@ -102,9 +102,13 @@ In Per-note mode, **Maximum rate** becomes the gate's frame frequency. One frame
 
 The Analysis window summarizes message types and workload, then graphs event/byte density and modeled queue pressure at an adaptive or fixed resolution. Time-axis labels use aligned human-readable intervals; hover and pinned inspection provide exact arbitrary positions.
 
+The Processing value and Queue limit fields can be typed or adjusted by dragging horizontally. A short movement does nothing. Queue dragging is gentle at small limits and gets faster at larger limits; hold Shift for precise adjustment. The number remains centered and fully visible as the field grows or shrinks.
+
 Queue Projection reports source duration, predicted accepted-output completion, and positive overrun after the source ends. This models the selected simulator service and queue policy. It does not predict provider buffering, synthesizer rendering, voice release tails, or audio-device latency.
 
-Analysis work is asynchronous, cancellable, cached by reusable file/resolution workload, and protected from stale results. On an initial calculation, the window shows a workload-only graph as soon as event/byte density, clusters, and message-type scanning finishes. It is labelled **Queue projection pending** and deliberately omits occupancy, overflow, predicted drops, buffer clears, and completion values until they are calculated.
+When **Per-note interval gate** is selected, Analysis instead shows a **Per-note projection**. The blue graph is the original MIDI workload; the amber graph shows the messages the gate would send at each interval boundary, including repeated strikes and required releases. The report gives the projected message total, gate-filtered note count, and last logical send time. The ordinary queue-pressure and overflow figures are not shown in this mode because that queue model is disabled. Live channel mutes and forced overrides are not included; driver and synthesizer delays are not predicted.
+
+Analysis work is asynchronous, cancellable, cached by reusable file/resolution workload, and protected from stale results. On an initial calculation, the window shows a workload-only graph as soon as event/byte density, clusters, and message-type scanning finishes. It is labelled **Queue projection pending** or **Per-note gate projection pending**, as appropriate. Unfinished output, occupancy, overflow, and completion figures are omitted rather than shown as zero.
 
 The final projection replaces that preview atomically. Cancelling keeps the last completed graph when one exists. If there is no completed graph yet, a published preview remains useful and is relabelled **Workload only — projection cancelled**.
 

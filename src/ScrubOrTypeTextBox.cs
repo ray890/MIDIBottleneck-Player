@@ -86,6 +86,7 @@ namespace MidiBottleneck
                 false, false, null, null);
             _numericOnly = true;
             _thousandsSeparator = true;
+            TextAlign = HorizontalAlignment.Center;
             TabStop = true;
             SetFlatText();
         }
@@ -173,6 +174,7 @@ namespace MidiBottleneck
             _remainderFine = false;
             _displayFormatter = displayFormatter;
             _numericOnly = false;
+            TextAlign = HorizontalAlignment.Right;
             _value = Clamp(value);
             _forced = forced;
             _historical = historical;
@@ -377,7 +379,7 @@ namespace MidiBottleneck
                 _numericScrubPixels = Math.Max(-1000000L,
                     Math.Min(1000000L, _numericScrubPixels + pixels));
                 int mapped = fine
-                    ? ClampLong((long)_numericScrubStartValue + _numericScrubPixels)
+                    ? ClampLong((long)_numericScrubStartValue + _numericScrubPixels / _finePixels)
                     : _numericScrubMapping(_numericScrubStartValue, _numericScrubPixels);
                 RequestValue(mapped);
                 return;

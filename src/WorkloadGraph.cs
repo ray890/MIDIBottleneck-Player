@@ -127,7 +127,9 @@ namespace MidiBottleneck
         internal long? PinnedTimeMicroseconds { get { return _pinnedTime; } }
         internal long? HoverTimeMicroseconds { get { return _hoverTime; } }
         internal long? InspectedTimeMicroseconds { get { return _hoverTime ?? _pinnedTime; } }
-        internal bool UsesByteRate { get { return _analysis != null && _analysis.Configuration != null && _analysis.Configuration.ServiceDurationMode == ServiceDurationMode.MidiBitrate; } }
+        internal bool UsesByteRate { get { return _analysis != null && _analysis.Configuration != null &&
+            !_analysis.Configuration.PerNoteIntervalGateEnabled &&
+            _analysis.Configuration.ServiceDurationMode == ServiceDurationMode.MidiBitrate; } }
         internal long ViewStartMicroseconds { get { return _viewStart; } }
         internal long ViewEndMicroseconds { get { return _viewEnd; } }
         internal AnalysisFollowTarget FollowTarget { get { return _followTarget; } set { _followTarget = value; ApplyFollow(); } }
@@ -174,10 +176,10 @@ namespace MidiBottleneck
                 int top = 42;
                 bool finite = _analysis != null && _analysis.HasQueueProjection &&
                     _analysis.Configuration != null && _analysis.Configuration.QueueLengthLimitEnabled;
-                bool workloadOnly = _analysis != null && !_analysis.HasQueueProjection;
+                bool extraLegend = _analysis != null && !_analysis.HasQueueProjection;
                 bool narrow = ClientSize.Width - horizontalAllowance * 2 < 430;
                 int bottomAllowance = finite ? (narrow ? 121 : 104) : (narrow ? 104 : 87);
-                if (workloadOnly) bottomAllowance += 17;
+                if (extraLegend) bottomAllowance += 17;
                 return new Rectangle(horizontalAllowance, top,
                     Math.Max(20, ClientSize.Width - horizontalAllowance * 2),
                     Math.Max(50, ClientSize.Height - top - bottomAllowance));
@@ -463,7 +465,8 @@ namespace MidiBottleneck
                     TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
                 string title = byteModel ? "MIDI bytes/sec" : "Events/sec";
                 string unit = byteModel ? "bytes/sec" : "events/sec";
-                double peak = byteModel ? _analysis.PeakBytesPerSecond : _analysis.PeakEventsPerSecond;
+                double peak = byteModel ? _analysis.PeakBytesPerSecond :
+                    Math.Max(_analysis.PeakEventsPerSecond, _analysis.GatePeakEventsPerSecond);
                 double capacity = _analysis.HasQueueProjection
                     ? (byteModel ? _analysis.ByteServiceCapacityPerSecond : _analysis.EventServiceCapacityPerSecond) : 0;
                 DrawPanel(graphics, area, byteModel, title, unit, peak, capacity);
@@ -506,6 +509,7 @@ namespace MidiBottleneck
         {
             using (Pen grid = new Pen(Color.FromArgb(65, 75, 86)))
             using (Pen plot = new Pen(bytes ? Color.FromArgb(255, 174, 66) : Color.FromArgb(63, 190, 255), 1.5F))
+            using (Pen gatePlot = new Pen(Color.FromArgb(255, 190, 92), 1.5F))
             using (Pen capacityPen = new Pen(Color.FromArgb(220, 110, 220, 130), 1F))
             using (Brush overflow = new SolidBrush(Color.FromArgb(65, 235, 65, 65)))
             {
@@ -514,16 +518,20 @@ namespace MidiBottleneck
                 for (int i = 1; i < 4; i++) graphics.DrawLine(grid, area.Left, area.Top + area.Height * i / 4, area.Right, area.Top + area.Height * i / 4);
                 double bucketSeconds = _analysis.BucketMicroseconds / 1000000.0;
                 Point previous = new Point(area.Left, area.Bottom);
+                Point previousGate = previous;
                 for (int x = 0; x < area.Width; x++)
                 {
                     int first, last;
                     BucketRangeAtPixel(x, area, out first, out last);
                     double value = 0;
+                    double gateValue = 0;
                     bool predictedOverflow = false;
                     for (int bucket = first; bucket < last; bucket++)
                     {
                         double current = bytes ? _analysis.Buckets[bucket].ByteCount / bucketSeconds : _analysis.Buckets[bucket].EventCount / bucketSeconds;
                         value = Math.Max(value, current);
+                        if (_analysis.HasGateProjection)
+                            gateValue = Math.Max(gateValue, _analysis.GateOutputBuckets[bucket] / bucketSeconds);
                         predictedOverflow |= _analysis.HasQueueProjection &&
                             _analysis.Buckets[bucket].PredictedDroppedEvents > 0;
                     }
@@ -534,6 +542,15 @@ namespace MidiBottleneck
                     Point currentPoint = new Point(area.Left + x, Math.Max(area.Top, Math.Min(area.Bottom, y)));
                     if (x > 0) graphics.DrawLine(plot, previous, currentPoint);
                     previous = currentPoint;
+                    if (_analysis.HasGateProjection)
+                    {
+                        int gateY = peak <= 0 ? area.Bottom : area.Bottom -
+                            (int)Math.Round((gateValue / peak) * area.Height);
+                        Point gatePoint = new Point(area.Left + x,
+                            Math.Max(area.Top, Math.Min(area.Bottom, gateY)));
+                        if (x > 0) graphics.DrawLine(gatePlot, previousGate, gatePoint);
+                        previousGate = gatePoint;
+                    }
                 }
                 if (capacity > 0 && peak > 0 && capacity <= peak)
                 {
@@ -696,13 +713,18 @@ namespace MidiBottleneck
                 }
                 DrawLegendLine(graphics, area, next, "White dots: playback timeline");
                 DrawLegendLine(graphics, area, next + 17, "Green dash-dot: MIDI output  •  " + FormatResolution(_analysis.BucketMicroseconds));
-                if (!_analysis.HasQueueProjection)
+                if (_analysis.HasGateProjection)
+                    DrawLegendLine(graphics, area, next + 34,
+                        "Blue: source MIDI  •  Amber: projected gate output");
+                else if (!_analysis.HasQueueProjection)
                     DrawLegendLine(graphics, area, next + 34,
                         _analysis.ProjectionState == AnalysisProjectionState.Pending
-                            ? "Workload only — queue projection pending"
+                            ? "Workload only — " + (_analysis.Configuration != null &&
+                                _analysis.Configuration.PerNoteIntervalGateEnabled ? "gate" : "queue") + " projection pending"
                             : _analysis.ProjectionState == AnalysisProjectionState.Cancelled
                                 ? "Workload only — projection cancelled"
-                                : "Workload only — queue projection failed");
+                                : "Workload only — " + (_analysis.Configuration != null &&
+                                    _analysis.Configuration.PerNoteIntervalGateEnabled ? "gate" : "queue") + " projection failed");
                 return;
             }
 
@@ -712,13 +734,18 @@ namespace MidiBottleneck
             string liveLegend = "White dots: playback timeline  •  Green dash-dot: MIDI output  •  " +
                 FormatResolution(_analysis.BucketMicroseconds);
             DrawLegendLine(graphics, area, finite ? 81 : 64, liveLegend);
-            if (!_analysis.HasQueueProjection)
+            if (_analysis.HasGateProjection)
+                DrawLegendLine(graphics, area, finite ? 98 : 81,
+                    "Blue: source MIDI  •  Amber: projected gate output");
+            else if (!_analysis.HasQueueProjection)
                 DrawLegendLine(graphics, area, finite ? 98 : 81,
                     _analysis.ProjectionState == AnalysisProjectionState.Pending
-                        ? "Workload only — queue projection pending"
+                        ? "Workload only — " + (_analysis.Configuration != null &&
+                            _analysis.Configuration.PerNoteIntervalGateEnabled ? "gate" : "queue") + " projection pending"
                         : _analysis.ProjectionState == AnalysisProjectionState.Cancelled
                             ? "Workload only — projection cancelled"
-                            : "Workload only — queue projection failed");
+                            : "Workload only — " + (_analysis.Configuration != null &&
+                                _analysis.Configuration.PerNoteIntervalGateEnabled ? "gate" : "queue") + " projection failed");
         }
 
         private void DrawLegendLine(Graphics graphics, Rectangle area, int offset, string text)

@@ -472,3 +472,20 @@ This is the human-readable history of MIDIBottleneck Player. Dates are original 
 ### Verification
 
 - Focused realized WinForms tests cover default/compact layout, maximum numeric values, text growth/settling, enlarged font, exact typed-value preservation, model-specific drag mapping, and modifier behavior. The full x86/x64 deterministic totals and release hashes are recorded in the private Build 38 checkpoint.
+
+## Build 39 — 2026-09-25
+
+### Player changes
+
+- The main Processing and Queue fields now center their numbers within a width measured from the actual displayed digits. They retain a small white margin at compact and standard sizes without squeezing long values.
+- Queue-limit dragging remains precise at low values and accelerates smoothly at larger values. Holding Shift provides finer two-pixel steps. Reversing a drag restores the exact starting value; merely activating the field changes nothing.
+- Analysis now runs the shared Per-note gate over source MIDI and graphs the selected output messages at their logical emission times beside the original source workload. Repeated strikes, simultaneous notes, releases, and end-of-file tails use the live gate's decisions. The report keeps gate filtering separate from ordinary queue overflow.
+
+### Project work and limitations
+
+- The reusable workload scan remains cached across gate-interval changes. Initial previews remain workload-only until projection completes, and cancellation cannot publish an unfinished projection. Static results exclude live channel mutes, forced overrides, native-driver delays, and synthesizer tails.
+- Runtime UI scaling remains a separate measured design; the canonical 100% layouts and native DPI behavior are unchanged.
+
+### Verification
+
+- Focused tests compare Analysis' selected MIDI payloads and order with a live fake-output gate run, including an overlapping long note and repeated strikes. They also cover compact/reference stores, interval cache reuse, cancellation, preview replacement, and realized Analysis presentation. The complete x86/x64 totals and release hashes are retained in the private Build 39 checkpoint.

@@ -22,6 +22,7 @@ The next dedicated feature is not yet selected. A future presentation or playbac
 - **Build 36 — session view controls:** native system-menu choices independently collapse and restore Processing model and Statistics. They preserve settings, counters, queue and output state, and the user's extra standard-window height. Compact height is remeasured from visible rows.
 - **Build 37 — interface refinements:** shorter gate-filter and compact slash readouts, measured Analysis-panel readout fallback, graph-hover Space transport, ordered observed-state Chase when first opening Channels, scrub-or-type main numeric values, a finer low-rate Events/sec slider, and exact 9,999,999/sec service-clock support.
 - **Build 38 — main numeric refinement:** content-measured processing and queue fields, closer numeric/label alignment, and processing scrubbing that follows the selected slider scale without rounding an exact typed starting value. The Channel Monitor editor's semantics remain separate. A bounded UI-scaling feasibility note records why no partial scale menu was added.
+- **Build 39 — numeric controls and Per-note Analysis:** centered measured numeric values preserve narrow white margins without clipping; Queue scrubbing uses a continuous gentle-low/fast-high scale with exact reversal. Static Analysis now runs the shared gate state machine over source events and graphs its selected messages at logical emission times. Its gate projection remains distinct from ordinary queue pressure and from native-provider behavior.
 
 Build 37 compared the older finite policies with Build 34 on the same bounded 120,000-event synthetic fixture. The Build 35 linked-node path showed a local Analysis slowdown, especially for Drop oldest. A segmented FIFO now handles policies that do not need complete-note eviction. This recovered much, but not all, of the baseline time, with matching projected drop and occupancy decisions and zero measured Gen0 collections. Further throughput conclusions require representative repeated workloads; this is not a claim about native provider speed.
 
@@ -76,7 +77,7 @@ Moving Per-note interval gate out of the system menu and removing the separate s
 
 ### Delayed NoteOff treatment
 
-An optional future rule could hold a NoteOff briefly and cancel it if a matching same-pitch retrigger arrives within a specified fraction of the note's interval. This would need an explicit channel/track ownership rule, a bounded pending-release store, and safety behavior for Pause, Seek, Stop, output failure, and disabled channels. It cannot simply omit a release after the corresponding output NoteOn has sounded.
+An optional future rule could delay a matching NoteOff by roughly one quarter of the interval **after the corresponding NoteOff would actually be emitted**. This is a release-timing choice, not a window that cancels an incoming NoteOn. It would need explicit channel/track pairing, bounded pending-release state, and safety behavior for Pause, Seek, Stop, output failure, and disabled channels. It cannot simply omit a required release after the output NoteOn has sounded.
 
 ### A separate real-time Events/sec limit
 
@@ -99,5 +100,5 @@ A bounded GitHub Actions trial was retired because realized WinForms geometry te
 - **Producer/consumer output separation:** might isolate provider latency, but redefines backlog, lag, cancellation, finite pressure, and Stop/Seek semantics; providers may not be thread-safe.
 - **Extreme-load pause attribution:** further claims need isolated ETW/GC/commit/page-fault evidence after the compact storage improvements.
 - **Legacy Windows or cross-platform portability:** a longer-term direction, not a current compatibility promise.
-- **Static Per-note Analysis:** exact projection means running the shared gate state machine offline and graphing its admitted transitions/events per second. A theoretical frame-rate line alone is not equivalent.
+- **Static Per-note Analysis:** completed in Build 39 using the shared gate decisions. Future extensions would need an explicit model for live mutes/overrides or native-provider delays; those are not silently inferred from the source file.
 - **Contextual help:** one F1/system-menu Help window could open at the section associated with the focused control. It should provide real guidance rather than decorative title-bar behavior.

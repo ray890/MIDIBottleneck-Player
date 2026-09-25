@@ -253,6 +253,12 @@ namespace MidiBottleneck.Tests
                     RenderAutomaticAnalysisWindow(arguments[1]);
                     return 0;
                 }
+                if (arguments.Length == 3 && arguments[0] == "--render-build39-gate")
+                {
+                    RenderBuild39GateAnalysis(arguments[1],
+                        String.Equals(arguments[2], "narrow", StringComparison.OrdinalIgnoreCase));
+                    return 0;
+                }
                 if (arguments.Length == 3 && arguments[0] == "--render-ui-clientwidth")
                 {
                     RenderMainWindowAtWidth(arguments[1], Int32.Parse(arguments[2]));
@@ -565,6 +571,18 @@ namespace MidiBottleneck.Tests
                         TestBuild38MainNumericRefinement);
                     return 0;
                 }
+                if (arguments.Length == 1 && arguments[0] == "--test-build39-numeric")
+                {
+                    RunFocused("centered numeric fields and logarithmic Queue scrub",
+                        TestBuild39MainNumericRefinement);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-build39-analysis")
+                {
+                    RunFocused("exact static Per-note Analysis and live-output parity",
+                        TestBuild39PerNoteAnalysis);
+                    return 0;
+                }
                 if (arguments.Length == 1 && arguments[0] == "--test-queue-baseline")
                 {
                     RunFocused("segmented FIFO and note-index policy transitions", TestBuild37PendingQueueFastPath);
@@ -698,6 +716,10 @@ namespace MidiBottleneck.Tests
                 Run("session-only Processing and Statistics visibility", TestBuild36SessionViewControls);
                 Run("measured main numeric fields and slider-scaled scrubbing",
                     TestBuild38MainNumericRefinement);
+                Run("centered numeric fields and logarithmic Queue scrub",
+                    TestBuild39MainNumericRefinement);
+                Run("exact static Per-note Analysis and live-output parity",
+                    TestBuild39PerNoteAnalysis);
                 Run("single-source product metadata", TestBuild23ProductMetadata);
                 Run("pre-admission channel and override filtering", TestBuild23PreAdmissionFiltering);
                 Run("corrected per-note interval gate state, scheduler, lifecycle, and UI", TestBuild25PerNoteIntervalGate);
@@ -2657,6 +2679,37 @@ namespace MidiBottleneck.Tests
                 form.Close();
             }
             Console.WriteLine("Rendered analysis: " + Path.GetFullPath(outputPath));
+        }
+
+        private static void RenderBuild39GateAnalysis(string outputPath, bool narrow)
+        {
+            Application.EnableVisualStyles();
+            MidiEvent sustaining = ChannelMessage(0, 0x90, 59, 75); sustaining.Track = 0;
+            MidiEvent repeated = ChannelMessage(30000, 0x91, 59, 100); repeated.Track = 1;
+            MidiEvent release = ChannelMessage(42000, 0x81, 59, 0); release.Track = 1;
+            MidiEvent ending = ChannelMessage(100000, 0x80, 59, 0); ending.Track = 0;
+            MidiSong song = NewChannelSong("Synthetic Per-note example.mid", 100000,
+                sustaining, repeated, release, ending);
+            song.Format = 1;
+            song.TrackCount = 2;
+            song.NoteCount = 2;
+            AnalysisConfiguration configuration = DefaultAnalysisConfiguration();
+            configuration.PerNoteIntervalGateEnabled = true;
+            configuration.ProcessingMicroseconds = 10000;
+            WorkloadAnalysis analysis = WorkloadAnalyzer.Analyze(song, 10000, configuration);
+            using (DiagnosticsForm form = new DiagnosticsForm(song, analysis))
+            {
+                form.Show();
+                if (narrow) form.Width = Math.Max(form.MinimumSize.Width, 800);
+                PumpFor(100);
+                using (Bitmap image = new Bitmap(form.Width, form.Height))
+                {
+                    CaptureForm(form, image);
+                    image.Save(outputPath);
+                }
+                form.Close();
+            }
+            Console.WriteLine("Rendered Per-note Analysis: " + Path.GetFullPath(outputPath));
         }
 
         private static void RenderAnalysisSplitter(string midiPath, string outputPath, bool moved)
@@ -5607,6 +5660,8 @@ namespace MidiBottleneck.Tests
                 Equal(true, ContainsMessage(sent, 0xF8), "system message is unaffected by channel filter");
                 Equal(2L, engine.GetSnapshot().ProcessedEvents, "muted events do not enter scheduler processing accounting");
                 Equal(0L, engine.GetSnapshot().DroppedEvents, "muted events are not queue drops");
+                WaitFor(delegate { return engine.GetChannelSnapshot().Channels[0].MutedFilteredEvents == 2; },
+                    1000, "completed muted count reaches the published monitor snapshot");
                 MidiChannelSnapshot state = engine.GetChannelSnapshot().Channels[0];
                 Equal(false, state.Enabled, "snapshot exposes disabled channel");
                 Equal(2L, state.MutedFilteredEvents, "muted-filtered count is separate");
@@ -6537,9 +6592,10 @@ namespace MidiBottleneck.Tests
                 List<Control> analysisControls = new List<Control>();
                 CollectControls(form, analysisControls);
                 RichTextBox report = FindControl<RichTextBox>(analysisControls);
-                if (report == null || report.Text.IndexOf("Live playback only", StringComparison.Ordinal) < 0 ||
-                    report.Text.IndexOf("not included", StringComparison.OrdinalIgnoreCase) < 0)
-                    throw new Exception("Analysis does not disclose that the live per-note gate is excluded.");
+                if (report == null || report.Text.IndexOf("PER-NOTE PROJECTION", StringComparison.Ordinal) < 0 ||
+                    report.Text.IndexOf("Projected output", StringComparison.Ordinal) < 0 ||
+                    report.Text.IndexOf("QUEUE PROJECTION", StringComparison.Ordinal) >= 0)
+                    throw new Exception("Analysis does not distinguish gate output from ordinary queue pressure.");
                 form.Close();
             }
         }
@@ -8899,6 +8955,339 @@ namespace MidiBottleneck.Tests
             }
         }
 
+        private static void TestBuild39MainNumericRefinement()
+        {
+            foreach (int start in new int[] { 1, 100, 500, 2000, 10000, 100000, 1000000 })
+            {
+                Equal(start, MainForm.MapQueueScrubValue(start, 0), "Queue zero displacement keeps exact start");
+                int previous = MainForm.MapQueueScrubValue(start, -100);
+                for (int pixels = -99; pixels <= 100; pixels++)
+                {
+                    int next = MainForm.MapQueueScrubValue(start, pixels);
+                    if (next < previous) throw new Exception("Queue scrub is not monotonic at " + start);
+                    previous = next;
+                }
+            }
+            Equal(110, MainForm.MapQueueScrubValue(100, 40), "small Queue drag stays fine");
+            Equal(2040, MainForm.MapQueueScrubValue(2000, 40), "ordinary Queue drag stays controlled");
+            Equal(10202, MainForm.MapQueueScrubValue(10000, 40), "medium Queue drag accelerates gradually");
+            Equal(102020, MainForm.MapQueueScrubValue(100000, 40), "large Queue drag accelerates gradually");
+            Equal(1, MainForm.MapQueueScrubValue(1, -1000), "Queue lower bound clamps");
+            Equal(1000000, MainForm.MapQueueScrubValue(1000000, 1000), "Queue upper bound clamps");
+
+            Application.EnableVisualStyles();
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(15);
+                BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                ScrubOrTypeTextBox queue = (ScrubOrTypeTextBox)typeof(MainForm)
+                    .GetField("_queueLimitValue", flags).GetValue(form);
+                ScrubOrTypeTextBox rate = (ScrubOrTypeTextBox)typeof(MainForm)
+                    .GetField("_processingValue", flags).GetValue(form);
+                Label events = (Label)typeof(MainForm).GetField("_eventsLabel", flags).GetValue(form);
+                Label rateUnit = (Label)typeof(MainForm).GetField("_serviceUnitLabel", flags).GetValue(form);
+                Equal(HorizontalAlignment.Center, queue.TextAlign, "main Queue is centered");
+                Equal(HorizontalAlignment.Center, rate.TextAlign, "main Rate is centered");
+                int queueMinimumWidth = -1;
+                foreach (int value in new int[] { 1, 99, 999, 2000, 1000000 })
+                {
+                    queue.Value = value; PumpFor(3);
+                    if (value <= 999)
+                    {
+                        if (queueMinimumWidth < 0) queueMinimumWidth = queue.Width;
+                        Equal(queueMinimumWidth, queue.Width, "three-character minimum field width");
+                    }
+                    if (value >= 999) AssertCenteredNumericInk(queue, "Queue " + value);
+                    AssertNumericFullyVisible(queue, "Build 39 Queue " + value);
+                    if (events.Visible && events.Left < queue.Right)
+                        throw new Exception("Queue unit overlaps the grown value");
+                }
+                queue.Value = 2000; PumpFor(3);
+                queue.ApplyScrubDeltaForTesting(40, false);
+                Equal(2040m, queue.Value, "Queue coarse gesture follows logarithmic scale");
+                queue.ApplyScrubDeltaForTesting(-40, false);
+                Equal(2000m, queue.Value, "Queue coarse reversal has no drift");
+                queue.ApplyScrubDeltaForTesting(1, true);
+                Equal(2000m, queue.Value, "Queue Shift retains one-pixel remainder");
+                queue.ApplyScrubDeltaForTesting(1, true);
+                Equal(2001m, queue.Value, "Queue Shift gives one step per two pixels");
+                queue.ApplyScrubDeltaForTesting(-2, true);
+                Equal(2000m, queue.Value, "Queue Shift reversal restores exact start");
+                int rateUnitStart = rateUnit.Left;
+                int rateWidthStart = rate.Width;
+                rate.Value = 1000000; PumpFor(3);
+                AssertCenteredNumericInk(rate, "maximum processing value");
+                Equal(rateUnitStart + rate.Width - rateWidthStart,
+                    rateUnit.Left, "Rate unit remains adjacent after growth");
+                form.Size = form.MinimumSize; PumpFor(10);
+                form.Size = form.MinimumSize; PumpFor(10);
+                AssertCenteredNumericInk(queue, "compact Queue");
+                AssertCenteredNumericInk(rate, "compact Rate");
+                AssertNumericFullyVisible(queue, "compact centered Queue");
+                AssertNumericFullyVisible(rate, "compact centered Rate");
+                form.Close();
+            }
+            using (ScrubOrTypeTextBox channel = new ScrubOrTypeTextBox())
+            {
+                channel.Configure(64, 0, 127, 0, 1, 8, 1, 16, false, false, null, null);
+                Equal(HorizontalAlignment.Right, channel.TextAlign,
+                    "Channel Monitor editor retains its original alignment");
+            }
+        }
+
+        private static void AssertCenteredNumericInk(ScrubOrTypeTextBox numeric, string name)
+        {
+            using (Bitmap bitmap = new Bitmap(numeric.Width, numeric.Height))
+            {
+                numeric.DrawToBitmap(bitmap, new Rectangle(0, 0, bitmap.Width, bitmap.Height));
+                int left = bitmap.Width, right = -1;
+                for (int y = 0; y < bitmap.Height; y++)
+                    for (int x = 0; x < bitmap.Width; x++)
+                    {
+                        Color pixel = bitmap.GetPixel(x, y);
+                        if (pixel.R >= 180 || pixel.G >= 180 || pixel.B >= 180) continue;
+                        left = Math.Min(left, x);
+                        right = Math.Max(right, x);
+                    }
+                if (right < 0 || left < 1 || bitmap.Width - 1 - right < 1 ||
+                    Math.Abs(left - (bitmap.Width - 1 - right)) > 2)
+                    throw new Exception(name + " has uneven or clipped ink: left=" + left +
+                        " right=" + (bitmap.Width - 1 - right) + " width=" + bitmap.Width);
+            }
+        }
+
+        private static void TestBuild39PerNoteAnalysis()
+        {
+            MidiEvent longOn = ChannelMessage(0, 0x90, 59, 70); longOn.Track = 0;
+            MidiEvent sameTick = ChannelMessage(0, 0x92, 59, 90); sameTick.Track = 2;
+            MidiEvent layerOff = ChannelMessage(5000, 0x82, 59, 7); layerOff.Track = 2;
+            MidiEvent controller = ChannelMessage(15000, 0xB0, 7, 99);
+            MidiEvent system = new MidiEvent { AbsoluteTick = 21000, IntendedMicroseconds = 21000,
+                Track = 0, Channel = -1, Kind = MidiEventKind.SystemMessage, Status = 0xF8,
+                Data = new byte[] { 0xF8 } };
+            MidiEvent sysex = new MidiEvent { AbsoluteTick = 22000, IntendedMicroseconds = 22000,
+                Track = 0, Channel = -1, Kind = MidiEventKind.SystemExclusive, Status = 0xF0,
+                Data = new byte[] { 0xF0, 0x7E, 0x00, 0xF7 } };
+            MidiEvent strike1 = ChannelMessage(30000, 0x91, 59, 100); strike1.Track = 1;
+            MidiEvent strikeOff1 = ChannelMessage(35000, 0x81, 59, 0); strikeOff1.Track = 1;
+            MidiEvent strike2 = ChannelMessage(60000, 0x91, 59, 105); strike2.Track = 1;
+            MidiEvent strikeOff2 = ChannelMessage(65000, 0x81, 59, 0); strikeOff2.Track = 1;
+            MidiEvent unmatched = ChannelMessage(70000, 0x80, 65, 0);
+            MidiEvent longOff = ChannelMessage(120000, 0x80, 59, 7); longOff.Track = 0;
+            MidiEvent shortOn = ChannelMessage(130000, 0x90, 70, 110);
+            MidiEvent shortOff = ChannelMessage(130000, 0x90, 70, 0);
+            MidiSong song = NewChannelSong("gate-analysis-synthetic.mid", 130000,
+                longOn, sameTick, layerOff, controller, system, sysex,
+                strike1, strikeOff1, strike2, strikeOff2, unmatched, longOff, shortOn, shortOff);
+            song.TrackCount = 3;
+            AnalysisConfiguration configuration = DefaultAnalysisConfiguration();
+            configuration.PerNoteIntervalGateEnabled = true;
+            configuration.SimulateSlowdown = false;
+            configuration.QueueLengthLimitEnabled = false;
+            configuration.ProcessingMicroseconds = 10000;
+            MidiSong emptySong = NewChannelSong("gate-analysis-empty.mid", 20000);
+            WorkloadAnalysis emptyResult = WorkloadAnalyzer.Analyze(emptySong, 10000, configuration);
+            Equal(0L, emptyResult.GateOutputEvents, "empty source has no projected MIDI sends");
+            Equal(0L, emptyResult.GateFilteredNoteEvents, "empty source has no gate filtering");
+            Equal(true, emptyResult.HasGateProjection, "empty source still completes gate projection");
+            long scansBefore = Interlocked.Read(ref WorkloadAnalyzer.WorkloadScanCount);
+            WorkloadAnalysis result = WorkloadAnalyzer.Analyze(song, 10000, configuration);
+            Equal(true, result.HasGateProjection, "gate configuration completes a gate-specific projection");
+            Equal(false, result.HasQueueProjection, "gate mode does not masquerade as ordinary queue pressure");
+            Equal((long)song.Events.Count, result.TotalEvents, "raw source workload remains separate");
+            Equal(140000L, result.GateOutputCompletionMicroseconds, "short note drains one interval after source end");
+            Equal(140000L, result.DurationMicroseconds, "gate graph includes projected tail");
+            Equal(true, result.GateFilteredNoteEvents > 0,
+                "simultaneous and unmatched source notes are accounted as gate-filtered");
+            Equal(1L, Interlocked.Read(ref WorkloadAnalyzer.WorkloadScanCount) - scansBefore,
+                "initial gate calculation scans source workload once");
+            AnalysisConfiguration slower = DefaultAnalysisConfiguration();
+            slower.PerNoteIntervalGateEnabled = true;
+            slower.SimulateSlowdown = false;
+            slower.ProcessingMicroseconds = 20000;
+            WorkloadAnalysis slowerResult = WorkloadAnalyzer.Analyze(song, 10000, slower);
+            Equal(true, slowerResult.HasGateProjection, "changed interval recomputes gate projection");
+            Equal(1L, Interlocked.Read(ref WorkloadAnalyzer.WorkloadScanCount) - scansBefore,
+                "interval-only change reuses the immutable source workload");
+            WorkloadAnalyzer.Analyze(song, 20000, configuration);
+            Equal(2L, Interlocked.Read(ref WorkloadAnalyzer.WorkloadScanCount) - scansBefore,
+                "resolution change performs one new source workload scan");
+
+            WorkloadAnalysis trace = WorkloadAnalyzer.Analyze(song, 10000,
+                (AnalysisConfiguration)null).CopyWorkload(configuration, CancellationToken.None);
+            List<byte[]> projectedPayloads = new List<byte[]>();
+            List<long> projectedTimes = new List<long>();
+            WorkloadAnalyzer.ProjectPerNoteGate(song, trace, configuration, CancellationToken.None, null,
+                delegate(MidiEventView midiEvent, long time)
+                {
+                    projectedPayloads.Add(midiEvent.Data.ToArray());
+                    projectedTimes.Add(time);
+                });
+            Equal(result.GateOutputEvents, (long)projectedPayloads.Count,
+                "observed projected trace equals bucketed output count");
+            Equal(result.GateFilteredNoteEvents, trace.GateFilteredNoteEvents,
+                "gate-filter accounting is deterministic");
+            long bucketSum = 0;
+            for (int bucket = 0; bucket < result.GateOutputBuckets.Length; bucket++)
+                bucketSum += result.GateOutputBuckets[bucket];
+            Equal(result.GateOutputEvents, bucketSum, "every projected send belongs to one emission-time bucket");
+            for (int i = 0; i < projectedTimes.Count; i++)
+            {
+                int bucket = (int)(projectedTimes[i] / result.BucketMicroseconds);
+                if (result.GateOutputBuckets[bucket] <= 0)
+                    throw new Exception("projected event was not bucketed at its emission time");
+                if (i > 0 && projectedTimes[i] < projectedTimes[i - 1])
+                    throw new Exception("gate output logical times were not monotonic");
+            }
+            int attacks = 0;
+            HashSet<string> pitchTransitions = new HashSet<string>();
+            for (int i = 0; i < projectedPayloads.Count; i++)
+            {
+                byte[] data = projectedPayloads[i];
+                if (data.Length < 3 || (data[0] & 0xF0) != 0x90 && (data[0] & 0xF0) != 0x80) continue;
+                if ((data[0] & 0xF0) == 0x90 && data[2] != 0) attacks++;
+                string key = projectedTimes[i].ToString(CultureInfo.InvariantCulture) + ":" + data[1];
+                if (!pitchTransitions.Add(key))
+                    throw new Exception("one pitch produced two transitions at a boundary");
+            }
+            Equal(4, attacks, "long support does not glue repeated strikes and short note still attacks");
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.ProcessingMicroseconds = 10000;
+                engine.Start(song, output, ProcessingMode.PerNoteIntervalGate);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000,
+                    "live synthetic Per-note gate completion");
+                List<byte[]> actual = output.SentPayloads();
+                Equal(projectedPayloads.Count, actual.Count, "offline gate output count equals live fake output");
+                for (int i = 0; i < actual.Count; i++)
+                    Equal(BitConverter.ToString(projectedPayloads[i]), BitConverter.ToString(actual[i]),
+                        "offline/live gate payload and order " + i);
+                Equal(result.GateFilteredNoteEvents, engine.GetSnapshot().GateFilteredEvents,
+                    "offline/live gate-filter totals agree");
+            }
+            List<byte[]> slowerPayloads = new List<byte[]>();
+            WorkloadAnalyzer.ProjectPerNoteGate(song,
+                WorkloadAnalyzer.Analyze(song, 10000, (AnalysisConfiguration)null)
+                    .CopyWorkload(slower, CancellationToken.None),
+                slower, CancellationToken.None, null,
+                delegate(MidiEventView midiEvent, long time) { slowerPayloads.Add(midiEvent.Data.ToArray()); });
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.ProcessingMicroseconds = 20000;
+                engine.Start(song, output, ProcessingMode.PerNoteIntervalGate);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000,
+                    "alternate-interval live gate completion");
+                List<byte[]> actual = output.SentPayloads();
+                Equal(slowerPayloads.Count, actual.Count, "alternate interval keeps offline/live output parity");
+                for (int i = 0; i < actual.Count; i++)
+                    Equal(BitConverter.ToString(slowerPayloads[i]), BitConverter.ToString(actual[i]),
+                        "alternate-interval payload and order " + i);
+            }
+
+            CompactMidiEventStore.Builder compactBuilder = new CompactMidiEventStore.Builder();
+            foreach (MidiEvent midiEvent in song.Events) compactBuilder.Add(midiEvent);
+            MidiSong compactSong = new MidiSong { FilePath = "gate-analysis-compact.mid",
+                Format = song.Format, TrackCount = song.TrackCount,
+                TicksPerQuarterNote = song.TicksPerQuarterNote,
+                DurationMicroseconds = song.DurationMicroseconds };
+            compactSong.SetEventStore(compactBuilder.Complete());
+            WorkloadAnalysis compactResult = WorkloadAnalyzer.Analyze(compactSong, 10000, configuration);
+            Equal(result.GateOutputEvents, compactResult.GateOutputEvents,
+                "compact and reference gate output counts agree");
+            Equal(result.GateFilteredNoteEvents, compactResult.GateFilteredNoteEvents,
+                "compact and reference gate filters agree");
+            for (int i = 0; i < result.GateOutputBuckets.Length; i++)
+                Equal(result.GateOutputBuckets[i], compactResult.GateOutputBuckets[i],
+                    "compact and reference gate buckets agree at " + i);
+
+            using (CancellationTokenSource cancelled = new CancellationTokenSource())
+            {
+                cancelled.Cancel();
+                bool threw = false;
+                try { WorkloadAnalyzer.Analyze(song, 10000, slower, cancelled.Token); }
+                catch (OperationCanceledException) { threw = true; }
+                Equal(true, threw, "cancelled gate projection never publishes a result");
+            }
+            MidiEvent[] manyEvents = new MidiEvent[5000];
+            for (int i = 0; i < manyEvents.Length; i++)
+                manyEvents[i] = ChannelMessage(i * 1000L, 0xB0, 7, (byte)(i & 127));
+            MidiSong manySong = NewChannelSong("gate-analysis-cancellation.mid", 5000000, manyEvents);
+            using (CancellationTokenSource cancelled = new CancellationTokenSource())
+            {
+                bool enteredProjection = false;
+                bool threw = false;
+                try
+                {
+                    WorkloadAnalyzer.Analyze(manySong, 10000, configuration, cancelled.Token,
+                        delegate(WorkloadAnalysisProgress update)
+                        {
+                            if (update.Stage == "Projecting Per-note intervals")
+                            {
+                                enteredProjection = true;
+                                cancelled.Cancel();
+                            }
+                        });
+                }
+                catch (OperationCanceledException) { threw = true; }
+                Equal(true, enteredProjection, "gate-specific projection started before cancellation");
+                Equal(true, threw, "cancellation during gate projection does not publish partial results");
+            }
+            WorkloadAnalysis ordinary = WorkloadAnalyzer.Analyze(song, 10000, DefaultAnalysisConfiguration());
+            Equal(false, ordinary.HasGateProjection, "switching back restores ordinary Analysis");
+            Equal(true, ordinary.HasQueueProjection, "ordinary Analysis retains its queue projection");
+
+            Application.EnableVisualStyles();
+            using (ManualResetEvent allowFinal = new ManualResetEvent(false))
+            {
+                WorkloadAnalysisRunner delayedGate = delegate(MidiSong source, long bucket,
+                    AnalysisConfiguration selected, CancellationToken token,
+                    Action<WorkloadAnalysisProgress> progress, Action<WorkloadBaseAnalysis> workloadReady)
+                {
+                    WorkloadAnalysis workload = WorkloadAnalyzer.Analyze(source, bucket, null, token, progress);
+                    if (workloadReady != null) workloadReady(new WorkloadBaseAnalysis(workload));
+                    WaitHandle.WaitAny(new WaitHandle[] { allowFinal, token.WaitHandle });
+                    token.ThrowIfCancellationRequested();
+                    return WorkloadAnalyzer.Analyze(source, bucket, selected, token, progress);
+                };
+                using (DiagnosticsForm preview = new DiagnosticsForm(song, null, delayedGate))
+                {
+                    preview.Show(); preview.RequestAnalysis(configuration);
+                    PumpUntil(delegate { return preview.PreviewPublicationCount == 1; }, 3000,
+                        "initial gate workload preview");
+                    Equal(false, preview.CurrentAnalysis.HasGateProjection,
+                        "workload preview cannot claim completed gate output");
+                    if (preview.SummaryText.IndexOf("Per-note gate projection pending", StringComparison.Ordinal) < 0 ||
+                        preview.SummaryText.IndexOf("Projected output", StringComparison.Ordinal) >= 0)
+                        throw new Exception("gate preview showed unfinished projected output");
+                    preview.CancelAnalysisCalculation();
+                    Equal(AnalysisProjectionState.Cancelled, preview.CurrentAnalysis.ProjectionState,
+                        "cancelled gate preview remains workload-only");
+                    allowFinal.Set(); PumpFor(30);
+                    Equal(false, preview.HasCompletedAnalysis,
+                        "cancelled gate final cannot replace its preview");
+                    preview.RequestAnalysis(configuration);
+                    PumpUntil(delegate { return preview.HasCompletedAnalysis; }, 3000,
+                        "gate projection after cancelled preview");
+                    Equal(true, preview.CurrentAnalysis.HasGateProjection,
+                        "later gate calculation replaces cancelled workload preview");
+                    preview.Close();
+                }
+            }
+            using (DiagnosticsForm form = new DiagnosticsForm(song, result))
+            {
+                form.Show(); PumpFor(15);
+                if (form.SummaryText.IndexOf("PER-NOTE PROJECTION", StringComparison.Ordinal) < 0 ||
+                    form.SummaryText.IndexOf("Gate-filtered notes", StringComparison.Ordinal) < 0 ||
+                    form.SummaryText.IndexOf("QUEUE PROJECTION", StringComparison.Ordinal) >= 0)
+                    throw new Exception("Analysis report mislabels projected gate output or ordinary queue pressure");
+                using (Bitmap image = new Bitmap(form.Width, form.Height))
+                    CaptureForm(form, image);
+                form.Close();
+            }
+        }
+
         private static void TestBuild37MonitorOpeningChase()
         {
             MidiSong song = NewChannelSong("monitor-open-chase.mid", 5000000,
@@ -10760,11 +11149,14 @@ namespace MidiBottleneck.Tests
                 numeric.Right > numeric.Parent.ClientSize.Width || numeric.Bottom > numeric.Parent.ClientSize.Height)
                 throw new Exception(name + " outer bounds are clipped: " + numeric.Bounds +
                     " within " + numeric.Parent.ClientRectangle);
-            int textWidth = TextRenderer.MeasureText(numeric.Text, numeric.Font, Size.Empty,
-                TextFormatFlags.NoPadding | TextFormatFlags.SingleLine).Width;
-            if (textWidth > numeric.ClientSize.Width - 2)
-                throw new Exception(name + " numeric text is clipped: " + textWidth +
-                    " pixels within " + numeric.ClientSize.Width);
+            using (Graphics graphics = Graphics.FromHwnd(numeric.IsHandleCreated ? numeric.Handle : IntPtr.Zero))
+            {
+                float advance = graphics.MeasureString(numeric.Text, numeric.Font, PointF.Empty,
+                    StringFormat.GenericTypographic).Width;
+                if (advance > numeric.ClientSize.Width + 0.01F)
+                    throw new Exception(name + " numeric text is clipped: " + advance +
+                        " pixels within " + numeric.ClientSize.Width);
+            }
             if (numeric.Width != MainForm.MeasureMainNumericWidth(numeric) && !numeric.IsTyping)
                 throw new Exception(name + " did not settle to its measured displayed width");
         }

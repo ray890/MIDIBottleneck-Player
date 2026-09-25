@@ -85,10 +85,22 @@ namespace MidiBottleneck
         public long PredictedOutputCompletionMicroseconds;
         public double EventServiceCapacityPerSecond;
         public double ByteServiceCapacityPerSecond;
+        // Allocated only for a configuration-specific Per-note projection.
+        // The immutable cached source workload never owns a gate schedule.
+        public long[] GateOutputBuckets;
+        public long GateOutputEvents;
+        public long GateOutputNoteTransitions;
+        public long GateOutputNonNoteEvents;
+        public long GateFilteredNoteEvents;
+        public long GateOutputCompletionMicroseconds;
+        public double GatePeakEventsPerSecond;
         public AnalysisProjectionState ProjectionState;
         public string ProjectionFailureReason;
 
-        public bool HasQueueProjection { get { return ProjectionState == AnalysisProjectionState.Complete; } }
+        public bool HasGateProjection { get { return ProjectionState == AnalysisProjectionState.Complete &&
+            Configuration != null && Configuration.PerNoteIntervalGateEnabled && GateOutputBuckets != null; } }
+        public bool HasQueueProjection { get { return ProjectionState == AnalysisProjectionState.Complete &&
+            (Configuration == null || !Configuration.PerNoteIntervalGateEnabled); } }
 
         internal WorkloadAnalysis CopyWorkload(AnalysisConfiguration configuration, CancellationToken token)
         {
@@ -242,6 +254,12 @@ namespace MidiBottleneck
             WorkloadAnalysis result = workload.CopyWorkload(configuration, cancellationToken);
             Report(progress, "Reusing file workload", 1, 1, 0, 750);
             if (configuration == null) { Report(progress, "Complete", 1, 1, 0, 1000); return result; }
+            if (configuration.PerNoteIntervalGateEnabled)
+            {
+                ProjectPerNoteGate(song, result, configuration, cancellationToken, progress, null);
+                result.ProjectionState = AnalysisProjectionState.Complete;
+                return result;
+            }
             if (UsesConfiguredService(configuration))
             {
                 if (configuration.ServiceDurationMode == ServiceDurationMode.ProcessingTime)
@@ -350,6 +368,12 @@ namespace MidiBottleneck
 
             if (configuration != null)
             {
+                if (configuration.PerNoteIntervalGateEnabled)
+                {
+                    ProjectPerNoteGate(song, result, configuration, cancellationToken, progress, null);
+                    result.ProjectionState = AnalysisProjectionState.Complete;
+                    return result;
+                }
                 if (UsesConfiguredService(configuration) && configuration.ServiceDurationMode == ServiceDurationMode.ProcessingTime && configuration.ProcessingMicroseconds > 0)
                     result.EventServiceCapacityPerSecond = 1000000.0 / configuration.ProcessingMicroseconds;
                 if (UsesConfiguredService(configuration) && configuration.ServiceDurationMode == ServiceDurationMode.MidiBitrate && configuration.MidiBitrate > 0)
@@ -364,6 +388,100 @@ namespace MidiBottleneck
             }
             else Report(progress, "File workload complete", 1, 1, 0, 750);
             return result;
+        }
+
+        // Runs the same bounded live gate state machine over immutable source
+        // views. No second note-selection model or per-event schedule exists.
+        // The optional observer is for deterministic sequence/parity tests;
+        // production passes null and allocates no object per source event.
+        internal static void ProjectPerNoteGate(MidiSong song, WorkloadAnalysis result,
+            AnalysisConfiguration configuration, CancellationToken cancellationToken,
+            Action<WorkloadAnalysisProgress> progress, Action<MidiEventView, long> observer)
+        {
+            if (configuration.ProcessingMicroseconds <= 0)
+                throw new InvalidOperationException("Per-note Analysis requires a nonzero interval.");
+            MidiEventReader events = song.GetEventReader();
+            PerNoteIntervalGate gate = new PerNoteIntervalGate(configuration.ProcessingMicroseconds);
+            MidiEventView[] emissions = new MidiEventView[128];
+            result.GateOutputBuckets = new long[result.Buckets.Length];
+            int next = 0;
+            bool completed = false;
+            long actions = 0;
+            while (next < events.Count || !completed || gate.HasPendingTransitions)
+            {
+                if ((actions++ & 4095) == 0)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    Report(progress, "Projecting Per-note intervals", next, Math.Max(1, events.Count), 750, 245);
+                }
+                long boundary = gate.NextBoundaryMicroseconds;
+                long source = next < events.Count ? events[next].IntendedMicroseconds : Int64.MaxValue;
+                if (next < events.Count && source <= boundary)
+                {
+                    long tick = events[next].AbsoluteTick;
+                    gate.BeginSourceTick(tick);
+                    while (next < events.Count && events[next].AbsoluteTick == tick)
+                    {
+                        if ((next & 16383) == 0) cancellationToken.ThrowIfCancellationRequested();
+                        MidiEventView midiEvent = events[next++];
+                        if (gate.Admit(midiEvent) == PerNoteGateAdmission.NotNote)
+                        {
+                            RecordGateOutput(result, midiEvent, midiEvent.IntendedMicroseconds, false);
+                            if (observer != null) observer(midiEvent, midiEvent.IntendedMicroseconds);
+                        }
+                    }
+                    gate.EndSourceTick();
+                    result.GateFilteredNoteEvents += gate.TakeFilteredEventCount();
+                }
+                else if (boundary != Int64.MaxValue)
+                {
+                    int count = gate.EmitBoundary(boundary, emissions);
+                    result.GateFilteredNoteEvents += gate.TakeFilteredEventCount();
+                    for (int i = 0; i < count; i++)
+                    {
+                        RecordGateOutput(result, emissions[i], boundary, true);
+                        if (observer != null) observer(emissions[i], boundary);
+                    }
+                }
+                if (next == events.Count && !completed)
+                {
+                    gate.CompleteSource(song.DurationMicroseconds);
+                    result.GateFilteredNoteEvents += gate.TakeFilteredEventCount();
+                    completed = true;
+                }
+            }
+            double seconds = result.BucketMicroseconds / 1000000.0;
+            for (int i = 0; i < result.GateOutputBuckets.Length; i++)
+            {
+                if ((i & 4095) == 0) cancellationToken.ThrowIfCancellationRequested();
+                result.GatePeakEventsPerSecond = Math.Max(result.GatePeakEventsPerSecond,
+                    result.GateOutputBuckets[i] / seconds);
+            }
+            Report(progress, "Per-note projection complete", 1, 1, 995, 5);
+        }
+
+        private static void RecordGateOutput(WorkloadAnalysis result, MidiEventView midiEvent,
+            long logicalTime, bool noteTransition)
+        {
+            long requiredDuration = Math.Max(result.DurationMicroseconds, logicalTime);
+            int required = CalculateBucketCount(requiredDuration, result.BucketMicroseconds);
+            if (required > result.GateOutputBuckets.Length)
+            {
+                int previous = result.GateOutputBuckets.Length;
+                int grown = Math.Min(MaximumBucketCount,
+                    Math.Max(required, previous > MaximumBucketCount / 2 ? MaximumBucketCount : previous * 2));
+                Array.Resize(ref result.GateOutputBuckets, grown);
+                Array.Resize(ref result.Buckets, grown);
+                for (int i = previous; i < grown; i++) result.Buckets[i] = new WorkloadBucket();
+            }
+            result.DurationMicroseconds = requiredDuration;
+            int bucket = (int)Math.Min(result.GateOutputBuckets.Length - 1,
+                Math.Max(0, logicalTime / result.BucketMicroseconds));
+            result.GateOutputBuckets[bucket]++;
+            result.GateOutputEvents++;
+            if (noteTransition) result.GateOutputNoteTransitions++;
+            else result.GateOutputNonNoteEvents++;
+            result.GateOutputCompletionMicroseconds = Math.Max(result.GateOutputCompletionMicroseconds, logicalTime);
         }
 
         private static void ScanCompactWorkload(CompactMidiEventStore store, WorkloadAnalysis result,
@@ -523,7 +641,8 @@ namespace MidiBottleneck
 
         private static bool UsesConfiguredService(AnalysisConfiguration configuration)
         {
-            return configuration != null && (configuration.SimulateSlowdown ||
+            return configuration != null && !configuration.PerNoteIntervalGateEnabled &&
+                (configuration.SimulateSlowdown ||
                 configuration.ApplyQueueLimitWithoutSlowdown && configuration.QueueLengthLimitEnabled);
         }
 
