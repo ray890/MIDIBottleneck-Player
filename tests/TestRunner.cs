@@ -552,6 +552,21 @@ namespace MidiBottleneck.Tests
                     RunFocused("session-only Processing and Statistics visibility", TestBuild36SessionViewControls);
                     return 0;
                 }
+                if (arguments.Length == 1 && arguments[0] == "--test-build37")
+                {
+                    RunFocused("readout formatting and Analysis graph Space", TestBuild37ReadoutsAndGraphSpace);
+                    RunFocused("main numeric scrub controls and high event rates", TestBuild37NumericControls);
+                    RunFocused("ordered Channels opening chase provenance", TestBuild37MonitorOpeningChase);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-queue-baseline")
+                {
+                    RunFocused("segmented FIFO and note-index policy transitions", TestBuild37PendingQueueFastPath);
+                    RunFocused("oldest complete-note overflow parity", TestOldestCompleteNoteOverflow);
+                    RunFocused("oldest complete-note lifecycle", TestOldestCompleteNoteLifecycle);
+                    RunFocused("blocked-output finite queue", TestQueueFreshness);
+                    return 0;
+                }
                 if (arguments.Length == 1 && arguments[0] == "--test-interface-only")
                 {
                     RunFocused("WinForms interface construction", TestInterfaceConstruction);
@@ -1829,15 +1844,18 @@ namespace MidiBottleneck.Tests
             {
                 engine.ProcessingMicroseconds = 10000;
                 NullMidiOutput output = new NullMidiOutput();
-                engine.Start(NewChannelSong("gate-frontier-sparse.mid", 90000,
+                // Leave a long observed gap after the 80 ms transition. The
+                // former 10 ms gap made the polling assertion depend on OS
+                // scheduling rather than on the gate frontier contract.
+                engine.Start(NewChannelSong("gate-frontier-sparse.mid", 900000,
                     ChannelMessage(0, 0x90, 60, 100),
                     ChannelMessage(20000, 0x80, 60, 0),
                     ChannelMessage(80000, 0x90, 61, 100),
-                    ChannelMessage(90000, 0x80, 61, 0)), output, ProcessingMode.PerNoteIntervalGate);
+                    ChannelMessage(900000, 0x80, 61, 0)), output, ProcessingMode.PerNoteIntervalGate);
                 long previous = 0;
                 bool advancedThroughSparsePassage = false;
                 Stopwatch watch = Stopwatch.StartNew();
-                while (watch.ElapsedMilliseconds < 1000 && engine.State == PlaybackState.Playing)
+                while (watch.ElapsedMilliseconds < 1600 && engine.State == PlaybackState.Playing)
                 {
                     PlaybackSnapshot snapshot = engine.GetSnapshot();
                     if (snapshot.EffectiveSpeedFrontierMicroseconds < previous)
@@ -1846,7 +1864,7 @@ namespace MidiBottleneck.Tests
                     if (previous >= 50000) advancedThroughSparsePassage = true;
                     Thread.Sleep(2);
                 }
-                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1000,
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1600,
                     "sparse gate frontier completion");
                 Equal(true, advancedThroughSparsePassage,
                     "gate frontier advances through a sparse passage without requiring sent events");
@@ -2273,7 +2291,7 @@ namespace MidiBottleneck.Tests
                     serviceMode.SelectedIndex = 1;
                     if (minimumSize)
                     {
-                        NumericUpDown bitrate = FindNumericWithMaximum(controls, 100000000m);
+                        ScrubOrTypeTextBox bitrate = FindNumericWithMaximum(controls, 100000000m);
                         if (bitrate != null) bitrate.Value = bitrate.Maximum;
                     }
                     Application.DoEvents();
@@ -3244,8 +3262,21 @@ namespace MidiBottleneck.Tests
             Equal(0L, MainForm.EventRateToProcessing(0), "unlimited conversion");
             Equal(0, MainForm.EventRateToSlider(0), "unlimited slider endpoint");
             Equal(1L, MainForm.SliderToEventRate(1), "minimum finite slider rate");
-            Equal(1000000L, MainForm.SliderToEventRate(ProcessingTrackBar.ScaleMaximum),
+            Equal(9999999L, MainForm.SliderToEventRate(ProcessingTrackBar.ScaleMaximum),
                 "maximum slider rate");
+            Equal(100L, MainForm.SliderToEventRate(5000), "linear low-rate slider endpoint");
+            if (MainForm.SliderToEventRate(2500) >= 100 || MainForm.SliderToEventRate(2500) < 40)
+                throw new Exception("low-rate slider lacks a usable linear adjustment region");
+            for (int position = 1; position <= ProcessingTrackBar.ScaleMaximum; position += 31)
+                if (MainForm.SliderToEventRate(position) > MainForm.SliderToEventRate(position + 1))
+                    throw new Exception("event-rate slider mapping is not monotonic");
+            foreach (long exact in new long[] { 999999, 1000000, 1000001, 9999999 })
+            {
+                ServiceDurationClock highClock = new ServiceDurationClock(ServiceDurationMode.EventsPerSecond,
+                    0, 31250, exact);
+                Equal(1000000L, highClock.TotalForNextEvents(exact),
+                    "high event-rate rational clock accounts for zero-duration individual events");
+            }
             if (MainForm.EventRateToSlider(44100) >= MainForm.EventRateToSlider(999999))
                 throw new Exception("event-rate slider does not increase toward the right");
 
@@ -3276,7 +3307,7 @@ namespace MidiBottleneck.Tests
                 form.Show(); PumpFor(30);
                 BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
                 ComboBox mode = (ComboBox)typeof(MainForm).GetField("_serviceModeCombo", flags).GetValue(form);
-                NumericUpDown value = (NumericUpDown)typeof(MainForm).GetField("_processingValue", flags).GetValue(form);
+                ScrubOrTypeTextBox value = (ScrubOrTypeTextBox)typeof(MainForm).GetField("_processingValue", flags).GetValue(form);
                 Label label = (Label)typeof(MainForm).GetField("_serviceValueLabel", flags).GetValue(form);
                 mode.SelectedIndex = (int)ServiceDurationMode.EventsPerSecond; PumpFor(20);
                 Equal("Events per second", mode.SelectedItem.ToString(), "visible Events/sec Rate model");
@@ -6461,7 +6492,7 @@ namespace MidiBottleneck.Tests
                 DroppedEvents = 0,
                 GateFilteredEvents = 2
             };
-            Equal("5 / 0 (+2 gate-filtered)", MainForm.FormatEventCounts(formatted, false),
+            Equal("5 / 2 gate-filtered", MainForm.FormatEventCounts(formatted, false),
                 "gate-filtered statistic is explicit and separate");
             Equal("35.2 frames/sec", MainForm.FormatMaximumRate(formatted, 999, false),
                 "maximum-rate cell reports gate frame frequency rather than aggregate capacity");
@@ -6674,8 +6705,8 @@ namespace MidiBottleneck.Tests
                 form.ClientSize = new Size(416, form.ClientSize.Height); Application.DoEvents();
                 if (Math.Abs(form.ClientSize.Width - 416) > 1) throw new Exception("compact client minimum is not 416 pixels at 96 DPI");
                 Type type = typeof(MainForm); BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-                NumericUpDown queue = (NumericUpDown)type.GetField("_queueLimitValue", flags).GetValue(form);
-                NumericUpDown value = (NumericUpDown)type.GetField("_processingValue", flags).GetValue(form);
+                ScrubOrTypeTextBox queue = (ScrubOrTypeTextBox)type.GetField("_queueLimitValue", flags).GetValue(form);
+                ScrubOrTypeTextBox value = (ScrubOrTypeTextBox)type.GetField("_processingValue", flags).GetValue(form);
                 Label eventsUnit = (Label)type.GetField("_eventsLabel", flags).GetValue(form);
                 Equal(77, queue.Width, "compact Queue measured numeric width");
                 queue.Value = queue.Maximum;
@@ -6722,8 +6753,8 @@ namespace MidiBottleneck.Tests
                 compact.Show(); Application.DoEvents();
                 compact.ClientSize = new Size(416, compact.ClientSize.Height); Application.DoEvents();
                 BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-                NumericUpDown queue = (NumericUpDown)typeof(MainForm).GetField("_queueLimitValue", flags).GetValue(compact);
-                NumericUpDown value = (NumericUpDown)typeof(MainForm).GetField("_processingValue", flags).GetValue(compact);
+                ScrubOrTypeTextBox queue = (ScrubOrTypeTextBox)typeof(MainForm).GetField("_queueLimitValue", flags).GetValue(compact);
+                ScrubOrTypeTextBox value = (ScrubOrTypeTextBox)typeof(MainForm).GetField("_processingValue", flags).GetValue(compact);
                 ComboBox mode = (ComboBox)typeof(MainForm).GetField("_serviceModeCombo", flags).GetValue(compact);
                 queue.Value = queue.Maximum;
                 mode.SelectedIndex = 1; Application.DoEvents();
@@ -8518,6 +8549,324 @@ namespace MidiBottleneck.Tests
                 throw new Exception(stage + " Statistics command lost its keyboard mnemonic");
         }
 
+        private static void TestBuild37PendingQueueFastPath()
+        {
+            PendingMidiQueue pending = new PendingMidiQueue(2048);
+            for (int eventIndex = 0; eventIndex < 600; eventIndex++)
+                pending.Enqueue(new PendingMidiQueue.Entry
+                {
+                    EventIndex = eventIndex,
+                    PairedAttackIndex = (eventIndex & 1) == 0 ? -1 : eventIndex - 1,
+                    IsNoteOn = (eventIndex & 1) == 0,
+                    IsNoteOff = (eventIndex & 1) != 0
+                });
+            for (int eventIndex = 0; eventIndex < 300; eventIndex++)
+                Equal(eventIndex, pending.DequeueEntry().EventIndex,
+                    "segmented FIFO order before policy switch");
+            for (int eventIndex = 600; eventIndex < 900; eventIndex++)
+                pending.Enqueue(new PendingMidiQueue.Entry
+                {
+                    EventIndex = eventIndex,
+                    PairedAttackIndex = (eventIndex & 1) == 0 ? -1 : eventIndex - 1,
+                    IsNoteOn = (eventIndex & 1) == 0,
+                    IsNoteOff = (eventIndex & 1) != 0
+                });
+            Equal(600, pending.Count, "segmented FIFO spans multiple record chunks");
+            pending.SetNoteIndexEnabled(true);
+            int attack, release;
+            Equal(true, pending.TryEvictOldestCompleteNote(out attack, out release),
+                "policy switch rebuilds eligible attack index");
+            Equal(300, attack, "oldest eligible attack survives conversion");
+            Equal(301, release, "paired pending release survives conversion");
+            pending.SetNoteIndexEnabled(false);
+            Equal(598, pending.Count, "conversion preserves all remaining entries");
+            for (int eventIndex = 302; eventIndex < 900; eventIndex++)
+                Equal(eventIndex, pending.Dequeue(), "segmented FIFO order after indexed round trip");
+            Equal(0, pending.Count, "segmented FIFO drains completely");
+            for (int eventIndex = 0; eventIndex < 600; eventIndex++) pending.Enqueue(eventIndex);
+            Equal(600, pending.Count, "freed simple segments are reused");
+            pending.Clear();
+            Equal(0, pending.Count, "clear retires simple queue entries");
+        }
+
+        private static void TestBuild37ReadoutsAndGraphSpace()
+        {
+            PlaybackSnapshot gate = new PlaybackSnapshot
+            {
+                ProcessingMode = ProcessingMode.PerNoteIntervalGate,
+                ProcessedEvents = 1234,
+                GateFilteredEvents = 1234
+            };
+            Equal("1,234 / 1,234 gate-filtered", MainForm.FormatEventCounts(gate, false),
+                "usual gate count omits redundant queue zero and parentheses");
+            Equal("1,234\u2009/\u20091,234 gate", MainForm.FormatEventCounts(gate, true),
+                "compact slash uses rendered thin spaces");
+            using (StatisticsView statistic = new StatisticsView())
+            using (Bitmap bitmap = new Bitmap(200, 100))
+            using (Graphics graphics = Graphics.FromImage(bitmap))
+            {
+                statistic.Compact = true;
+                int thin = statistic.MeasureStatisticValueForTesting(graphics, "1\u2009/\u20091");
+                int normal = statistic.MeasureStatisticValueForTesting(graphics, "1 / 1");
+                if (thin <= 0 || thin >= normal)
+                    throw new Exception("compact slash renderer did not use narrower visual spacing");
+            }
+            gate.DroppedEvents = 7;
+            Equal("1,234 / 7 dropped / 1,234 gate-filtered", MainForm.FormatEventCounts(gate, false),
+                "gate and overflow exclusions remain distinct");
+
+            using (WorkloadGraph graph = new WorkloadGraph())
+            using (Bitmap image = new Bitmap(400, 200))
+            using (Graphics graphics = Graphics.FromImage(image))
+            {
+                const string caption = "Queue now / maximum: ";
+                const string value = "1,234,567 / 9,999,999";
+                string full = graph.FitPlaybackLineForTesting(graphics, caption, "Queue: ", value, 1000);
+                Equal(caption + value, full, "Analysis retains the full readout when it fits");
+                string compact = graph.FitPlaybackLineForTesting(graphics, caption, "Queue: ", value,
+                    TextRenderer.MeasureText(graphics, caption + value, graph.Font, Size.Empty,
+                        TextFormatFlags.NoPadding | TextFormatFlags.SingleLine).Width - 10);
+                if (compact == full || compact.IndexOf("Queue", StringComparison.Ordinal) < 0)
+                    throw new Exception("Analysis did not shorten a long readout");
+                string narrow = graph.FitPlaybackLineForTesting(graphics, caption, "Queue: ", value, 105);
+                if (!narrow.StartsWith("Queue: ", StringComparison.Ordinal))
+                    throw new Exception("Analysis did not shorten its caption after trying shorter readouts");
+            }
+
+            Application.EnableVisualStyles();
+            MidiSong song = NewChannelSong("graph-space.mid", 1000000,
+                ChannelMessage(100, 0x90, 60, 100));
+            using (DiagnosticsForm analysis = new DiagnosticsForm(song))
+            using (Form other = new Form())
+            {
+                int toggles = 0;
+                analysis.TransportToggleRequested += delegate { toggles++; };
+                analysis.Show(); analysis.Activate(); PumpFor(30);
+                try
+                {
+                    Rectangle graph = analysis.Graph.RectangleToScreen(analysis.Graph.ClientRectangle);
+                    Point pointer = new Point(graph.Left + graph.Width / 2, graph.Top + graph.Height / 2);
+                    analysis.Activate(); PumpFor(20);
+                    Equal(true, analysis.TryHandleGraphSpaceAt(pointer, true),
+                        "Space over active Analysis graph is handled");
+                    Equal(1, toggles, "graph Space follows one transport route");
+                    List<Control> controls = new List<Control>(); CollectControls(analysis, controls);
+                    Button resetZoom = FindButton(controls, "Reset zoom");
+                    if (resetZoom == null) throw new Exception("Analysis Reset zoom button is missing");
+                    resetZoom.Focus();
+                    analysis.GraphShortcutPointerForTesting = pointer;
+                    typeof(WorkloadGraph).GetMethod("OnMouseMove", BindingFlags.Instance | BindingFlags.NonPublic)
+                        .Invoke(analysis.Graph, new object[] { new MouseEventArgs(MouseButtons.None, 0,
+                            analysis.Graph.Width / 2, analysis.Graph.Height / 2, 0) });
+                    Equal(true, analysis.Graph.Focused, "hovering the graph moves focus off the button");
+                    Message space = Message.Create(analysis.Graph.Handle, 0x0100, (IntPtr)Keys.Space, IntPtr.Zero);
+                    Equal(true, analysis.Graph.PreProcessMessage(ref space),
+                        "real graph keyboard preprocessing handles Space");
+                    Equal(2, toggles, "real graph Space invokes the shared transport request");
+                    other.Show(); other.Activate(); PumpFor(20);
+                    Equal(false, analysis.TryHandleGraphSpaceAt(pointer, false),
+                        "inactive Analysis cannot toggle transport");
+                    Equal(2, toggles, "inactive Analysis sends no transport command");
+                }
+                finally { other.Close(); analysis.Close(); }
+            }
+        }
+
+        private static void TestBuild37NumericControls()
+        {
+            using (ScrubOrTypeTextBox rate = new ScrubOrTypeTextBox())
+            {
+                rate.ConfigureNumeric(0, 0, 100000000, 16, 1, 1, 1);
+                int changes = 0;
+                rate.ValueChanged += delegate { changes++; };
+                Point origin = new Point(100, 100);
+                rate.BeginPointerGesture(origin, MouseButtons.Left);
+                rate.ContinuePointerGestureForTesting(new Point(103, 100), false, true);
+                Equal(0, changes, "three-pixel rate drag sends nothing");
+                rate.EndPointerGesture();
+                rate.CommitFocusLossForTesting("0");
+                Equal(0, changes, "unchanged rate click/focus loss sends nothing");
+                rate.ApplyScrubDeltaForTesting(1, false);
+                Equal(16m, rate.Value, "ordinary rate scrub advances 16 units per pixel");
+                rate.ApplyScrubDeltaForTesting(1, true);
+                Equal(17m, rate.Value, "Shift rate scrub advances one unit per pixel");
+                rate.Value = 100000000m;
+                Equal("100,000,000", rate.Text, "maximum MIDI bitrate is not truncated numerically");
+                rate.EnterTypingForTesting();
+                Equal(false, rate.CommitTextForTesting("100000001"), "out-of-range rate edit is rejected");
+                Equal(100000000m, rate.Value, "invalid edit keeps the prior rate");
+                rate.EnterTypingForTesting(); rate.EscapeForTesting();
+                Equal(100000000m, rate.Value, "Escape keeps the prior rate");
+            }
+            using (ScrubOrTypeTextBox queue = new ScrubOrTypeTextBox())
+            {
+                queue.ConfigureNumeric(2000, 1, 1000000, 1, 4, 1, 8);
+                int changes = 0;
+                queue.ValueChanged += delegate { changes++; };
+                queue.ApplyScrubDeltaForTesting(3, false);
+                Equal(0, changes, "sub-step queue movement accumulates");
+                queue.ApplyScrubDeltaForTesting(1, false);
+                Equal(2001m, queue.Value, "queue advances after four pixels");
+                queue.ApplyScrubDeltaForTesting(-4, false);
+                Equal(2000m, queue.Value, "queue reversal unwinds naturally");
+                queue.ApplyScrubDeltaForTesting(8, true);
+                Equal(2001m, queue.Value, "Shift queue uses eight pixels per step");
+            }
+            Application.EnableVisualStyles();
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(20);
+                BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                ComboBox model = (ComboBox)typeof(MainForm).GetField("_serviceModeCombo", flags).GetValue(form);
+                ScrubOrTypeTextBox value = (ScrubOrTypeTextBox)typeof(MainForm)
+                    .GetField("_processingValue", flags).GetValue(form);
+                PlaybackEngine engine = (PlaybackEngine)typeof(MainForm).GetField("_engine", flags).GetValue(form);
+                model.SelectedIndex = (int)ServiceDurationMode.EventsPerSecond;
+                value.Value = 1000001m;
+                Equal(1000001m, value.Value, "typed event rate above one million stays exact");
+                Equal(1000001L, engine.EventsPerSecond, "typed high rate reaches the service clock");
+                value.Value = 9999999m;
+                Equal(9999999L, engine.EventsPerSecond, "maximum event rate reaches the engine");
+                form.ClientSize = new Size(416, form.ClientSize.Height); PumpFor(20);
+                AssertNumericFullyVisible(value, "compact 9,999,999 events/sec");
+                form.Close();
+            }
+
+            MidiSong dense = BuildSong(new long[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 });
+            AnalysisConfiguration configuration = new AnalysisConfiguration
+            {
+                SimulateSlowdown = true,
+                ServiceDurationMode = ServiceDurationMode.EventsPerSecond,
+                EventsPerSecond = 9999999,
+                QueueLengthLimitEnabled = true,
+                QueueLengthLimit = 2,
+                OverflowPolicy = OverflowPolicy.DropNewest
+            };
+            WorkloadAnalysis projected = WorkloadAnalyzer.Analyze(dense, 100000, configuration);
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.SetServiceConfiguration(ServiceDurationMode.EventsPerSecond, 0, 31250, 9999999);
+                engine.SimulateSlowdown = true;
+                engine.QueueLengthLimit = 2;
+                engine.OverflowPolicy = OverflowPolicy.DropNewest;
+                engine.Start(dense, new FakeMidiOutput(), ProcessingMode.Drop);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1000,
+                    "high-rate finite service completion");
+                PlaybackSnapshot actual = engine.GetSnapshot();
+                Equal(projected.PredictedDroppedEvents, actual.DroppedEvents,
+                    "high-rate finite Playback/Analysis drop parity");
+            }
+        }
+
+        private static void TestBuild37MonitorOpeningChase()
+        {
+            MidiSong song = NewChannelSong("monitor-open-chase.mid", 5000000,
+                ChannelMessage(10, 0xC1, 2), ChannelMessage(4000000, 0x90, 60, 100));
+            Application.EnableVisualStyles();
+            foreach (bool paused in new bool[] { false, true })
+            {
+                using (MainForm form = new MainForm())
+                {
+                    form.Show(); PumpFor(25);
+                    BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                    typeof(MainForm).GetField("_song", flags).SetValue(form, song);
+                    PlaybackEngine engine = (PlaybackEngine)typeof(MainForm).GetField("_engine", flags).GetValue(form);
+                    ControlledMidiOutput output = new ControlledMidiOutput();
+                    engine.Start(song, output, ProcessingMode.Queue, 100, paused);
+                    if (!paused)
+                        WaitFor(delegate { return output.CountPayload(0xC1, 2) >= 1; }, 1000,
+                            "initial whole-state chase before monitor opens");
+                    int before = output.CountPayload(0xC1, 2);
+                    output.BlockNext = 1;
+                    form.ShowChannelMonitorForTesting(); PumpFor(20);
+                    ChannelMonitorForm monitor = form.ChannelMonitorForTesting;
+                    Equal(FontStyle.Italic, monitor.CellFontStyle(1, "Program"),
+                        "inferred Program stays historical while output is blocked");
+                    WaitFor(delegate { return output.Entered.WaitOne(0); }, 1000,
+                        "ordered monitor chase reached output");
+                    Equal(FontStyle.Italic, monitor.CellFontStyle(1, "Program"),
+                        "blocked chase has not been painted as observed");
+                    output.Release.Set();
+                    PumpUntil(delegate { return monitor.CellFontStyle(1, "Program") == FontStyle.Regular; },
+                        1500, "successful monitor chase becomes observed");
+                    Equal(before + 1, output.CountPayload(0xC1, 2),
+                        "opening Channels sends one indexed Program value");
+                    int after = output.CountPayload(0xC1, 2);
+                    form.ShowChannelMonitorForTesting(); PumpFor(20);
+                    Equal(after, output.CountPayload(0xC1, 2),
+                        "reactivating an open Channels window sends no second chase");
+                    Equal(0L, engine.GetSnapshot().ProcessedEvents,
+                        "monitor chase is not counted as source output");
+                    Equal(0L, engine.GetChannelSnapshot().Channels[1].SentEvents,
+                        "monitor state refresh does not change Channels Sent");
+                    Equal(-1L, engine.GetChannelSnapshot().Channels[1].LastDispatchedMicroseconds,
+                        "monitor state refresh does not invent a dispatched source position");
+                    engine.Stop(); form.Close();
+                }
+            }
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(20);
+                BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                typeof(MainForm).GetField("_song", flags).SetValue(form, song);
+                PlaybackEngine engine = (PlaybackEngine)typeof(MainForm).GetField("_engine", flags).GetValue(form);
+                ControlledMidiOutput output = new ControlledMidiOutput();
+                engine.Start(song, output, ProcessingMode.Queue, 100, true);
+                output.FailNext = 1;
+                form.ShowChannelMonitorForTesting();
+                ChannelMonitorForm monitor = form.ChannelMonitorForTesting;
+                PumpFor(100);
+                Equal(FontStyle.Italic, monitor.CellFontStyle(1, "Program"),
+                    "failed monitor chase retains historical provenance");
+                Equal(0, output.CountPayload(0xC1, 2),
+                    "failed monitor chase does not claim a successful Program send");
+                engine.Stop(); form.Close();
+            }
+            foreach (bool disabled in new bool[] { false, true })
+            {
+                using (MainForm form = new MainForm())
+                {
+                    form.Show(); PumpFor(20);
+                    BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                    typeof(MainForm).GetField("_song", flags).SetValue(form, song);
+                    PlaybackEngine engine = (PlaybackEngine)typeof(MainForm).GetField("_engine", flags).GetValue(form);
+                    ControlledMidiOutput output = new ControlledMidiOutput();
+                    engine.Start(song, output, ProcessingMode.Queue, 100, true);
+                    if (disabled)
+                    {
+                        engine.SetChannelEnabled(1, false);
+                        WaitFor(delegate { return !engine.IsChannelEnabled(1); }, 1000,
+                            "disabled channel reaches ordered control boundary");
+                    }
+                    else engine.SetChannelOverride(1, ChannelAttribute.Program, 5);
+                    form.ShowChannelMonitorForTesting(); PumpFor(60);
+                    Equal(0, output.CountPayload(0xC1, 2),
+                        "indexed source Program is not chased through a disabled or forced attribute");
+                    ChannelMonitorForm monitor = form.ChannelMonitorForTesting;
+                    if (!disabled && (monitor.CellFontStyle(1, "Program") & FontStyle.Bold) == 0)
+                        throw new Exception("forced Program lost precedence over monitor state chase");
+                    if (disabled && engine.IsChannelEnabled(1))
+                        throw new Exception("opening Channels re-enabled a disabled channel");
+                    engine.Stop(); form.Close();
+                }
+            }
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(20);
+                BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                typeof(MainForm).GetField("_song", flags).SetValue(form, song);
+                SendMessage(form.Handle, 0x0112,
+                    (IntPtr)MainForm.ChaseMidiStateSystemCommandForTesting, IntPtr.Zero);
+                PlaybackEngine engine = (PlaybackEngine)typeof(MainForm).GetField("_engine", flags).GetValue(form);
+                ControlledMidiOutput output = new ControlledMidiOutput();
+                engine.Start(song, output, ProcessingMode.Queue, 100, true);
+                form.ShowChannelMonitorForTesting(); PumpFor(50);
+                Equal(0, output.CountPayload(0xC1, 2),
+                    "turning off whole-state chase also suppresses automatic monitor chase");
+                engine.Stop(); form.Close();
+            }
+        }
+
         private static void TestBuild36SessionViewControls()
         {
             Application.EnableVisualStyles();
@@ -8537,7 +8886,7 @@ namespace MidiBottleneck.Tests
                 int initialStatisticsTop = stats.Top;
 
                 form.Height = normalMinimum + 80; Application.DoEvents();
-                NumericUpDown processingValue = (NumericUpDown)typeof(MainForm).GetField("_processingValue", flags).GetValue(form);
+                ScrubOrTypeTextBox processingValue = (ScrubOrTypeTextBox)typeof(MainForm).GetField("_processingValue", flags).GetValue(form);
                 processingValue.Focus();
                 ToggleBuild36Section(form, true);
                 AssertBuild36SectionLayout(form, false, true, "standard processing hidden");
@@ -8603,7 +8952,7 @@ namespace MidiBottleneck.Tests
                 CheckBox queueLimit = FindCheckBox(controls, "Queue limit:");
                 CheckBox slowdown = FindCheckBox(controls, "Simulate slowdown");
                 ComboBox policy = FindComboContaining(controls, "Drop oldest complete note");
-                NumericUpDown queueValue = (NumericUpDown)typeof(MainForm).GetField("_queueLimitValue", flags).GetValue(form);
+                ScrubOrTypeTextBox queueValue = (ScrubOrTypeTextBox)typeof(MainForm).GetField("_queueLimitValue", flags).GetValue(form);
                 StatisticsView view = FindControl<StatisticsView>(controls);
                 slowdown.Checked = true;
                 queueLimit.Checked = true;
@@ -9826,7 +10175,7 @@ namespace MidiBottleneck.Tests
                 ComboBox overflow = FindComboContaining(controls, "Clear buffer and jump to realtime");
                 ComboBox midiOutput = FindMidiOutputCombo(controls);
                 Button dinPreset = FindButton(controls, "5-pin DIN");
-                NumericUpDown queueLimitValue = FindNumericWithValue(controls, 2000m);
+                ScrubOrTypeTextBox queueLimitValue = FindNumericWithValue(controls, 2000m);
                 if (slowdown == null || queueLimit == null || kdmApi == null || serviceMode == null || overflow == null || dinPreset == null || queueLimitValue == null)
                     throw new Exception("independent processing policy controls were not found");
                 Equal(560, form.MinimumSize.Width, "normal-layout minimum width");
@@ -9887,7 +10236,7 @@ namespace MidiBottleneck.Tests
                     throw new Exception("compact playback controls overlap");
                 if (compactAnalysis.Right > form.ClientSize.Width || compactReset.Right > form.ClientSize.Width)
                     throw new Exception("compact playback controls are clipped");
-                NumericUpDown compactQueue = FindNumericWithMaximum(controls, 1000000m);
+                ScrubOrTypeTextBox compactQueue = FindNumericWithMaximum(controls, 1000000m);
                 if (compactQueue == null) throw new Exception("compact queue-limit numeric field was not found");
                 compactQueue.Value = compactQueue.Maximum;
                 AssertNumericFullyVisible(compactQueue, "compact maximum queue limit");
@@ -9895,7 +10244,7 @@ namespace MidiBottleneck.Tests
                 AssertComboFullyVisible(serviceMode, "Processing time per event", "compact Rate model");
                 AssertComboFullyVisible(overflow, Convert.ToString(overflow.SelectedItem), "compact overflow policy");
                 serviceMode.SelectedIndex = 1; Application.DoEvents();
-                NumericUpDown compactBitrate = FindNumericWithMaximum(controls, 100000000m);
+                ScrubOrTypeTextBox compactBitrate = FindNumericWithMaximum(controls, 100000000m);
                 if (compactBitrate == null) throw new Exception("compact bitrate numeric field was not found");
                 compactBitrate.Value = compactBitrate.Maximum;
                 AssertNumericFullyVisible(compactBitrate, "compact maximum MIDI bitrate");
@@ -10031,7 +10380,7 @@ namespace MidiBottleneck.Tests
                 serviceMode.SelectedIndex = 1;
                 Application.DoEvents();
                 dinPreset.PerformClick();
-                NumericUpDown serviceValue = FindNumericWithMaximum(controls, 100000000m);
+                ScrubOrTypeTextBox serviceValue = FindNumericWithMaximum(controls, 100000000m);
                 if (serviceValue == null) throw new Exception("bitrate numeric field was not found");
                 Equal(31250m, serviceValue.Value, "5-pin DIN UI preset");
                 serviceValue.Value = 50000m;
@@ -10244,49 +10593,42 @@ namespace MidiBottleneck.Tests
             return null;
         }
 
-        private static NumericUpDown FindNumericWithMaximum(List<Control> controls, decimal maximum)
+        private static ScrubOrTypeTextBox FindNumericWithMaximum(List<Control> controls, decimal maximum)
         {
             for (int i = 0; i < controls.Count; i++)
             {
-                NumericUpDown numeric = controls[i] as NumericUpDown;
+                ScrubOrTypeTextBox numeric = controls[i] as ScrubOrTypeTextBox;
                 if (numeric != null && numeric.Maximum == maximum) return numeric;
             }
             return null;
         }
 
-        private static NumericUpDown FindNumericWithValue(List<Control> controls, decimal value)
+        private static ScrubOrTypeTextBox FindNumericWithValue(List<Control> controls, decimal value)
         {
             for (int i = 0; i < controls.Count; i++)
             {
-                NumericUpDown numeric = controls[i] as NumericUpDown;
+                ScrubOrTypeTextBox numeric = controls[i] as ScrubOrTypeTextBox;
                 if (numeric != null && numeric.Value == value) return numeric;
             }
             return null;
         }
 
-        private static void AssertNumericFullyVisible(NumericUpDown numeric, string name)
+        private static void AssertNumericFullyVisible(ScrubOrTypeTextBox numeric, string name)
         {
             if (numeric.Parent == null || numeric.Left < 0 || numeric.Top < 0 ||
                 numeric.Right > numeric.Parent.ClientSize.Width || numeric.Bottom > numeric.Parent.ClientSize.Height)
                 throw new Exception(name + " outer bounds are clipped");
-            for (int index = 0; index < numeric.Controls.Count; index++)
-            {
-                Control child = numeric.Controls[index];
-                if (!child.Visible) continue;
-                // The native UpDownBase hosts its edit/spinner children one
-                // border pixel outside the client vertically. Horizontal
-                // clipping is the failure that hides the spinner arrows.
-                if (child.Left < 0 || child.Top < -1 || child.Right > numeric.ClientSize.Width ||
-                    child.Bottom > numeric.ClientSize.Height + 1)
-                    throw new Exception(name + " internal " + child.GetType().Name + " area is clipped: " +
-                        child.Bounds + " within " + numeric.ClientRectangle);
-            }
-            string maximum = numeric.Maximum.ToString("N0");
-            int textWidth = TextRenderer.MeasureText(maximum, numeric.Font, Size.Empty,
+            int textWidth = TextRenderer.MeasureText(numeric.Text, numeric.Font, Size.Empty,
                 TextFormatFlags.NoPadding | TextFormatFlags.SingleLine).Width;
-            if (numeric.ClientSize.Width < textWidth + SystemInformation.VerticalScrollBarWidth + 5)
-                throw new Exception(name + " is too narrow for its maximum value and spinner buttons: client " +
-                    numeric.ClientSize.Width + ", text " + textWidth + ", spinner " + SystemInformation.VerticalScrollBarWidth);
+            if (textWidth > numeric.ClientSize.Width - 2)
+                throw new Exception(name + " numeric text is clipped: " + textWidth +
+                    " pixels within " + numeric.ClientSize.Width);
+            string maximum = numeric.Maximum.ToString("N0");
+            int maximumWidth = TextRenderer.MeasureText(maximum, numeric.Font, Size.Empty,
+                TextFormatFlags.NoPadding | TextFormatFlags.SingleLine).Width;
+            if (numeric.ClientSize.Width < maximumWidth + 2)
+                throw new Exception(name + " is too narrow for its maximum value: client " +
+                    numeric.ClientSize.Width + ", text " + maximumWidth);
         }
 
         private static void AssertComboFullyVisible(ComboBox combo, string longestText, string name)
@@ -10312,8 +10654,8 @@ namespace MidiBottleneck.Tests
             Label overflowLabel = (Label)type.GetField("_overflowLabel", flags).GetValue(form);
             Label serviceLabel = (Label)type.GetField("_serviceValueLabel", flags).GetValue(form);
             Label unit = (Label)type.GetField("_serviceUnitLabel", flags).GetValue(form);
-            NumericUpDown queueValue = (NumericUpDown)type.GetField("_queueLimitValue", flags).GetValue(form);
-            NumericUpDown processingValue = (NumericUpDown)type.GetField("_processingValue", flags).GetValue(form);
+            ScrubOrTypeTextBox queueValue = (ScrubOrTypeTextBox)type.GetField("_queueLimitValue", flags).GetValue(form);
+            ScrubOrTypeTextBox processingValue = (ScrubOrTypeTextBox)type.GetField("_processingValue", flags).GetValue(form);
             ComboBox rateCombo = (ComboBox)type.GetField("_serviceModeCombo", flags).GetValue(form);
             ComboBox overflowCombo = (ComboBox)type.GetField("_overflowPolicyCombo", flags).GetValue(form);
             FlowLayoutPanel[] clusters = new FlowLayoutPanel[] { queue, overflow, rate, service };
@@ -10654,6 +10996,38 @@ namespace MidiBottleneck.Tests
             }
             public void Panic() { Interlocked.Increment(ref PanicCount); }
             public void Reset() { Interlocked.Increment(ref ResetCount); }
+        }
+
+        private sealed class ControlledMidiOutput : IMidiOutput
+        {
+            private readonly FakeMidiOutput _inner = new FakeMidiOutput();
+            internal readonly ManualResetEvent Entered = new ManualResetEvent(false);
+            internal readonly ManualResetEvent Release = new ManualResetEvent(false);
+            internal int BlockNext;
+            internal int FailNext;
+
+            public void Send(MidiEventView midiEvent)
+            {
+                if (Interlocked.Exchange(ref BlockNext, 0) != 0)
+                {
+                    Entered.Set();
+                    Release.WaitOne();
+                }
+                if (Interlocked.Exchange(ref FailNext, 0) != 0)
+                    throw new InvalidOperationException("Controlled output send failed.");
+                _inner.Send(midiEvent);
+            }
+
+            public void Reset() { _inner.Reset(); }
+            public void Panic() { _inner.Panic(); }
+
+            internal int CountPayload(byte status, byte first)
+            {
+                int count = 0;
+                foreach (byte[] payload in _inner.SentPayloads())
+                    if (payload.Length >= 2 && payload[0] == status && payload[1] == first) count++;
+                return count;
+            }
         }
 
         private sealed class BlockingLifecycleOutput : IMidiOutput

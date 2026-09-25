@@ -78,6 +78,13 @@ namespace MidiBottleneck
 
         internal event EventHandler<WorkloadSelectionEventArgs> SeekRequested;
         internal event EventHandler ChannelsRequested;
+        internal event EventHandler TransportToggleRequested;
+        private Point? _graphShortcutPointerForTesting;
+        internal Point? GraphShortcutPointerForTesting
+        {
+            get { return _graphShortcutPointerForTesting; }
+            set { _graphShortcutPointerForTesting = value; }
+        }
 
         internal MidiSong SourceSong { get; private set; }
 
@@ -288,6 +295,8 @@ namespace MidiBottleneck
             _graph.InspectionChanged += GraphInspectionChanged;
             _graph.SeekRequested += GraphSeekRequested;
             _graph.ViewportChanged += delegate { ScheduleResolutionRefresh(); };
+            _graph.MouseEnter += delegate { FocusGraphForTransportShortcut(); };
+            _graph.MouseMove += delegate { FocusGraphForTransportShortcut(); };
             graphLayout.Controls.Add(_graph, 0, 0);
             graphLayout.SetColumnSpan(_graph, 2);
 
@@ -393,6 +402,61 @@ namespace MidiBottleneck
         }
 
         internal WorkloadGraph Graph { get { return _graph; } }
+
+        private void FocusGraphForTransportShortcut()
+        {
+            if (!IsAnalysisActive || !_graph.Visible || !_graph.IsHandleCreated) return;
+            Control focused = FindFocusedControl(this);
+            TextBoxBase text = focused as TextBoxBase;
+            if (text != null && !text.ReadOnly) return;
+            ComboBox combo = focused as ComboBox;
+            if (combo != null && (combo.DroppedDown || combo.DropDownStyle != ComboBoxStyle.DropDownList)) return;
+            if (!_graph.Focused) _graph.Focus();
+        }
+
+        private static Control FindFocusedControl(Control parent)
+        {
+            if (parent.Focused) return parent;
+            foreach (Control child in parent.Controls)
+                if (child.ContainsFocus) return FindFocusedControl(child);
+            return null;
+        }
+
+        protected override bool ProcessCmdKey(ref Message message, Keys keyData)
+        {
+            if (keyData == Keys.Space && TryHandleGraphSpace()) return true;
+            return base.ProcessCmdKey(ref message, keyData);
+        }
+
+        internal bool TryHandleGraphSpace()
+        {
+            return TryHandleGraphSpaceAt(_graphShortcutPointerForTesting ?? Cursor.Position, IsAnalysisActive);
+        }
+
+        private bool IsAnalysisActive
+        {
+            get { return Form.ActiveForm == this || Form.ActiveForm == null && ContainsFocus; }
+        }
+
+        internal bool TryHandleGraphSpaceAt(Point screenPointer, bool analysisActive)
+        {
+            if (analysisActive && !Modal &&
+                _graph != null && _graph.IsHandleCreated && _graph.Visible &&
+                _graph.RectangleToScreen(_graph.ClientRectangle).Contains(screenPointer))
+            {
+                Control focused = FindFocusedControl(this);
+                TextBoxBase text = focused as TextBoxBase;
+                ComboBox combo = focused as ComboBox;
+                if ((text == null || text.ReadOnly) &&
+                    (combo == null || (!combo.DroppedDown && combo.DropDownStyle == ComboBoxStyle.DropDownList)))
+                {
+                    EventHandler handler = TransportToggleRequested;
+                    if (handler != null) handler(this, EventArgs.Empty);
+                    return true;
+                }
+            }
+            return false;
+        }
         internal SplitContainer AnalysisSplit { get { return _split; } }
         internal Control AnalysisHeader { get { return _headerLayout; } }
         internal Control AnalysisSummary { get { return _summary; } }

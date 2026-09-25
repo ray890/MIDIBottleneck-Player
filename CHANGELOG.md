@@ -437,3 +437,22 @@ This is the human-readable history of MIDIBottleneck Player. Dates are original 
 ### Verification
 
 - Added realized WinForms tests for independent toggles, repeated restoration, compact/default breakpoint crossings, menu-handle recreation, loading and playback state, focus, and finite queue-pressure presentation. Scheduler and note-overflow behavior were not changed.
+
+## Build 37 — 2026-09-24
+
+### Player changes
+
+- Clarified Per-note gate filtering in Events sent/excluded: the usual case no longer shows a redundant zero queue-drop count. When both kinds occur, each remains labelled. Compact slash readouts use measured narrower spacing without changing the standard view.
+- The Analysis graph's Playback Statistics panel shortens long values before its captions and provides the complete readout on hover. Space over the active graph now uses the player's existing Play/Pause/Resume action without taking Space from text editing or modal dialogs.
+- Opening Channels for the first time during playback or Pause can request the existing ordered MIDI-state chase when that option is on. Only successfully sent values become ordinary observed readouts; merely inferred source values remain historical. Reactivating an open Channels window does not repeat the chase.
+- Processing value and Queue limit now use the same click-to-type and horizontal-scrub interaction as Channels, but remain ordinary numeric settings. Events/sec gives finer slider control from 1–100 and accepts exact typed rates through 9,999,999. The rational service clock retains exact long-run rates above one million, including zero-duration individual service quanta.
+- Regrouped **Always on top** with the two session view commands in the title-bar menu.
+
+### Queue performance follow-up
+
+- A bounded Build 34 versus current comparison confirmed that the older finite overflow policies slowed after they began sharing Build 35's linked note-eviction queue. Policies that do not need complete-note eviction now use reusable 256-entry FIFO segments. The old indexed path remains for **Drop oldest complete note**.
+- The change recovered much, but not all, of the measured local Analysis time. Projected drops and maximum occupancy matched; the measured loops had no Gen0 collections. These synthetic results do not claim native provider or giant-file throughput.
+
+### Verification
+
+- Focused x86/x64 tests cover the changed controls, menu, graph shortcut and readout, ordered Channels opening, rational high rates, policy transitions, finite queue, and lifecycle behavior. Full deterministic architecture totals and exact release hashes are recorded in the private Build 37 checkpoint.

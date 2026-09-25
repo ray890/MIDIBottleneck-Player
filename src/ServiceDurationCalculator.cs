@@ -54,7 +54,7 @@ namespace MidiBottleneck
             _mode = mode;
             _processingMicroseconds = Math.Max(0, processingMicroseconds);
             _midiBitrate = Math.Max(1, midiBitrate);
-            _eventsPerSecond = Math.Max(0, Math.Min(1000000, eventsPerSecond));
+            _eventsPerSecond = Math.Max(0, Math.Min(9999999, eventsPerSecond));
             _remainder = 0;
         }
 

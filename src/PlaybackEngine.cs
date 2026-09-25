@@ -130,7 +130,7 @@ namespace MidiBottleneck
             set
             {
                 if (value < 0) value = 0;
-                if (value > 1000000) value = 1000000;
+                if (value > 9999999) value = 9999999;
                 lock (_sync)
                 {
                     ServiceDurationSettings previous = _serviceSettings;
@@ -148,7 +148,7 @@ namespace MidiBottleneck
             lock (_sync)
                 Volatile.Write(ref _serviceSettings, new ServiceDurationSettings(mode,
                     Math.Max(0, processingMicroseconds), Math.Max(1, midiBitrate),
-                    Math.Max(0, Math.Min(1000000, eventsPerSecond))));
+                    Math.Max(0, Math.Min(9999999, eventsPerSecond))));
             SignalWake();
         }
 
@@ -548,6 +548,22 @@ namespace MidiBottleneck
             else _publishedChannelState = null;
         }
 
+        // Opening the optional monitor can request a fresh, ordered source-state
+        // chase. The monitor remains historical until these sends succeed.
+        internal bool ChaseStateForNewMonitor(Action<Exception> completion)
+        {
+            MidiSong song;
+            lock (_sync)
+            {
+                song = _song;
+                if (_thread == null || song == null || _output == null ||
+                    Volatile.Read(ref _chaseMidiStateOnPlaySeek) == 0) return false;
+                _channelControlRequests.Enqueue(new ChannelControlRequest(song, completion));
+            }
+            SignalWake();
+            return true;
+        }
+
         internal ChannelPlaybackSnapshot GetChannelSnapshot()
         {
             return _publishedChannelState;
@@ -718,6 +734,35 @@ namespace MidiBottleneck
 
         private void ExecuteChannelControl(ChannelControlRequest request)
         {
+            if (request.Kind == ChannelControlKind.MonitorStateChase)
+            {
+                MidiSong song;
+                IMidiOutput output;
+                long position;
+                lock (_sync)
+                {
+                    song = _song;
+                    output = _output;
+                    position = TicksToMicroseconds(CurrentTransportTicksLocked());
+                }
+                if (!Object.ReferenceEquals(song, request.ExpectedSong) || output == null)
+                    throw new InvalidOperationException("The MIDI file or output changed before Channels could refresh.");
+                if (Volatile.Read(ref _chaseMidiStateOnPlaySeek) == 0 ||
+                    Volatile.Read(ref _channelMonitoringEnabled) == 0) return;
+                int exclusive = song.EventStore.LowerBoundByTime(ClampPosition(song, position));
+                IList<MidiEvent> messages = song.GetMidiStateChaseIndex().CreateMessages(exclusive,
+                    _channelRouting, _channelOverrides);
+                for (int i = 0; i < messages.Count; i++)
+                {
+                    if (!IsActive() || Volatile.Read(ref _channelMonitoringEnabled) == 0)
+                        throw new InvalidOperationException("Playback changed before Channels could refresh.");
+                    MidiEventView message = MidiEventView.FromEvent(messages[i], -1);
+                    output.Send(message);
+                    if (Volatile.Read(ref _channelMonitoringEnabled) != 0)
+                        _channelState.RecordMonitorStateChaseApplied(message);
+                }
+                return;
+            }
             if (request.Kind == ChannelControlKind.SetEnabled)
             {
                 bool enabled = request.Value != 0;
@@ -2274,7 +2319,8 @@ namespace MidiBottleneck
     internal enum ChannelControlKind
     {
         SetEnabled,
-        Chase
+        Chase,
+        MonitorStateChase
     }
 
     internal sealed class ChannelControlRequest
@@ -2283,6 +2329,7 @@ namespace MidiBottleneck
         internal readonly int Channel;
         internal readonly ChannelAttribute Attribute;
         internal readonly int Value;
+        internal readonly MidiSong ExpectedSong;
         private readonly Action<Exception> _completion;
         private int _completed;
 
@@ -2295,6 +2342,14 @@ namespace MidiBottleneck
             Action<Exception> completion)
         {
             Kind = kind; Channel = channel; Attribute = attribute; Value = value; _completion = completion;
+        }
+
+        internal ChannelControlRequest(MidiSong expectedSong, Action<Exception> completion)
+        {
+            Kind = ChannelControlKind.MonitorStateChase;
+            ExpectedSong = expectedSong;
+            Channel = -1;
+            _completion = completion;
         }
 
         internal bool HasCompletion { get { return _completion != null; } }

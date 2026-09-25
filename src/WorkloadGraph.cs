@@ -2,6 +2,8 @@ using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Globalization;
+using System.Text;
 using System.Windows.Forms;
 
 namespace MidiBottleneck
@@ -12,6 +14,7 @@ namespace MidiBottleneck
         public string TimelineAndOutput;
         public string Queue;
         public string Events;
+        public string EventsCaption;
         public string OutputRate;
         public string EffectiveSpeed;
         public string Lag;
@@ -72,6 +75,7 @@ namespace MidiBottleneck
         private bool _dynamicRepaintPending;
         private int _dynamicPaintCount;
         private int _lastResolutionPlotWidth;
+        private string _currentToolTip;
 
         public event EventHandler<WorkloadSelectionEventArgs> InspectionChanged;
         public event EventHandler<WorkloadSelectionEventArgs> SeekRequested;
@@ -81,13 +85,16 @@ namespace MidiBottleneck
         public WorkloadGraph()
         {
             SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
-                     ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
+                     ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw |
+                     ControlStyles.Selectable, true);
             DoubleBuffered = true;
+            TabStop = true;
             BackColor = Color.FromArgb(24, 27, 32);
             ForeColor = Color.Gainsboro;
             _labelFont = new Font("Segoe UI", 8F, FontStyle.Regular, GraphicsUnit.Point);
             _toolTip = new ToolTip();
-            _toolTip.SetToolTip(this, "Wheel: zoom around cursor. Drag: pan. Click: pin. Double-click: seek.");
+            _currentToolTip = "Wheel: zoom around cursor. Drag: pan. Click: pin. Double-click: seek.";
+            _toolTip.SetToolTip(this, _currentToolTip);
             Cursor = Cursors.Cross;
             _dynamicTimer = new Timer();
             _dynamicTimer.Interval = 16;
@@ -311,6 +318,7 @@ namespace MidiBottleneck
         protected override void OnMouseMove(MouseEventArgs e)
         {
             base.OnMouseMove(e);
+            UpdatePlaybackOverlayToolTip(e.Location);
             if (_mouseDown && !_mouseDownAtEdge)
             {
                 int dx = e.X - _dragOrigin.X;
@@ -333,6 +341,7 @@ namespace MidiBottleneck
         protected override void OnMouseLeave(EventArgs e)
         {
             base.OnMouseLeave(e);
+            UpdatePlaybackOverlayToolTip(new Point(-1, -1));
             if (_mouseDown) return;
             _hoverUpdatePending = false;
             _hoverTime = null;
@@ -749,15 +758,23 @@ namespace MidiBottleneck
         private void DrawPlaybackStatistics(Graphics graphics, Rectangle area)
         {
             if (!PlaybackStatisticsDrawn) return;
-            string[] lines = new string[]
+            string[] captions = new string[]
             {
-                "Playback: " + _overlayData.State,
-                "Timeline / output: " + _overlayData.TimelineAndOutput,
-                "Queue now / maximum: " + _overlayData.Queue,
-                "Events sent / dropped: " + _overlayData.Events,
-                "Output rate: " + _overlayData.OutputRate,
-                "Effective speed: " + _overlayData.EffectiveSpeed,
-                "Lag current / maximum: " + _overlayData.Lag
+                "Playback: ", "Timeline / output: ", "Queue now / maximum: ",
+                String.IsNullOrEmpty(_overlayData.EventsCaption) ? "Events sent / dropped: " : _overlayData.EventsCaption,
+                "Output rate: ", "Effective speed: ",
+                "Lag current / maximum: "
+            };
+            string[] shortCaptions = new string[]
+            {
+                "State: ", "Time: ", "Queue: ", "Events: ",
+                "Rate: ", "Speed: ", "Lag: "
+            };
+            string[] values = new string[]
+            {
+                _overlayData.State, _overlayData.TimelineAndOutput, _overlayData.Queue,
+                _overlayData.Events, _overlayData.OutputRate, _overlayData.EffectiveSpeed,
+                _overlayData.Lag
             };
             Rectangle panel = PlaybackStatisticsBounds(area);
             using (Brush background = new SolidBrush(Color.FromArgb(218, 12, 15, 19)))
@@ -766,15 +783,80 @@ namespace MidiBottleneck
                 graphics.FillRectangle(background, panel);
                 graphics.DrawRectangle(outline, panel);
             }
-            for (int i = 0; i < lines.Length; i++)
-                TextRenderer.DrawText(graphics, lines[i], _labelFont,
+            for (int i = 0; i < values.Length; i++)
+                TextRenderer.DrawText(graphics,
+                    FitPlaybackLine(graphics, captions[i], shortCaptions[i], values[i], panel.Width - 14), _labelFont,
                     new Rectangle(panel.Left + 7, panel.Top + 4 + i * 17, panel.Width - 14, 17), Color.WhiteSmoke,
-                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis);
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine |
+                    TextFormatFlags.NoPadding | TextFormatFlags.EndEllipsis);
+        }
+
+        private string FitPlaybackLine(Graphics graphics, string caption, string shortCaption, string value, int width)
+        {
+            string full = caption + value;
+            if (PlaybackLineFits(graphics, full, width)) return full;
+            string compact = (value ?? String.Empty).Replace(" / ", "/").Replace(" events/sec", " ev/s");
+            if (PlaybackLineFits(graphics, caption + compact, width)) return caption + compact;
+            string abbreviated = AbbreviatePlaybackCounts(compact);
+            if (PlaybackLineFits(graphics, caption + abbreviated, width)) return caption + abbreviated;
+            if (PlaybackLineFits(graphics, shortCaption + abbreviated, width)) return shortCaption + abbreviated;
+            return shortCaption + abbreviated;
+        }
+
+        internal string FitPlaybackLineForTesting(Graphics graphics, string caption, string shortCaption,
+            string value, int width)
+        {
+            return FitPlaybackLine(graphics, caption, shortCaption, value, width);
+        }
+
+        private bool PlaybackLineFits(Graphics graphics, string text, int width)
+        {
+            return TextRenderer.MeasureText(graphics, text, _labelFont, Size.Empty,
+                TextFormatFlags.NoPadding | TextFormatFlags.SingleLine).Width <= Math.Max(1, width);
+        }
+
+        private static string AbbreviatePlaybackCounts(string value)
+        {
+            if (String.IsNullOrEmpty(value)) return String.Empty;
+            StringBuilder result = new StringBuilder(value.Length);
+            for (int i = 0; i < value.Length;)
+            {
+                if (!Char.IsDigit(value[i])) { result.Append(value[i++]); continue; }
+                int start = i;
+                while (i < value.Length && (Char.IsDigit(value[i]) || value[i] == ',')) i++;
+                string token = value.Substring(start, i - start);
+                long number;
+                if (token.IndexOf(',') >= 0 && Int64.TryParse(token, NumberStyles.AllowThousands,
+                    CultureInfo.CurrentCulture, out number) && number >= 10000)
+                {
+                    double scale = number >= 1000000000 ? 1000000000.0 : number >= 1000000 ? 1000000.0 : 1000.0;
+                    result.Append((number / scale).ToString("0.#", CultureInfo.CurrentCulture));
+                    result.Append(scale == 1000000000.0 ? 'B' : scale == 1000000.0 ? 'M' : 'k');
+                }
+                else result.Append(token);
+            }
+            return result.ToString();
+        }
+
+        private void UpdatePlaybackOverlayToolTip(Point location)
+        {
+            bool inside = PlaybackStatisticsDrawn && PlaybackStatisticsBounds(GraphArea).Contains(location);
+            string text = inside
+                ? "Playback: " + _overlayData.State + "\nTimeline / output: " + _overlayData.TimelineAndOutput +
+                    "\nQueue now / maximum: " + _overlayData.Queue +
+                    "\n" + (String.IsNullOrEmpty(_overlayData.EventsCaption) ? "Events sent / dropped: " :
+                        _overlayData.EventsCaption) + _overlayData.Events +
+                    "\nOutput rate: " + _overlayData.OutputRate + "\nEffective speed: " + _overlayData.EffectiveSpeed +
+                    "\nLag current / maximum: " + _overlayData.Lag
+                : "Wheel: zoom around cursor. Drag: pan. Click: pin. Double-click: seek.";
+            if (String.Equals(_currentToolTip, text, StringComparison.Ordinal)) return;
+            _currentToolTip = text;
+            _toolTip.SetToolTip(this, text);
         }
 
         internal Rectangle PlaybackStatisticsBounds(Rectangle area)
         {
-            int width = Math.Min(310, Math.Max(220, area.Width - 16));
+            int width = Math.Max(80, Math.Min(310, area.Width - 16));
             int height = 8 + 7 * 17;
             return new Rectangle(area.Left + 7, area.Top + 7, width, height);
         }

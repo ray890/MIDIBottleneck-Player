@@ -23,6 +23,7 @@ MIDIBottleneck Player is a Windows MIDI player and deterministic workload simula
 - A Per-note interval gate for limiting how often each pitch can change state.
 - Responsive compact layout and separate x86/x64 executables.
 - Session-only window-menu choices can hide Processing model, Statistics, or both to reclaim vertical space without changing playback settings.
+- Click or scrub the processing value and queue limit directly; the Events/sec slider gives finer control at low rates and accepts exact typed rates up to 9,999,999.
 
 MIDIBottleneck is an independent project. It is not based on, and is not intended to compete with, any particular MIDI player.
 

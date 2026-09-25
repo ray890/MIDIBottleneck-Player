@@ -35,6 +35,15 @@ namespace MidiBottleneck
 
         private readonly List<Node[]> _segments = new List<Node[]>();
         private readonly Dictionary<int, int> _pendingAttackNodes = new Dictionary<int, int>();
+        // The older single-event policies need only FIFO order. Keep that
+        // path in bounded value segments; reserve the linked/indexed nodes
+        // for complete-note eviction. Both paths share the same Entry API.
+        private readonly Queue<Entry[]> _simpleSegments = new Queue<Entry[]>();
+        private readonly Stack<Entry[]> _simpleFreeSegments = new Stack<Entry[]>();
+        private Entry[] _simpleTailSegment;
+        private int _simpleHeadOffset;
+        private int _simpleTailOffset;
+        private int _simplePeak;
         private int _nextFresh;
         private int _free = -1;
         private int _head = -1;
@@ -51,11 +60,12 @@ namespace MidiBottleneck
             _noteIndexEnabled = noteIndexEnabled;
         }
         internal int Count { get { return _count; } }
-        internal int PeakBackingCount { get { return _nextFresh; } }
+        internal int PeakBackingCount { get { return _noteIndexEnabled ? _nextFresh : _simplePeak; } }
         internal int BackingEntryCount { get { return _count; } }
         internal int EligibleBackingCount { get { return _eligibleCount; } }
         internal int ActiveEligibleCount { get { return _eligibleCount; } }
-        internal int AllocatedSegmentCount { get { return _segments.Count; } }
+        internal int AllocatedSegmentCount
+        { get { return _noteIndexEnabled ? _segments.Count : _simpleSegments.Count + _simpleFreeSegments.Count; } }
 
         internal void Enqueue(int eventIndex)
         {
@@ -64,6 +74,7 @@ namespace MidiBottleneck
 
         internal void Enqueue(Entry entry)
         {
+            if (!_noteIndexEnabled) { EnqueueSimple(entry); return; }
             int id = Allocate();
             Node node = new Node
             {
@@ -118,6 +129,7 @@ namespace MidiBottleneck
 
         internal Entry DequeueEntry()
         {
+            if (!_noteIndexEnabled) return DequeueSimple();
             if (_head < 0) throw new InvalidOperationException("The pending MIDI queue is empty.");
             int id = _head;
             Entry entry = Get(id).Entry;
@@ -155,47 +167,34 @@ namespace MidiBottleneck
         internal void SetNoteIndexEnabled(bool enabled)
         {
             if (_noteIndexEnabled == enabled) return;
+            if (enabled)
+            {
+                int count = _count;
+                _count = 0;
+                _noteIndexEnabled = true;
+                foreach (Entry entry in SimpleEntries(count)) Enqueue(entry);
+                ClearSimple();
+                if (_count != count) throw new InvalidOperationException("Pending queue conversion lost an event.");
+                return;
+            }
+            int linkedCount = _count;
             _noteIndexEnabled = enabled;
+            _count = 0;
+            for (int id = _head; id >= 0; id = Get(id).Next)
+                EnqueueSimple(Get(id).Entry);
+            if (_count != linkedCount) throw new InvalidOperationException("Pending queue conversion lost an event.");
+            _head = _tail = -1;
             _pendingAttackNodes.Clear();
             _eligibleHead = _eligibleTail = -1;
             _eligibleCount = 0;
-            if (!enabled) return;
-
-            for (int id = _head; id >= 0; id = Get(id).Next)
-            {
-                Node node = Get(id);
-                if (!node.Entry.IsNoteOn) continue;
-                node.EligiblePrevious = _eligibleTail;
-                node.EligibleNext = -1;
-                node.PairedReleaseNode = -1;
-                Set(id, node);
-                if (_eligibleTail >= 0)
-                {
-                    Node previous = Get(_eligibleTail);
-                    previous.EligibleNext = id;
-                    Set(_eligibleTail, previous);
-                }
-                else _eligibleHead = id;
-                _eligibleTail = id;
-                _eligibleCount++;
-                _pendingAttackNodes.Add(node.Entry.EventIndex, id);
-            }
-            for (int id = _head; id >= 0; id = Get(id).Next)
-            {
-                Node release = Get(id);
-                if (!release.Entry.IsNoteOff || release.Entry.PairedAttackIndex < 0) continue;
-                int attackId;
-                if (_pendingAttackNodes.TryGetValue(release.Entry.PairedAttackIndex, out attackId))
-                {
-                    Node attack = Get(attackId);
-                    attack.PairedReleaseNode = id;
-                    Set(attackId, attack);
-                }
-            }
+            _free = -1;
+            _nextFresh = 0;
         }
 
         internal void Clear()
         {
+            ClearSimple();
+            _simplePeak = 0;
             _head = _tail = _eligibleHead = _eligibleTail = -1;
             _free = -1;
             _nextFresh = 0;
@@ -276,10 +275,75 @@ namespace MidiBottleneck
         private Node Get(int id) { return _segments[id >> SegmentShift][id & SegmentMask]; }
         private void Set(int id, Node value) { _segments[id >> SegmentShift][id & SegmentMask] = value; }
 
+        private void EnqueueSimple(Entry entry)
+        {
+            if (_simpleTailSegment == null || _simpleTailOffset == SegmentSize)
+            {
+                _simpleTailSegment = _simpleFreeSegments.Count != 0
+                    ? _simpleFreeSegments.Pop() : new Entry[SegmentSize];
+                _simpleSegments.Enqueue(_simpleTailSegment);
+                _simpleTailOffset = 0;
+            }
+            _simpleTailSegment[_simpleTailOffset++] = entry;
+            _count++;
+            if (_count > _simplePeak) _simplePeak = _count;
+        }
+
+        private Entry DequeueSimple()
+        {
+            if (_count == 0) throw new InvalidOperationException("The pending MIDI queue is empty.");
+            Entry[] head = _simpleSegments.Peek();
+            Entry entry = head[_simpleHeadOffset++];
+            _count--;
+            if (_simpleHeadOffset == SegmentSize || _count == 0)
+            {
+                _simpleSegments.Dequeue();
+                _simpleFreeSegments.Push(head);
+                _simpleHeadOffset = 0;
+                if (_count == 0)
+                {
+                    _simpleTailSegment = null;
+                    _simpleTailOffset = 0;
+                }
+            }
+            return entry;
+        }
+
+        private IEnumerable<Entry> SimpleEntries()
+        {
+            return SimpleEntries(_count);
+        }
+
+        private IEnumerable<Entry> SimpleEntries(int count)
+        {
+            int remaining = count;
+            bool first = true;
+            foreach (Entry[] segment in _simpleSegments)
+            {
+                int start = first ? _simpleHeadOffset : 0;
+                int end = Object.ReferenceEquals(segment, _simpleTailSegment)
+                    ? _simpleTailOffset : SegmentSize;
+                for (int offset = start; offset < end && remaining > 0; offset++, remaining--)
+                    yield return segment[offset];
+                first = false;
+            }
+        }
+
+        private void ClearSimple()
+        {
+            while (_simpleSegments.Count != 0) _simpleFreeSegments.Push(_simpleSegments.Dequeue());
+            _simpleTailSegment = null;
+            _simpleHeadOffset = _simpleTailOffset = 0;
+        }
+
         public IEnumerator<int> GetEnumerator()
         {
-            for (int id = _head; id >= 0; id = Get(id).Next)
-                yield return Get(id).Entry.EventIndex;
+            if (_noteIndexEnabled)
+            {
+                for (int id = _head; id >= 0; id = Get(id).Next)
+                    yield return Get(id).Entry.EventIndex;
+            }
+            else foreach (Entry entry in SimpleEntries()) yield return entry.EventIndex;
         }
 
         IEnumerator IEnumerable.GetEnumerator() { return GetEnumerator(); }

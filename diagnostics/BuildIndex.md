@@ -40,6 +40,7 @@ The public history was reconstructed because original Git commits did not exist.
 | 34 | uninterrupted-rate-and-source-readouts | 2026-09-23 | exact | `v1.0.34` |
 | 35 | oldest-complete-note-overflow | 2026-09-24 | exact | `v1.0.35` |
 | 36 | session-view-controls | 2026-09-24 | exact | `v1.0.36` |
+| 37 | interface-refinements | 2026-09-24 | exact | `v1.0.37` |
 
 ## Evidence-recovery result
 

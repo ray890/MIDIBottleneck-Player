@@ -193,6 +193,25 @@ namespace MidiBottleneck
             RecordOverrideApplied(channel, attribute, value);
         }
 
+        // Opening Channels may restore indexed source state, but that control
+        // traffic is not a source event and does not move Sent, polyphony, or
+        // the last-dispatched source position.
+        internal void RecordMonitorStateChaseApplied(MidiEventView midiEvent)
+        {
+            ApplyRequests();
+            int channel = midiEvent.Channel;
+            if (channel < 0 || channel >= 16) return;
+            MidiChannelSnapshot state = _channels[channel];
+            int status = midiEvent.Status & 0xF0;
+            int first = midiEvent.DataLength > 1 ? midiEvent.GetDataByte(1) : 0;
+            int second = midiEvent.DataLength > 2 ? midiEvent.GetDataByte(2) : 0;
+            if (status == 0xB0) ApplyController(channel, first, second, ref state);
+            else if (status == 0xC0) { state.Program = first; ClearHistorical(ref state, ChannelAttribute.Program); }
+            else if (status == 0xD0) { state.ChannelPressure = first; ClearHistorical(ref state, ChannelAttribute.Aftertouch); }
+            else if (status == 0xE0) { state.PitchBend = ((second << 7) | first) - 8192; ClearHistorical(ref state, ChannelAttribute.PitchBend); }
+            _channels[channel] = state;
+        }
+
         internal void RecordSuccessful(MidiEventView midiEvent)
         {
             ApplyRequests();

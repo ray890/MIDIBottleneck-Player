@@ -35,12 +35,16 @@ The title-bar menu (Alt+Space) has checked **Show Processing model** and **Show 
 **Simulate slowdown** applies the selected service model:
 
 - **Processing time per event** assigns the configured time to every accepted dispatchable event.
-- **Events per second** directly sets the service rate from 0 through 1,000,000 events/sec. Zero means unlimited/immediate service.
+- **Events per second** directly sets the service rate from 0 through 9,999,999 events/sec. Zero means unlimited/immediate service.
 - **MIDI bitrate** derives service time from the message’s serialized byte count and selected bitrate.
 
 With slowdown disabled, accepted events are dispatched as soon as their source time and output calls permit. A configured processing time of exactly 0 µs uses the same effective-immediate scheduler path while retaining the logical setting.
 
 The Events/sec model carries fractional microseconds between events, so rates such as 3,000 events/sec remain exact over time rather than being rounded event by event. Switching directly between Processing time and Events/sec chooses the nearest whole equivalent. A live rate or ordinary model change applies when the next event begins service. The event already in service keeps its assigned duration; the pending queue, sounding notes, transport, and statistics continue. A changed Events/sec setting starts a fresh fractional phase at that next service start.
+
+The Events/sec slider gives its lower half to small, evenly spaced changes from 1 to 100 events/sec; its upper half covers higher rates. The numeric field keeps an exact typed value even when the slider can only point near it. Above one million events/sec, some individual modeled service times are zero microseconds and others are one; the shared fractional clock keeps the long-run rate exact.
+
+The processing value and queue limit use flat scrub-or-type fields. Click to type, then press Enter or leave the field after a change; Escape cancels. Drag sideways to adjust without opening a dialog. A small movement or an unchanged click does not change a setting. The rate field changes by 16 units per pixel, or one with Shift. Queue limit changes by one event per four pixels, or one per eight with Shift. Up/Down also adjusts the focused value. The field's tooltip gives its current units and keyboard step.
 
 ## Queue length and overflow
 
@@ -74,7 +78,7 @@ If a selected attack arrives while its pitch is down, the player sends a release
 
 The output limit remains exactly one NoteOn, one NoteOff, or no transition for each pitch at each boundary. Non-note messages retain their ordinary source-time path.
 
-The Sent/dropped statistic shows simultaneous coalescing and interval-overload rejections separately in parentheses. Changing the gate, its interval, output, or transport state uses the normal safe silence/restart boundary, so stale pitch state cannot survive Pause, Seek, Stop, or an output restart.
+The Events sent/excluded statistic shows gate-filtered notes directly without an unnecessary zero drop count. If queue drops also occur, it labels and shows them separately. Gate filtering covers simultaneous note combining and interval overload; it is not queue overflow. Changing the gate, its interval, output, or transport state uses the normal safe silence/restart boundary, so stale pitch state cannot survive Pause, Seek, Stop, or an output restart.
 
 Very large numbers of simultaneously unmatched source notes are tracked in growable reusable segments. If the selected output channel for a layered pitch is disabled during playback, another already selected enabled layer can re-establish that pitch at the next interval boundary after the safety silence.
 
@@ -102,13 +106,15 @@ Analysis work is asynchronous, cancellable, cached by reusable file/resolution w
 
 The final projection replaces that preview atomically. Cancelling keeps the last completed graph when one exists. If there is no completed graph yet, a published preview remains useful and is relabelled **Workload only — projection cancelled**.
 
+The graph's optional Playback Statistics panel shortens long readouts before shortening their captions. Hover over it to see the complete values. When Analysis is active and the pointer is over the graph, Space uses the player's usual Play/Pause/Resume action rather than activating a previously focused graph button. Text editing and modal dialogs keep their own keyboard behavior.
+
 ## MIDI Channel Monitor
 
-**Channels…** opens a modeless 16-row monitor. Sent, filtering, polyphony, and output position come from actual dispatch decisions. If Play/Seek state chase is enabled, attributes with no confirmed output observation can also show the latest indexed source-file value before the current position. This uses the song's existing state index and does not send MIDI.
+**Channels…** opens a modeless 16-row monitor. Sent, filtering, polyphony, and output position come from actual dispatch decisions. If Play/Seek state chase is enabled, attributes without a confirmed output observation first show the latest indexed source-file value before the current position in gray. While playback is active or paused, opening the monitor also requests an ordered restoration of that indexed channel state. Each value becomes ordinary black only after its output send succeeds; a failed or pending send does not turn a guess into an observation. Reopening an already-visible monitor does not chase again. While stopped, the indexed values remain gray until actually sent. With the chase option off, opening Channels does not send an automatic chase.
 
 It shows MIDI-observed held-key polyphony, peak polyphony, sent/filtered counts, bank, program, volume, expression, pan, sustain, pitch bend, channel aftertouch, and last output position. These are MIDI observations, not a synthesizer’s internal voice count.
 
-Ordinary black attributes were observed at the output. Bold blue attributes are forced. Gray italic attributes are historical; a source-derived gray value describes the file and does not prove the output received it. Forced values take precedence. No unknown value is invented, and opening Channels does not change Sent, polyphony, or output position.
+Ordinary black attributes were observed at the output, including a confirmed ordered state restoration. Bold blue attributes are forced. Gray italic attributes are historical; a source-derived gray value describes the file and does not prove the output received it. Forced values take precedence, disabled channels receive no chase, and no unknown value is invented. The monitor-opening restoration does not count as a source event or change Sent, polyphony, or the last dispatched source position.
 
 Double-click an adjustable attribute to activate its scrub-or-type editor:
 
@@ -126,4 +132,4 @@ Overrides persist across normal playback boundaries for the same file and clear 
 
 The main window switches to a measured compact arrangement below its responsive width boundary. Controls retain full tooltips where captions or values must ellipsize.
 
-The title-bar system menu contains **About**, checked-by-default **Chase MIDI state on Play/Seek**, session-only **Always on top**, **Per-note interval gate**, and **Apply queue limit without slowdown**, which starts unchecked.
+The title-bar system menu places **Always on top**, **Show Processing model**, and **Show Statistics** together after **About**. A later group contains checked-by-default **Chase MIDI state on Play/Seek**, **Per-note interval gate**, and **Apply queue limit without slowdown**, which starts unchecked.

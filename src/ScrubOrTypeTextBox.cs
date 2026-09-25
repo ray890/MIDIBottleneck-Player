@@ -39,6 +39,9 @@ namespace MidiBottleneck
         private bool _ignoreWarpMove;
         private bool _forced;
         private bool _historical;
+        private bool _numericOnly;
+        private int _numericIncrement = 1;
+        private bool _thousandsSeparator;
         private int _typingStartValue;
         private string _lastError;
         private Func<int, string> _displayFormatter;
@@ -51,6 +54,7 @@ namespace MidiBottleneck
         internal event EventHandler<ScrubValueEventArgs> ValueRequested;
         internal event EventHandler<ScrubValueEventArgs> AutoRequested;
         internal event EventHandler<ScrubValueEventArgs> ChaseRequested;
+        internal event EventHandler ValueChanged;
 
         internal ScrubOrTypeTextBox()
         {
@@ -69,6 +73,76 @@ namespace MidiBottleneck
         internal bool IsForced { get { return _forced; } }
         internal string LastError { get { return _lastError ?? String.Empty; } }
 
+        internal void ConfigureNumeric(int value, int minimum, int maximum,
+            int coarseUnits, int coarsePixels, int fineUnits, int finePixels)
+        {
+            if (minimum < 0 || maximum < minimum) throw new ArgumentOutOfRangeException("maximum");
+            Configure(value, minimum, maximum, 0, coarseUnits, coarsePixels, fineUnits, finePixels,
+                false, false, null, null);
+            _numericOnly = true;
+            _thousandsSeparator = true;
+            TabStop = true;
+            SetFlatText();
+        }
+
+        internal decimal Value
+        {
+            get { return _value; }
+            set
+            {
+                if (value < _minimum || value > _maximum || value != Decimal.Truncate(value))
+                    throw new ArgumentOutOfRangeException("value");
+                SetNumericValue((int)value);
+            }
+        }
+
+        internal decimal Minimum
+        {
+            get { return _minimum; }
+            set { SetNumericRange((int)value, _maximum); }
+        }
+
+        internal decimal Maximum
+        {
+            get { return _maximum; }
+            set { SetNumericRange(_minimum, (int)value); }
+        }
+
+        internal decimal Increment
+        {
+            get { return _numericIncrement; }
+            set { _numericIncrement = Math.Max(1, (int)value); }
+        }
+
+        internal bool ThousandsSeparator
+        {
+            get { return _thousandsSeparator; }
+            set { _thousandsSeparator = value; if (!_typing) SetFlatText(); }
+        }
+
+        internal int DecimalPlaces
+        {
+            get { return 0; }
+            set { if (value != 0) throw new ArgumentOutOfRangeException("value"); }
+        }
+
+        private void SetNumericRange(int minimum, int maximum)
+        {
+            if (minimum < 0 || maximum < minimum) throw new ArgumentOutOfRangeException("maximum");
+            _minimum = minimum;
+            _maximum = maximum;
+            if (_value < minimum || _value > maximum) SetNumericValue(Clamp(_value));
+        }
+
+        private void SetNumericValue(int value)
+        {
+            if (_value == value) return;
+            _value = value;
+            if (!_typing) SetFlatText();
+            EventHandler handler = ValueChanged;
+            if (handler != null) handler(this, EventArgs.Empty);
+        }
+
         internal void Configure(int value, int minimum, int maximum, int displayOffset,
             int coarseUnits, int coarsePixels, int fineUnits, int finePixels,
             bool forced, bool historical, Func<int, string> displayFormatter, string help)
@@ -84,6 +158,7 @@ namespace MidiBottleneck
             _pixelRemainder = 0;
             _remainderFine = false;
             _displayFormatter = displayFormatter;
+            _numericOnly = false;
             _value = Clamp(value);
             _forced = forced;
             _historical = historical;
@@ -99,6 +174,7 @@ namespace MidiBottleneck
         {
             if (button == MouseButtons.Right)
             {
+                if (_numericOnly) return;
                 if (_forced) RequestAuto();
                 else if (_historical) RequestChase();
                 return;
@@ -197,6 +273,15 @@ namespace MidiBottleneck
 
         protected override void OnKeyDown(KeyEventArgs e)
         {
+            if (_numericOnly && !_typing && (e.KeyCode == Keys.F2 || e.KeyCode == Keys.Enter))
+            {
+                EnterTypingMode(); e.SuppressKeyPress = true; return;
+            }
+            if (_numericOnly && !_typing && (e.KeyCode == Keys.Up || e.KeyCode == Keys.Down))
+            {
+                RequestValue(ClampLong((long)_value + (e.KeyCode == Keys.Up ? _numericIncrement : -_numericIncrement)));
+                e.SuppressKeyPress = true; return;
+            }
             if (e.KeyCode == Keys.Enter && _typing)
             {
                 CommitTypedValue(true); e.SuppressKeyPress = true; return;
@@ -259,7 +344,7 @@ namespace MidiBottleneck
 
         private void ApplyScrubDelta(int pixels, bool fine)
         {
-            if (_minimum == 0 && _maximum == 1)
+            if (!_numericOnly && _minimum == 0 && _maximum == 1)
             {
                 if (pixels > 0) RequestValue(1);
                 else if (pixels < 0) RequestValue(0);
@@ -340,7 +425,7 @@ namespace MidiBottleneck
         {
             _typing = false;
             ReadOnly = true;
-            TabStop = false;
+            TabStop = _numericOnly;
             Cursor = Cursors.SizeWE;
             if (Focused && IsHandleCreated) HideCaret(Handle);
             SelectionLength = 0;
@@ -378,6 +463,20 @@ namespace MidiBottleneck
         private void RequestValue(int value)
         {
             value = Clamp(value);
+            if (_numericOnly)
+            {
+                if (value == _value) return;
+                int previous = _value;
+                try { SetNumericValue(value); _lastError = null; }
+                catch (Exception ex)
+                {
+                    _value = previous;
+                    _lastError = "Could not apply: " + ex.Message;
+                    _toolTip.Show(_lastError, this, 0, Height, 2500);
+                }
+                if (!_typing) SetFlatText();
+                return;
+            }
             if (value == _value && _forced) return;
             ScrubValueEventArgs request = new ScrubValueEventArgs(value);
             EventHandler<ScrubValueEventArgs> handler = ValueRequested;
@@ -416,26 +515,31 @@ namespace MidiBottleneck
         private void SetFlatText()
         {
             if (_typing) return;
-            Text = _displayFormatter == null ? FormatEditable(_value) : _displayFormatter(_value);
+            Text = _numericOnly && _thousandsSeparator
+                ? _value.ToString("N0", CultureInfo.CurrentCulture)
+                : _displayFormatter == null ? FormatEditable(_value) : _displayFormatter(_value);
             SelectionLength = 0;
         }
 
         private string FormatEditable(int value)
         {
-            if (_minimum == 0 && _maximum == 1 && _displayOffset == 0) return value == 0 ? "Off" : "On";
+            if (!_numericOnly && _minimum == 0 && _maximum == 1 && _displayOffset == 0)
+                return value == 0 ? "Off" : "On";
             return (value + _displayOffset).ToString(CultureInfo.CurrentCulture);
         }
 
         private bool TryParseEditable(string text, out int value)
         {
             string normalized = (text ?? String.Empty).Trim();
-            if (_minimum == 0 && _maximum == 1 && _displayOffset == 0)
+            if (!_numericOnly && _minimum == 0 && _maximum == 1 && _displayOffset == 0)
             {
                 if (String.Equals(normalized, "On", StringComparison.OrdinalIgnoreCase)) { value = 1; return true; }
                 if (String.Equals(normalized, "Off", StringComparison.OrdinalIgnoreCase)) { value = 0; return true; }
             }
             int shown;
-            if (!Int32.TryParse(normalized, NumberStyles.Integer, CultureInfo.CurrentCulture, out shown))
+            if (!Int32.TryParse(normalized, _numericOnly
+                ? NumberStyles.Integer | NumberStyles.AllowThousands : NumberStyles.Integer,
+                CultureInfo.CurrentCulture, out shown))
             {
                 value = _value; return false;
             }

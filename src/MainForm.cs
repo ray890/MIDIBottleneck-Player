@@ -113,14 +113,14 @@ namespace MidiBottleneck
         private ComboBox _serviceModeCombo;
         private ComboBox _overflowPolicyCombo;
         private Label _serviceValueLabel;
-        private NumericUpDown _processingValue;
+        private ScrubOrTypeTextBox _processingValue;
         private Label _serviceUnitLabel;
         private TrackBar _processingSlider;
         private Label _serviceModeLabel;
         private Label _overflowLabel;
         private Label _eventsLabel;
         private Button _dinPresetButton;
-        private NumericUpDown _queueLimitValue;
+        private ScrubOrTypeTextBox _queueLimitValue;
         private Button _playButton;
         private Button _stopButton;
         private Label _stateLabel;
@@ -186,15 +186,15 @@ namespace MidiBottleneck
                 AppendMenu(menu, MfSeparator, UIntPtr.Zero, null);
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuAbout, "About " + ProductIdentity.Name + "…");
                 AppendMenu(menu, MfSeparator, UIntPtr.Zero, null);
+                AppendMenu(menu, MfString, (UIntPtr)SystemMenuAlwaysOnTop, "Always on top");
+                AppendMenu(menu, MfString, (UIntPtr)SystemMenuShowProcessingModel, "Show &Processing model");
+                AppendMenu(menu, MfString, (UIntPtr)SystemMenuShowStatistics, "Show &Statistics");
+                AppendMenu(menu, MfSeparator, UIntPtr.Zero, null);
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuChaseMidiState,
                     "Chase MIDI state on Play/Seek");
-                AppendMenu(menu, MfString, (UIntPtr)SystemMenuAlwaysOnTop, "Always on top");
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuPerNoteIntervalGate, "Per-note interval gate");
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuApplyQueueLimitWithoutSlowdown,
                     "Apply queue limit without slowdown");
-                AppendMenu(menu, MfSeparator, UIntPtr.Zero, null);
-                AppendMenu(menu, MfString, (UIntPtr)SystemMenuShowProcessingModel, "Show &Processing model");
-                AppendMenu(menu, MfString, (UIntPtr)SystemMenuShowStatistics, "Show &Statistics");
                 UpdateAlwaysOnTopMenuCheck();
                 UpdatePerNoteIntervalGateMenuCheck();
                 UpdateForwardQueueMenuState();
@@ -678,14 +678,15 @@ namespace MidiBottleneck
             _toolTip.SetToolTip(_queueLimitCheck, "Queue structure is locked while playback is active.");
             _queueCluster.Controls.Add(_queueLimitCheck);
 
-            _queueLimitValue = new NumericUpDown();
-            _queueLimitValue.Minimum = 1;
-            _queueLimitValue.Maximum = 1000000;
-            _queueLimitValue.Value = PlaybackEngine.DefaultQueueLengthLimit;
+            _queueLimitValue = new ScrubOrTypeTextBox();
+            _queueLimitValue.ConfigureNumeric(PlaybackEngine.DefaultQueueLengthLimit, 1, 1000000,
+                1, 4, 1, 8);
+            _queueLimitValue.AccessibleName = "Queue length limit";
             _queueLimitValue.Increment = 100;
             _queueLimitValue.ThousandsSeparator = true;
             _queueLimitValue.Width = 100;
-            _toolTip.SetToolTip(_queueLimitValue, "Queue structure is locked while playback is active.");
+            _toolTip.SetToolTip(_queueLimitValue,
+                "Click to type; Enter applies, Escape cancels. Drag sideways: one event per 4 pixels, or 8 with Shift. Up/Down adjusts by 100. Queue structure is locked while playback is active.");
             _queueLimitValue.ValueChanged += delegate
             {
                 _engine.QueueLengthLimit = Decimal.ToInt32(_queueLimitValue.Value);
@@ -750,14 +751,15 @@ namespace MidiBottleneck
             _dinPresetButton.Click += delegate { ApplyMidiBitrate(ServiceDurationCalculator.FivePinDinBitrate, false); };
             _toolTip.SetToolTip(_dinPresetButton, "Set the standard MIDI DIN rate of 31,250 bit/s.");
 
-            _processingValue = new NumericUpDown();
-            _processingValue.Minimum = 0;
-            _processingValue.Maximum = 1000000;
+            _processingValue = new ScrubOrTypeTextBox();
+            _processingValue.ConfigureNumeric(0, 0, 1000000, 16, 1, 1, 1);
+            _processingValue.AccessibleName = "Processing time per event";
             _processingValue.Width = 100;
             _processingValue.Anchor = AnchorStyles.Left;
             _processingValue.ThousandsSeparator = true;
             _processingValue.ValueChanged += ProcessingValueChanged;
-            _toolTip.SetToolTip(_processingValue, "A live edit applies when the next event begins service.");
+            _toolTip.SetToolTip(_processingValue,
+                "Click to type; Enter applies, Escape cancels. Drag sideways: 16 units per pixel, or one with Shift. A live ordinary rate edit applies when the next event begins service.");
 
             _serviceUnitLabel = new Label();
             _serviceUnitLabel.Text = "µs";
@@ -1452,6 +1454,9 @@ namespace MidiBottleneck
 
         private void UpdateProcessingSummary(long microseconds)
         {
+            _toolTip.SetToolTip(_processingValue, _perNoteIntervalGateEnabled
+                ? "Click to type or drag sideways: 16 microseconds per pixel, or one with Shift. Enter applies; Escape cancels. Changing the per-note interval safely silences and restarts at the same position."
+                : "Click to type or drag sideways: 16 microseconds per pixel, or one with Shift. Enter applies; Escape cancels. A live change applies when the next event begins service.");
             _toolTip.SetToolTip(_processingSlider,
                 _perNoteIntervalGateEnabled
                     ? "Sets the nonzero interval for the per-note gate. A live edit safely silences and restarts the scheduler at the same position."
@@ -1484,6 +1489,7 @@ namespace MidiBottleneck
                 if (_engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate)
                 {
                     _serviceValueLabel.Text = _compactLayout ? "Bitrate:" : "MIDI bitrate:";
+                    _processingValue.AccessibleName = "MIDI bitrate in bits per second";
                     _processingValue.Width = _compactLayout ? 89 : 110;
                     _processingValue.DecimalPlaces = 0;
                     _processingValue.Minimum = 1;
@@ -1497,10 +1503,11 @@ namespace MidiBottleneck
                 else if (_engine.ServiceDurationMode == ServiceDurationMode.EventsPerSecond)
                 {
                     _serviceValueLabel.Text = "Events/sec:";
+                    _processingValue.AccessibleName = "Events per second";
                     _processingValue.Width = _compactLayout ? 77 : 100;
                     _processingValue.DecimalPlaces = 0;
                     _processingValue.Minimum = 0;
-                    _processingValue.Maximum = 1000000;
+                    _processingValue.Maximum = 9999999;
                     _processingValue.Increment = 1;
                     _processingValue.Value = _engine.EventsPerSecond;
                     _serviceUnitLabel.Text = String.Empty;
@@ -1510,6 +1517,7 @@ namespace MidiBottleneck
                 else
                 {
                     _serviceValueLabel.Text = _compactLayout ? "Time/event:" : "Processing time per event:";
+                    _processingValue.AccessibleName = "Processing time per event in microseconds";
                     _processingValue.Width = _compactLayout ? 77 : 100;
                     _processingValue.Minimum = _perNoteIntervalGateEnabled ? 1 : 0;
                     _serviceUnitLabel.Text = "µs";
@@ -1548,13 +1556,15 @@ namespace MidiBottleneck
 
         private void UpdateBitrateSummary(long bitrate)
         {
+            _toolTip.SetToolTip(_processingValue,
+                "Click to type or drag sideways: 16 bit/s per pixel, or one with Shift. Enter applies; Escape cancels. Up/Down adjusts by 100. A live change applies when the next event begins service.");
             _toolTip.SetToolTip(_processingSlider,
                 "Click or drag to set the bitrate. Uses 10 transmitted bits per MIDI byte. A live edit applies when the next event begins service.");
         }
 
         private void ApplyEventsPerSecond(long rate, bool fromNumeric)
         {
-            rate = Math.Max(0, Math.Min(1000000, rate));
+            rate = Math.Max(0, Math.Min(9999999, rate));
             long previous = _engine.EventsPerSecond;
             PlaybackState previousState = _engine.State;
             _engine.EventsPerSecond = rate;
@@ -1573,9 +1583,11 @@ namespace MidiBottleneck
 
         private void UpdateEventRateSummary(long rate)
         {
+            _toolTip.SetToolTip(_processingValue,
+                "Click to type an exact rate or drag sideways: 16 events/sec per pixel, or one with Shift. Enter applies; Escape cancels. Up/Down adjusts by one. A live change applies when the next event begins service.");
             _toolTip.SetToolTip(_processingSlider, rate == 0
-                ? "Unlimited: modeled service is immediate. Move right to choose 1 through 1,000,000 events per second."
-                : "Click or drag from lower to higher event rates. Fractional microseconds are distributed exactly across events. A live edit applies when the next event begins service.");
+                ? "Unlimited: modeled service is immediate. Move right to choose 1 through 9,999,999 events per second."
+                : "The lower half adjusts 1–100 events/sec in small, even steps; the upper half covers higher rates. Type an exact value if needed. Fractional microseconds are shared across events, so rates above one million remain modeled precisely. A live edit applies when the next event begins service.");
         }
 
         private void SimulateSlowdownChanged(object sender, EventArgs e)
@@ -1668,17 +1680,24 @@ namespace MidiBottleneck
         internal static int EventRateToSlider(long rate)
         {
             if (rate <= 0) return 0;
-            double normalized = Math.Log10(Math.Max(1, Math.Min(1000000, rate))) / 6.0;
-            return 1 + Math.Max(0, Math.Min(ProcessingTrackBar.ScaleMaximum - 1,
-                (int)Math.Round(normalized * (ProcessingTrackBar.ScaleMaximum - 1))));
+            const int lowEnd = 5000;
+            if (rate <= 100)
+                return 1 + (int)Math.Round((rate - 1) * (lowEnd - 1) / 99.0);
+            rate = Math.Min(9999999, rate);
+            double normalized = Math.Log(rate / 100.0) / Math.Log(9999999.0 / 100.0);
+            return lowEnd + (int)Math.Round(normalized * (ProcessingTrackBar.ScaleMaximum - lowEnd));
         }
 
         internal static long SliderToEventRate(int slider)
         {
             if (slider <= 0) return 0;
-            double normalized = (Math.Min(ProcessingTrackBar.ScaleMaximum, slider) - 1) /
-                (double)(ProcessingTrackBar.ScaleMaximum - 1);
-            return Math.Max(1, Math.Min(1000000, (long)Math.Round(Math.Pow(10.0, normalized * 6.0))));
+            const int lowEnd = 5000;
+            slider = Math.Min(ProcessingTrackBar.ScaleMaximum, slider);
+            if (slider <= lowEnd)
+                return 1 + (long)Math.Round((slider - 1) * 99.0 / (lowEnd - 1));
+            double normalized = (slider - lowEnd) / (double)(ProcessingTrackBar.ScaleMaximum - lowEnd);
+            return Math.Max(100, Math.Min(9999999,
+                (long)Math.Round(100.0 * Math.Pow(9999999.0 / 100.0, normalized))));
         }
 
         internal static long ProcessingToEventRate(long microseconds)
@@ -1733,8 +1752,8 @@ namespace MidiBottleneck
             _lastDroppedEvents = snapshot.DroppedEvents;
             _statisticsView.SetValues(new string[]
             {
-                FormatTime(snapshot.IntendedTimelineMicroseconds) + " / " + FormatTime(snapshot.LastDispatchedTimelineMicroseconds),
-                snapshot.OutstandingEvents.ToString("N0", CultureInfo.CurrentCulture) + " / " + snapshot.MaximumQueueLength.ToString("N0", CultureInfo.CurrentCulture) +
+                FormatTime(snapshot.IntendedTimelineMicroseconds) + (_compactLayout ? "\u2009/\u2009" : " / ") + FormatTime(snapshot.LastDispatchedTimelineMicroseconds),
+                snapshot.OutstandingEvents.ToString("N0", CultureInfo.CurrentCulture) + (_compactLayout ? "\u2009/\u2009" : " / ") + snapshot.MaximumQueueLength.ToString("N0", CultureInfo.CurrentCulture) +
                     (snapshot.VirtualQueueActive ? (_compactLayout ? " actual" : " actual backlog") : String.Empty),
                 configuredRate,
                 _compactLayout && outputRate.HasValue
@@ -1766,6 +1785,8 @@ namespace MidiBottleneck
                         TimelineAndOutput = FormatTime(snapshot.IntendedTimelineMicroseconds) + " / " + FormatTime(snapshot.LastDispatchedTimelineMicroseconds),
                         Queue = snapshot.OutstandingEvents.ToString("N0", CultureInfo.CurrentCulture) + " / " + snapshot.MaximumQueueLength.ToString("N0", CultureInfo.CurrentCulture),
                         Events = FormatEventCounts(snapshot, false),
+                        EventsCaption = snapshot.ProcessingMode == ProcessingMode.PerNoteIntervalGate
+                            ? "Events sent / excluded: " : "Events sent / dropped: ",
                         OutputRate = RollingOutputRate.Format(outputRate),
                         EffectiveSpeed = EffectivePlaybackSpeed.Format(speed),
                         Lag = FormatLagMilliseconds(snapshot.CurrentLagMicroseconds) + " / " + FormatLagMilliseconds(snapshot.MaximumLagMicroseconds)
@@ -1939,6 +1960,7 @@ namespace MidiBottleneck
                 PerformAnalysisSeek(seek.TimeMicroseconds);
             };
             diagnostics.ChannelsRequested += delegate { ShowChannelMonitor(); };
+            diagnostics.TransportToggleRequested += delegate { PlayClicked(this, EventArgs.Empty); };
             diagnostics.StartPosition = FormStartPosition.Manual;
             Rectangle working = Screen.FromControl(this).WorkingArea;
             Point proposed = new Point(Right + 12, Top);
@@ -2041,6 +2063,21 @@ namespace MidiBottleneck
                 UpdateChannelSourceReadouts(_engine.State == PlaybackState.Stopped
                     ? _selectedPositionMicroseconds : _engine.GetSnapshot().IntendedTimelineMicroseconds);
                 monitor.UpdateSnapshot(_engine.GetChannelSnapshot());
+                if (_chaseMidiStateOnPlaySeek)
+                    _engine.ChaseStateForNewMonitor(delegate(Exception error)
+                    {
+                        if (monitor.IsDisposed || !monitor.IsHandleCreated) return;
+                        try
+                        {
+                            monitor.BeginInvoke((MethodInvoker)delegate
+                            {
+                                if (monitor.IsDisposed) return;
+                                monitor.UpdateSnapshot(_engine.GetChannelSnapshot());
+                                if (error != null) monitor.ShowMonitorStatus("Could not refresh MIDI state: " + error.Message);
+                            });
+                        }
+                        catch (InvalidOperationException) { }
+                    });
             }
         }
 
@@ -2474,13 +2511,16 @@ namespace MidiBottleneck
         internal static string FormatEventCounts(PlaybackSnapshot snapshot, bool compact)
         {
             if (snapshot == null) return "—";
-            string value = snapshot.ProcessedEvents.ToString("N0", CultureInfo.CurrentCulture) + " / " +
-                snapshot.DroppedEvents.ToString("N0", CultureInfo.CurrentCulture);
-            if (snapshot.ProcessingMode == ProcessingMode.PerNoteIntervalGate && snapshot.GateFilteredEvents != 0)
-                value += compact
-                    ? " (+" + snapshot.GateFilteredEvents.ToString("N0", CultureInfo.CurrentCulture) + " gate)"
-                    : " (+" + snapshot.GateFilteredEvents.ToString("N0", CultureInfo.CurrentCulture) + " gate-filtered)";
-            return value;
+            string separator = compact ? "\u2009/\u2009" : " / ";
+            string sent = snapshot.ProcessedEvents.ToString("N0", CultureInfo.CurrentCulture);
+            string dropped = snapshot.DroppedEvents.ToString("N0", CultureInfo.CurrentCulture);
+            if (snapshot.ProcessingMode != ProcessingMode.PerNoteIntervalGate || snapshot.GateFilteredEvents == 0)
+                return sent + separator + dropped;
+            string filtered = snapshot.GateFilteredEvents.ToString("N0", CultureInfo.CurrentCulture) +
+                (compact ? " gate" : " gate-filtered");
+            return snapshot.DroppedEvents == 0
+                ? sent + separator + filtered
+                : sent + separator + dropped + (compact ? " drop" : " dropped") + separator + filtered;
         }
 
         private void ShowEffectiveSpeedMenu(object sender, MouseEventArgs e)

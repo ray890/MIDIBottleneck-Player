@@ -20,8 +20,9 @@ The next dedicated feature is not yet selected. A future presentation or playbac
 - **Build 34 — live edits and Channels provenance:** ordinary rate edits now apply at the next service start without silencing or restarting. Channels can show indexed source values as gray historical readouts when no output observation exists; these never count as sent MIDI. Forward-only queue limiting now starts off.
 - **Build 35 — oldest complete-note overflow:** the finite delayed queue can evict the oldest unsent note occurrence and its queued release in constant-time indexed operations. A later release is suppressed, in-service attacks remain protected, and static Analysis makes matching decisions. Protected releases and note-silencing controls can exceed the nominal soft capacity.
 - **Build 36 — session view controls:** native system-menu choices independently collapse and restore Processing model and Statistics. They preserve settings, counters, queue and output state, and the user's extra standard-window height. Compact height is remeasured from visible rows.
+- **Build 37 — interface refinements:** shorter gate-filter and compact slash readouts, measured Analysis-panel readout fallback, graph-hover Space transport, ordered observed-state Chase when first opening Channels, scrub-or-type main numeric values, a finer low-rate Events/sec slider, and exact 9,999,999/sec service-clock support.
 
-Build 35 moved all finite simulated policies onto `PendingMidiQueue`. Its bounded measurements did not establish a before/after throughput baseline for the older policies. Build 36 changes only the presentation path; it does not claim that the older queue policies have unchanged performance.
+Build 37 compared the older finite policies with Build 34 on the same bounded 120,000-event synthetic fixture. The Build 35 linked-node path showed a local Analysis slowdown, especially for Drop oldest. A segmented FIFO now handles policies that do not need complete-note eviction. This recovered much, but not all, of the baseline time, with matching projected drop and occupancy decisions and zero measured Gen0 collections. Further throughput conclusions require representative repeated workloads; this is not a claim about native provider speed.
 
 ## Playback and MIDI state decisions
 
@@ -33,7 +34,7 @@ Completed in Build 32. The checked-by-default power-user option uses segmented c
 
 Current overrides safely cover Bank MSB/LSB, Program, Volume, Expression, Pan, Sustain, pitch bend, and channel aftertouch. Source conflicts are filtered before scheduler admission; explicit controls remain ordered. The Channel Monitor also supports one-attribute source-value chase.
 
-Future decisions include presets, simultaneous requested/forced display, and whether saved/static transformations should affect Analysis. Automatic whole-song state chase remains separate.
+Future decisions include presets, simultaneous requested/forced display, and whether saved/static transformations should affect Analysis. The existing automatic whole-state chase remains a distinct Play/Seek feature.
 
 ### Preserving playback on Pause or Seek
 
@@ -59,6 +60,7 @@ Completed for **Drop newest** and **Drop incoming complete notes**. Playback and
 
 - Hiding Statistics or Processing controls is complete in Build 36; the canonical shown-both layout and native DPI measurements remain authoritative.
 - Runtime scaling should derive each size non-cumulatively from the canonical 100% layout. Repeated `Control.Scale()` is unsafe with native controls, fonts, DPI, and compact minimums.
+- Build 37 did not start runtime scaling: it still needs a complete canonical-bounds/font/constraint design and realized default/compact/DPI testing. A partial scale menu would be harder to recover from than the existing 100% interface.
 - A Shift-revealed 25% item may be an undocumented joke, but must not be selectable.
 - A mini title bar changes taskbar/Alt-Tab identity and non-client size.
 - Inactive opacity needs layered-window accessibility and recovery rules.

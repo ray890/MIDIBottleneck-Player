@@ -6,6 +6,7 @@ namespace MidiBottleneck
 {
     internal sealed class StatisticsView : Control
     {
+        private const string CompactSlash = "\u2009/\u2009";
         private static readonly string[] Captions = new string[]
         {
             "Timeline / output:", "Queue now / maximum:",
@@ -24,6 +25,8 @@ namespace MidiBottleneck
             new string[] { "Max lag:" },
             new string[] { "Current lag:" }
         };
+        private static readonly string[] PerNoteCompactEventCaptions =
+            new string[] { "Sent/excluded:", "Events:" };
 
         private readonly string[] _values = new string[8];
         private readonly Font _captionFont;
@@ -133,7 +136,7 @@ namespace MidiBottleneck
         internal bool PerNoteIntervalGate
         {
             get { return _perNoteIntervalGate; }
-            set { _perNoteIntervalGate = value; }
+            set { if (_perNoteIntervalGate != value) { _perNoteIntervalGate = value; Invalidate(); } }
         }
 
         protected override void OnPaint(PaintEventArgs e)
@@ -156,9 +159,10 @@ namespace MidiBottleneck
         {
             int gap = _compact ? 2 : 6;
             TextFormatFlags vertical = TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding;
-            string captionText = _compact ? CompactCaptionChoices[index][0] : Captions[index];
-            int measuredValue = TextRenderer.MeasureText(graphics, _values[index], _valueFont, Size.Empty,
-                vertical).Width;
+            string captionText = _perNoteIntervalGate && index == 4
+                ? (_compact ? "Sent/excluded:" : "Events sent / excluded:")
+                : (_compact ? CompactCaptionChoices[index][0] : Captions[index]);
+            int measuredValue = MeasureStatisticValue(graphics, _values[index], vertical);
             int innerWidth = Math.Max(1, width - 4);
             int minimumCaption = _compact ? 16 : 60;
             int valueWidth = Math.Min(measuredValue, Math.Max(24, innerWidth - minimumCaption - gap));
@@ -166,7 +170,8 @@ namespace MidiBottleneck
             int captionWidth = Math.Max(1, innerWidth - valueWidth - gap);
             if (_compact)
             {
-                string[] choices = CompactCaptionChoices[index];
+                string[] choices = _perNoteIntervalGate && index == 4
+                    ? PerNoteCompactEventCaptions : CompactCaptionChoices[index];
                 captionText = choices[choices.Length - 1];
                 for (int choice = 0; choice < choices.Length; choice++)
                 {
@@ -182,8 +187,69 @@ namespace MidiBottleneck
             _valueTruncated[index] = measuredValue > value.Width;
             TextRenderer.DrawText(graphics, captionText, _captionFont, caption, ForeColor,
                 vertical | TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
-            TextRenderer.DrawText(graphics, _values[index], _valueFont, value, ForeColor,
-                vertical | TextFormatFlags.Right | TextFormatFlags.EndEllipsis);
+            DrawStatisticValue(graphics, _values[index], value, vertical, measuredValue);
+        }
+
+        private int MeasureStatisticValue(Graphics graphics, string text, TextFormatFlags flags)
+        {
+            if (!_compact || text.IndexOf(CompactSlash, StringComparison.Ordinal) < 0)
+                return TextRenderer.MeasureText(graphics, text, _valueFont, Size.Empty, flags).Width;
+            int width = 0;
+            int start = 0;
+            int slash = text.IndexOf(CompactSlash, start, StringComparison.Ordinal);
+            while (slash >= 0)
+            {
+                if (slash > start)
+                    width += TextRenderer.MeasureText(graphics, text.Substring(start, slash - start),
+                        _valueFont, Size.Empty, flags).Width;
+                width += TextRenderer.MeasureText(graphics, "/", _valueFont, Size.Empty, flags).Width + 4;
+                start = slash + CompactSlash.Length;
+                slash = text.IndexOf(CompactSlash, start, StringComparison.Ordinal);
+            }
+            if (start < text.Length)
+                width += TextRenderer.MeasureText(graphics, text.Substring(start), _valueFont,
+                    Size.Empty, flags).Width;
+            return width;
+        }
+
+        internal int MeasureStatisticValueForTesting(Graphics graphics, string text)
+        {
+            return MeasureStatisticValue(graphics, text, TextFormatFlags.NoPadding | TextFormatFlags.SingleLine);
+        }
+
+        private void DrawStatisticValue(Graphics graphics, string text, Rectangle bounds,
+            TextFormatFlags flags, int measuredWidth)
+        {
+            if (!_compact || text.IndexOf(CompactSlash, StringComparison.Ordinal) < 0 || measuredWidth > bounds.Width)
+            {
+                TextRenderer.DrawText(graphics, text, _valueFont, bounds, ForeColor,
+                    flags | TextFormatFlags.Right | TextFormatFlags.EndEllipsis);
+                return;
+            }
+            int x = bounds.Right - measuredWidth;
+            int start = 0;
+            int slash = text.IndexOf(CompactSlash, start, StringComparison.Ordinal);
+            while (slash >= 0)
+            {
+                if (slash > start)
+                {
+                    string part = text.Substring(start, slash - start);
+                    int width = TextRenderer.MeasureText(graphics, part, _valueFont, Size.Empty, flags).Width;
+                    TextRenderer.DrawText(graphics, part, _valueFont,
+                        new Rectangle(x, bounds.Top, width, bounds.Height), ForeColor, flags | TextFormatFlags.Left);
+                    x += width;
+                }
+                x += 2;
+                int slashWidth = TextRenderer.MeasureText(graphics, "/", _valueFont, Size.Empty, flags).Width;
+                TextRenderer.DrawText(graphics, "/", _valueFont,
+                    new Rectangle(x, bounds.Top, slashWidth, bounds.Height), ForeColor, flags | TextFormatFlags.Left);
+                x += slashWidth + 2;
+                start = slash + CompactSlash.Length;
+                slash = text.IndexOf(CompactSlash, start, StringComparison.Ordinal);
+            }
+            if (start < text.Length)
+                TextRenderer.DrawText(graphics, text.Substring(start), _valueFont,
+                    new Rectangle(x, bounds.Top, bounds.Right - x, bounds.Height), ForeColor, flags | TextFormatFlags.Left);
         }
 
         private int CellAt(Point point)
@@ -217,13 +283,15 @@ namespace MidiBottleneck
                 cell == 2 ? (_perNoteIntervalGate
                     ? "One frame is one configured gate interval. Each of the 128 MIDI pitches can make at most one Note On or Note Off transition in a frame, while different pitches can transition together. Other MIDI messages are not limited by this figure, so it is not the player's total event-throughput ceiling."
                     : "With immediate simulated service, this is the highest observed 250 ms rolling dispatch rate since statistics were reset—not a theoretical hardware or scheduler capacity. Nonzero service models show their theoretical configured maximum.") :
-                cell == 4 ? "Events successfully dispatched through the selected output / events discarded by queue overflow. In per-note interval-gate mode, the parenthetical gate-filtered count separately records simultaneous coalescing and note messages excluded by interval capacity. With None, sent means logically consumed by the no-output diagnostic sink; no physical MIDI data leaves the application." :
+                cell == 4 ? "Sent means MIDI messages successfully dispatched. Dropped means queue overflow; gate-filtered means note messages combined or excluded by the per-note gate. These are separate counts. With None, sent means logically consumed; no physical MIDI data leaves the application." :
                 cell == 6 || cell == 7 ? (_perNoteIntervalGate
                     ? "Lag is how late the most recently sent MIDI event was compared with its original time in the file. In Per-note mode it includes waiting for a gate frame, scheduler delay, and a blocking output call. Different transitions in one frame can come from different source times, so current lag may vary. It cannot measure synthesizer rendering or audio-device latency."
                     : "Lag is lateness through MIDI dispatch, including scheduler delay or a blocking output call. It cannot measure synthesizer rendering or audio-device latency.") : String.Empty;
             if (cell >= 0 && (_captionTruncated[cell] || _valueTruncated[cell]))
             {
-                string full = Captions[cell] + " " + _values[cell];
+                string full = (_perNoteIntervalGate && cell == 4
+                    ? "Events sent / excluded (gate-filtered and queue-dropped separately):"
+                    : Captions[cell]) + " " + _values[cell];
                 text = String.IsNullOrEmpty(text) ? full : full + Environment.NewLine + text;
             }
             _toolTip.SetToolTip(this, text);

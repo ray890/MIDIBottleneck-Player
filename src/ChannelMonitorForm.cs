@@ -217,6 +217,12 @@ namespace MidiBottleneck
             ShowFeedback(_grid.Rows[channel].Cells[ColumnName(attribute)], message);
         }
 
+        internal void ShowMonitorStatus(string message)
+        {
+            if (String.IsNullOrEmpty(message) || IsDisposed) return;
+            _feedbackTip.Show(message, _grid, 8, Math.Max(0, _grid.Height - 26), 3500);
+        }
+
         internal void UpdateSnapshot(ChannelPlaybackSnapshot snapshot)
         {
             if (snapshot == null || snapshot.Channels == null || snapshot.Channels.Length != 16) return;
