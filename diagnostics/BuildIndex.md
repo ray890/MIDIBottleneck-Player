@@ -45,6 +45,7 @@ The public history was reconstructed because original Git commits did not exist.
 | 39 | numeric-and-analysis | 2026-09-25 | exact | `v1.0.39` |
 | 40 | rate-model-selector | 2026-09-25 | exact | `v1.0.40` |
 | 41 | contextual-offline-help | 2026-09-25 | exact | `v1.0.41` |
+| 42 | queue-age-and-ui-scaling | 2026-09-26 | exact | `v1.0.42` |
 
 ## Evidence-recovery result
 

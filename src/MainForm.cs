@@ -13,6 +13,15 @@ namespace MidiBottleneck
 {
     internal sealed class MainForm : Form
     {
+        private sealed class OverflowPolicyItem
+        {
+            internal readonly OverflowPolicy Policy;
+            internal readonly string Text;
+            internal OverflowPolicyItem(OverflowPolicy policy, string text)
+            { Policy = policy; Text = text; }
+            public override string ToString() { return Text; }
+        }
+
         private const int WmSysCommand = 0x0112;
         private const int SystemMenuAbout = 0x1F20;
         private const int SystemMenuAlwaysOnTop = 0x1F30;
@@ -21,8 +30,16 @@ namespace MidiBottleneck
         private const int SystemMenuShowProcessingModel = 0x1F70;
         private const int SystemMenuShowStatistics = 0x1F80;
         private const int SystemMenuHelp = 0x1F90;
+        private const int SystemMenuQueueAgeLimit = 0x1FA0;
+        private const int SystemMenuScale50 = 0x1FB0;
+        private const int SystemMenuScale75 = 0x1FC0;
+        private const int SystemMenuScale100 = 0x1FD0;
+        private const int SystemMenuScale125 = 0x1FE0;
+        private const int SystemMenuScale150 = 0x1FF0;
+        private const int SystemMenuScale200 = 0x2000;
         private const uint MfString = 0x0000;
         private const uint MfSeparator = 0x0800;
+        private const uint MfPopup = 0x0010;
         private const uint MfChecked = 0x0008;
         private const uint MfUnchecked = 0x0000;
         private const uint MfEnabled = 0x0000;
@@ -42,11 +59,15 @@ namespace MidiBottleneck
 
         [DllImport("user32.dll")]
         private static extern bool DrawMenuBar(IntPtr window);
+        [DllImport("user32.dll")]
+        private static extern IntPtr CreatePopupMenu();
         private readonly PlaybackEngine _engine = new PlaybackEngine();
         private readonly WindowsMidiOutput _output = new WindowsMidiOutput();
         private readonly KdmApiMidiOutput _kdmApiOutput = new KdmApiMidiOutput();
         private readonly NullMidiOutput _nullOutput = new NullMidiOutput();
         private readonly HashSet<Control> _midiDropTargets = new HashSet<Control>();
+        private readonly Dictionary<Control, Padding> _canonicalMargins = new Dictionary<Control, Padding>();
+        private readonly Dictionary<Control, Padding> _canonicalPaddings = new Dictionary<Control, Padding>();
         private readonly List<DiagnosticsForm> _analysisWindows = new List<DiagnosticsForm>();
         private ChannelMonitorForm _channelMonitor;
         private PlayerHelpForm _helpWindow;
@@ -57,6 +78,7 @@ namespace MidiBottleneck
         private MidiSong _song;
         private MidiSong _engineSong;
         private bool _updatingProcessingControls;
+        private bool _updatingOverflowChoices;
         private bool _switchingOutput;
         private long _selectedPositionMicroseconds;
         private readonly EffectivePlaybackSpeed _effectiveSpeed = new EffectivePlaybackSpeed();
@@ -84,6 +106,13 @@ namespace MidiBottleneck
         private int _lastDefaultHeightSurplus;
         private int _lastCompactHeight;
         private int _lastDefaultRequiredHeight;
+        private int _uiScalePercent = 100;
+        private bool _applyingUiScale;
+        private bool _canonicalGeometryInitialized;
+        private double _canonicalClientWidth;
+        private double _canonicalClientHeight;
+        private double _canonicalDefaultHeightSurplus;
+        private IntPtr _uiScaleMenu;
         private bool _suppressLoadErrorDialogs;
         private Exception _lastLoadError;
         private Func<MidiLargeFileInspection, bool> _largeFileWarningHandlerForTests;
@@ -95,8 +124,15 @@ namespace MidiBottleneck
         private bool _chaseMidiStateOnPlaySeek = true;
         private bool _showProcessingModel = true;
         private bool _showStatistics = true;
+        private bool _queueAgeLimitEnabled;
+        private int _rememberedEventCountLimit = PlaybackEngine.DefaultQueueLengthLimit;
+        private long _rememberedQueueAgeLimit = PlaybackEngine.DefaultQueueAgeLimitMicroseconds;
+        private OverflowPolicy _rememberedEventOverflowPolicy = OverflowPolicy.DropNewest;
+        private OverflowPolicy _rememberedAgeOverflowPolicy = OverflowPolicy.ClearBufferAndCatchUp;
         private RateModelChoice _selectedRateChoice = RateModelChoice.None;
         private ServiceDurationMode _lastOrdinaryServiceMode = ServiceDurationMode.ProcessingTime;
+        private long _rememberedProcessingMicroseconds = 100;
+        private long _rememberedGateMicroseconds = 100;
 
         private Label _fileLabel;
         private Label _fileInfoLabel;
@@ -135,6 +171,7 @@ namespace MidiBottleneck
         private GroupBox _playbackGroup;
         private TableLayoutPanel _rootLayout;
         private TableLayoutPanel _processingTable;
+        private TableLayoutPanel _playbackTable;
         private FlowLayoutPanel _queueCluster;
         private FlowLayoutPanel _overflowCluster;
         private FlowLayoutPanel _rateCluster;
@@ -159,9 +196,11 @@ namespace MidiBottleneck
             _engine.ChaseMidiStateOnPlaySeek = true;
 
             BuildInterface();
+            CaptureCanonicalControlMetrics(_rootLayout);
             ConfigureMidiDrop(this);
             LoadOutputDevices();
             SetProcessingMicroseconds(100);
+            ConfigureServiceControls();
             UpdateTransportControls();
 
             _engine.PlaybackEnded += EnginePlaybackEnded;
@@ -174,7 +213,12 @@ namespace MidiBottleneck
             _analysisRefreshTimer = new System.Windows.Forms.Timer();
             _analysisRefreshTimer.Interval = 200;
             _analysisRefreshTimer.Tick += RefreshOpenAnalyses;
-            ClientSizeChanged += delegate { UpdateResponsiveLayout(); UpdateCompactUnitVisibility(); };
+            ClientSizeChanged += delegate
+            {
+                if (_applyingUiScale) return;
+                UpdateResponsiveLayout();
+                UpdateCompactUnitVisibility();
+            };
             UpdateResponsiveLayout();
         }
 
@@ -191,15 +235,25 @@ namespace MidiBottleneck
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuAlwaysOnTop, "Always on top");
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuShowProcessingModel, "Show &Processing model");
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuShowStatistics, "Show &Statistics");
+                _uiScaleMenu = CreatePopupMenu();
+                PopulateUiScaleMenu();
+                if (_uiScaleMenu != IntPtr.Zero)
+                    AppendMenu(menu, MfPopup,
+                        MenuHandleIdentifier(_uiScaleMenu),
+                        "Application &scale");
                 AppendMenu(menu, MfSeparator, UIntPtr.Zero, null);
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuChaseMidiState,
                     "Chase MIDI state on Play/Seek");
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuApplyQueueLimitWithoutSlowdown,
                     "Apply queue limit without slowdown");
+                AppendMenu(menu, MfString, (UIntPtr)SystemMenuQueueAgeLimit,
+                    "Limit queue by waiting time (µs)");
                 UpdateAlwaysOnTopMenuCheck();
                 UpdateForwardQueueMenuState();
+                UpdateQueueAgeMenuState();
                 UpdateStateChaseMenuState();
                 UpdateSectionVisibilityMenuChecks();
+                UpdateUiScaleMenuChecks();
             }
         }
 
@@ -212,6 +266,9 @@ namespace MidiBottleneck
                 if (command == SystemMenuHelp) { ShowHelpWindow(); return; }
                 if (command == SystemMenuAlwaysOnTop) { ToggleAlwaysOnTop(); return; }
                 if (command == SystemMenuApplyQueueLimitWithoutSlowdown) { ToggleForwardQueueLimit(); return; }
+                if (command == SystemMenuQueueAgeLimit) { ToggleQueueAgeLimit(); return; }
+                int scale = UiScaleForCommand(command);
+                if (scale != 0) { ApplyUiScale(scale); return; }
                 if (command == SystemMenuChaseMidiState) { ToggleStateChase(); return; }
                 if (command == SystemMenuShowProcessingModel) { SetSectionVisibility(true, !_showProcessingModel); return; }
                 if (command == SystemMenuShowStatistics) { SetSectionVisibility(false, !_showStatistics); return; }
@@ -307,6 +364,185 @@ namespace MidiBottleneck
             DrawMenuBar(Handle);
         }
 
+        private void PopulateUiScaleMenu()
+        {
+            if (_uiScaleMenu == IntPtr.Zero) return;
+            AppendMenu(_uiScaleMenu, MfString, (UIntPtr)SystemMenuScale50, "50%");
+            AppendMenu(_uiScaleMenu, MfString, (UIntPtr)SystemMenuScale75, "75%");
+            AppendMenu(_uiScaleMenu, MfString, (UIntPtr)SystemMenuScale100, "100%");
+            AppendMenu(_uiScaleMenu, MfString, (UIntPtr)SystemMenuScale125, "125%");
+            AppendMenu(_uiScaleMenu, MfString, (UIntPtr)SystemMenuScale150, "150%");
+            AppendMenu(_uiScaleMenu, MfString, (UIntPtr)SystemMenuScale200, "200%");
+        }
+
+        private static int UiScaleForCommand(int command)
+        {
+            if (command == SystemMenuScale50) return 50;
+            if (command == SystemMenuScale75) return 75;
+            if (command == SystemMenuScale100) return 100;
+            if (command == SystemMenuScale125) return 125;
+            if (command == SystemMenuScale150) return 150;
+            if (command == SystemMenuScale200) return 200;
+            return 0;
+        }
+
+        private static UIntPtr MenuHandleIdentifier(IntPtr handle)
+        {
+            // HMENU is an unsigned pointer-sized value.  On x86 its high bit
+            // can be set, so sign-extending IntPtr through Int64 and passing
+            // that value to UIntPtr(ulong) intermittently overflows while the
+            // system menu is being built.
+            return IntPtr.Size == 4
+                ? new UIntPtr(unchecked((uint)handle.ToInt32()))
+                : new UIntPtr(unchecked((ulong)handle.ToInt64()));
+        }
+
+        private static int UiScaleCommand(int percent)
+        {
+            if (percent == 50) return SystemMenuScale50;
+            if (percent == 75) return SystemMenuScale75;
+            if (percent == 125) return SystemMenuScale125;
+            if (percent == 150) return SystemMenuScale150;
+            if (percent == 200) return SystemMenuScale200;
+            return SystemMenuScale100;
+        }
+
+        private void UpdateUiScaleMenuChecks()
+        {
+            if (_uiScaleMenu == IntPtr.Zero) return;
+            int[] commands = new int[] { SystemMenuScale50, SystemMenuScale75,
+                SystemMenuScale100, SystemMenuScale125, SystemMenuScale150, SystemMenuScale200 };
+            int selected = UiScaleCommand(_uiScalePercent);
+            for (int i = 0; i < commands.Length; i++)
+                CheckMenuItem(_uiScaleMenu, (uint)commands[i],
+                    commands[i] == selected ? MfChecked : MfUnchecked);
+            if (IsHandleCreated) DrawMenuBar(Handle);
+        }
+
+        private int ScaleMetric(int canonical)
+        {
+            if (canonical == 0) return 0;
+            int scaled = (canonical * _uiScalePercent + 50) / 100;
+            return canonical > 0 ? Math.Max(1, scaled) : Math.Min(-1, scaled);
+        }
+
+        private Padding ScalePadding(int left, int top, int right, int bottom)
+        {
+            return new Padding(ScaleMetric(left), ScaleMetric(top),
+                ScaleMetric(right), ScaleMetric(bottom));
+        }
+
+        private Padding ScalePadding(Padding canonical)
+        {
+            return ScalePadding(canonical.Left, canonical.Top, canonical.Right, canonical.Bottom);
+        }
+
+        private void CaptureCanonicalControlMetrics(Control root)
+        {
+            if (root == null) return;
+            _canonicalMargins[root] = root.Margin;
+            _canonicalPaddings[root] = root.Padding;
+            for (int i = 0; i < root.Controls.Count; i++)
+                CaptureCanonicalControlMetrics(root.Controls[i]);
+        }
+
+        private void ApplyUiScale(int percent)
+        {
+            if (percent != 50 && percent != 75 && percent != 100 &&
+                percent != 125 && percent != 150 && percent != 200) return;
+            if (_uiScalePercent == percent) { UpdateUiScaleMenuChecks(); return; }
+
+            if (!_canonicalGeometryInitialized)
+            {
+                _canonicalClientWidth = ClientSize.Width * 100.0 / _uiScalePercent;
+                _canonicalClientHeight = ClientSize.Height * 100.0 / _uiScalePercent;
+                _canonicalGeometryInitialized = true;
+            }
+            int oldScale = _uiScalePercent;
+            if (!_compactLayout && oldScale == 100)
+            {
+                _canonicalClientWidth = ClientSize.Width;
+                _canonicalClientHeight = ClientSize.Height;
+                _canonicalDefaultHeightSurplus = Math.Max(0,
+                    Height - CalculateRequiredWindowHeight());
+            }
+            double canonicalSurplus = _canonicalDefaultHeightSurplus;
+            int targetClientWidth = Math.Max(1, (int)Math.Round(
+                _canonicalClientWidth * percent / 100.0, MidpointRounding.AwayFromZero));
+            int targetClientHeight = Math.Max(1, (int)Math.Round(
+                _canonicalClientHeight * percent / 100.0, MidpointRounding.AwayFromZero));
+            _applyingUiScale = true;
+            SuspendLayout();
+            try
+            {
+                _uiScalePercent = percent;
+                Font previous = Font;
+                Font = new Font("Segoe UI", 9F * percent / 100F,
+                    FontStyle.Regular, GraphicsUnit.Point);
+                if (previous != null) previous.Dispose();
+                _statisticsView.ApplicationScalePercent = percent;
+                _timelineView.ApplicationScalePercent = percent;
+                ApplyFixedUiScaleMetrics();
+                _lastCompactHeight = 0;
+                _lastDefaultRequiredHeight = 0;
+                _lastDefaultHeightSurplus = Math.Max(0,
+                    (int)Math.Round(canonicalSurplus * percent / 100.0,
+                        MidpointRounding.AwayFromZero));
+                _responsiveLayoutInitialized = false;
+                ClientSize = new Size(targetClientWidth, targetClientHeight);
+                UpdateResponsiveLayout();
+                _rootLayout.PerformLayout();
+                PerformLayout();
+                ApplyMeasuredWindowConstraints();
+                if (!_compactLayout)
+                {
+                    ClientSize = new Size(ClientSize.Width, targetClientHeight);
+                    _lastDefaultHeight = Height;
+                    _lastDefaultHeightSurplus = Math.Max(0,
+                        Height - _lastDefaultRequiredHeight);
+                }
+            }
+            finally
+            {
+                ResumeLayout(true);
+                _applyingUiScale = false;
+            }
+            UpdateUiScaleMenuChecks();
+            ApplyScaleToCompanionWindows(percent);
+            Invalidate(true);
+        }
+
+        private void ApplyScaleToCompanionWindows(int percent)
+        {
+            DiagnosticsForm[] analyses = _analysisWindows.ToArray();
+            for (int i = 0; i < analyses.Length; i++)
+                if (analyses[i] != null && !analyses[i].IsDisposed)
+                    analyses[i].ApplyApplicationScale(percent);
+            if (_channelMonitor != null && !_channelMonitor.IsDisposed)
+                _channelMonitor.ApplyApplicationScale(percent);
+        }
+
+        private void ApplyFixedUiScaleMetrics()
+        {
+            foreach (KeyValuePair<Control, Padding> pair in _canonicalMargins)
+                if (!pair.Key.IsDisposed) pair.Key.Margin = ScalePadding(pair.Value);
+            foreach (KeyValuePair<Control, Padding> pair in _canonicalPaddings)
+                if (!pair.Key.IsDisposed) pair.Key.Padding = ScalePadding(pair.Value);
+            _fileOutputTable.RowStyles[0].Height = ScaleMetric(32);
+            _fileOutputTable.Padding = new Padding(ScaleMetric(1));
+            _processingTable.Padding = _compactLayout ? new Padding(0) : new Padding(ScaleMetric(1));
+            if (_playbackTable != null) _playbackTable.Padding = new Padding(ScaleMetric(1));
+            _fileLabel.Margin = ScalePadding(3, 0, 2, 0);
+            _loadingStatusLabel.Margin = ScalePadding(2, 0, 0, 0);
+            _loadActivity.Margin = ScalePadding(0, 1, 0, 1);
+            _loadingPanel.Height = ScaleMetric(23);
+            _loadingPanel.RowStyles[0].Height = ScaleMetric(15);
+            _loadingPanel.RowStyles[1].Height = ScaleMetric(6);
+            _stateLabel.Margin = ScalePadding(12, 3, 3, 3);
+            _overflowPolicyCombo.DropDownWidth = ScaleMetric(245);
+            _serviceModeCombo.ApplicationScalePercent = _uiScalePercent;
+        }
+
         private void SetSectionVisibility(bool processingModel, bool visible)
         {
             bool current = processingModel ? _showProcessingModel : _showStatistics;
@@ -362,6 +598,8 @@ namespace MidiBottleneck
             PlaybackState state = _engine.State;
             if (state == PlaybackState.Playing || state == PlaybackState.Paused) return;
             _applyQueueLimitWithoutSlowdown = !_applyQueueLimitWithoutSlowdown;
+            if (_applyQueueLimitWithoutSlowdown && _queueAgeLimitEnabled)
+                SetQueueAgeLimitEnabled(false);
             _engine.ApplyQueueLimitWithoutSlowdown = _applyQueueLimitWithoutSlowdown;
             if (_applyQueueLimitWithoutSlowdown && _queueLimitCheck.Checked &&
                 _selectedRateChoice == RateModelChoice.None)
@@ -373,6 +611,57 @@ namespace MidiBottleneck
             UpdateTransportControls();
             RefreshStatistics();
             ScheduleAnalysisRefresh();
+        }
+
+        private void ToggleQueueAgeLimit()
+        {
+            PlaybackState state = _engine.State;
+            if (state == PlaybackState.Playing || state == PlaybackState.Paused) return;
+            SetQueueAgeLimitEnabled(!_queueAgeLimitEnabled);
+            UpdatePolicyControlState();
+            UpdateTransportControls();
+            RefreshStatistics();
+            ScheduleAnalysisRefresh();
+        }
+
+        private void SetQueueAgeLimitEnabled(bool enabled)
+        {
+            if (_queueAgeLimitEnabled == enabled) return;
+            if (enabled)
+            {
+                _rememberedEventCountLimit = Decimal.ToInt32(_queueLimitValue.Value);
+                _rememberedEventOverflowPolicy = SelectedOverflowPolicy;
+                if (_applyQueueLimitWithoutSlowdown)
+                {
+                    _applyQueueLimitWithoutSlowdown = false;
+                    _engine.ApplyQueueLimitWithoutSlowdown = false;
+                }
+            }
+            else
+            {
+                _rememberedQueueAgeLimit = Decimal.ToInt64(_queueLimitValue.Value);
+                _rememberedAgeOverflowPolicy = SelectedOverflowPolicy;
+            }
+            _queueAgeLimitEnabled = enabled;
+            _engine.QueueAgeLimitEnabled = enabled;
+            ConfigureQueueLimitControls();
+            PopulateOverflowPolicies(enabled,
+                enabled ? _rememberedAgeOverflowPolicy : _rememberedEventOverflowPolicy);
+            UpdateForwardQueueMenuState();
+            UpdateQueueAgeMenuState();
+        }
+
+        private void UpdateQueueAgeMenuState()
+        {
+            if (!IsHandleCreated) return;
+            IntPtr menu = GetSystemMenu(Handle, false);
+            if (menu == IntPtr.Zero) return;
+            CheckMenuItem(menu, (uint)SystemMenuQueueAgeLimit,
+                _queueAgeLimitEnabled ? MfChecked : MfUnchecked);
+            PlaybackState state = _engine.State;
+            bool active = state == PlaybackState.Playing || state == PlaybackState.Paused;
+            EnableMenuItem(menu, (uint)SystemMenuQueueAgeLimit, active ? MfGrayed : MfEnabled);
+            DrawMenuBar(Handle);
         }
 
         private void UpdateForwardQueueMenuState()
@@ -387,6 +676,86 @@ namespace MidiBottleneck
             EnableMenuItem(menu, (uint)SystemMenuApplyQueueLimitWithoutSlowdown,
                 active ? MfGrayed : MfEnabled);
             DrawMenuBar(Handle);
+        }
+
+        private OverflowPolicy SelectedOverflowPolicy
+        {
+            get
+            {
+                OverflowPolicyItem item = _overflowPolicyCombo == null ? null :
+                    _overflowPolicyCombo.SelectedItem as OverflowPolicyItem;
+                return item == null ? OverflowPolicy.DropNewest : item.Policy;
+            }
+        }
+
+        private void PopulateOverflowPolicies(bool ageMode, OverflowPolicy requested)
+        {
+            if (_overflowPolicyCombo == null) return;
+            _updatingOverflowChoices = true;
+            try
+            {
+                _overflowPolicyCombo.Items.Clear();
+                if (!ageMode)
+                {
+                    _overflowPolicyCombo.Items.Add(new OverflowPolicyItem(OverflowPolicy.DropNewest, "Drop newest"));
+                    _overflowPolicyCombo.Items.Add(new OverflowPolicyItem(OverflowPolicy.DropOldest, "Drop oldest"));
+                    _overflowPolicyCombo.Items.Add(new OverflowPolicyItem(OverflowPolicy.ClearBufferAndCatchUp, "Clear buffer and jump to realtime"));
+                    _overflowPolicyCombo.Items.Add(new OverflowPolicyItem(OverflowPolicy.DropIncomingCompleteNotes, "Drop incoming complete notes"));
+                    _overflowPolicyCombo.Items.Add(new OverflowPolicyItem(OverflowPolicy.DropOldestCompleteNote, "Drop oldest complete note"));
+                }
+                else
+                {
+                    _overflowPolicyCombo.Items.Add(new OverflowPolicyItem(OverflowPolicy.ClearBufferAndCatchUp, "Clear buffer and jump to realtime"));
+                    _overflowPolicyCombo.Items.Add(new OverflowPolicyItem(OverflowPolicy.DropOldest, "Drop oldest"));
+                    _overflowPolicyCombo.Items.Add(new OverflowPolicyItem(OverflowPolicy.DropOldestCompleteNote, "Drop oldest complete note (soft limit)"));
+                    if (requested == OverflowPolicy.DropNewest || requested == OverflowPolicy.DropIncomingCompleteNotes)
+                        requested = OverflowPolicy.ClearBufferAndCatchUp;
+                }
+                int selected = 0;
+                for (int i = 0; i < _overflowPolicyCombo.Items.Count; i++)
+                    if (((OverflowPolicyItem)_overflowPolicyCombo.Items[i]).Policy == requested) { selected = i; break; }
+                _overflowPolicyCombo.SelectedIndex = selected;
+            }
+            finally { _updatingOverflowChoices = false; }
+            if (_playButton != null) OverflowPolicyChanged(_overflowPolicyCombo, EventArgs.Empty);
+        }
+
+        private void ConfigureQueueLimitControls()
+        {
+            _updatingProcessingControls = true;
+            try
+            {
+                if (_queueAgeLimitEnabled)
+                {
+                    _queueLimitCheck.Text = _compactLayout ? "Wait limit:" : "Queue waiting-time limit:";
+                    _queueLimitValue.Minimum = 1;
+                    _queueLimitValue.Maximum = 1800000000m;
+                    _queueLimitValue.Increment = 1000;
+                    _queueLimitValue.Value = Math.Max(1, Math.Min(1800000000L, _rememberedQueueAgeLimit));
+                    _queueLimitValue.AccessibleName = "Queue waiting-time limit in microseconds";
+                    _queueLimitValue.SetNumericScrubMapping(MapQueueAgeScrubValue);
+                    _eventsLabel.Text = "µs";
+                    _toolTip.SetToolTip(_queueLimitValue,
+                        "Oldest permitted waiting time, 1 µs through 30 minutes. Exactly the limit is allowed; overflow starts above it. Click to type or drag; Shift adjusts one microsecond per 2 pixels.");
+                    _engine.QueueAgeLimitMicroseconds = _rememberedQueueAgeLimit;
+                }
+                else
+                {
+                    _queueLimitCheck.Text = _compactLayout ? "Queue limit:" : "Queue length limit:";
+                    _queueLimitValue.Minimum = 1;
+                    _queueLimitValue.Maximum = 1000000m;
+                    _queueLimitValue.Increment = 100;
+                    _queueLimitValue.Value = _rememberedEventCountLimit;
+                    _queueLimitValue.AccessibleName = "Queue length limit";
+                    _queueLimitValue.SetNumericScrubMapping(MapQueueScrubValue);
+                    _eventsLabel.Text = "events";
+                    _toolTip.SetToolTip(_queueLimitValue,
+                        "Click to type; Enter applies, Escape cancels. Drag sideways: fine at small limits, gradually faster at larger limits. Shift adjusts one event per 2 pixels. Up/Down adjusts by 100. Queue structure is locked while playback is active.");
+                    _engine.QueueLengthLimit = _rememberedEventCountLimit;
+                }
+            }
+            finally { _updatingProcessingControls = false; }
+            UpdateMainNumericWidth(_queueLimitValue);
         }
 
         private void ToggleStateChase()
@@ -516,12 +885,21 @@ namespace MidiBottleneck
         internal bool ApplyQueueLimitWithoutSlowdownForTesting { get { return _applyQueueLimitWithoutSlowdown; } }
         internal static int ApplyQueueLimitWithoutSlowdownSystemCommandForTesting
         { get { return SystemMenuApplyQueueLimitWithoutSlowdown; } }
+        internal static int QueueAgeSystemCommandForTesting { get { return SystemMenuQueueAgeLimit; } }
+        internal bool QueueAgeLimitEnabledForTesting { get { return _queueAgeLimitEnabled; } }
+        internal OverflowPolicy SelectedOverflowPolicyForTesting { get { return SelectedOverflowPolicy; } }
         internal bool ChaseMidiStateOnPlaySeekForTesting { get { return _chaseMidiStateOnPlaySeek; } }
         internal static int ChaseMidiStateSystemCommandForTesting { get { return SystemMenuChaseMidiState; } }
         internal static int ShowProcessingModelSystemCommandForTesting { get { return SystemMenuShowProcessingModel; } }
         internal static int ShowStatisticsSystemCommandForTesting { get { return SystemMenuShowStatistics; } }
         internal bool ShowProcessingModelForTesting { get { return _showProcessingModel; } }
         internal bool ShowStatisticsForTesting { get { return _showStatistics; } }
+        internal int UiScalePercentForTesting { get { return _uiScalePercent; } }
+        internal static ulong MenuHandleIdentifierForTesting(IntPtr handle)
+        { return MenuHandleIdentifier(handle).ToUInt64(); }
+        internal bool CompactLayoutForTesting { get { return _compactLayout; } }
+        internal void ApplyUiScaleForTesting(int percent) { ApplyUiScale(percent); }
+        internal void CaptureUiGeometryForTesting() { CaptureCanonicalUiGeometry(); }
         internal bool PerNoteGateControlsLockedForTesting
         {
             get
@@ -709,7 +1087,16 @@ namespace MidiBottleneck
                 "Click to type; Enter applies, Escape cancels. Drag sideways: fine at small limits, gradually faster at larger limits. Shift adjusts one event per 2 pixels. Up/Down adjusts by 100. Queue structure is locked while playback is active.");
             _queueLimitValue.ValueChanged += delegate
             {
-                _engine.QueueLengthLimit = Decimal.ToInt32(_queueLimitValue.Value);
+                if (_queueAgeLimitEnabled)
+                {
+                    _rememberedQueueAgeLimit = Decimal.ToInt64(_queueLimitValue.Value);
+                    _engine.QueueAgeLimitMicroseconds = _rememberedQueueAgeLimit;
+                }
+                else
+                {
+                    _rememberedEventCountLimit = Decimal.ToInt32(_queueLimitValue.Value);
+                    _engine.QueueLengthLimit = _rememberedEventCountLimit;
+                }
                 ScheduleAnalysisRefresh();
             };
             _queueCluster.Controls.Add(_queueLimitValue);
@@ -729,12 +1116,7 @@ namespace MidiBottleneck
 
             _overflowPolicyCombo = new ComboBox();
             _overflowPolicyCombo.DropDownStyle = ComboBoxStyle.DropDownList;
-            _overflowPolicyCombo.Items.Add("Drop newest");
-            _overflowPolicyCombo.Items.Add("Drop oldest");
-            _overflowPolicyCombo.Items.Add("Clear buffer and jump to realtime");
-            _overflowPolicyCombo.Items.Add("Drop incoming complete notes");
-            _overflowPolicyCombo.Items.Add("Drop oldest complete note");
-            _overflowPolicyCombo.SelectedIndex = 0;
+            PopulateOverflowPolicies(false, OverflowPolicy.DropNewest);
             _overflowPolicyCombo.Width = 245;
             _overflowPolicyCombo.DropDownWidth = 245;
             _overflowPolicyCombo.Margin = new Padding(0, 3, 3, 3);
@@ -849,7 +1231,8 @@ namespace MidiBottleneck
         {
             if (field == null || field.Parent == null || field.Parent.ClientSize.Height <= 0) return;
             int canonicalTop = Object.ReferenceEquals(field, _queueLimitValue)
-                ? (_compactLayout ? 6 : 7) : (_compactLayout ? 9 : 10);
+                ? (_compactLayout ? 6 : 7) : 9;
+            canonicalTop = ScaleMetric(canonicalTop);
             int top = Math.Min(canonicalTop,
                 Math.Max(0, field.Parent.ClientSize.Height - field.Height));
             Padding margin = field.Margin;
@@ -907,6 +1290,7 @@ namespace MidiBottleneck
             GroupBox group = NewGroup("Playback");
             _playbackGroup = group;
             TableLayoutPanel layout = NewTable(1);
+            _playbackTable = layout;
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
             _timelineView = new PlaybackTimelineView();
@@ -982,6 +1366,7 @@ namespace MidiBottleneck
             Button button = new Button();
             button.Text = text;
             button.AutoSize = true;
+            button.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             button.Click += click;
             return button;
         }
@@ -1524,10 +1909,12 @@ namespace MidiBottleneck
         {
             if (microseconds < 0) microseconds = 0;
             if (microseconds > 1000000) microseconds = 1000000;
-            if (_perNoteIntervalGateEnabled && microseconds == 0) microseconds = 1;
             long previousMicroseconds = _engine.ProcessingMicroseconds;
             PlaybackState previousState = _engine.State;
             _engine.ProcessingMicroseconds = microseconds;
+            if (_perNoteIntervalGateEnabled) _rememberedGateMicroseconds = microseconds;
+            else if (_selectedRateChoice == RateModelChoice.ProcessingTime)
+                _rememberedProcessingMicroseconds = microseconds;
             _updatingProcessingControls = true;
             try
             {
@@ -1557,7 +1944,7 @@ namespace MidiBottleneck
                 : "Click to type or drag sideways following the processing-time slider's scale; Shift adjusts one microsecond per pixel. Enter applies; Escape cancels. A live change applies when the next event begins service.");
             _toolTip.SetToolTip(_processingSlider,
                 _perNoteIntervalGateEnabled
-                    ? "Sets the nonzero interval for the per-note gate. A live edit safely silences and restarts the scheduler at the same position."
+                    ? "Sets the interval for the per-note gate. Zero resolves at source timestamps without a positive minimum interval. A live edit safely silences and restarts the scheduler at the same position."
                     : "Click or drag to set the rate. Fine adjustment to 5,000 µs; logarithmic above. A live edit applies when the next event begins service.");
         }
 
@@ -1603,35 +1990,23 @@ namespace MidiBottleneck
 
         private void ApplyRateChoice(RateModelChoice choice)
         {
-            if (choice == RateModelChoice.PerNoteIntervalGate && _engine.ProcessingMicroseconds <= 0)
-            {
-                MessageBox.Show(this,
-                    "Set Processing time per event above zero before choosing the per-note interval gate.",
-                    "Per-note interval gate", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                _updatingProcessingControls = true;
-                try { _serviceModeCombo.SelectedChoice = _selectedRateChoice; }
-                finally { _updatingProcessingControls = false; }
-                return;
-            }
-
             PlaybackState previousState = _engine.State;
             RateModelChoice previousChoice = _selectedRateChoice;
             bool gateBoundary = (previousChoice == RateModelChoice.PerNoteIntervalGate) !=
                 (choice == RateModelChoice.PerNoteIntervalGate);
             bool structuralBoundary = gateBoundary ||
                 ((previousChoice == RateModelChoice.None) != (choice == RateModelChoice.None));
-            ServiceDurationMode previousMode = _engine.ServiceDurationMode;
             ServiceDurationMode mode = choice == RateModelChoice.PerNoteIntervalGate
                 ? ServiceDurationMode.ProcessingTime : IsOrdinaryRateChoice(choice)
                     ? OrdinaryModeForChoice(choice) : _lastOrdinaryServiceMode;
-            long processing = _engine.ProcessingMicroseconds;
+            if (previousChoice == RateModelChoice.ProcessingTime)
+                _rememberedProcessingMicroseconds = _engine.ProcessingMicroseconds;
+            else if (previousChoice == RateModelChoice.PerNoteIntervalGate)
+                _rememberedGateMicroseconds = _engine.ProcessingMicroseconds;
+            long processing = choice == RateModelChoice.PerNoteIntervalGate
+                ? _rememberedGateMicroseconds : choice == RateModelChoice.ProcessingTime
+                    ? _rememberedProcessingMicroseconds : _engine.ProcessingMicroseconds;
             long eventRate = _engine.EventsPerSecond;
-            if (IsOrdinaryRateChoice(previousChoice) && IsOrdinaryRateChoice(choice) &&
-                mode == ServiceDurationMode.EventsPerSecond && previousMode == ServiceDurationMode.ProcessingTime)
-                eventRate = ProcessingToEventRate(processing);
-            else if (IsOrdinaryRateChoice(previousChoice) && IsOrdinaryRateChoice(choice) &&
-                mode == ServiceDurationMode.ProcessingTime && previousMode == ServiceDurationMode.EventsPerSecond)
-                processing = EventRateToProcessing(eventRate);
             bool applied = false;
             Action applyConfiguration = delegate
             {
@@ -1690,6 +2065,7 @@ namespace MidiBottleneck
                     _serviceUnitLabel.Text = "bit/s";
                     _dinPresetButton.Visible = !_compactLayout;
                     _processingSlider.Value = BitrateToSlider(_engine.MidiBitrate);
+                    _processingValue.Visible = _serviceUnitLabel.Visible = true;
                 }
                 else if (_engine.ServiceDurationMode == ServiceDurationMode.EventsPerSecond)
                 {
@@ -1703,14 +2079,16 @@ namespace MidiBottleneck
                     _serviceUnitLabel.Text = String.Empty;
                     _dinPresetButton.Visible = false;
                     _processingSlider.Value = EventRateToSlider(_engine.EventsPerSecond);
+                    _processingValue.Visible = _serviceUnitLabel.Visible = true;
                 }
                 else
                 {
                     _serviceValueLabel.Text = _compactLayout ? "Time/event:" : "Processing time per event:";
                     _processingValue.AccessibleName = "Processing time per event in microseconds";
-                    _processingValue.Minimum = _perNoteIntervalGateEnabled ? 1 : 0;
+                    _processingValue.Minimum = 0;
                     _serviceUnitLabel.Text = "µs";
                     _dinPresetButton.Visible = false;
+                    _processingValue.Visible = _serviceUnitLabel.Visible = true;
                 }
             }
             finally { _updatingProcessingControls = false; }
@@ -1724,7 +2102,15 @@ namespace MidiBottleneck
             else
                 SetProcessingMicroseconds(_engine.ProcessingMicroseconds);
             if (_selectedRateChoice == RateModelChoice.None)
-                _serviceValueLabel.Text = "Remembered rate:";
+            {
+                _serviceValueLabel.Text = String.Empty;
+                _processingValue.Visible = false;
+                _serviceUnitLabel.Visible = false;
+                _dinPresetButton.Visible = false;
+                _updatingProcessingControls = true;
+                try { _processingSlider.Value = _processingSlider.Minimum; }
+                finally { _updatingProcessingControls = false; }
+            }
             UpdatePolicyControlState();
         }
 
@@ -1799,7 +2185,10 @@ namespace MidiBottleneck
 
         private void OverflowPolicyChanged(object sender, EventArgs e)
         {
-            OverflowPolicy policy = (OverflowPolicy)Math.Max(0, _overflowPolicyCombo.SelectedIndex);
+            if (_updatingOverflowChoices) return;
+            OverflowPolicy policy = SelectedOverflowPolicy;
+            if (_queueAgeLimitEnabled) _rememberedAgeOverflowPolicy = policy;
+            else _rememberedEventOverflowPolicy = policy;
             _engine.OverflowPolicy = policy;
             _toolTip.SetToolTip(_overflowPolicyCombo, policy == OverflowPolicy.DropIncomingCompleteNotes
                 ? "When full, reject an incoming Note On and later suppress its paired Note Off. Required Note Off and non-note messages are retained, so the configured capacity is a soft safety limit. A live change applies at the next overflow."
@@ -1816,7 +2205,7 @@ namespace MidiBottleneck
         {
             if (_perNoteIntervalGateEnabled || !_queueLimitCheck.Checked || _engine.SimulateSlowdown ||
                 !_applyQueueLimitWithoutSlowdown) return false;
-            OverflowPolicy policy = (OverflowPolicy)Math.Max(0, _overflowPolicyCombo.SelectedIndex);
+            OverflowPolicy policy = SelectedOverflowPolicy;
             return policy == OverflowPolicy.DropOldest ||
                 policy == OverflowPolicy.DropOldestCompleteNote ||
                 policy == OverflowPolicy.ClearBufferAndCatchUp;
@@ -1838,7 +2227,7 @@ namespace MidiBottleneck
             bool forwardModel = !gate && limited && !slowdown && _applyQueueLimitWithoutSlowdown &&
                 IsOrdinaryRateChoice(_selectedRateChoice);
             _queueLimitCheck.Enabled = !gate && !active;
-            _queueLimitValue.Enabled = !gate && limited && !active;
+            _queueLimitValue.Enabled = !gate && limited && (!active || _queueAgeLimitEnabled);
             _overflowPolicyCombo.Enabled = !gate && limited && !(active && forwardModel);
             _serviceModeCombo.Enabled = true;
             _processingValue.Enabled = gate || slowdown || forwardModel;
@@ -1945,6 +2334,22 @@ namespace MidiBottleneck
             return (int)Math.Max(1L, Math.Min(1000000L, (long)startValue + delta));
         }
 
+        internal static int MapQueueAgeScrubValue(int startValue, long pixels)
+        {
+            const double knee = 1000000.0;
+            const double scale = 2400.0;
+            double start = Math.Max(1, Math.Min(1800000000, startValue));
+            double coordinate = start <= knee ? start / 250.0 :
+                knee / 250.0 + scale * Math.Log(start / knee);
+            double maximum = knee / 250.0 + scale * Math.Log(1800000000.0 / knee);
+            coordinate = Math.Max(1.0 / 250.0, Math.Min(maximum, coordinate +
+                Math.Max(-2000000L, Math.Min(2000000L, pixels))));
+            double target = coordinate <= knee / 250.0 ? coordinate * 250.0 :
+                knee * Math.Exp((coordinate - knee / 250.0) / scale);
+            long delta = (long)Math.Round(target - start, MidpointRounding.AwayFromZero);
+            return (int)Math.Max(1L, Math.Min(1800000000L, (long)startValue + delta));
+        }
+
         internal static long ProcessingToEventRate(long microseconds)
         {
             if (microseconds <= 0) return 0;
@@ -1998,7 +2403,9 @@ namespace MidiBottleneck
             _statisticsView.SetValues(new string[]
             {
                 FormatTime(snapshot.IntendedTimelineMicroseconds) + (_compactLayout ? "\u2009/\u2009" : " / ") + FormatTime(snapshot.LastDispatchedTimelineMicroseconds),
-                snapshot.OutstandingEvents.ToString("N0", CultureInfo.CurrentCulture) + (_compactLayout ? "\u2009/\u2009" : " / ") + snapshot.MaximumQueueLength.ToString("N0", CultureInfo.CurrentCulture) +
+                (_queueAgeLimitEnabled
+                    ? snapshot.QueueAgeMicroseconds.ToString("N0", CultureInfo.CurrentCulture) + (_compactLayout ? "\u2009/\u2009" : " / ") + snapshot.MaximumQueueAgeMicroseconds.ToString("N0", CultureInfo.CurrentCulture) + " µs"
+                    : snapshot.OutstandingEvents.ToString("N0", CultureInfo.CurrentCulture) + (_compactLayout ? "\u2009/\u2009" : " / ") + snapshot.MaximumQueueLength.ToString("N0", CultureInfo.CurrentCulture)) +
                     (snapshot.VirtualQueueActive ? (_compactLayout ? " actual" : " actual backlog") : String.Empty),
                 configuredRate,
                 _compactLayout && outputRate.HasValue
@@ -2010,9 +2417,11 @@ namespace MidiBottleneck
                 FormatLagMilliseconds(snapshot.CurrentLagMicroseconds)
             });
             _statisticsView.SetQueuePressure(_queueLimitCheck.Checked && !_perNoteIntervalGateEnabled,
-                snapshot.VirtualQueueActive ? snapshot.VirtualOutstandingEvents : snapshot.OutstandingEvents,
-                Decimal.ToInt64(_queueLimitValue.Value), sampleTime < _overflowVisibleUntilMicroseconds,
-                snapshot.VirtualQueueActive);
+                _queueAgeLimitEnabled ? snapshot.QueueAgeMicroseconds :
+                    snapshot.VirtualQueueActive ? snapshot.VirtualOutstandingEvents : snapshot.OutstandingEvents,
+                _queueAgeLimitEnabled ? snapshot.QueueAgeLimitMicroseconds : Decimal.ToInt64(_queueLimitValue.Value),
+                sampleTime < _overflowVisibleUntilMicroseconds,
+                snapshot.VirtualQueueActive, _queueAgeLimitEnabled);
             string stateText = snapshot.State.ToString();
             if (!String.Equals(_stateLabel.Text, stateText, StringComparison.Ordinal))
                 _stateLabel.Text = stateText;
@@ -2028,7 +2437,9 @@ namespace MidiBottleneck
                     {
                         State = snapshot.State.ToString(),
                         TimelineAndOutput = FormatTime(snapshot.IntendedTimelineMicroseconds) + " / " + FormatTime(snapshot.LastDispatchedTimelineMicroseconds),
-                        Queue = snapshot.OutstandingEvents.ToString("N0", CultureInfo.CurrentCulture) + " / " + snapshot.MaximumQueueLength.ToString("N0", CultureInfo.CurrentCulture),
+                        Queue = _queueAgeLimitEnabled
+                            ? snapshot.QueueAgeMicroseconds.ToString("N0", CultureInfo.CurrentCulture) + " / " + snapshot.MaximumQueueAgeMicroseconds.ToString("N0", CultureInfo.CurrentCulture) + " µs"
+                            : snapshot.OutstandingEvents.ToString("N0", CultureInfo.CurrentCulture) + " / " + snapshot.MaximumQueueLength.ToString("N0", CultureInfo.CurrentCulture),
                         Events = FormatEventCounts(snapshot, false),
                         EventsCaption = snapshot.ProcessingMode == ProcessingMode.PerNoteIntervalGate
                             ? "Events sent / excluded: " : "Events sent / dropped: ",
@@ -2068,6 +2479,7 @@ namespace MidiBottleneck
                 ? "This overflow policy requires simulated slowdown because sent MIDI cannot be removed from a forward-only queue."
                 : String.Empty);
             UpdateForwardQueueMenuState();
+            UpdateQueueAgeMenuState();
             UpdateStateChaseMenuState();
         }
 
@@ -2198,6 +2610,7 @@ namespace MidiBottleneck
             if (_song == null) return;
             AnalysisConfiguration configuration = CurrentAnalysisConfiguration();
             DiagnosticsForm diagnostics = new DiagnosticsForm(_song);
+            diagnostics.ApplyApplicationScale(_uiScalePercent);
             _analysisWindows.Add(diagnostics);
             diagnostics.FormClosed += delegate { _analysisWindows.Remove(diagnostics); };
             diagnostics.SeekRequested += delegate(object source, WorkloadSelectionEventArgs seek)
@@ -2240,6 +2653,7 @@ namespace MidiBottleneck
 
             _engine.SetChannelMonitoring(true);
             ChannelMonitorForm monitor = new ChannelMonitorForm(_song == null ? null : Path.GetFileName(_song.FilePath));
+            monitor.ApplyApplicationScale(_uiScalePercent);
             _channelMonitor = monitor;
             _sourceReadoutEventIndex = -1;
             monitor.OverrideRequested += delegate(object sender, ChannelOverrideRequestEventArgs request)
@@ -2388,8 +2802,10 @@ namespace MidiBottleneck
             configuration.MidiBitrate = _engine.MidiBitrate;
             configuration.EventsPerSecond = _engine.EventsPerSecond;
             configuration.QueueLengthLimitEnabled = _queueLimitCheck.Checked;
-            configuration.QueueLengthLimit = Decimal.ToInt32(_queueLimitValue.Value);
-            configuration.OverflowPolicy = (OverflowPolicy)Math.Max(0, _overflowPolicyCombo.SelectedIndex);
+            configuration.QueueLengthLimit = _rememberedEventCountLimit;
+            configuration.QueueAgeLimitEnabled = _queueAgeLimitEnabled;
+            configuration.QueueAgeLimitMicroseconds = _rememberedQueueAgeLimit;
+            configuration.OverflowPolicy = SelectedOverflowPolicy;
             configuration.PerNoteIntervalGateEnabled = _perNoteIntervalGateEnabled;
             configuration.ApplyQueueLimitWithoutSlowdown = _applyQueueLimitWithoutSlowdown;
             return configuration;
@@ -2457,7 +2873,7 @@ namespace MidiBottleneck
         private void UpdateResponsiveLayout()
         {
             if (_rootLayout == null || _statisticsView == null) return;
-            bool compact = ClientSize.Width < 640;
+            bool compact = ClientSize.Width < ScaleMetric(640);
             if (_responsiveLayoutInitialized && compact == _compactLayout) return;
             _responsiveLayoutInitialized = true;
             bool leavingCompact = !compact && _compactLayout;
@@ -2483,7 +2899,7 @@ namespace MidiBottleneck
                     {
                         // The first compact layout has not been measured yet.
                         MaximumSize = Size.Empty;
-                        MinimumSize = new Size(CalculateCompactMinimumWindowWidth(), 100);
+                        MinimumSize = new Size(CalculateCompactMinimumWindowWidth(), ScaleMetric(100));
                     }
                     // After the first realized compact layout its content height
                     // is stable for this DPI/font.  Apply it while layout is
@@ -2496,81 +2912,88 @@ namespace MidiBottleneck
                 else
                 {
                     MaximumSize = Size.Empty;
-                    MinimumSize = new Size(560, _lastDefaultRequiredHeight > 0 ? _lastDefaultRequiredHeight : 100);
+                    MinimumSize = new Size(ScaleMetric(560),
+                        _lastDefaultRequiredHeight > 0 ? _lastDefaultRequiredHeight : ScaleMetric(100));
                     int restoredHeight = Math.Max(_lastDefaultHeight, MinimumSize.Height);
                     if (Height < restoredHeight) Height = restoredHeight;
                 }
-                _rootLayout.Padding = compact ? new Padding(2) : new Padding(5);
-                _loadingPanel.Width = compact ? 118 : 180;
-                _loadingPanel.Margin = compact ? new Padding(2, 0, 1, 0) : new Padding(4, 0, 3, 0);
-                _kdmApiCheck.Margin = compact ? new Padding(4, 3, 2, 3) : new Padding(10, 3, 3, 3);
+                _rootLayout.Padding = new Padding(ScaleMetric(compact ? 2 : 5));
+                _loadingPanel.Width = ScaleMetric(compact ? 118 : 180);
+                _loadingPanel.Margin = compact ? ScalePadding(2, 0, 1, 0) : ScalePadding(4, 0, 3, 0);
+                _kdmApiCheck.Margin = compact ? ScalePadding(4, 3, 2, 3) : ScalePadding(10, 3, 3, 3);
                 ConfigureFileHeaderAllocation(_loadingSong);
                 _processingTable.ColumnStyles[0].Width = compact ? 51 : 48;
                 _processingTable.ColumnStyles[1].Width = compact ? 49 : 52;
                 _statisticsView.Compact = compact;
-                _queueLimitCheck.Text = compact ? "Queue limit:" : "Queue length limit:";
+                _queueLimitCheck.Text = _queueAgeLimitEnabled
+                    ? (compact ? "Wait limit:" : "Queue waiting-time limit:")
+                    : (compact ? "Queue limit:" : "Queue length limit:");
                 _serviceModeLabel.Text = compact ? "Rate:" : "Rate model:";
                 _serviceValueLabel.Text = _selectedRateChoice == RateModelChoice.None
-                    ? "Remembered rate:"
+                    ? String.Empty
                     : _engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate
                     ? (compact ? "Bitrate:" : "MIDI bitrate:")
                     : _engine.ServiceDurationMode == ServiceDurationMode.EventsPerSecond
                         ? "Events/sec:"
                         : (compact ? "Time/event:" : "Processing time per event:");
-                _serviceModeCombo.Width = compact ? 170 : 210;
-                _overflowPolicyCombo.Width = compact ? 132 : 235;
-                _overflowCluster.Margin = compact ? new Padding(0) : new Padding(4, 0, 0, 0);
-                _serviceCluster.Margin = compact ? new Padding(0) : new Padding(4, 0, 0, 0);
-                _overflowLabel.Margin = compact ? new Padding(0, 5, 3, 2) : new Padding(0, 6, 4, 3);
-                _queueLimitCheck.Margin = compact ? new Padding(0, 4, 0, 2) : new Padding(0, 5, 1, 3);
-                _queueLimitValue.Margin = compact ? new Padding(0, 6, 3, 1) : new Padding(0, 7, 4, 2);
-                _eventsLabel.Margin = compact ? new Padding(0, 4, 1, 2) : new Padding(0, 5, 2, 3);
-                _serviceModeLabel.Margin = compact ? new Padding(0, 5, 1, 2) : new Padding(0, 6, 4, 3);
-                _serviceModeCombo.Margin = compact ? new Padding(0, 1, 0, 1) : new Padding(0, 2, 3, 2);
-                _serviceValueLabel.Margin = compact ? new Padding(0, 5, 3, 2) : new Padding(0, 6, 4, 3);
-                _processingValue.Margin = compact ? new Padding(0, 9, 3, 0) : new Padding(0, 10, 3, 0);
-                _serviceUnitLabel.Margin = compact ? new Padding(0, 5, 2, 2) : new Padding(0, 6, 3, 3);
-                _dinPresetButton.Margin = compact ? new Padding(1, 0, 1, 0) : new Padding(3, 0, 3, 0);
-                _processingTable.Padding = compact ? new Padding(0) : new Padding(1);
+                _serviceModeCombo.Width = ScaleMetric(compact ? 170 : 210);
+                _overflowPolicyCombo.Width = ScaleMetric(compact ? 132 : 235);
+                _overflowCluster.Margin = compact ? new Padding(0) : ScalePadding(4, 0, 0, 0);
+                _serviceCluster.Margin = compact ? new Padding(0) : ScalePadding(4, 0, 0, 0);
+                _overflowLabel.Margin = compact ? ScalePadding(0, 5, 3, 2) : ScalePadding(0, 6, 4, 3);
+                _queueLimitCheck.Margin = compact ? ScalePadding(0, 4, 0, 2) : ScalePadding(0, 5, 1, 3);
+                _queueLimitValue.Margin = compact ? ScalePadding(0, 6, 3, 1) : ScalePadding(0, 7, 4, 2);
+                _eventsLabel.Margin = compact ? ScalePadding(0, 4, 1, 2) : ScalePadding(0, 5, 2, 3);
+                _serviceModeLabel.Margin = compact ? ScalePadding(0, 4, 1, 3) : ScalePadding(0, 5, 4, 4);
+                _serviceModeCombo.Margin = compact ? ScalePadding(0, 1, 0, 1) : ScalePadding(0, 2, 3, 2);
+                _serviceValueLabel.Margin = compact ? ScalePadding(0, 5, 3, 2) : ScalePadding(0, 6, 4, 3);
+                // The standard Rate slider intentionally sits two pixels lower,
+                // but that taller row must not move the adjacent numeric field.
+                _processingValue.Margin = compact ? ScalePadding(0, 9, 3, 0) : ScalePadding(0, 9, 3, 1);
+                _serviceUnitLabel.Margin = compact ? ScalePadding(0, 5, 2, 2) : ScalePadding(0, 6, 3, 3);
+                _dinPresetButton.Margin = compact ? ScalePadding(1, 0, 1, 0) : new Padding(ScaleMetric(3));
+                _processingTable.Padding = compact ? new Padding(0) : new Padding(ScaleMetric(1));
                 // The one-pixel compact inset keeps the native TrackBar paint
                 // from touching the rate-model row above it.
-                _rateCluster.MinimumSize = compact ? new Size(0, _serviceModeCombo.PreferredHeight + 4) : Size.Empty;
-                _processingSlider.Margin = compact ? new Padding(0, 2, 0, 0) : new Padding(3);
+                _rateCluster.MinimumSize = compact
+                    ? new Size(0, _serviceModeCombo.PreferredHeight + ScaleMetric(4)) : Size.Empty;
+                _processingSlider.Margin = compact ? ScalePadding(0, 2, 0, 0) : ScalePadding(3, 5, 3, 1);
                 _processingSlider.AutoSize = false;
-                _processingSlider.Height = compact ? 32 : 36;
+                _processingSlider.Height = ScaleMetric(compact ? 32 : 36);
                 _dinPresetButton.Visible = !_compactLayout && _engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate;
                 UpdateMainNumericWidth(_queueLimitValue);
                 UpdateMainNumericWidth(_processingValue);
                 UpdateCompactUnitVisibility();
-                _timelineView.MinimumSize = new Size(300, compact ? 20 : 38);
-                _timelineView.Height = compact ? 20 : 38;
-                _timelineView.Margin = compact ? new Padding(1, 0, 1, 0) : new Padding(3);
-                _playbackButtonLayout.Margin = compact ? new Padding(1, 0, 1, 0) : new Padding(3);
+                _timelineView.MinimumSize = new Size(ScaleMetric(300), ScaleMetric(compact ? 20 : 38));
+                _timelineView.Height = ScaleMetric(compact ? 20 : 38);
+                _timelineView.Margin = compact ? ScalePadding(1, 0, 1, 0) : new Padding(ScaleMetric(3));
+                _playbackButtonLayout.Margin = compact ? ScalePadding(1, 0, 1, 0) : new Padding(ScaleMetric(3));
                 Button[] playbackButtons = new Button[] { _playButton, _stopButton, _seekBack5Button, _seekForward5Button, _analysisButton, _resetStatsButton };
                 for (int i = 0; i < playbackButtons.Length; i++)
-                    playbackButtons[i].Margin = compact ? new Padding(1, 1, 1, 1) : new Padding(3);
+                    playbackButtons[i].Margin = compact ? new Padding(ScaleMetric(1)) : new Padding(ScaleMetric(3));
                 _playButton.AutoSize = _stopButton.AutoSize = _seekBack5Button.AutoSize = _seekForward5Button.AutoSize =
                     _analysisButton.AutoSize = _resetStatsButton.AutoSize = !compact;
                 if (compact)
                 {
-                    _playButton.Width = 54; _stopButton.Width = 54; _seekBack5Button.Width = 59;
-                    _seekForward5Button.Width = 59; _analysisButton.Width = 76; _resetStatsButton.Width = 76;
+                    _playButton.Width = ScaleMetric(54); _stopButton.Width = ScaleMetric(54);
+                    _seekBack5Button.Width = ScaleMetric(59); _seekForward5Button.Width = ScaleMetric(59);
+                    _analysisButton.Width = ScaleMetric(76); _resetStatsButton.Width = ScaleMetric(76);
                 }
                 Control.ControlCollection children = _rootLayout.Controls;
                 for (int i = 0; i < children.Count; i++)
                 {
                     GroupBox group = children[i] as GroupBox;
                     if (group == null) continue;
-                    group.Padding = compact ? new Padding(3, 3, 3, 2) : new Padding(6, 5, 6, 4);
-                    group.Margin = compact ? new Padding(1, 0, 1, 1) : new Padding(2, 1, 2, 3);
+                    group.Padding = compact ? ScalePadding(3, 3, 3, 2) : ScalePadding(6, 5, 6, 4);
+                    group.Margin = compact ? ScalePadding(1, 0, 1, 1) : ScalePadding(2, 1, 2, 3);
                 }
                 if (compact)
                 {
                     // GroupBox reserves its caption independently.  These
                     // smaller content insets remove blank space without moving
                     // either custom-painted surface into the caption/border.
-                    _playbackGroup.Padding = new Padding(3, 0, 3, 1);
-                    _statisticsGroup.Padding = new Padding(3, 0, 3, 0);
+                    _playbackGroup.Padding = ScalePadding(3, 0, 3, 1);
+                    _statisticsGroup.Padding = ScalePadding(3, 0, 3, 0);
                 }
                 if (_loadingSong) UpdateLoadingFileTelemetry(true);
                 else UpdateFileInformation();
@@ -2620,6 +3043,29 @@ namespace MidiBottleneck
                 _lastDefaultHeight = Height;
                 _lastDefaultHeightSurplus = 0;
             }
+            CaptureCanonicalUiGeometry();
+        }
+
+        protected override void OnResizeEnd(EventArgs e)
+        {
+            base.OnResizeEnd(e);
+            if (!_applyingUiScale) CaptureCanonicalUiGeometry();
+        }
+
+        private void CaptureCanonicalUiGeometry()
+        {
+            if (_uiScalePercent <= 0) return;
+            _canonicalClientWidth = ClientSize.Width * 100.0 / _uiScalePercent;
+            _canonicalGeometryInitialized = true;
+            if (!_compactLayout)
+            {
+                _canonicalClientHeight = ClientSize.Height * 100.0 / _uiScalePercent;
+                _lastDefaultHeight = Height;
+                _lastDefaultHeightSurplus = Math.Max(0,
+                    Height - CalculateRequiredWindowHeight());
+                _canonicalDefaultHeightSurplus =
+                    _lastDefaultHeightSurplus * 100.0 / _uiScalePercent;
+            }
         }
 
         private void ApplyMeasuredWindowConstraints()
@@ -2638,7 +3084,7 @@ namespace MidiBottleneck
             {
                 _lastDefaultRequiredHeight = requiredHeight;
                 if (MaximumSize != Size.Empty) MaximumSize = Size.Empty;
-                Size defaultMinimum = new Size(560, requiredHeight);
+                Size defaultMinimum = new Size(ScaleMetric(560), requiredHeight);
                 if (MinimumSize != defaultMinimum) MinimumSize = defaultMinimum;
             }
         }
@@ -2663,7 +3109,7 @@ namespace MidiBottleneck
             {
                 using (Graphics graphics = CreateGraphics()) dpi = graphics.DpiX;
             }
-            int requiredClientWidth = (int)Math.Ceiling(416F * dpi / 96F);
+            int requiredClientWidth = (int)Math.Ceiling(416F * dpi / 96F * _uiScalePercent / 100F);
             int nonClientWidth = Math.Max(0, Width - ClientSize.Width);
             return requiredClientWidth + nonClientWidth;
         }
@@ -2751,6 +3197,7 @@ namespace MidiBottleneck
 
         internal static string FormatPerNoteFrameRate(long intervalMicroseconds, bool compact)
         {
+            if (intervalMicroseconds <= 0) return compact ? "source-time frames" : "Source-time boundaries";
             return (1000000.0 / Math.Max(1, intervalMicroseconds)).ToString(
                 compact ? "N0" : "N1", CultureInfo.CurrentCulture) +
                 (compact ? " frames/s" : " frames/sec");

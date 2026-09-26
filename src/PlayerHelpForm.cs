@@ -105,14 +105,16 @@ namespace MidiBottleneck
                         "Under Simulated slowdown, choose Processing time per event, MIDI serial bitrate, or Events per second. " +
                         "The number and slider below control the chosen model. Zero processing time or zero Events/sec means immediate modeled service. " +
                         "A live ordinary rate change takes effect when the next MIDI event begins service.\r\n\r\n" +
-                        "Per-note interval gate limits each pitch to one note change per interval. It needs a nonzero processing-time interval. " +
+                        "Per-note interval gate limits each pitch to one note change per interval. At zero, distinct source timestamps resolve immediately without a positive minimum interval. " +
                         "Switching to or from None or the gate safely silences and restarts playback at the same position.";
                 case PlayerHelpTopic.QueueAndOverflow:
-                    return "Queue length limit caps ordinary delayed queue pressure. Some note releases and safety messages are protected, so the limit can be soft. " +
+                    return "Queue length limit normally caps delayed queue pressure by event count. Some note releases and safety messages are protected, so the limit can be soft. " +
                         "Drop newest rejects an arriving event. Drop oldest removes pending work. Complete-note choices keep matching note starts and releases together.\r\n\r\n" +
+                        "Limit queue by waiting time is a title-bar menu choice. It changes Queue limit to microseconds and measures the oldest pending event against logical MIDI time. " +
+                        "Drop oldest, Drop oldest complete note, and Clear buffer can be used; policies that cannot repair an overdue head are hidden.\r\n\r\n" +
                         "Apply queue limit without slowdown is a title-bar menu choice. With a finite queue and an ordinary rate model, " +
                         "it models pressure and rejects future arrivals without delaying accepted output. Its heading changes to Forward-only queue admission. " +
-                        "Only Drop newest and Drop incoming complete notes work there; already-sent MIDI cannot be withdrawn.\r\n\r\n" +
+                        "Only Drop newest and Drop incoming complete notes work there; already-sent MIDI cannot be withdrawn. It cannot be combined with waiting-time mode.\r\n\r\n" +
                         "Queue now reports real unsent backlog. The Virtual pressure bar, when shown, is a separate model.";
                 case PlayerHelpTopic.Playback:
                     return "Play starts the loaded MIDI. The same button pauses and resumes. Stop silences the output and clears pending work. " +
@@ -144,6 +146,8 @@ namespace MidiBottleneck
                     return "MIDIBottleneck Player plays MIDI and shows how dense files interact with output rates and queues.\r\n\r\n" +
                         "Open or drop a MIDI file, choose an output, and press Play. None output lets you inspect the model without sound. " +
                         "Rate model starts at None; choose a simulated slowdown or Per-note gate only when you want it.\r\n\r\n" +
+                        "The title-bar menu can hide Processing or Statistics and can scale the application windows from 50% through 200%. " +
+                        "These view choices last for the session and do not change playback. Analysis and Channels keep their normal Windows size.\r\n\r\n" +
                         "Press F1 while a main-window control is focused for its topic. The title-bar menu also opens this guide. " +
                         "The full user guide is available in the public repository.";
             }

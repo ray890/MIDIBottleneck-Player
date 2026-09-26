@@ -416,6 +416,10 @@ namespace MidiBottleneck
         public long QueueLength;
         public long OutstandingEvents;
         public long MaximumQueueLength;
+        public bool QueueAgeLimitEnabled;
+        public long QueueAgeLimitMicroseconds;
+        public long QueueAgeMicroseconds;
+        public long MaximumQueueAgeMicroseconds;
         public long ProcessedEvents;
         public long DroppedEvents;
         public long GateFilteredEvents;

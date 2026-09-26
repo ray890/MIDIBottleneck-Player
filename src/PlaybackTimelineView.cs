@@ -13,11 +13,12 @@ namespace MidiBottleneck
 
     internal sealed class PlaybackTimelineView : Control
     {
-        private readonly Font _timeFont;
+        private Font _timeFont;
         private long _positionMicroseconds;
         private long _durationMicroseconds;
         private long _dragPositionMicroseconds;
         private bool _dragging;
+        private int _applicationScalePercent = 100;
 
         public event EventHandler<TimelineSeekEventArgs> SeekRequested;
 
@@ -31,6 +32,21 @@ namespace MidiBottleneck
             Height = 42;
             MinimumSize = new Size(300, 42);
             _timeFont = new Font("Consolas", 9F, FontStyle.Regular, GraphicsUnit.Point);
+        }
+
+        internal int ApplicationScalePercent
+        {
+            set
+            {
+                value = Math.Max(50, Math.Min(200, value));
+                _applicationScalePercent = value;
+                Font replacement = new Font("Consolas", 9F * value / 100F,
+                    FontStyle.Regular, GraphicsUnit.Point);
+                Font previous = _timeFont;
+                _timeFont = replacement;
+                if (previous != null) previous.Dispose();
+                Invalidate();
+            }
         }
 
         public bool IsDragging { get { return _dragging; } }
@@ -117,8 +133,11 @@ namespace MidiBottleneck
         {
             base.OnPaint(e);
             e.Graphics.Clear(BackColor);
-            const int timeWidth = 168;
-            Rectangle track = new Rectangle(8, (ClientSize.Height / 2) - 4, Math.Max(20, ClientSize.Width - timeWidth - 18), 8);
+            int timeWidth = ScaleMetric(168);
+            int trackLeft = ScaleMetric(8);
+            int trackHeight = ScaleMetric(8);
+            Rectangle track = new Rectangle(trackLeft, (ClientSize.Height - trackHeight) / 2,
+                Math.Max(ScaleMetric(20), ClientSize.Width - timeWidth - ScaleMetric(18)), trackHeight);
             long shownPosition = PositionMicroseconds;
             double fraction = _durationMicroseconds <= 0 ? 0 : Math.Max(0, Math.Min(1, (double)shownPosition / _durationMicroseconds));
             int fillWidth = (int)Math.Round(track.Width * fraction);
@@ -131,10 +150,14 @@ namespace MidiBottleneck
                 if (fillWidth > 0) e.Graphics.FillRectangle(fill, new Rectangle(track.X, track.Y, fillWidth, track.Height));
                 e.Graphics.DrawRectangle(border, track);
                 int thumbX = track.X + fillWidth;
-                e.Graphics.FillEllipse(fill, thumbX - 6, track.Y - 4, 12, 16);
+                int thumbWidth = ScaleMetric(12);
+                int thumbHeight = ScaleMetric(16);
+                e.Graphics.FillEllipse(fill, thumbX - (thumbWidth / 2),
+                    track.Y + ((track.Height - thumbHeight) / 2), thumbWidth, thumbHeight);
             }
 
-            Rectangle timeRectangle = new Rectangle(ClientSize.Width - timeWidth, 0, timeWidth - 4, ClientSize.Height);
+            Rectangle timeRectangle = new Rectangle(ClientSize.Width - timeWidth, 0,
+                timeWidth - ScaleMetric(4), ClientSize.Height);
             string time = FormatTime(shownPosition) + " / " + FormatTime(_durationMicroseconds);
             TextRenderer.DrawText(e.Graphics, time, _timeFont, timeRectangle, ForeColor,
                 TextFormatFlags.Right | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);
@@ -145,11 +168,16 @@ namespace MidiBottleneck
 
         private long PositionFromX(int x)
         {
-            const int timeWidth = 168;
-            int left = 8;
-            int width = Math.Max(20, ClientSize.Width - timeWidth - 18);
+            int timeWidth = ScaleMetric(168);
+            int left = ScaleMetric(8);
+            int width = Math.Max(ScaleMetric(20), ClientSize.Width - timeWidth - ScaleMetric(18));
             double fraction = Math.Max(0, Math.Min(1, (double)(x - left) / width));
             return (long)Math.Round(_durationMicroseconds * fraction);
+        }
+
+        private int ScaleMetric(int value)
+        {
+            return Math.Max(1, (value * _applicationScalePercent + 50) / 100);
         }
 
         private void RaiseSeekRequested()

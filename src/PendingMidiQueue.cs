@@ -60,6 +60,15 @@ namespace MidiBottleneck
             _noteIndexEnabled = noteIndexEnabled;
         }
         internal int Count { get { return _count; } }
+        internal int OldestEventIndex
+        {
+            get
+            {
+                if (_count == 0) return -1;
+                return _noteIndexEnabled ? Get(_head).Entry.EventIndex :
+                    _simpleSegments.Peek()[_simpleHeadOffset].EventIndex;
+            }
+        }
         internal int PeakBackingCount { get { return _noteIndexEnabled ? _nextFresh : _simplePeak; } }
         internal int BackingEntryCount { get { return _count; } }
         internal int EligibleBackingCount { get { return _eligibleCount; } }
@@ -159,6 +168,23 @@ namespace MidiBottleneck
             }
             Remove(attackNode);
             return true;
+        }
+
+        // Waiting-time pressure can only be reduced by removing the queue
+        // head.  Do not discard a later note occurrence while an older
+        // protected event remains overdue; that would lower musical fidelity
+        // without improving the measured age.
+        internal bool TryEvictOldestCompleteNoteAtHead(out int attackIndex, out int releaseIndex)
+        {
+            if (!_noteIndexEnabled)
+                throw new InvalidOperationException("The pending-note index has not been enabled.");
+            if (_eligibleHead < 0 || _eligibleHead != _head)
+            {
+                attackIndex = -1;
+                releaseIndex = -1;
+                return false;
+            }
+            return TryEvictOldestCompleteNote(out attackIndex, out releaseIndex);
         }
 
         // A live policy edit may build or retire the note index once at its

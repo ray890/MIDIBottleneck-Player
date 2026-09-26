@@ -48,13 +48,17 @@ namespace MidiBottleneck
     internal sealed class ChannelMonitorForm : Form
     {
         private readonly BufferedDataGridView _grid;
-        private readonly Font _historicalFont;
-        private readonly Font _forcedFont;
+        private Font _applicationFont;
+        private Font _historicalFont;
+        private Font _forcedFont;
         private readonly Label _explanation;
         private readonly Label _detachedOverlay;
         private readonly Panel _gridHost;
         private readonly ScrubOrTypeTextBox _editor;
+        private readonly TableLayoutPanel _layout;
         private readonly ToolTip _feedbackTip = new ToolTip();
+        private readonly System.Collections.Generic.Dictionary<string, double> _canonicalColumnWidths =
+            new System.Collections.Generic.Dictionary<string, double>();
         private MidiChannelSnapshot[] _lastChannels;
         private MidiChannelSnapshot[] _sourceReadouts;
         private int _editorChannel = -1;
@@ -63,6 +67,12 @@ namespace MidiBottleneck
         private bool _detectManualResize;
         private bool _autoFitWindow = true;
         private bool _fitScheduled;
+        private int _applicationScalePercent = 100;
+        private bool _applyingApplicationScale;
+        private double _canonicalClientWidth = 1240;
+        private double _canonicalClientHeight = 430;
+        private int _canonicalRowHeight;
+        private int _canonicalHeaderHeight;
 
         internal event EventHandler<ChannelOverrideRequestEventArgs> OverrideRequested;
         internal event EventHandler<ChannelEnabledRequestEventArgs> ChannelEnabledRequested;
@@ -75,11 +85,13 @@ namespace MidiBottleneck
             StartPosition = FormStartPosition.Manual;
             ClientSize = new Size(1240, 430);
             MinimumSize = new Size(780, 400);
-            Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
+            _applicationFont = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
+            Font = _applicationFont;
             _historicalFont = new Font(Font, FontStyle.Italic);
             _forcedFont = new Font(Font, FontStyle.Bold);
 
             TableLayoutPanel layout = new TableLayoutPanel();
+            _layout = layout;
             layout.Dock = DockStyle.Fill;
             layout.Padding = new Padding(6);
             layout.ColumnCount = 1;
@@ -128,7 +140,15 @@ namespace MidiBottleneck
             _grid.MouseUp += GridMouseUp;
             _grid.MouseLeave += delegate { if (!_editor.Visible) _grid.Cursor = Cursors.Default; };
             _grid.Scroll += delegate { HideEditor(); };
-            _grid.ColumnWidthChanged += delegate { HideEditor(); ScheduleFitToGrid(); };
+            _grid.ColumnWidthChanged += delegate
+            {
+                if (!_applyingApplicationScale)
+                {
+                    foreach (DataGridViewColumn column in _grid.Columns)
+                        _canonicalColumnWidths[column.Name] = column.Width * 100.0 / _applicationScalePercent;
+                }
+                HideEditor(); ScheduleFitToGrid();
+            };
             Deactivate += delegate { HideEditor(); };
 
             _gridHost = new Panel { Dock = DockStyle.Fill, Margin = new Padding(0) };
@@ -156,9 +176,12 @@ namespace MidiBottleneck
             layout.Controls.Add(_gridHost, 0, 0);
             layout.Controls.Add(_explanation, 0, 1);
             Controls.Add(layout);
+            _canonicalRowHeight = _grid.Rows.Count == 0 ? _grid.RowTemplate.Height : _grid.Rows[0].Height;
+            _canonicalHeaderHeight = _grid.ColumnHeadersHeight;
             Shown += delegate
             {
                 ApplyHeaderPreferredColumnWidths();
+                CaptureCanonicalColumnWidths();
                 FitWindowToGrid(true);
                 BeginInvoke((MethodInvoker)delegate { _detectManualResize = true; });
             };
@@ -168,12 +191,115 @@ namespace MidiBottleneck
             };
         }
 
+        private int ScaleMetric(int value)
+        {
+            if (value == 0) return 0;
+            int scaled = (value * _applicationScalePercent + 50) / 100;
+            return value > 0 ? Math.Max(1, scaled) : Math.Min(-1, scaled);
+        }
+
+        private void CaptureCanonicalColumnWidths()
+        {
+            foreach (DataGridViewColumn column in _grid.Columns)
+                _canonicalColumnWidths[column.Name] = column.Width * 100.0 / _applicationScalePercent;
+        }
+
+        internal void ApplyApplicationScale(int percent)
+        {
+            percent = Math.Max(50, Math.Min(200, percent));
+            if (_applicationScalePercent == percent) return;
+            bool wasAutoFit = _autoFitWindow;
+            _applyingApplicationScale = true;
+            _fittingWindow = true;
+            SuspendLayout();
+            _grid.SuspendLayout();
+            try
+            {
+                _applicationScalePercent = percent;
+                Font oldApplication = _applicationFont;
+                Font oldHistorical = _historicalFont;
+                Font oldForced = _forcedFont;
+                _applicationFont = new Font("Segoe UI", 9F * percent / 100F,
+                    FontStyle.Regular, GraphicsUnit.Point);
+                _historicalFont = new Font(_applicationFont, FontStyle.Italic);
+                _forcedFont = new Font(_applicationFont, FontStyle.Bold);
+                Font = _applicationFont;
+                _grid.Font = _applicationFont;
+                _explanation.Font = _applicationFont;
+                for (int row = 0; row < _grid.Rows.Count; row++)
+                    for (int column = 0; column < _grid.Columns.Count; column++)
+                    {
+                        Font cellFont = _grid.Rows[row].Cells[column].Style.Font;
+                        if (Object.ReferenceEquals(cellFont, oldHistorical))
+                            _grid.Rows[row].Cells[column].Style.Font = _historicalFont;
+                        else if (Object.ReferenceEquals(cellFont, oldForced))
+                            _grid.Rows[row].Cells[column].Style.Font = _forcedFont;
+                        else if (Object.ReferenceEquals(cellFont, oldApplication))
+                            _grid.Rows[row].Cells[column].Style.Font = _applicationFont;
+                    }
+                if (_editor.Visible)
+                    _editor.Font = _editor.Font.Style == FontStyle.Bold ? _forcedFont : _applicationFont;
+                oldApplication.Dispose();
+                oldHistorical.Dispose();
+                oldForced.Dispose();
+                _layout.Padding = new Padding(ScaleMetric(6));
+                _explanation.Margin = new Padding(ScaleMetric(1), ScaleMetric(5), ScaleMetric(1), ScaleMetric(1));
+                _grid.ColumnHeadersHeight = ScaleMetric(_canonicalHeaderHeight);
+                for (int row = 0; row < _grid.Rows.Count; row++)
+                    _grid.Rows[row].Height = ScaleMetric(_canonicalRowHeight);
+                foreach (DataGridViewColumn column in _grid.Columns)
+                {
+                    double canonical;
+                    if (_canonicalColumnWidths.TryGetValue(column.Name, out canonical))
+                        column.Width = Math.Max(1, (int)Math.Round(canonical * percent / 100.0));
+                }
+                Rectangle working = Screen.FromControl(this).WorkingArea;
+                MinimumSize = new Size(Math.Min(ScaleMetric(780), working.Width),
+                    Math.Min(ScaleMetric(400), working.Height));
+                if (!wasAutoFit)
+                {
+                    Size nonClient = new Size(Width - ClientSize.Width, Height - ClientSize.Height);
+                    ClientSize = new Size(Math.Min(Math.Max(1, working.Width - nonClient.Width),
+                            Math.Max(1, (int)Math.Round(_canonicalClientWidth * percent / 100.0))),
+                        Math.Min(Math.Max(1, working.Height - nonClient.Height),
+                            Math.Max(1, (int)Math.Round(_canonicalClientHeight * percent / 100.0))));
+                }
+                HideEditor(false);
+                if (_lastChannels != null) UpdateSnapshot(new ChannelPlaybackSnapshot(_lastChannels));
+            }
+            finally
+            {
+                _grid.ResumeLayout();
+                ResumeLayout(true);
+                _fittingWindow = false;
+                _applyingApplicationScale = false;
+            }
+            if (wasAutoFit)
+            {
+                ApplyHeaderPreferredColumnWidths();
+                CaptureCanonicalColumnWidths();
+                FitWindowToGrid(true);
+            }
+            Rectangle area = Screen.FromControl(this).WorkingArea;
+            Location = new Point(Math.Max(area.Left, Math.Min(Left, area.Right - Width)),
+                Math.Max(area.Top, Math.Min(Top, area.Bottom - Height)));
+        }
+
+        protected override void OnResizeEnd(EventArgs e)
+        {
+            base.OnResizeEnd(e);
+            if (_applyingApplicationScale || _applicationScalePercent <= 0) return;
+            _canonicalClientWidth = ClientSize.Width * 100.0 / _applicationScalePercent;
+            _canonicalClientHeight = ClientSize.Height * 100.0 / _applicationScalePercent;
+        }
+
         protected override void Dispose(bool disposing)
         {
             if (disposing)
             {
                 _historicalFont.Dispose();
                 _forcedFont.Dispose();
+                _applicationFont.Dispose();
                 _feedbackTip.Dispose();
             }
             base.Dispose(disposing);
@@ -183,6 +309,7 @@ namespace MidiBottleneck
         internal DataGridView GridForTesting { get { return _grid; } }
         internal ScrubOrTypeTextBox EditorForTesting { get { return _editor; } }
         internal int EditorControlCountForTesting { get { return CountControlsOfType<ScrubOrTypeTextBox>(_gridHost); } }
+        internal int ApplicationScalePercentForTesting { get { return _applicationScalePercent; } }
 
         internal string CellText(int channel, string columnName)
         {
@@ -315,6 +442,7 @@ namespace MidiBottleneck
             column.DefaultCellStyle.Alignment = name == "Channel" ? DataGridViewContentAlignment.MiddleCenter : DataGridViewContentAlignment.MiddleRight;
             if (attribute.HasValue) column.Tag = attribute.Value;
             _grid.Columns.Add(column);
+            _canonicalColumnWidths[name] = width;
         }
 
         private void SetAttributeCell(int channel, string columnName, ChannelAttribute attribute, int observed, MidiChannelSnapshot state)
@@ -606,11 +734,11 @@ namespace MidiBottleneck
                 {
                     if (String.Equals(column.Name, "Program", StringComparison.Ordinal))
                     {
-                        column.Width = 158;
+                        column.Width = ScaleMetric(158);
                         continue;
                     }
                     int preferred = column.GetPreferredWidth(DataGridViewAutoSizeColumnMode.ColumnHeader, true);
-                    column.Width = Math.Max(34, preferred);
+                    column.Width = Math.Max(ScaleMetric(34), preferred);
                 }
             }
             finally
@@ -626,19 +754,29 @@ namespace MidiBottleneck
             int columns = 0;
             for (int i = 0; i < _grid.Columns.Count; i++)
                 if (_grid.Columns[i].Visible) columns += _grid.Columns[i].Width;
-            int gridWidth = columns + 3;
-            int rowsHeight = _grid.ColumnHeadersHeight + _grid.Rows.GetRowsHeight(DataGridViewElementStates.Visible) + 3;
+            int gridWidth = columns + ScaleMetric(3);
+            int rowsHeight = _grid.ColumnHeadersHeight + _grid.Rows.GetRowsHeight(DataGridViewElementStates.Visible) + ScaleMetric(3);
             Rectangle working = Screen.FromControl(this).WorkingArea;
             Size nonClient = new Size(Width - ClientSize.Width, Height - ClientSize.Height);
             int maximumClientWidth = Math.Max(1, working.Width - nonClient.Width);
             int maximumClientHeight = Math.Max(1, working.Height - nonClient.Height);
-            int clientWidth = Math.Min(Math.Max(420, gridWidth + 12), maximumClientWidth);
-            int explanationWidth = Math.Max(1, clientWidth - 14 - _explanation.Margin.Horizontal);
+            // At non-100% application scales, integer row/column rounding can
+            // create a vertical scrollbar first and then make that scrollbar
+            // force an otherwise unnecessary horizontal scrollbar. Reserve
+            // one native scrollbar width to prevent that feedback loop when
+            // the working area has room.
+            int scrollbarRoundingReserve = _applicationScalePercent == 100
+                ? 0 : SystemInformation.VerticalScrollBarWidth * 2;
+            int clientWidth = Math.Min(Math.Max(ScaleMetric(420),
+                gridWidth + ScaleMetric(12) + scrollbarRoundingReserve), maximumClientWidth);
+            int explanationWidth = Math.Max(1, clientWidth - ScaleMetric(14) - _explanation.Margin.Horizontal);
             _explanation.MaximumSize = new Size(explanationWidth, 0);
             _explanation.PerformLayout();
-            int horizontalScrollHeight = clientWidth < gridWidth + 12 ? SystemInformation.HorizontalScrollBarHeight : 0;
-            int desiredHeight = rowsHeight + horizontalScrollHeight + _explanation.PreferredHeight + _explanation.Margin.Vertical + 12;
-            int clientHeight = includeHeight ? Math.Min(Math.Max(300, desiredHeight), maximumClientHeight) : ClientSize.Height;
+            int horizontalScrollHeight = clientWidth < gridWidth + ScaleMetric(12) ? SystemInformation.HorizontalScrollBarHeight : 0;
+            int desiredHeight = rowsHeight + horizontalScrollHeight + _explanation.PreferredHeight +
+                _explanation.Margin.Vertical + ScaleMetric(12) +
+                (_applicationScalePercent == 100 ? 0 : 4);
+            int clientHeight = includeHeight ? Math.Min(Math.Max(ScaleMetric(300), desiredHeight), maximumClientHeight) : ClientSize.Height;
             _fittingWindow = true;
             try
             {

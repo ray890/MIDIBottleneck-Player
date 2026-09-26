@@ -49,7 +49,8 @@ namespace MidiBottleneck
     internal sealed class WorkloadGraph : Control
     {
         private WorkloadAnalysis _analysis;
-        private readonly Font _labelFont;
+        private Font _labelFont;
+        private int _applicationScalePercent = 100;
         private readonly ToolTip _toolTip;
         private long? _hoverTime;
         private long? _pinnedTime;
@@ -99,6 +100,30 @@ namespace MidiBottleneck
             _dynamicTimer = new Timer();
             _dynamicTimer.Interval = 16;
             _dynamicTimer.Tick += ProcessDynamicUpdates;
+        }
+
+        internal int ApplicationScalePercent
+        {
+            get { return _applicationScalePercent; }
+            set
+            {
+                value = Math.Max(50, Math.Min(200, value));
+                if (_applicationScalePercent == value) return;
+                _applicationScalePercent = value;
+                Font replacement = new Font("Segoe UI", 8F * value / 100F,
+                    FontStyle.Regular, GraphicsUnit.Point);
+                Font previous = _labelFont;
+                _labelFont = replacement;
+                if (previous != null) previous.Dispose();
+                InvalidateStaticLayer();
+            }
+        }
+
+        private int ScaleMetric(int value)
+        {
+            if (value == 0) return 0;
+            int scaled = (value * _applicationScalePercent + 50) / 100;
+            return value > 0 ? Math.Max(1, scaled) : Math.Min(-1, scaled);
         }
 
         public WorkloadAnalysis Analysis
@@ -171,18 +196,18 @@ namespace MidiBottleneck
             get
             {
                 long span = Math.Max(1, _viewEnd - _viewStart);
-                string endLabel = FormatAxisClock(Math.Max(_viewStart, _viewEnd), ChooseTimelineTickInterval(span, Math.Max(100, ClientSize.Width)));
-                int horizontalAllowance = Math.Max(42, TextRenderer.MeasureText(endLabel, _labelFont).Width / 2 + 8);
-                int top = 42;
+                string endLabel = FormatAxisClock(Math.Max(_viewStart, _viewEnd), ChooseTimelineTickInterval(span, Math.Max(ScaleMetric(100), ClientSize.Width)));
+                int horizontalAllowance = Math.Max(ScaleMetric(42), TextRenderer.MeasureText(endLabel, _labelFont).Width / 2 + ScaleMetric(8));
+                int top = ScaleMetric(42);
                 bool finite = _analysis != null && _analysis.HasQueueProjection &&
                     _analysis.Configuration != null && _analysis.Configuration.QueueLengthLimitEnabled;
                 bool extraLegend = _analysis != null && !_analysis.HasQueueProjection;
-                bool narrow = ClientSize.Width - horizontalAllowance * 2 < 430;
-                int bottomAllowance = finite ? (narrow ? 121 : 104) : (narrow ? 104 : 87);
-                if (extraLegend) bottomAllowance += 17;
+                bool narrow = ClientSize.Width - horizontalAllowance * 2 < ScaleMetric(430);
+                int bottomAllowance = ScaleMetric(finite ? (narrow ? 121 : 104) : (narrow ? 104 : 87));
+                if (extraLegend) bottomAllowance += ScaleMetric(17);
                 return new Rectangle(horizontalAllowance, top,
-                    Math.Max(20, ClientSize.Width - horizontalAllowance * 2),
-                    Math.Max(50, ClientSize.Height - top - bottomAllowance));
+                    Math.Max(ScaleMetric(20), ClientSize.Width - horizontalAllowance * 2),
+                    Math.Max(ScaleMetric(50), ClientSize.Height - top - bottomAllowance));
             }
         }
 
@@ -461,7 +486,7 @@ namespace MidiBottleneck
                 string scope = (_viewStart == 0 && _viewEnd >= _analysis.DurationMicroseconds ? "WHOLE FILE   " : "VISIBLE RANGE   ") +
                     FormatClock(_viewStart) + " – " + FormatClock(_viewEnd);
                 Rectangle area = GraphArea;
-                TextRenderer.DrawText(graphics, scope, _labelFont, new Rectangle(area.Left, 5, area.Width, 20), Color.Gainsboro,
+                TextRenderer.DrawText(graphics, scope, _labelFont, new Rectangle(area.Left, ScaleMetric(5), area.Width, ScaleMetric(20)), Color.Gainsboro,
                     TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
                 string title = byteModel ? "MIDI bytes/sec" : "Events/sec";
                 string unit = byteModel ? "bytes/sec" : "events/sec";
@@ -558,10 +583,10 @@ namespace MidiBottleneck
                     graphics.DrawLine(capacityPen, area.Left, capacityY, area.Right, capacityY);
                 }
             }
-            TextRenderer.DrawText(graphics, title, _labelFont, new Rectangle(area.Left, area.Top - 22, area.Width / 3, 20), ForeColor,
+            TextRenderer.DrawText(graphics, title, _labelFont, new Rectangle(area.Left, area.Top - ScaleMetric(22), area.Width / 3, ScaleMetric(20)), ForeColor,
                 TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis);
             string scale;
-            if (area.Width < 430)
+            if (area.Width < ScaleMetric(430))
             {
                 scale = "peak " + peak.ToString("N0");
                 if (capacity > 0) scale += "  •  max " + capacity.ToString("N0") + "/s";
@@ -571,7 +596,7 @@ namespace MidiBottleneck
                 scale = "peak " + peak.ToString("N1") + " " + unit;
                 if (capacity > 0) scale += "   maximum rate " + capacity.ToString("N1") + " " + unit;
             }
-            TextRenderer.DrawText(graphics, scale, _labelFont, new Rectangle(area.Left + area.Width / 3, area.Top - 22, area.Width * 2 / 3, 20), ForeColor,
+            TextRenderer.DrawText(graphics, scale, _labelFont, new Rectangle(area.Left + area.Width / 3, area.Top - ScaleMetric(22), area.Width * 2 / 3, ScaleMetric(20)), ForeColor,
                 TextFormatFlags.Right | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
         }
 
@@ -596,7 +621,7 @@ namespace MidiBottleneck
                 for (int index = 0; index < ticks.Count; index++)
                 {
                     TimelineAxisTick tick = ticks[index];
-                    graphics.DrawLine(tickPen, tick.X, area.Bottom + 1, tick.X, area.Bottom + 4);
+                    graphics.DrawLine(tickPen, tick.X, area.Bottom + ScaleMetric(1), tick.X, area.Bottom + ScaleMetric(4));
                     TextRenderer.DrawText(graphics, tick.Label, _labelFont, tick.LabelBounds, Color.Silver,
                         TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);
                 }
@@ -616,7 +641,7 @@ namespace MidiBottleneck
             long interval = ChooseTimelineTickInterval(span, area.Width);
             long remainder = _viewStart % interval;
             long first = remainder == 0 ? _viewStart : checked(_viewStart + (interval - remainder));
-            const int safetyGap = 10;
+            int safetyGap = ScaleMetric(10);
             int previousRight = Int32.MinValue;
             for (long time = first; time <= _viewEnd; )
             {
@@ -624,8 +649,8 @@ namespace MidiBottleneck
                 Size measured = TextRenderer.MeasureText(label, _labelFont, Size.Empty,
                     TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);
                 int x = area.Left + (int)Math.Round(area.Width * (time - _viewStart) / (double)span);
-                Rectangle bounds = new Rectangle(x - measured.Width / 2, area.Bottom + 5, measured.Width, Math.Max(16, measured.Height));
-                if (bounds.Left >= 2 && bounds.Right <= ClientSize.Width - 2 && bounds.Left >= previousRight + safetyGap)
+                Rectangle bounds = new Rectangle(x - measured.Width / 2, area.Bottom + ScaleMetric(5), measured.Width, Math.Max(ScaleMetric(16), measured.Height));
+                if (bounds.Left >= ScaleMetric(2) && bounds.Right <= ClientSize.Width - ScaleMetric(2) && bounds.Left >= previousRight + safetyGap)
                 {
                     result.Add(new TimelineAxisTick { TimeMicroseconds = time, X = x, Label = label, LabelBounds = bounds });
                     previousRight = bounds.Right;
@@ -668,8 +693,8 @@ namespace MidiBottleneck
 
         private void DrawMarkerLanes(Graphics graphics, Rectangle area)
         {
-            int clusterY = area.Bottom + 25;
-            int pressureY = area.Bottom + 38;
+            int clusterY = area.Bottom + ScaleMetric(25);
+            int pressureY = area.Bottom + ScaleMetric(38);
             using (Brush cluster = new SolidBrush(Color.FromArgb(225, 195, 90, 220)))
             using (Brush low = new SolidBrush(Color.FromArgb(100, 75, 150, 95)))
             using (Brush medium = new SolidBrush(Color.FromArgb(150, 230, 170, 45)))
@@ -681,27 +706,32 @@ namespace MidiBottleneck
                     BucketRangeAtPixel(x, area, out first, out last);
                     int clusterSize = 0;
                     int occupancy = 0;
+                    long queueAge = 0;
                     for (int bucket = first; bucket < last; bucket++)
                     {
                         clusterSize = Math.Max(clusterSize, _analysis.Buckets[bucket].LargestCluster);
                         occupancy = Math.Max(occupancy, _analysis.Buckets[bucket].PredictedPeakOccupancy);
+                        queueAge = Math.Max(queueAge, _analysis.Buckets[bucket].PredictedPeakQueueAgeMicroseconds);
                     }
                     if (clusterSize >= 50)
                     {
-                        Point[] diamond = new Point[] { new Point(area.Left + x, clusterY - 3), new Point(area.Left + x + 3, clusterY), new Point(area.Left + x, clusterY + 3), new Point(area.Left + x - 3, clusterY) };
+                        int radius = ScaleMetric(3);
+                        Point[] diamond = new Point[] { new Point(area.Left + x, clusterY - radius), new Point(area.Left + x + radius, clusterY), new Point(area.Left + x, clusterY + radius), new Point(area.Left + x - radius, clusterY) };
                         graphics.FillPolygon(cluster, diamond);
                     }
                     if (_analysis.HasQueueProjection && _analysis.Configuration != null &&
                         _analysis.Configuration.QueueLengthLimitEnabled)
                     {
-                        double ratio = occupancy / (double)Math.Max(1, _analysis.Configuration.QueueLengthLimit);
-                        graphics.FillRectangle(ratio >= 0.9 ? high : ratio >= 0.65 ? medium : low, area.Left + x, pressureY, 1, 6);
+                        double ratio = _analysis.Configuration.QueueAgeLimitEnabled
+                            ? queueAge / (double)Math.Max(1L, _analysis.Configuration.QueueAgeLimitMicroseconds)
+                            : occupancy / (double)Math.Max(1, _analysis.Configuration.QueueLengthLimit);
+                        graphics.FillRectangle(ratio >= 0.9 ? high : ratio >= 0.65 ? medium : low, area.Left + x, pressureY, 1, ScaleMetric(6));
                     }
                 }
             }
             bool finite = _analysis.HasQueueProjection && _analysis.Configuration != null &&
                 _analysis.Configuration.QueueLengthLimitEnabled;
-            bool narrow = area.Width < 430;
+            bool narrow = area.Width < ScaleMetric(430);
             if (narrow)
             {
                 DrawLegendLine(graphics, area, 47, "◆ Magenta: burst ≥50 simultaneous events");
@@ -750,7 +780,8 @@ namespace MidiBottleneck
 
         private void DrawLegendLine(Graphics graphics, Rectangle area, int offset, string text)
         {
-            TextRenderer.DrawText(graphics, text, _labelFont, new Rectangle(area.Left, area.Bottom + offset, area.Width, 18), Color.Silver,
+            TextRenderer.DrawText(graphics, text, _labelFont,
+                new Rectangle(area.Left, area.Bottom + ScaleMetric(offset), area.Width, ScaleMetric(18)), Color.Silver,
                 TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis);
         }
 
@@ -772,13 +803,17 @@ namespace MidiBottleneck
             double seconds = _analysis.BucketMicroseconds / 1000000.0;
             double value = bucket == null ? 0 : (bytes ? bucket.ByteCount : bucket.EventCount) / seconds;
             string tip = FormatClockDetailed(inspected.Value) + "   " + value.ToString("N1") + (bytes ? " bytes/sec" : " events/sec");
-            int tipX = Math.Max(area.Left, Math.Min(area.Right - 215, x + 7));
-            int tipY = area.Top + 5;
+            int tipWidth = ScaleMetric(210);
+            int tipHeight = ScaleMetric(20);
+            int tipX = Math.Max(area.Left, Math.Min(area.Right - tipWidth - ScaleMetric(5), x + ScaleMetric(7)));
+            int tipY = area.Top + ScaleMetric(5);
             Rectangle overlay = PlaybackStatisticsBounds(area);
-            if (PlaybackStatisticsDrawn && new Rectangle(tipX, tipY, 210, 20).IntersectsWith(overlay))
-                tipY = Math.Min(area.Bottom - 20, overlay.Bottom + 5);
-            using (Brush background = new SolidBrush(Color.FromArgb(220, 40, 44, 50))) graphics.FillRectangle(background, tipX, tipY, 210, 20);
-            TextRenderer.DrawText(graphics, tip, _labelFont, new Rectangle(tipX + 4, tipY, 204, 20), Color.White,
+            if (PlaybackStatisticsDrawn && new Rectangle(tipX, tipY, tipWidth, tipHeight).IntersectsWith(overlay))
+                tipY = Math.Min(area.Bottom - tipHeight, overlay.Bottom + ScaleMetric(5));
+            using (Brush background = new SolidBrush(Color.FromArgb(220, 40, 44, 50)))
+                graphics.FillRectangle(background, tipX, tipY, tipWidth, tipHeight);
+            TextRenderer.DrawText(graphics, tip, _labelFont,
+                new Rectangle(tipX + ScaleMetric(4), tipY, tipWidth - ScaleMetric(6), tipHeight), Color.White,
                 TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
         }
 
@@ -812,8 +847,9 @@ namespace MidiBottleneck
             }
             for (int i = 0; i < values.Length; i++)
                 TextRenderer.DrawText(graphics,
-                    FitPlaybackLine(graphics, captions[i], shortCaptions[i], values[i], panel.Width - 14), _labelFont,
-                    new Rectangle(panel.Left + 7, panel.Top + 4 + i * 17, panel.Width - 14, 17), Color.WhiteSmoke,
+                    FitPlaybackLine(graphics, captions[i], shortCaptions[i], values[i], panel.Width - ScaleMetric(14)), _labelFont,
+                    new Rectangle(panel.Left + ScaleMetric(7), panel.Top + ScaleMetric(4 + i * 17),
+                        panel.Width - ScaleMetric(14), ScaleMetric(17)), Color.WhiteSmoke,
                     TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine |
                     TextFormatFlags.NoPadding | TextFormatFlags.EndEllipsis);
         }
@@ -883,9 +919,9 @@ namespace MidiBottleneck
 
         internal Rectangle PlaybackStatisticsBounds(Rectangle area)
         {
-            int width = Math.Max(80, Math.Min(310, area.Width - 16));
-            int height = 8 + 7 * 17;
-            return new Rectangle(area.Left + 7, area.Top + 7, width, height);
+            int width = Math.Max(ScaleMetric(80), Math.Min(ScaleMetric(310), area.Width - ScaleMetric(16)));
+            int height = ScaleMetric(8 + 7 * 17);
+            return new Rectangle(area.Left + ScaleMetric(7), area.Top + ScaleMetric(7), width, height);
         }
 
         private static string FormatClock(long microseconds)

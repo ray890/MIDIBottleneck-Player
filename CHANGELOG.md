@@ -513,3 +513,25 @@ This is the human-readable history of MIDIBottleneck Player. Dates are original 
 ### Verification
 
 - Focused realized WinForms tests cover key preprocessing, native system-menu invocation, focused-section selection, content, reuse, closure/reopening, handle recreation, and working-area fit. Complete architecture totals and exact release hashes are retained in the private Build 41 checkpoint.
+
+## Build 42 — 2026-09-26
+
+### Player changes
+
+- Hardened the grouped Rate selector so its two headings remain visual labels rather than model choices. Mouse, keyboard, wheel, prefix search, and programmatic selection keep a real Rate model selected.
+- Kept an independent remembered value for Processing time, MIDI bitrate, Events/sec, and the Per-note interval. **None** remains genuinely immediate and no longer shows a hidden remembered-rate label.
+- Added a true zero setting for Per-note interval gate. Zero resolves each distinct source timestamp immediately in deterministic phases instead of pretending that one microsecond elapsed.
+- Added a default-off **Limit queue by waiting time (µs)** mode. It measures the oldest eligible unsent event against logical MIDI time and shares its Drop oldest, soft complete-note, and clear/catch-up decisions with Analysis.
+- Added session-only 50%, 75%, 100%, 125%, 150%, and 200% scaling for the main, Analysis, and Channels windows. Every choice is recalculated from each window's canonical 100% measurements; section hiding, compact/default transitions, Analysis split geometry, and Channels fitting remain recoverable.
+
+### Queue and presentation details
+
+- An event exactly at the waiting-time limit is allowed. Incompatible policies are hidden, and waiting-time mode is mutually exclusive with forward-only admission because already-sent events have no pending age.
+- Queue pressure and Analysis use waiting age in microseconds while occupancy remains available separately. Muted and override-suppressed source events never become queue drops or the oldest waiter.
+- Scaling includes main-window fonts, native layout metrics, custom Statistics/timeline painting, responsive constraints, and user-added height. Analysis scales its report, command bar, graph and split; Channels scales its grid/editor and preserves automatic fitting or manually resized columns.
+- Corrected an intermittent x86 form-opening failure caused by sign-extending a high-bit native popup-menu handle before adding the scale submenu.
+
+### Verification
+
+- Focused tests cover structurally static Rate headings, model-value restoration, zero-gate Playback/Analysis parity, queue-age boundaries and policies, filtered blocked output, statistics reset, scale cycling across all three windows, section visibility, responsive transitions, handle recreation, native resource cleanup, and exact 100% restoration.
+- Complete x86/x64 suite totals and the exact release hashes are retained in the private Build 42 checkpoint.

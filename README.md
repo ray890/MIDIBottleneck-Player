@@ -21,7 +21,7 @@ MIDIBottleneck Player is a Windows MIDI player and deterministic workload simula
 - A 16-channel monitor with safe live overrides and per-channel filtering.
 - Checked-by-default bank, program, controller, bend, pressure, and RPN/NRPN restoration when Play or Seek begins in the middle of a file.
 - A Per-note interval gate for limiting how often each pitch can change state.
-- Responsive compact layout and separate x86/x64 executables.
+- Responsive compact layout, session-only 50%–200% main-window scaling, and separate x86/x64 executables.
 - Session-only window-menu choices can hide Processing model, Statistics, or both to reclaim vertical space without changing playback settings.
 - Offline Help is available with F1 or the title-bar menu and opens at the topic associated with the focused main-window control.
 - Click or scrub the processing value and queue limit directly. The centered fields fit the number shown; dragging Queue limit is gentle for small limits and quicker for large ones. The Events/sec slider gives finer control at low rates and accepts exact typed rates up to 9,999,999.
@@ -42,11 +42,13 @@ Windows 7 SP1 is untested. Windows XP and cross-platform support are longer-term
 2. Download `MIDIBottleneck-Player-v<version>-x64.exe` for a typical modern system, or the x86 executable when a 32-bit MIDI environment requires it.
 3. Run the downloaded executable. No extraction or adjacent configuration file is required.
 4. Choose an output, then open or drag one `.mid` or `.midi` file onto the window.
-5. Leave **Rate model** at **None** and **Queue length limit** off for ordinary uncapped playback. Choose an ordinary rate model to simulate slower output, or choose **Per-note interval gate** to limit pitch changes. **Apply queue limit without slowdown** is off by default; with a finite queue and an ordinary rate selected, it can instead reject future arrivals without deliberately delaying accepted output.
+5. Leave **Rate model** at **None** and **Queue length limit** off for ordinary uncapped playback. Choose an ordinary rate model to simulate slower output, or choose **Per-note interval gate** to limit pitch changes. Optional title-bar menu choices can apply a forward-only event-count limit or interpret Queue limit as maximum waiting time; those two modes are intentionally mutually exclusive.
 
 The window menu also enables **Chase MIDI state on Play/Seek** by default. Starting in the middle restores ordinary channel state before later notes without replaying earlier notes.
 
 To make the main window shorter, use **Show Processing model** and **Show Statistics** in its Windows title-bar menu (Alt+Space). Both start checked. Hiding a section changes only the view; its settings and statistics continue normally.
+
+The same menu can scale the application windows to 50%, 75%, 100%, 125%, 150%, or 200% for unusual display sizes. Scaling is recalculated from each window's 100% layout, so repeated changes do not accumulate rounding or drift. Analysis keeps its split/report/graph geometry, while Channels preserves automatic fitting or a user's manually resized columns and window.
 
 Press **F1** for help with the focused main-window control, or choose **Help (F1)…** from the title-bar menu. The guide is built into the executable, so it works offline.
 

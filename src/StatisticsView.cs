@@ -29,8 +29,8 @@ namespace MidiBottleneck
             new string[] { "Sent/excluded:", "Events:" };
 
         private readonly string[] _values = new string[8];
-        private readonly Font _captionFont;
-        private readonly Font _valueFont;
+        private Font _captionFont;
+        private Font _valueFont;
         private readonly ToolTip _toolTip;
         private readonly bool[] _captionTruncated = new bool[8];
         private readonly bool[] _valueTruncated = new bool[8];
@@ -45,6 +45,8 @@ namespace MidiBottleneck
         private string _speedMeasurementDescription = "250 ms";
         private bool _perNoteIntervalGate;
         private bool _virtualQueuePressure;
+        private bool _queueAgePressure;
+        private int _applicationScalePercent = 100;
 
         internal event EventHandler<MouseEventArgs> EffectiveSpeedContextRequested;
 
@@ -69,13 +71,51 @@ namespace MidiBottleneck
             {
                 if (_compact == value) return;
                 _compact = value;
-                int height = value ? Math.Max(84, 4 * (Math.Max(_captionFont.Height, _valueFont.Height) + 1) + 18) : 104;
+                int height = value
+                    ? Math.Max(ScaleMetric(84, _applicationScalePercent),
+                        4 * (Math.Max(_captionFont.Height, _valueFont.Height) + 1) +
+                        ScaleMetric(18, _applicationScalePercent))
+                    : Math.Max(ScaleMetric(104, _applicationScalePercent),
+                        4 * (Math.Max(_captionFont.Height, _valueFont.Height) + 1) +
+                        ScaleMetric(18, _applicationScalePercent));
                 // Lower the constraint first: assigning Height while the old
                 // 104-pixel minimum is active silently restores that old height.
                 MinimumSize = new Size(0, height);
                 Height = height;
                 Invalidate();
             }
+        }
+
+        internal int ApplicationScalePercent
+        {
+            set
+            {
+                value = Math.Max(50, Math.Min(200, value));
+                _applicationScalePercent = value;
+                Font caption = new Font("Segoe UI", 8.5F * value / 100F,
+                    FontStyle.Regular, GraphicsUnit.Point);
+                Font readout = new Font("Consolas", 9F * value / 100F,
+                    FontStyle.Bold, GraphicsUnit.Point);
+                Font previousCaption = _captionFont;
+                Font previousReadout = _valueFont;
+                _captionFont = caption;
+                _valueFont = readout;
+                if (previousCaption != null) previousCaption.Dispose();
+                if (previousReadout != null) previousReadout.Dispose();
+                int height = _compact
+                    ? Math.Max(ScaleMetric(84, value),
+                        4 * (Math.Max(_captionFont.Height, _valueFont.Height) + 1) + ScaleMetric(18, value))
+                    : Math.Max(ScaleMetric(104, value),
+                        4 * (Math.Max(_captionFont.Height, _valueFont.Height) + 1) + ScaleMetric(18, value));
+                MinimumSize = new Size(0, height);
+                Height = height;
+                Invalidate();
+            }
+        }
+
+        private static int ScaleMetric(int value, int percent)
+        {
+            return Math.Max(1, (value * percent + 50) / 100);
         }
 
         public bool SetValues(string[] values)
@@ -105,16 +145,24 @@ namespace MidiBottleneck
         internal void SetQueuePressure(bool limited, long occupied, long limit, bool overflowPulse,
             bool virtualQueuePressure)
         {
+            SetQueuePressure(limited, occupied, limit, overflowPulse, virtualQueuePressure, false);
+        }
+
+        internal void SetQueuePressure(bool limited, long occupied, long limit, bool overflowPulse,
+            bool virtualQueuePressure, bool queueAgePressure)
+        {
             occupied = Math.Max(0, occupied);
             limit = Math.Max(1, limit);
             bool visibilityChanged = _queueLimited != limited;
             if (!visibilityChanged && _occupied == occupied && _limit == limit &&
-                _overflowPulse == overflowPulse && _virtualQueuePressure == virtualQueuePressure) return;
+                _overflowPulse == overflowPulse && _virtualQueuePressure == virtualQueuePressure &&
+                _queueAgePressure == queueAgePressure) return;
             _queueLimited = limited;
             _occupied = occupied;
             _limit = limit;
             _overflowPulse = overflowPulse;
             _virtualQueuePressure = virtualQueuePressure;
+            _queueAgePressure = queueAgePressure;
             Invalidate();
         }
 
@@ -161,6 +209,7 @@ namespace MidiBottleneck
             TextFormatFlags vertical = TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding;
             string captionText = _perNoteIntervalGate && index == 4
                 ? (_compact ? "Sent/excluded:" : "Events sent / excluded:")
+                : _queueAgePressure && index == 1 ? (_compact ? "Wait now/max:" : "Waiting age now / maximum:")
                 : (_compact ? CompactCaptionChoices[index][0] : Captions[index]);
             int measuredValue = MeasureStatisticValue(graphics, _values[index], vertical);
             int innerWidth = Math.Max(1, width - 4);
@@ -270,7 +319,9 @@ namespace MidiBottleneck
                 _lastToolTipCell = -2;
                 _toolTip.SetToolTip(this, _virtualQueuePressure
                     ? "Virtual pressure uses the selected rate model to decide whether a newly arriving MIDI event fits. Accepted MIDI is sent immediately. This is separate from the actual unsent scheduler/output backlog shown above, and it does not predict delay inside a driver or synthesizer."
-                    : "Finite-buffer occupancy includes the event currently in service. Safety-preserving overflow policies may temporarily exceed the configured soft limit so a required Note Off or non-note message is not discarded.");
+                    : _queueAgePressure
+                        ? "Waiting-time pressure is the age of the oldest pending event divided by the configured microsecond limit. The event currently in service is not removable. Drop oldest complete note is a soft limit when protected traffic remains at the head."
+                        : "Finite-buffer occupancy includes the event currently in service. Safety-preserving overflow policies may temporarily exceed the configured soft limit so a required Note Off or non-note message is not discarded.");
                 return;
             }
             if (cell == _lastToolTipCell) return;
@@ -322,8 +373,9 @@ namespace MidiBottleneck
                     (int)Math.Round(bar.Width * Math.Min(1.0, ratio)), bar.Height));
                 graphics.DrawRectangle(outline, bar);
             }
-            string text = (_virtualQueuePressure ? "Virtual " : String.Empty) + _occupied.ToString("N0") + " / " +
-                _limit.ToString("N0") + " — " + Math.Round(100 * ratio).ToString("N0") + "%";
+            string unit = _queueAgePressure ? " µs" : String.Empty;
+            string text = (_virtualQueuePressure ? "Virtual " : String.Empty) + _occupied.ToString("N0") + unit + " / " +
+                _limit.ToString("N0") + unit + " — " + Math.Round(100 * ratio).ToString("N0") + "%";
             TextRenderer.DrawText(graphics, text, _valueFont,
                 new Rectangle(bar.Right + 7, bar.Y - 4, Math.Max(110, ClientSize.Width - bar.Right - 10), 18), color,
                 TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);

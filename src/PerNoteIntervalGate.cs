@@ -78,7 +78,7 @@ namespace MidiBottleneck
 
         internal PerNoteIntervalGate(long intervalMicroseconds)
         {
-            if (intervalMicroseconds <= 0) throw new ArgumentOutOfRangeException("intervalMicroseconds");
+            if (intervalMicroseconds < 0) throw new ArgumentOutOfRangeException("intervalMicroseconds");
             _intervalMicroseconds = intervalMicroseconds;
             for (int pitch = 0; pitch < PitchCount; pitch++)
             {
@@ -704,6 +704,7 @@ namespace MidiBottleneck
 
         private long BoundaryAtOrAfter(long microseconds)
         {
+            if (_intervalMicroseconds == 0) return Math.Max(0, microseconds);
             if (microseconds <= 0) return 0;
             long quotient = microseconds / _intervalMicroseconds;
             long remainder = microseconds % _intervalMicroseconds;
@@ -714,6 +715,7 @@ namespace MidiBottleneck
 
         private long AddInterval(long boundary)
         {
+            if (_intervalMicroseconds == 0) return boundary;
             return boundary > Int64.MaxValue - _intervalMicroseconds ? Int64.MaxValue : boundary + _intervalMicroseconds;
         }
 

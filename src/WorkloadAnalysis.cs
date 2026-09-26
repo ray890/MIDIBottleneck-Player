@@ -28,6 +28,7 @@ namespace MidiBottleneck
         public int LargestCluster;
         public long ServiceDemandMicroseconds;
         public int PredictedPeakOccupancy;
+        public long PredictedPeakQueueAgeMicroseconds;
         public int PredictedDroppedEvents;
         public int PredictedBufferClears;
     }
@@ -41,6 +42,8 @@ namespace MidiBottleneck
         public long EventsPerSecond;
         public bool QueueLengthLimitEnabled;
         public int QueueLengthLimit;
+        public bool QueueAgeLimitEnabled;
+        public long QueueAgeLimitMicroseconds;
         public OverflowPolicy OverflowPolicy;
         public bool PerNoteIntervalGateEnabled;
         public bool ApplyQueueLimitWithoutSlowdown = true;
@@ -80,6 +83,7 @@ namespace MidiBottleneck
         public List<MessageTypeWorkload> MessageTypes;
         public AnalysisConfiguration Configuration;
         public int PredictedMaximumOccupancy;
+        public long PredictedPeakQueueAgeMicroseconds;
         public long PredictedDroppedEvents;
         public int PredictedBufferClears;
         public long PredictedOutputCompletionMicroseconds;
@@ -126,6 +130,8 @@ namespace MidiBottleneck
                 Configuration.EventsPerSecond == configuration.EventsPerSecond &&
                 Configuration.QueueLengthLimitEnabled == configuration.QueueLengthLimitEnabled &&
                 Configuration.QueueLengthLimit == configuration.QueueLengthLimit &&
+                Configuration.QueueAgeLimitEnabled == configuration.QueueAgeLimitEnabled &&
+                Configuration.QueueAgeLimitMicroseconds == configuration.QueueAgeLimitMicroseconds &&
                 Configuration.OverflowPolicy == configuration.OverflowPolicy &&
                 Configuration.PerNoteIntervalGateEnabled == configuration.PerNoteIntervalGateEnabled &&
                 Configuration.ApplyQueueLimitWithoutSlowdown == configuration.ApplyQueueLimitWithoutSlowdown) return this;
@@ -398,8 +404,6 @@ namespace MidiBottleneck
             AnalysisConfiguration configuration, CancellationToken cancellationToken,
             Action<WorkloadAnalysisProgress> progress, Action<MidiEventView, long> observer)
         {
-            if (configuration.ProcessingMicroseconds <= 0)
-                throw new InvalidOperationException("Per-note Analysis requires a nonzero interval.");
             MidiEventReader events = song.GetEventReader();
             PerNoteIntervalGate gate = new PerNoteIntervalGate(configuration.ProcessingMicroseconds);
             MidiEventView[] emissions = new MidiEventView[128];
@@ -682,7 +686,8 @@ namespace MidiBottleneck
             long lastCompleted = 0;
             ServiceDurationClock serviceClock = CreateServiceClock(configuration);
             ServiceDurationClock beforeCurrentService = serviceClock;
-            int limit = Math.Max(1, configuration.QueueLengthLimit);
+            int limit = configuration.QueueAgeLimitEnabled ? Int32.MaxValue :
+                Math.Max(1, configuration.QueueLengthLimit);
             CompleteNoteTracker completeNotes = new CompleteNoteTracker();
             for (int i = 0; i < events.Count; i++)
             {
@@ -693,9 +698,12 @@ namespace MidiBottleneck
                 }
                 MidiEventView incomingEvent = events[i];
                 long arrival = incomingEvent.IntendedMicroseconds;
+                bool clearedAtCompletion = false;
                 while (busy && completion <= arrival)
                 {
                     lastCompleted = completion;
+                    clearedAtCompletion |= ApplyAnalysisQueueAgeLimit(pending, events,
+                        completeNotes, configuration, result, completion);
                     if (pending.Count > 0)
                     {
                         int next = pending.Dequeue();
@@ -704,6 +712,19 @@ namespace MidiBottleneck
                         completion = checked(completion + nextService);
                     }
                     else busy = false;
+                }
+                if (clearedAtCompletion)
+                {
+                    while (i < events.Count && events[i].IntendedMicroseconds <= lastCompleted)
+                    {
+                        int skippedBucket = (int)Math.Min(result.Buckets.Length - 1,
+                            Math.Max(0, events[i].IntendedMicroseconds / result.BucketMicroseconds));
+                        RecordDrop(result, skippedBucket, 1);
+                        i++;
+                    }
+                    if (i >= events.Count) break;
+                    i--;
+                    continue;
                 }
 
                 int bucketIndex = (int)Math.Min(result.Buckets.Length - 1, Math.Max(0, arrival / result.BucketMicroseconds));
@@ -723,10 +744,46 @@ namespace MidiBottleneck
                     IsNoteOn = noteKind == CompleteNoteEventKind.NoteOn,
                     IsNoteOff = noteKind == CompleteNoteEventKind.NoteOff
                 };
+                long ageLimit = Math.Max(1, configuration.QueueAgeLimitMicroseconds);
+                bool ageEvictionStalled = false;
+                RecordAnalysisQueueAge(pending, events, result, arrival);
+                if (configuration.QueueAgeLimitEnabled && configuration.OverflowPolicy == OverflowPolicy.DropOldest)
+                {
+                    while (AnalysisQueueAgeExceeded(pending, events, arrival, ageLimit))
+                    {
+                        pending.Dequeue();
+                        RecordDrop(result, bucketIndex, 1);
+                    }
+                }
+                else if (configuration.QueueAgeLimitEnabled &&
+                    configuration.OverflowPolicy == OverflowPolicy.DropOldestCompleteNote)
+                {
+                    while (AnalysisQueueAgeExceeded(pending, events, arrival, ageLimit))
+                    {
+                        int previousOldest = pending.OldestEventIndex;
+                        int evictedAttack;
+                        int evictedRelease;
+                        if (!pending.TryEvictOldestCompleteNoteAtHead(out evictedAttack, out evictedRelease))
+                        {
+                            ageEvictionStalled = true;
+                            break;
+                        }
+                        if (evictedRelease < 0) completeNotes.MarkUnsentAttackEvicted(evictedAttack);
+                        RecordDrop(result, bucketIndex, evictedRelease >= 0 ? 2 : 1);
+                        if (pending.Count > 0 && pending.OldestEventIndex == previousOldest)
+                        {
+                            ageEvictionStalled = true;
+                            break;
+                        }
+                    }
+                }
                 int occupancy = pending.Count + (busy ? 1 : 0);
+                bool ageExceeded = configuration.QueueAgeLimitEnabled &&
+                    AnalysisQueueAgeExceeded(pending, events, arrival, ageLimit);
                 bool safetyAdmission = configuration.OverflowPolicy == OverflowPolicy.DropIncomingCompleteNotes &&
                     noteKind != CompleteNoteEventKind.NoteOn;
-                if (occupancy < limit || safetyAdmission)
+                if ((!configuration.QueueAgeLimitEnabled && occupancy < limit ||
+                    configuration.QueueAgeLimitEnabled && !ageExceeded) || safetyAdmission)
                 {
                     if (!busy)
                     {
@@ -748,9 +805,10 @@ namespace MidiBottleneck
                 }
                 else if (configuration.OverflowPolicy == OverflowPolicy.DropOldestCompleteNote)
                 {
-                    int evictedAttack;
-                    int evictedRelease;
-                    bool evicted = pending.TryEvictOldestCompleteNote(out evictedAttack, out evictedRelease);
+                    int evictedAttack = -1;
+                    int evictedRelease = -1;
+                    bool evicted = !ageEvictionStalled &&
+                        pending.TryEvictOldestCompleteNote(out evictedAttack, out evictedRelease);
                     if (evicted)
                     {
                         if (evictedRelease < 0) completeNotes.MarkUnsentAttackEvicted(evictedAttack);
@@ -793,15 +851,94 @@ namespace MidiBottleneck
                 }
 
                 occupancy = pending.Count + (busy ? 1 : 0);
+                long queueAge = pending.Count == 0 ? 0 : Math.Max(0,
+                    arrival - events[pending.OldestEventIndex].IntendedMicroseconds);
+                if (queueAge > result.PredictedPeakQueueAgeMicroseconds)
+                    result.PredictedPeakQueueAgeMicroseconds = queueAge;
+                if (queueAge > result.Buckets[bucketIndex].PredictedPeakQueueAgeMicroseconds)
+                    result.Buckets[bucketIndex].PredictedPeakQueueAgeMicroseconds = queueAge;
                 if (occupancy > result.PredictedMaximumOccupancy) result.PredictedMaximumOccupancy = occupancy;
                 if (occupancy > result.Buckets[bucketIndex].PredictedPeakOccupancy)
                     result.Buckets[bucketIndex].PredictedPeakOccupancy = occupancy;
             }
-            if (busy)
-                while (pending.Count > 0)
-                    completion = checked(completion + serviceClock.NextMicroseconds(events[pending.Dequeue()]));
-            result.PredictedOutputCompletionMicroseconds = busy ? completion : lastCompleted;
+            while (busy)
+            {
+                lastCompleted = completion;
+                ApplyAnalysisQueueAgeLimit(pending, events, completeNotes, configuration,
+                    result, completion);
+                if (pending.Count > 0)
+                {
+                    int next = pending.Dequeue();
+                    beforeCurrentService = serviceClock;
+                    completion = checked(completion + serviceClock.NextMicroseconds(events[next]));
+                }
+                else busy = false;
+            }
+            result.PredictedOutputCompletionMicroseconds = lastCompleted;
             Report(progress, "Projecting finite queue pressure", events.Count, events.Count, 750, 250);
+        }
+
+        private static void RecordAnalysisQueueAge(PendingMidiQueue pending, MidiEventReader events,
+            WorkloadAnalysis result, long logicalNowMicroseconds)
+        {
+            if (pending.Count == 0) return;
+            long queueAge = Math.Max(0, logicalNowMicroseconds -
+                events[pending.OldestEventIndex].IntendedMicroseconds);
+            if (queueAge > result.PredictedPeakQueueAgeMicroseconds)
+                result.PredictedPeakQueueAgeMicroseconds = queueAge;
+            int bucket = (int)Math.Min(result.Buckets.Length - 1,
+                Math.Max(0, logicalNowMicroseconds / result.BucketMicroseconds));
+            if (queueAge > result.Buckets[bucket].PredictedPeakQueueAgeMicroseconds)
+                result.Buckets[bucket].PredictedPeakQueueAgeMicroseconds = queueAge;
+        }
+
+        private static bool ApplyAnalysisQueueAgeLimit(PendingMidiQueue pending,
+            MidiEventReader events, CompleteNoteTracker completeNotes,
+            AnalysisConfiguration configuration, WorkloadAnalysis result,
+            long logicalNowMicroseconds)
+        {
+            if (!configuration.QueueAgeLimitEnabled || pending.Count == 0) return false;
+            RecordAnalysisQueueAge(pending, events, result, logicalNowMicroseconds);
+            long limit = Math.Max(1, configuration.QueueAgeLimitMicroseconds);
+            int bucket = (int)Math.Min(result.Buckets.Length - 1,
+                Math.Max(0, logicalNowMicroseconds / result.BucketMicroseconds));
+            if (configuration.OverflowPolicy == OverflowPolicy.DropOldest)
+            {
+                while (AnalysisQueueAgeExceeded(pending, events, logicalNowMicroseconds, limit))
+                {
+                    pending.Dequeue();
+                    RecordDrop(result, bucket, 1);
+                }
+            }
+            else if (configuration.OverflowPolicy == OverflowPolicy.DropOldestCompleteNote)
+            {
+                while (AnalysisQueueAgeExceeded(pending, events, logicalNowMicroseconds, limit))
+                {
+                    int attack;
+                    int release;
+                    if (!pending.TryEvictOldestCompleteNoteAtHead(out attack, out release)) break;
+                    if (release < 0) completeNotes.MarkUnsentAttackEvicted(attack);
+                    RecordDrop(result, bucket, release >= 0 ? 2 : 1);
+                }
+            }
+            else if (configuration.OverflowPolicy == OverflowPolicy.ClearBufferAndCatchUp &&
+                AnalysisQueueAgeExceeded(pending, events, logicalNowMicroseconds, limit))
+            {
+                int dropped = pending.Count;
+                pending.Clear();
+                RecordDrop(result, bucket, dropped);
+                result.PredictedBufferClears++;
+                result.Buckets[bucket].PredictedBufferClears++;
+                return true;
+            }
+            return false;
+        }
+
+        private static bool AnalysisQueueAgeExceeded(PendingMidiQueue pending, MidiEventReader events,
+            long logicalNowMicroseconds, long limitMicroseconds)
+        {
+            return pending.Count > 0 && logicalNowMicroseconds -
+                events[pending.OldestEventIndex].IntendedMicroseconds > limitMicroseconds;
         }
 
         private static void AnalyzeVirtualForwardPressure(MidiSong song, WorkloadAnalysis result,

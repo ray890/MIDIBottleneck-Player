@@ -4,7 +4,7 @@ These are evidence-backed future directions, not promises for a particular relea
 
 ## Near term
 
-The next dedicated feature is not yet selected. A future presentation or playback feature should have its own measured contract and tests.
+Build 42 completes the selected grouped Rate, zero-interval Per-note, queue waiting-time, and application-window scaling work. The next implementation is not scheduled. Delayed NoteOff handling and a separate real-time event cap each still need the musical and safety decisions recorded below; personal use of Build 42 may also identify smaller follow-up work.
 
 ## Completed foundations
 
@@ -25,6 +25,7 @@ The next dedicated feature is not yet selected. A future presentation or playbac
 - **Build 39 — numeric controls and Per-note Analysis:** centered measured numeric values preserve narrow white margins without clipping; Queue scrubbing uses a continuous gentle-low/fast-high scale with exact reversal. Static Analysis now runs the shared gate state machine over source events and graphs its selected messages at logical emission times. Its gate projection remains distinct from ordinary queue pressure and from native-provider behavior.
 - **Build 40 — Rate model presentation:** None, three ordinary service-rate choices, and Per-note gate share one visible grouped selector. A contextual heading distinguishes forward-only virtual admission from delayed slowdown without changing scheduling mathematics.
 - **Build 41 — contextual offline Help:** F1 and the title-bar Help command open one reusable first-party guide at the topic associated with the focused main-window control. It does not need a bundled file, native provider, or decorative question-mark style.
+- **Build 42 — queue-age and presentation controls:** grouped Rate headings are static, disabled popup text and are absent from the ComboBox's selectable/accessibility item model; None and all four active models retain independent values. Zero Per-note intervals resolve at source timestamps. A default-off waiting-time queue limit shares strict age and overflow decisions with Analysis. Session-only 50%–200% scaling for the main, Analysis, and Channels windows is recalculated from canonical 100% measurements.
 
 Build 37 compared the older finite policies with Build 34 on the same bounded 120,000-event synthetic fixture. The Build 35 linked-node path showed a local Analysis slowdown, especially for Drop oldest. A segmented FIFO now handles policies that do not need complete-note eviction. This recovered much, but not all, of the baseline time, with matching projected drop and occupancy decisions and zero measured Gen0 collections. Further throughput conclusions require representative repeated workloads; this is not a claim about native provider speed.
 
@@ -63,8 +64,7 @@ Completed for **Drop newest** and **Drop incoming complete notes**. Playback and
 ### Low-resolution and alternate modes
 
 - Hiding Statistics or Processing controls is complete in Build 36; the canonical shown-both layout and native DPI measurements remain authoritative.
-- Runtime scaling should derive each size non-cumulatively from the canonical 100% layout. Repeated `Control.Scale()` is unsafe with native controls, fonts, DPI, and compact minimums.
-- Build 38's private feasibility note inventories explicit layout dimensions and native text-edit measurements. Runtime scaling still needs a complete canonical-bounds/font/constraint design and realized default/compact/DPI testing. A partial scale menu would be harder to recover from than the existing 100% interface.
+- Build 42 applies 50%, 75%, 100%, 125%, 150%, and 200% non-cumulatively to all three application windows on top of the current Windows DPI. The main window preserves responsive transitions and hidden sections; Analysis preserves its split/report/graph geometry and scales graph painting; Channels preserves automatic fitting or the user's manual window/column geometry. Repeated cycling and exact 100% restoration are covered.
 - A Shift-revealed 25% item may be an undocumented joke, but must not be selectable.
 - A mini title bar changes taskbar/Alt-Tab identity and non-client size.
 - Inactive opacity needs layered-window accessibility and recovery rules.
@@ -75,11 +75,11 @@ Build 32's placement audit kept these controls in the system menu at the time. B
 
 ### Rate-model presentation — completed in Build 40
 
-The visible selector now has **None**, ordinary models under **Simulated slowdown**, and Per-note gate under **Bandwidth / note gating**. The first heading becomes **Forward-only queue admission** when an ordinary rate drives the finite virtual queue without delaying accepted output. Group headings cannot be selected. None never runs a hidden rate; activating forward-only admission from None visibly selects the remembered ordinary model. Ordinary live edits, gate transitions, and queue rules retain their established boundaries.
+The visible selector has **None**, ordinary models under **Simulated slowdown**, and Per-note gate under **Bandwidth / note gating**. The first heading becomes **Forward-only queue admission** when an ordinary rate drives the finite virtual queue without delaying accepted output. Build 42 keeps the native collapsed selector but renders its grouped popup with static, disabled headings; the ComboBox item and accessibility model contains only the five real choices. None never runs a hidden rate; activating forward-only admission from None visibly selects the remembered ordinary model. Ordinary live edits, gate transitions, and queue rules retain their established boundaries.
 
 ### Delayed NoteOff treatment
 
-An optional future rule could delay a matching NoteOff by roughly one quarter of the interval **after the corresponding NoteOff would actually be emitted**. This is a release-timing choice, not a window that cancels an incoming NoteOn. It would need explicit channel/track pairing, bounded pending-release state, and safety behavior for Pause, Seek, Stop, output failure, and disabled channels. It cannot simply omit a required release after the output NoteOn has sounded.
+The selected delay would define the minimum time a Note On remains active before its matching Note Off may be emitted. A new Note On arriving while that release is pending could be coalesced under a future, explicitly specified rule. A separate retrigger-protection interval would begin only after the Note Off is actually emitted; its initial proposed value is one quarter of the configured Note Off delay. That quarter-delay is neither the Note Off delay itself nor a cancellation window. The design still needs exact channel/track pairing, bounded pending-release state, coalescing priority, and safety behavior for Pause, Seek, Stop, output failure, and disabled channels.
 
 ### A separate real-time Events/sec limit
 

@@ -8,6 +8,7 @@ namespace MidiBottleneck
     internal sealed class PlaybackEngine : IDisposable
     {
         internal const int DefaultQueueLengthLimit = 2000;
+        internal const long DefaultQueueAgeLimitMicroseconds = 1000000;
         internal const int DefaultDropBufferCapacity = DefaultQueueLengthLimit;
         private readonly object _sync = new object();
         private readonly EventWaitHandle _wake = new EventWaitHandle(false, EventResetMode.ManualReset);
@@ -22,6 +23,8 @@ namespace MidiBottleneck
         private ServiceDurationSettings _serviceSettings = new ServiceDurationSettings(
             ServiceDurationMode.ProcessingTime, 0, ServiceDurationCalculator.FivePinDinBitrate, 10000);
         private int _queueLengthLimit = DefaultQueueLengthLimit;
+        private int _queueAgeLimitEnabled;
+        private long _queueAgeLimitMicroseconds = DefaultQueueAgeLimitMicroseconds;
         private int _simulateSlowdown = 1;
         private int _applyQueueLimitWithoutSlowdown;
         private int _chaseMidiStateOnPlaySeek = 1;
@@ -38,6 +41,8 @@ namespace MidiBottleneck
         private long _queueLength;
         private long _outstandingEvents;
         private long _maximumQueueLength;
+        private long _queueAgeMicroseconds;
+        private long _maximumQueueAgeMicroseconds;
         private long _processedEvents;
         private long _droppedEvents;
         private long _gateFilteredEvents;
@@ -53,9 +58,11 @@ namespace MidiBottleneck
         private int _publishedDropPending;
         private bool _publishedInService;
         private bool _hasPublishedQueue;
+        private int _publishedOldestPendingEvent = -1;
         private int _snapshotFilterStart = -1;
         private int _snapshotFilterEnd = -1;
         private long _snapshotEligibleCount;
+        private int _snapshotFirstEligibleIndex = -1;
         private int _snapshotRoutingGeneration = -1;
         private int _snapshotOverrideGeneration = -1;
         private int _usesPreAdmissionFilterAccounting;
@@ -189,6 +196,24 @@ namespace MidiBottleneck
             }
         }
 
+        public bool QueueAgeLimitEnabled
+        {
+            get { return Volatile.Read(ref _queueAgeLimitEnabled) != 0; }
+            set { Volatile.Write(ref _queueAgeLimitEnabled, value ? 1 : 0); SignalWake(); }
+        }
+
+        public long QueueAgeLimitMicroseconds
+        {
+            get { return Interlocked.Read(ref _queueAgeLimitMicroseconds); }
+            set
+            {
+                if (value < 1) value = 1;
+                if (value > 3600000000L) value = 3600000000L;
+                Interlocked.Exchange(ref _queueAgeLimitMicroseconds, value);
+                SignalWake();
+            }
+        }
+
         // Compatibility alias for the production trace/test entry points from
         // the earlier experimental Drop UI.
         public int DropBufferCapacity
@@ -221,6 +246,13 @@ namespace MidiBottleneck
                 Volatile.Read(ref _simulateSlowdown) == 0 &&
                 Volatile.Read(ref _applyQueueLimitWithoutSlowdown) != 0;
             OverflowPolicy startPolicy = (OverflowPolicy)Volatile.Read(ref _overflowPolicy);
+            bool ageLimited = mode == ProcessingMode.Drop && Volatile.Read(ref _queueAgeLimitEnabled) != 0;
+            if (ageLimited && virtualForward)
+                throw new InvalidOperationException("Queue waiting-time limits require a retained delayed queue and cannot be combined with forward-only admission.");
+            if (ageLimited && startPolicy != OverflowPolicy.DropOldest &&
+                startPolicy != OverflowPolicy.DropOldestCompleteNote &&
+                startPolicy != OverflowPolicy.ClearBufferAndCatchUp)
+                throw new InvalidOperationException("Choose Drop oldest, Drop oldest complete note, or Clear buffer for a queue waiting-time limit.");
             if (virtualForward && startPolicy != OverflowPolicy.DropNewest &&
                 startPolicy != OverflowPolicy.DropIncomingCompleteNotes)
                 throw new InvalidOperationException("This overflow policy can remove MIDI that was already sent. Turn on Simulate slowdown, or choose Drop newest or Drop incoming complete notes.");
@@ -511,6 +543,7 @@ namespace MidiBottleneck
             lock (_sync)
             {
                 _maximumQueueLength = _outstandingEvents;
+                _maximumQueueAgeMicroseconds = _queueAgeMicroseconds;
                 _processedEvents = 0;
                 _droppedEvents = 0;
                 _gateFilteredEvents = 0;
@@ -834,6 +867,22 @@ namespace MidiBottleneck
                 snapshot.QueueLengthLimitEnabled = _mode == ProcessingMode.Drop;
                 snapshot.ProcessingMode = _mode;
                 snapshot.QueueLengthLimit = Volatile.Read(ref _queueLengthLimit);
+                snapshot.QueueAgeLimitEnabled = Volatile.Read(ref _queueAgeLimitEnabled) != 0;
+                snapshot.QueueAgeLimitMicroseconds = Interlocked.Read(ref _queueAgeLimitMicroseconds);
+                if (snapshot.QueueAgeLimitEnabled && _hasPublishedQueue &&
+                    (_state == PlaybackState.Playing || _state == PlaybackState.Paused))
+                {
+                    int oldest = _publishedOldestPendingEvent;
+                    int newlyDueOldest = _snapshotFirstEligibleIndex;
+                    if (newlyDueOldest >= 0 && (oldest < 0 ||
+                        _events[newlyDueOldest].IntendedMicroseconds < _events[oldest].IntendedMicroseconds))
+                        oldest = newlyDueOldest;
+                    _queueAgeMicroseconds = oldest < 0 ? 0 : Math.Max(0,
+                        playbackUs - _events[oldest].IntendedMicroseconds);
+                    _maximumQueueAgeMicroseconds = Math.Max(_maximumQueueAgeMicroseconds, _queueAgeMicroseconds);
+                }
+                snapshot.QueueAgeMicroseconds = _queueAgeMicroseconds;
+                snapshot.MaximumQueueAgeMicroseconds = _maximumQueueAgeMicroseconds;
                 snapshot.OverflowPolicy = (OverflowPolicy)Volatile.Read(ref _overflowPolicy);
                 snapshot.QueueLength = _queueLength;
                 snapshot.OutstandingEvents = _outstandingEvents;
@@ -1038,7 +1087,8 @@ namespace MidiBottleneck
             int nextArrival = _startEventIndex;
             int inService = -1;
             long completionTicks = Int64.MaxValue;
-            int bufferCapacity = Volatile.Read(ref _queueLengthLimit);
+            bool ageLimited = Volatile.Read(ref _queueAgeLimitEnabled) != 0;
+            int bufferCapacity = ageLimited ? Int32.MaxValue : Volatile.Read(ref _queueLengthLimit);
             PendingMidiQueue pending = new PendingMidiQueue(bufferCapacity,
                 (OverflowPolicy)Volatile.Read(ref _overflowPolicy) == OverflowPolicy.DropOldestCompleteNote);
             int consecutiveDrops = 0;
@@ -1062,7 +1112,7 @@ namespace MidiBottleneck
                 ApplyPendingStateChase();
                 ApplyPendingOverrides();
                 long now = CurrentTransportTicks();
-                PublishDropQueue(nextArrival, pending.Count, inService >= 0);
+                PublishDropQueue(nextArrival, pending, inService >= 0, TicksToMicroseconds(now));
 
                 int currentRoutingGeneration = _channelRouting.FilterGeneration;
                 int currentOverrideGeneration = _channelOverrides.FilterGeneration;
@@ -1080,8 +1130,129 @@ namespace MidiBottleneck
                 {
                     long completedAt = completionTicks;
                     Dispatch(inService, now);
+                    now = CurrentTransportTicks();
                     inService = -1;
                     completionTicks = Int64.MaxValue;
+                    if (ageLimited && pending.Count > 0)
+                    {
+                        long logicalNowMicroseconds = TicksToMicroseconds(completedAt);
+                        long ageLimit = Interlocked.Read(ref _queueAgeLimitMicroseconds);
+                        OverflowPolicy completionPolicy = (OverflowPolicy)Volatile.Read(ref _overflowPolicy);
+                        lock (_sync)
+                        {
+                            long observedAge = Math.Max(0, logicalNowMicroseconds -
+                                _events[pending.OldestEventIndex].IntendedMicroseconds);
+                            if (observedAge > _maximumQueueAgeMicroseconds)
+                                _maximumQueueAgeMicroseconds = observedAge;
+                        }
+                        if (completionPolicy == OverflowPolicy.DropOldest)
+                        {
+                            while (QueueAgeExceeded(pending, logicalNowMicroseconds, ageLimit))
+                            {
+                                int evicted = pending.Dequeue();
+                                consecutiveDrops++;
+                                lock (_sync) _droppedEvents++;
+                                RecordChannelDrop(evicted);
+                                if (traceEnabled)
+                                    TraceDropped(evicted, now,
+                                        "oldest pending event exceeded the waiting-time limit before service",
+                                        ClusterSizeAt(evicted), consecutiveDrops,
+                                        EstimateBusyUntil(completionTicks, pending, serviceClock),
+                                        pending.Count, maximumBufferOccupancy);
+                            }
+                        }
+                        else if (completionPolicy == OverflowPolicy.DropOldestCompleteNote)
+                        {
+                            while (QueueAgeExceeded(pending, logicalNowMicroseconds, ageLimit))
+                            {
+                                int evictedAttack;
+                                int evictedRelease;
+                                if (!pending.TryEvictOldestCompleteNoteAtHead(
+                                    out evictedAttack, out evictedRelease)) break;
+                                if (evictedRelease < 0) completeNotes.MarkUnsentAttackEvicted(evictedAttack);
+                                int discarded = evictedRelease >= 0 ? 2 : 1;
+                                consecutiveDrops += discarded;
+                                lock (_sync) _droppedEvents += discarded;
+                                RecordChannelDrop(evictedAttack);
+                                if (evictedRelease >= 0) RecordChannelDrop(evictedRelease);
+                                if (traceEnabled)
+                                {
+                                    TraceDropped(evictedAttack, now,
+                                        "oldest unsent note exceeded the waiting-time limit before service",
+                                        ClusterSizeAt(evictedAttack), consecutiveDrops,
+                                        EstimateBusyUntil(completionTicks, pending, serviceClock),
+                                        pending.Count, maximumBufferOccupancy);
+                                    if (evictedRelease >= 0)
+                                        TraceDropped(evictedRelease, now,
+                                            "paired pending release evicted with its overdue attack",
+                                            ClusterSizeAt(evictedRelease), consecutiveDrops,
+                                            EstimateBusyUntil(completionTicks, pending, serviceClock),
+                                            pending.Count, maximumBufferOccupancy);
+                                }
+                            }
+                        }
+                        else if (completionPolicy == OverflowPolicy.ClearBufferAndCatchUp &&
+                            QueueAgeExceeded(pending, logicalNowMicroseconds, ageLimit))
+                        {
+                            int clearedCount = pending.Count;
+                            bool trackChannels = Volatile.Read(ref _channelMonitoringEnabled) != 0;
+                            foreach (int pendingIndex in pending)
+                            {
+                                if (trackChannels) _channelState.RecordDropped(_events[pendingIndex]);
+                                if (traceEnabled)
+                                {
+                                    consecutiveDrops++;
+                                    TraceDropped(pendingIndex, now,
+                                        "waiting-time limit cleared pending work; caught up to realtime",
+                                        ClusterSizeAt(pendingIndex), consecutiveDrops, 0, 0,
+                                        maximumBufferOccupancy);
+                                }
+                            }
+                            pending.Clear();
+                            int catchUp = FindFirstEventAfterTransport(nextArrival, completedAt);
+                            int skippedDrops = 0;
+                            for (int skipped = nextArrival; skipped < catchUp; skipped++)
+                            {
+                                if (HasActiveSourceFilters() &&
+                                    MarkNewSourceFiltered(skipped, filtered))
+                                {
+                                    MidiEventView filteredEvent = _events[skipped];
+                                    CompleteNoteEventKind filteredKind =
+                                        CompleteNoteTracker.Classify(filteredEvent);
+                                    if (filteredKind == CompleteNoteEventKind.NoteOn)
+                                        completeNotes.RecordFilteredNoteOn(filteredEvent, skipped);
+                                    else if (filteredKind == CompleteNoteEventKind.NoteOff)
+                                        completeNotes.TakeNoteOff(filteredEvent);
+                                    continue;
+                                }
+                                skippedDrops++;
+                                if (trackChannels) _channelState.RecordDropped(_events[skipped]);
+                                if (traceEnabled)
+                                {
+                                    consecutiveDrops++;
+                                    TraceDropped(skipped, now,
+                                        "waiting-time limit caught up to realtime",
+                                        ClusterSizeAt(skipped), consecutiveDrops, 0, 0,
+                                        maximumBufferOccupancy);
+                                }
+                            }
+                            clearedCount += skippedDrops;
+                            if (!traceEnabled) consecutiveDrops += clearedCount;
+                            lock (_sync) _droppedEvents += clearedCount;
+                            nextArrival = catchUp;
+                            UpdateQueue(0, false);
+                            SetCurrentLag(0);
+                            try { _output.Panic(); }
+                            catch { }
+                            _channelOverrides.MarkAllForcedPending();
+                            if (trackChannels)
+                            {
+                                _channelState.PanicDirect();
+                                PublishChannelState(true);
+                            }
+                            continue;
+                        }
+                    }
                     if (pending.Count > 0)
                     {
                         inService = pending.Dequeue();
@@ -1171,10 +1342,58 @@ namespace MidiBottleneck
                         IsNoteOn = noteKind == CompleteNoteEventKind.NoteOn,
                         IsNoteOff = noteKind == CompleteNoteEventKind.NoteOff
                     };
+                    long arrivalMicroseconds = incomingEvent.IntendedMicroseconds;
+                    long ageLimit = Interlocked.Read(ref _queueAgeLimitMicroseconds);
+                    bool ageEvictionStalled = false;
+                    if (ageLimited && overflowPolicy == OverflowPolicy.DropOldest)
+                    {
+                        while (QueueAgeExceeded(pending, arrivalMicroseconds, ageLimit))
+                        {
+                            int evicted = pending.Dequeue();
+                            consecutiveDrops++;
+                            lock (_sync) _droppedEvents++;
+                            RecordChannelDrop(evicted);
+                            if (traceEnabled)
+                                TraceDropped(evicted, now, "oldest pending event exceeded the waiting-time limit",
+                                    ClusterSizeAt(evicted), consecutiveDrops,
+                                    EstimateBusyUntil(completionTicks, pending, serviceClock),
+                                    pending.Count + (inService >= 0 ? 1 : 0), maximumBufferOccupancy);
+                        }
+                    }
+                    else if (ageLimited && overflowPolicy == OverflowPolicy.DropOldestCompleteNote)
+                    {
+                        while (QueueAgeExceeded(pending, arrivalMicroseconds, ageLimit))
+                        {
+                            int previousOldest = pending.OldestEventIndex;
+                            int evictedAttack;
+                            int evictedRelease;
+                            if (!pending.TryEvictOldestCompleteNoteAtHead(out evictedAttack, out evictedRelease))
+                            {
+                                ageEvictionStalled = true;
+                                break;
+                            }
+                            if (evictedRelease < 0) completeNotes.MarkUnsentAttackEvicted(evictedAttack);
+                            int discarded = evictedRelease >= 0 ? 2 : 1;
+                            consecutiveDrops += discarded;
+                            lock (_sync) _droppedEvents += discarded;
+                            RecordChannelDrop(evictedAttack);
+                            if (evictedRelease >= 0) RecordChannelDrop(evictedRelease);
+                            // A later removable note cannot repair a protected
+                            // overdue head. Stop rather than discarding unrelated
+                            // music or retrying indefinitely; this is the stated
+                            // soft-limit case.
+                            if (pending.Count > 0 && pending.OldestEventIndex == previousOldest)
+                            {
+                                ageEvictionStalled = true;
+                                break;
+                            }
+                        }
+                    }
                     int outstanding = pending.Count + (inService >= 0 ? 1 : 0);
+                    bool ageExceeded = ageLimited && QueueAgeExceeded(pending, arrivalMicroseconds, ageLimit);
                     bool safetyAdmission = overflowPolicy == OverflowPolicy.DropIncomingCompleteNotes &&
                         noteKind != CompleteNoteEventKind.NoteOn;
-                    if (outstanding < bufferCapacity || safetyAdmission)
+                    if ((!ageLimited && outstanding < bufferCapacity || ageLimited && !ageExceeded) || safetyAdmission)
                     {
                         int acceptedIndex = nextArrival;
                         consecutiveDrops = 0;
@@ -1230,9 +1449,10 @@ namespace MidiBottleneck
                         }
                         else if (overflowPolicy == OverflowPolicy.DropOldestCompleteNote)
                         {
-                            int evictedAttack;
-                            int evictedRelease;
-                            bool evicted = pending.TryEvictOldestCompleteNote(out evictedAttack, out evictedRelease);
+                            int evictedAttack = -1;
+                            int evictedRelease = -1;
+                            bool evicted = !ageEvictionStalled &&
+                                pending.TryEvictOldestCompleteNote(out evictedAttack, out evictedRelease);
                             if (evicted)
                             {
                                 if (evictedRelease < 0) completeNotes.MarkUnsentAttackEvicted(evictedAttack);
@@ -1495,9 +1715,6 @@ namespace MidiBottleneck
         private void RunPerNoteIntervalGate(HighResolutionWaiter waiter)
         {
             long interval = ProcessingMicroseconds;
-            if (interval <= 0)
-                throw new InvalidOperationException("Per-note interval gate requires a nonzero processing interval.");
-
             PerNoteIntervalGate gate = new PerNoteIntervalGate(interval);
             MidiEventView[] boundaryEvents = new MidiEventView[128];
             int nextArrival = _startEventIndex;
@@ -1775,12 +1992,41 @@ namespace MidiBottleneck
                 _publishedDropNextArrival = nextArrival;
                 _publishedDropPending = Math.Max(0, pending);
                 _publishedInService = inService;
+                _publishedOldestPendingEvent = -1;
                 _hasPublishedQueue = true;
                 _queueLength = _publishedDropPending;
                 _outstandingEvents = _queueLength + (inService ? 1 : 0);
                 if (_outstandingEvents > _maximumQueueLength) _maximumQueueLength = _outstandingEvents;
             }
             PublishChannelState(false);
+        }
+
+        private void PublishDropQueue(int nextArrival, PendingMidiQueue pending, bool inService,
+            long logicalNowMicroseconds)
+        {
+            int oldest = pending.Count == 0 ? -1 : pending.OldestEventIndex;
+            lock (_sync)
+            {
+                _publishedDropNextArrival = nextArrival;
+                _publishedDropPending = pending.Count;
+                _publishedInService = inService;
+                _publishedOldestPendingEvent = oldest;
+                _hasPublishedQueue = true;
+                _queueLength = pending.Count;
+                _outstandingEvents = _queueLength + (inService ? 1 : 0);
+                if (_outstandingEvents > _maximumQueueLength) _maximumQueueLength = _outstandingEvents;
+                _queueAgeMicroseconds = oldest < 0 ? 0 : Math.Max(0,
+                    logicalNowMicroseconds - _events[oldest].IntendedMicroseconds);
+                if (_queueAgeMicroseconds > _maximumQueueAgeMicroseconds)
+                    _maximumQueueAgeMicroseconds = _queueAgeMicroseconds;
+            }
+            PublishChannelState(false);
+        }
+
+        private bool QueueAgeExceeded(PendingMidiQueue pending, long logicalNowMicroseconds, long limit)
+        {
+            if (pending.Count == 0) return false;
+            return logicalNowMicroseconds - _events[pending.OldestEventIndex].IntendedMicroseconds > limit;
         }
 
         // A synchronous native Send can block while source time continues.  The
@@ -1790,8 +2036,16 @@ namespace MidiBottleneck
         // every UI refresh.
         private long CountSnapshotEligible(int startInclusive, int endExclusive)
         {
-            if (startInclusive >= endExclusive) return 0;
-            if (!HasActiveSourceFilters()) return endExclusive - startInclusive;
+            if (startInclusive >= endExclusive)
+            {
+                _snapshotFirstEligibleIndex = -1;
+                return 0;
+            }
+            if (!HasActiveSourceFilters())
+            {
+                _snapshotFirstEligibleIndex = startInclusive;
+                return endExclusive - startInclusive;
+            }
 
             int routingGeneration = _channelRouting.FilterGeneration;
             int overrideGeneration = _channelOverrides.FilterGeneration;
@@ -1808,6 +2062,7 @@ namespace MidiBottleneck
             {
                 scanStart = startInclusive;
                 eligible = 0;
+                _snapshotFirstEligibleIndex = -1;
                 _snapshotFilterStart = startInclusive;
                 _snapshotRoutingGeneration = routingGeneration;
                 _snapshotOverrideGeneration = overrideGeneration;
@@ -1820,6 +2075,7 @@ namespace MidiBottleneck
                 ChannelAttribute attribute;
                 int forcedValue;
                 if (_channelOverrides.ShouldSuppress(midiEvent, out attribute, out forcedValue)) continue;
+                if (_snapshotFirstEligibleIndex < 0) _snapshotFirstEligibleIndex = index;
                 eligible++;
             }
             _snapshotFilterEnd = endExclusive;
@@ -2235,6 +2491,8 @@ namespace MidiBottleneck
             _queueLength = 0;
             _outstandingEvents = 0;
             _maximumQueueLength = 0;
+            _queueAgeMicroseconds = 0;
+            _maximumQueueAgeMicroseconds = 0;
             _processedEvents = 0;
             _droppedEvents = 0;
             _gateFilteredEvents = 0;
@@ -2248,6 +2506,8 @@ namespace MidiBottleneck
             _snapshotFilterStart = -1;
             _snapshotFilterEnd = -1;
             _snapshotEligibleCount = 0;
+            _snapshotFirstEligibleIndex = -1;
+            _publishedOldestPendingEvent = -1;
         }
 
         private static long ClampPosition(MidiSong song, long microseconds)

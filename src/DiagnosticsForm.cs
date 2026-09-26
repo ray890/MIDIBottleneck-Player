@@ -23,10 +23,15 @@ namespace MidiBottleneck
         private readonly Button _seekButton;
         private readonly ComboBox _followCombo;
         private readonly CheckBox _playbackStatisticsCheck;
-        private readonly Font _summaryHeadingFont;
+        private Font _applicationFont;
+        private Font _summaryFont;
+        private Font _summaryHeadingFont;
+        private Font _inspectionFont;
         private readonly ComboBox _resolutionCombo;
         private readonly ToolTip _toolTip;
         private readonly FlowLayoutPanel _headerLayout;
+        private readonly TableLayoutPanel _rootLayout;
+        private readonly TableLayoutPanel _graphLayout;
         private readonly Label _calculationStatus;
         private readonly ProgressBar _calculationProgress;
         private readonly Button _cancelCalculationButton;
@@ -56,6 +61,13 @@ namespace MidiBottleneck
         private string _lastValidResolution = "Auto";
         private string _customResolutionLabel;
         private long _customResolutionMicroseconds;
+        private readonly Dictionary<Control, Padding> _canonicalMargins = new Dictionary<Control, Padding>();
+        private readonly Dictionary<Control, Padding> _canonicalPaddings = new Dictionary<Control, Padding>();
+        private int _applicationScalePercent = 100;
+        private bool _applyingApplicationScale;
+        private double _canonicalClientWidth = 1080;
+        private double _canonicalClientHeight = 660;
+        private double _canonicalSplitterDistance = 390;
 
         private enum ResolutionSelectionMode
         {
@@ -134,8 +146,11 @@ namespace MidiBottleneck
             StartPosition = FormStartPosition.Manual;
             ClientSize = new Size(1080, 660);
             MinimumSize = new Size(820, 520);
-            Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
+            _applicationFont = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
+            Font = _applicationFont;
+            _summaryFont = new Font("Consolas", 9F, FontStyle.Regular, GraphicsUnit.Point);
             _summaryHeadingFont = new Font("Consolas", 9F, FontStyle.Bold, GraphicsUnit.Point);
+            _inspectionFont = new Font("Consolas", 8.5F, FontStyle.Regular, GraphicsUnit.Point);
 
             _split = new SplitContainer();
             SplitContainer split = _split;
@@ -180,10 +195,11 @@ namespace MidiBottleneck
             _summary.WordWrap = true;
             _summary.BorderStyle = BorderStyle.FixedSingle;
             _summary.BackColor = SystemColors.Window;
-            _summary.Font = new Font("Consolas", 9F, FontStyle.Regular, GraphicsUnit.Point);
+            _summary.Font = _summaryFont;
             split.Panel1.Controls.Add(_summary);
 
             TableLayoutPanel rootLayout = new TableLayoutPanel();
+            _rootLayout = rootLayout;
             rootLayout.Dock = DockStyle.Fill;
             rootLayout.Margin = new Padding(0);
             // SplitContainer contributes a two-pixel realized border. Pair it
@@ -196,6 +212,7 @@ namespace MidiBottleneck
             rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
             TableLayoutPanel graphLayout = new TableLayoutPanel();
+            _graphLayout = graphLayout;
             graphLayout.Dock = DockStyle.Fill;
             graphLayout.Margin = new Padding(0);
             graphLayout.Padding = new Padding(0);
@@ -305,7 +322,7 @@ namespace MidiBottleneck
             _inspection.Multiline = true;
             _inspection.ReadOnly = true;
             _inspection.BackColor = SystemColors.Window;
-            _inspection.Font = new Font("Consolas", 8.5F, FontStyle.Regular, GraphicsUnit.Point);
+            _inspection.Font = _inspectionFont;
             _inspection.Text = "Hover over the graph to inspect a time. Click to pin; double-click to seek.";
             _inspection.Margin = new Padding(0);
             graphLayout.Controls.Add(_inspection, 0, 1);
@@ -352,12 +369,123 @@ namespace MidiBottleneck
             split.Panel1MinSize = 330;
             split.Panel2MinSize = 360;
             split.SplitterDistance = 390;
+            CaptureCanonicalMetrics(this);
+            split.SplitterMoved += delegate
+            {
+                if (!_applyingApplicationScale)
+                    _canonicalSplitterDistance = split.SplitterDistance * 100.0 / _applicationScalePercent;
+            };
             Shown += delegate
             {
                 _summary.SelectionStart = 0;
                 _summary.SelectionLength = 0;
             };
         }
+
+        private static int ScaleMetric(int value, int percent)
+        {
+            if (value == 0) return 0;
+            int scaled = (value * percent + 50) / 100;
+            return value > 0 ? Math.Max(1, scaled) : Math.Min(-1, scaled);
+        }
+
+        private static Padding ScalePadding(Padding value, int percent)
+        {
+            return new Padding(ScaleMetric(value.Left, percent), ScaleMetric(value.Top, percent),
+                ScaleMetric(value.Right, percent), ScaleMetric(value.Bottom, percent));
+        }
+
+        private void CaptureCanonicalMetrics(Control root)
+        {
+            _canonicalMargins[root] = root.Margin;
+            _canonicalPaddings[root] = root.Padding;
+            for (int i = 0; i < root.Controls.Count; i++) CaptureCanonicalMetrics(root.Controls[i]);
+        }
+
+        private void ApplyCanonicalMetrics(Control root, int percent)
+        {
+            Padding value;
+            if (_canonicalMargins.TryGetValue(root, out value)) root.Margin = ScalePadding(value, percent);
+            if (_canonicalPaddings.TryGetValue(root, out value)) root.Padding = ScalePadding(value, percent);
+            for (int i = 0; i < root.Controls.Count; i++) ApplyCanonicalMetrics(root.Controls[i], percent);
+        }
+
+        internal void ApplyApplicationScale(int percent)
+        {
+            percent = Math.Max(50, Math.Min(200, percent));
+            if (_applicationScalePercent == percent) return;
+            _applyingApplicationScale = true;
+            try
+            {
+                _applicationScalePercent = percent;
+                Font oldApplication = _applicationFont;
+                Font oldSummary = _summaryFont;
+                Font oldHeading = _summaryHeadingFont;
+                Font oldInspection = _inspectionFont;
+                _applicationFont = new Font("Segoe UI", 9F * percent / 100F,
+                    FontStyle.Regular, GraphicsUnit.Point);
+                _summaryFont = new Font("Consolas", 9F * percent / 100F,
+                    FontStyle.Regular, GraphicsUnit.Point);
+                _summaryHeadingFont = new Font("Consolas", 9F * percent / 100F,
+                    FontStyle.Bold, GraphicsUnit.Point);
+                _inspectionFont = new Font("Consolas", 8.5F * percent / 100F,
+                    FontStyle.Regular, GraphicsUnit.Point);
+                Font = _applicationFont;
+                _summary.Font = _summaryFont;
+                _inspection.Font = _inspectionFont;
+                _graph.ApplicationScalePercent = percent;
+                oldApplication.Dispose();
+                oldSummary.Dispose();
+                oldHeading.Dispose();
+                oldInspection.Dispose();
+                ApplyCanonicalMetrics(this, percent);
+                _followCombo.Width = ScaleMetric(150, percent);
+                _resolutionCombo.Width = ScaleMetric(145, percent);
+                _calculationProgress.Width = ScaleMetric(105, percent);
+                _calculationProgress.Height = ScaleMetric(14, percent);
+                _graphLayout.RowStyles[1].Height = ScaleMetric(92, percent);
+                int panel1Minimum = ScaleMetric(330, percent);
+                int panel2Minimum = ScaleMetric(360, percent);
+                _split.Panel1MinSize = 0;
+                _split.Panel2MinSize = 0;
+                _split.SplitterWidth = ScaleMetric(6, percent);
+                Rectangle working = Screen.FromControl(this).WorkingArea;
+                Size nonClient = new Size(Width - ClientSize.Width, Height - ClientSize.Height);
+                int maxWidth = Math.Max(1, working.Width - nonClient.Width);
+                int maxHeight = Math.Max(1, working.Height - nonClient.Height);
+                MinimumSize = new Size(Math.Min(ScaleMetric(820, percent), working.Width),
+                    Math.Min(ScaleMetric(520, percent), working.Height));
+                ClientSize = new Size(Math.Min(maxWidth, Math.Max(1,
+                    (int)Math.Round(_canonicalClientWidth * percent / 100.0))),
+                    Math.Min(maxHeight, Math.Max(1,
+                    (int)Math.Round(_canonicalClientHeight * percent / 100.0))));
+                _rootLayout.PerformLayout();
+                PerformLayout();
+                int desired = (int)Math.Round(_canonicalSplitterDistance * percent / 100.0);
+                int maximum = Math.Max(panel1Minimum,
+                    _split.ClientSize.Width - panel2Minimum - _split.SplitterWidth);
+                _split.SplitterDistance = Math.Max(panel1Minimum, Math.Min(maximum, desired));
+                _split.Panel1MinSize = panel1Minimum;
+                _split.Panel2MinSize = panel2Minimum;
+                int x = Math.Max(working.Left, Math.Min(Left, working.Right - Width));
+                int y = Math.Max(working.Top, Math.Min(Top, working.Bottom - Height));
+                Location = new Point(x, y);
+            }
+            finally
+            {
+                _applyingApplicationScale = false;
+            }
+        }
+
+        protected override void OnResizeEnd(EventArgs e)
+        {
+            base.OnResizeEnd(e);
+            if (_applyingApplicationScale || _applicationScalePercent <= 0) return;
+            _canonicalClientWidth = ClientSize.Width * 100.0 / _applicationScalePercent;
+            _canonicalClientHeight = ClientSize.Height * 100.0 / _applicationScalePercent;
+        }
+
+        internal int ApplicationScalePercentForTesting { get { return _applicationScalePercent; } }
 
         internal void UpdateAnalysis(WorkloadAnalysis analysis)
         {
@@ -986,6 +1114,8 @@ namespace MidiBottleneck
                 EventsPerSecond = source.EventsPerSecond,
                 QueueLengthLimitEnabled = source.QueueLengthLimitEnabled,
                 QueueLengthLimit = source.QueueLengthLimit,
+                QueueAgeLimitEnabled = source.QueueAgeLimitEnabled,
+                QueueAgeLimitMicroseconds = source.QueueAgeLimitMicroseconds,
                 OverflowPolicy = source.OverflowPolicy,
                 PerNoteIntervalGateEnabled = source.PerNoteIntervalGateEnabled,
                 ApplyQueueLimitWithoutSlowdown = source.ApplyQueueLimitWithoutSlowdown
@@ -1003,6 +1133,7 @@ namespace MidiBottleneck
                 ((value.SimulateSlowdown || value.ApplyQueueLimitWithoutSlowdown && value.QueueLengthLimitEnabled) && value.ServiceDurationMode == ServiceDurationMode.MidiBitrate ? value.MidiBitrate : 0).ToString(CultureInfo.InvariantCulture) + "|" +
                 ((value.SimulateSlowdown || value.ApplyQueueLimitWithoutSlowdown && value.QueueLengthLimitEnabled) && value.ServiceDurationMode == ServiceDurationMode.EventsPerSecond ? value.EventsPerSecond : 0).ToString(CultureInfo.InvariantCulture) + "|" +
                 value.QueueLengthLimitEnabled + "|" + (value.QueueLengthLimitEnabled ? value.QueueLengthLimit : 0).ToString(CultureInfo.InvariantCulture) + "|" +
+                value.QueueAgeLimitEnabled + "|" + (value.QueueAgeLimitEnabled ? value.QueueAgeLimitMicroseconds : 0).ToString(CultureInfo.InvariantCulture) + "|" +
                 (value.QueueLengthLimitEnabled ? (int)value.OverflowPolicy : 0);
         }
 
@@ -1088,8 +1219,10 @@ namespace MidiBottleneck
                 if (_analysis.HasQueueProjection && _analysis.Configuration != null &&
                     _analysis.Configuration.QueueLengthLimitEnabled)
                 {
-                    text.Append("   Predicted occupancy: ").Append(bucket.PredictedPeakOccupancy.ToString("N0", CultureInfo.CurrentCulture));
-                    text.Append(" / ").Append(_analysis.Configuration.QueueLengthLimit.ToString("N0", CultureInfo.CurrentCulture));
+                    if (_analysis.Configuration.QueueAgeLimitEnabled)
+                        text.Append("   Predicted queue age: ").Append(bucket.PredictedPeakQueueAgeMicroseconds.ToString("N0", CultureInfo.CurrentCulture)).Append(" µs / ").Append(_analysis.Configuration.QueueAgeLimitMicroseconds.ToString("N0", CultureInfo.CurrentCulture)).Append(" µs");
+                    else
+                        text.Append("   Predicted occupancy: ").Append(bucket.PredictedPeakOccupancy.ToString("N0", CultureInfo.CurrentCulture)).Append(" / ").Append(_analysis.Configuration.QueueLengthLimit.ToString("N0", CultureInfo.CurrentCulture));
                     text.Append("   Predicted drops: ").Append(bucket.PredictedDroppedEvents.ToString("N0", CultureInfo.CurrentCulture));
                     if (bucket.PredictedBufferClears > 0) text.Append("   Predicted buffer clear");
                 }
@@ -1204,10 +1337,14 @@ namespace MidiBottleneck
                 }
                 text.AppendLine();
                 text.AppendLine("QUEUE PROJECTION");
-                text.AppendLine("Queue length limit    " + (configuration.QueueLengthLimitEnabled ? configuration.QueueLengthLimit.ToString("N0", CultureInfo.CurrentCulture) + " event slots" : "Unlimited"));
+                text.AppendLine(configuration.QueueAgeLimitEnabled
+                    ? "Queue waiting limit   " + configuration.QueueAgeLimitMicroseconds.ToString("N0", CultureInfo.CurrentCulture) + " µs"
+                    : "Queue length limit    " + (configuration.QueueLengthLimitEnabled ? configuration.QueueLengthLimit.ToString("N0", CultureInfo.CurrentCulture) + " event slots" : "Unlimited"));
                 if (configuration.QueueLengthLimitEnabled)
                     text.AppendLine("Overflow policy       " + FormatOverflowPolicy(configuration.OverflowPolicy));
                 text.AppendLine("Predicted peak        " + analysis.PredictedMaximumOccupancy.ToString("N0", CultureInfo.CurrentCulture) + " outstanding events");
+                if (configuration.QueueAgeLimitEnabled)
+                    text.AppendLine("Peak waiting age      " + analysis.PredictedPeakQueueAgeMicroseconds.ToString("N0", CultureInfo.CurrentCulture) + " µs");
                 text.AppendLine("Predicted drops       " + analysis.PredictedDroppedEvents.ToString("N0", CultureInfo.CurrentCulture));
                 if (analysis.PredictedBufferClears > 0)
                     text.AppendLine("Predicted clears      " + analysis.PredictedBufferClears.ToString("N0", CultureInfo.CurrentCulture));
@@ -1291,7 +1428,10 @@ namespace MidiBottleneck
                 _calculationProgressTimer.Dispose();
                 _resolutionDebounceTimer.Dispose();
                 _toolTip.Dispose();
+                _applicationFont.Dispose();
+                _summaryFont.Dispose();
                 _summaryHeadingFont.Dispose();
+                _inspectionFont.Dispose();
                 SourceSong = null;
                 _analysis = null;
                 _analysisCache.Clear();
