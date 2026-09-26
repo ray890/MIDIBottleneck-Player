@@ -54,7 +54,7 @@ The parser would need retained track names. The design must handle multiple sour
 
 ### Build 31 forward-only finite capacity
 
-Completed for **Drop newest** and **Drop incoming complete notes**. Playback and Analysis share the bounded pressure model, accepted output is not delayed, and real native/scheduler backlog is displayed separately. Drop oldest and clear/catch-up still require Simulate slowdown; supporting them without delay would require an ordered producer/consumer contract and cannot honestly be emulated after output is sent.
+Completed for **Drop newest** and **Drop incoming complete notes**. Playback and Analysis share the bounded pressure model, accepted output is not delayed, and real native/scheduler backlog is displayed separately. Drop oldest and clear/catch-up still require a simulated delayed rate model; supporting them without delay would require an ordered producer/consumer contract and cannot honestly be emulated after output is sent.
 
 ## Presentation decisions
 
@@ -69,11 +69,11 @@ Completed for **Drop newest** and **Drop incoming complete notes**. Playback and
 - Roll-up needs exact compact/default size restoration.
 - Classic-Windows presentation is best treated as a startup mode because visual styles and fonts affect the entire measured layout.
 
-Build 32's placement audit kept Per-note gate, forward-only queue admission, state chase, and Always on top in the system menu. They are model/session switches used less often than transport controls, and no superior visible location fits both default and compact layouts without adding clutter.
+Build 32's placement audit kept these controls in the system menu at the time. Build 40 moved Per-note gate into the grouped Rate model dropdown and removed the separate slowdown checkbox. Forward-only queue admission, state chase, and Always on top remain in the system menu.
 
-### Tentative rate-model presentation
+### Rate-model presentation — completed in Build 40
 
-Moving Per-note interval gate out of the system menu and removing the separate slowdown checkbox could make the choices easier to discover: a top-level **None** model, a grouped **Simulated slowdown** section, and a **Bandwidth / note gating** section. This is a product-design proposal, not an implemented mode. It first needs an inventory of the current queue-limit combinations, live-change boundaries, Analysis descriptions, and compact-layout space. Any redesign must preserve the existing model and playback semantics rather than merely renaming controls.
+The visible selector now has **None**, ordinary models under **Simulated slowdown**, and Per-note gate under **Bandwidth / note gating**. The first heading becomes **Forward-only queue admission** when an ordinary rate drives the finite virtual queue without delaying accepted output. Group headings cannot be selected. None never runs a hidden rate; activating forward-only admission from None visibly selects the remembered ordinary model. Ordinary live edits, gate transitions, and queue rules retain their established boundaries.
 
 ### Delayed NoteOff treatment
 

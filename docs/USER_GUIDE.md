@@ -32,13 +32,13 @@ Pause resets and silences the output, so state is restored once when Resume cont
 
 The title-bar menu (Alt+Space) has checked **Show Processing model** and **Show Statistics** commands. Uncheck either to reclaim that section's height; both can be hidden together. File/output and Playback stay visible. These choices last only until the application closes. Hiding a section does not turn off its model, reset statistics, or interrupt playback; current values appear when the section returns. The same commands work while loading, playing, paused, or stopped.
 
-**Simulate slowdown** applies the selected service model:
+**Rate model** starts at **None**, which sends eligible MIDI without a simulated service delay. The selected rate values are remembered while None is active. The dropdown has two nonselectable headings: **Simulated slowdown** for the three ordinary service models, and **Bandwidth / note gating** for the Per-note interval gate. Choose an ordinary model to apply its service rate:
 
 - **Processing time per event** assigns the configured time to every accepted dispatchable event.
 - **Events per second** directly sets the service rate from 0 through 9,999,999 events/sec. Zero means unlimited/immediate service.
 - **MIDI bitrate** derives service time from the message’s serialized byte count and selected bitrate.
 
-With slowdown disabled, accepted events are dispatched as soon as their source time and output calls permit. A configured processing time of exactly 0 µs uses the same effective-immediate scheduler path while retaining the logical setting.
+With **None** selected, accepted events are dispatched as soon as their source time and output calls permit. A selected Processing time of exactly 0 µs also uses the effective-immediate scheduler path, but retains the ordinary model as the selected choice.
 
 The Events/sec model carries fractional microseconds between events, so rates such as 3,000 events/sec remain exact over time rather than being rounded event by event. Switching directly between Processing time and Events/sec chooses the nearest whole equivalent. A live rate or ordinary model change applies when the next event begins service. The event already in service keeps its assigned duration; the pending queue, sounding notes, transport, and statistics continue. A changed Events/sec setting starts a fresh fractional phase at that next service start.
 
@@ -52,9 +52,11 @@ The processing value follows the selected slider's scale when dragged: fine cont
 
 With **Queue length limit** off, the simulated application queue is unlimited. With it on, the configured occupancy includes the event in service plus pending events.
 
-The title-bar system menu's **Apply queue limit without slowdown** option is off by default. If you enable it while Queue length limit is on and Simulate slowdown is off, it keeps a virtual queue using the selected processing-time, Events/sec, or MIDI-bitrate model. It may reject a newly arriving event, but accepted MIDI is sent immediately; the model never removes something already sent. The queue statistic above the pressure bar remains the real unsent scheduler/output backlog. The bar is labelled **Virtual** and shows the separate modeled pressure.
+The title-bar system menu's **Apply queue limit without slowdown** option is off by default. When it is checked with a finite queue and an ordinary rate model selected, the dropdown heading changes to **Forward-only queue admission**. That rate drives a virtual queue, but accepted MIDI is sent immediately. The model may reject a newly arriving event; it never removes one already sent. The queue statistic above the pressure bar remains the real unsent scheduler/output backlog. The bar is labelled **Virtual** and shows separate modeled pressure.
 
-Only **Drop newest** and **Drop incoming complete notes** are valid in this forward-only mode. **Drop oldest**, **Drop oldest complete note**, and **Clear buffer and jump to realtime** require Simulate slowdown: they can remove pending MIDI, but cannot retract MIDI already sent. The player keeps the selected policy and explains why Play is unavailable instead of silently changing it. The system-menu option can be changed only while playback is stopped; the choice applies to the next playback start. Turning Simulate slowdown on or off during finite playback uses a safe silence/restart at the same position because it changes between the real delayed queue and the virtual forward-only model.
+Checking the option while **None** and a finite queue are selected visibly selects the last ordinary rate model; no hidden rate runs under None. Choosing **None** from active forward-only mode turns the option off. With Queue length limit off, the option is remembered but inactive and an ordinary selected rate still means simulated slowdown. None with a finite queue and the option off has no virtual rate limit, although real blocked-output backlog can still fill the finite scheduler queue.
+
+Only **Drop newest** and **Drop incoming complete notes** are valid in forward-only mode. **Drop oldest**, **Drop oldest complete note**, and **Clear buffer and jump to realtime** require simulated slowdown: they can remove pending MIDI, but cannot retract MIDI already sent. The player keeps the selected policy and explains why Play is unavailable instead of silently changing it. The system-menu option can be changed only while playback is stopped; the choice applies to the next playback start. Switching between None, ordinary processing, and the Per-note gate while active uses a safe silence/restart when the processing structure changes. Switching directly among ordinary rate models keeps the live queue and sounding state.
 
 Overflow choices include:
 
@@ -72,7 +74,7 @@ A blocked driver or synthesizer call can create a real backlog even when simulat
 
 ### Per-note interval gate
 
-The title-bar system menu can enable **Per-note interval gate** when the processing-time value is greater than zero. While enabled, the player locks the rate model to Processing time per event and temporarily disables the generic slowdown and queue controls without changing their saved choices.
+Choose **Per-note interval gate** in the Rate model dropdown when the saved processing-time interval is greater than zero. The interval value and slider remain editable; the generic queue controls are temporarily unavailable without losing their saved choices. Choosing another model exits the gate through the same safe playback boundary used previously.
 
 The interval applies independently to each MIDI pitch across all channels. Source notes remain distinct by track, channel, pitch, and FIFO occurrence; the constrained output remembers only whether that pitch is up or down and the channel on which its current NoteOn was actually sent. A later attack is therefore not suppressed merely because a longer note on another track or channel is still sustaining.
 
@@ -138,4 +140,4 @@ Overrides persist across normal playback boundaries for the same file and clear 
 
 The main window switches to a measured compact arrangement below its responsive width boundary. Controls retain full tooltips where captions or values must ellipsize.
 
-The title-bar system menu places **Always on top**, **Show Processing model**, and **Show Statistics** together after **About**. A later group contains checked-by-default **Chase MIDI state on Play/Seek**, **Per-note interval gate**, and **Apply queue limit without slowdown**, which starts unchecked.
+The title-bar system menu places **Always on top**, **Show Processing model**, and **Show Statistics** together after **About**. A later group contains checked-by-default **Chase MIDI state on Play/Seek** and **Apply queue limit without slowdown**, which starts unchecked. Per-note gating is selected in the visible Rate model dropdown.

@@ -489,3 +489,16 @@ This is the human-readable history of MIDIBottleneck Player. Dates are original 
 ### Verification
 
 - Focused tests compare Analysis' selected MIDI payloads and order with a live fake-output gate run, including an overlapping long note and repeated strikes. They also cover compact/reference stores, interval cache reuse, cancellation, preview replacement, and realized Analysis presentation. The complete x86/x64 totals and release hashes are retained in the private Build 39 checkpoint.
+
+## Build 40 — 2026-09-25
+
+### Player changes
+
+- Replaced the separate **Simulate slowdown** checkbox and hidden Per-note gate command with one visible Rate model selector. **None** is the fresh-launch default. The dropdown groups the three ordinary service-rate choices and the existing Per-note interval gate under nonselectable headings.
+- Kept each rate value when switching away from a model. Ordinary live rate/model edits still apply from the next service start without interrupting sounding notes. Entering or leaving None or the Per-note gate uses the established safe restart when playback is active.
+- Preserved the optional finite forward-only queue. When active, its heading says **Forward-only queue admission** rather than suggesting accepted MIDI is slowed. Selecting None cannot leave a hidden virtual rate running; activating the option from None visibly selects the last ordinary rate model.
+- Removed one Processing model layout row while keeping the standard and compact controls usable. Queue policies, rate calculations, Per-note musical decisions, and Analysis projections were not changed.
+
+### Verification
+
+- Focused realized tests cover fresh defaults, nonselectable headings, remembered values, finite/unlimited and forward-only combinations, active and paused transitions, compact layout, and the unchanged queue/gate paths. Complete x86/x64 totals and release hashes are recorded in the private Build 40 checkpoint.

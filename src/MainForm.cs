@@ -16,7 +16,6 @@ namespace MidiBottleneck
         private const int WmSysCommand = 0x0112;
         private const int SystemMenuAbout = 0x1F20;
         private const int SystemMenuAlwaysOnTop = 0x1F30;
-        private const int SystemMenuPerNoteIntervalGate = 0x1F40;
         private const int SystemMenuApplyQueueLimitWithoutSlowdown = 0x1F50;
         private const int SystemMenuChaseMidiState = 0x1F60;
         private const int SystemMenuShowProcessingModel = 0x1F70;
@@ -94,7 +93,8 @@ namespace MidiBottleneck
         private bool _chaseMidiStateOnPlaySeek = true;
         private bool _showProcessingModel = true;
         private bool _showStatistics = true;
-        private ServiceDurationMode _serviceModeBeforePerNoteGate = ServiceDurationMode.ProcessingTime;
+        private RateModelChoice _selectedRateChoice = RateModelChoice.None;
+        private ServiceDurationMode _lastOrdinaryServiceMode = ServiceDurationMode.ProcessingTime;
 
         private Label _fileLabel;
         private Label _fileInfoLabel;
@@ -108,9 +108,8 @@ namespace MidiBottleneck
         private GroupBox _fileOutputGroup;
         private ComboBox _outputCombo;
         private CheckBox _kdmApiCheck;
-        private CheckBox _simulateSlowdownCheck;
         private CheckBox _queueLimitCheck;
-        private ComboBox _serviceModeCombo;
+        private RateModelComboBox _serviceModeCombo;
         private ComboBox _overflowPolicyCombo;
         private Label _serviceValueLabel;
         private ScrubOrTypeTextBox _processingValue;
@@ -192,11 +191,9 @@ namespace MidiBottleneck
                 AppendMenu(menu, MfSeparator, UIntPtr.Zero, null);
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuChaseMidiState,
                     "Chase MIDI state on Play/Seek");
-                AppendMenu(menu, MfString, (UIntPtr)SystemMenuPerNoteIntervalGate, "Per-note interval gate");
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuApplyQueueLimitWithoutSlowdown,
                     "Apply queue limit without slowdown");
                 UpdateAlwaysOnTopMenuCheck();
-                UpdatePerNoteIntervalGateMenuCheck();
                 UpdateForwardQueueMenuState();
                 UpdateStateChaseMenuState();
                 UpdateSectionVisibilityMenuChecks();
@@ -210,7 +207,6 @@ namespace MidiBottleneck
                 int command = message.WParam.ToInt32() & 0xFFF0;
                 if (command == SystemMenuAbout) { ShowAboutDialog(); return; }
                 if (command == SystemMenuAlwaysOnTop) { ToggleAlwaysOnTop(); return; }
-                if (command == SystemMenuPerNoteIntervalGate) { TogglePerNoteIntervalGate(); return; }
                 if (command == SystemMenuApplyQueueLimitWithoutSlowdown) { ToggleForwardQueueLimit(); return; }
                 if (command == SystemMenuChaseMidiState) { ToggleStateChase(); return; }
                 if (command == SystemMenuShowProcessingModel) { SetSectionVisibility(true, !_showProcessingModel); return; }
@@ -301,22 +297,17 @@ namespace MidiBottleneck
             else if (_statisticsGroup.Visible) _statisticsView.Invalidate();
         }
 
-        private void UpdatePerNoteIntervalGateMenuCheck()
-        {
-            if (!IsHandleCreated) return;
-            IntPtr menu = GetSystemMenu(Handle, false);
-            if (menu == IntPtr.Zero) return;
-            CheckMenuItem(menu, (uint)SystemMenuPerNoteIntervalGate,
-                _perNoteIntervalGateEnabled ? MfChecked : MfUnchecked);
-            DrawMenuBar(Handle);
-        }
-
         private void ToggleForwardQueueLimit()
         {
             PlaybackState state = _engine.State;
             if (state == PlaybackState.Playing || state == PlaybackState.Paused) return;
             _applyQueueLimitWithoutSlowdown = !_applyQueueLimitWithoutSlowdown;
             _engine.ApplyQueueLimitWithoutSlowdown = _applyQueueLimitWithoutSlowdown;
+            if (_applyQueueLimitWithoutSlowdown && _queueLimitCheck.Checked &&
+                _selectedRateChoice == RateModelChoice.None)
+                SelectRateChoice(ChoiceForOrdinaryMode(_lastOrdinaryServiceMode));
+            else
+                SynchronizeRateProcessing();
             UpdateForwardQueueMenuState();
             UpdatePolicyControlState();
             UpdateTransportControls();
@@ -362,52 +353,23 @@ namespace MidiBottleneck
             DrawMenuBar(Handle);
         }
 
-        private void TogglePerNoteIntervalGate()
-        {
-            if (!_perNoteIntervalGateEnabled && _engine.ProcessingMicroseconds <= 0)
-            {
-                MessageBox.Show(this,
-                    "Set Processing time per event to a value greater than zero before enabling the per-note interval gate.",
-                    "Per-note interval gate", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
-
-            PlaybackState previousState = _engine.State;
-            bool wasActive = previousState == PlaybackState.Playing || previousState == PlaybackState.Paused;
-            if (!_perNoteIntervalGateEnabled)
-            {
-                _serviceModeBeforePerNoteGate = _engine.ServiceDurationMode;
-                _perNoteIntervalGateEnabled = true;
-                _engine.ServiceDurationMode = ServiceDurationMode.ProcessingTime;
-                _updatingProcessingControls = true;
-                try { _serviceModeCombo.SelectedIndex = 0; }
-                finally { _updatingProcessingControls = false; }
-                ConfigureServiceControls();
-            }
-            else
-            {
-                _perNoteIntervalGateEnabled = false;
-                _engine.ServiceDurationMode = _serviceModeBeforePerNoteGate;
-                _updatingProcessingControls = true;
-                try { _serviceModeCombo.SelectedIndex = (int)_engine.ServiceDurationMode; }
-                finally { _updatingProcessingControls = false; }
-                ConfigureServiceControls();
-            }
-
-            if (wasActive) TryRestartForProcessingModeChange(previousState);
-            UpdatePerNoteIntervalGateMenuCheck();
-            UpdateTransportControls();
-            RefreshStatistics();
-            ScheduleAnalysisRefresh();
-        }
-
         private void RestartForProcessingModeChange(PlaybackState previousState)
         {
-            if (_song == null || _activeOutput == null) return;
+            RestartForProcessingModeChange(previousState, null);
+        }
+
+        private void RestartForProcessingModeChange(PlaybackState previousState, Action configureAfterStop)
+        {
+            if (_song == null || _activeOutput == null)
+            {
+                if (configureAfterStop != null) configureAfterStop();
+                return;
+            }
             PlaybackSnapshot before = _engine.GetSnapshot();
             long restartPosition = before.IntendedTimelineMicroseconds;
             _engine.Stop();
             _selectedPositionMicroseconds = restartPosition;
+            if (configureAfterStop != null) configureAfterStop();
             _engine.Start(_song, _activeOutput, SelectedProcessingMode(), restartPosition,
                 previousState == PlaybackState.Paused);
             _engineSong = _song;
@@ -416,9 +378,14 @@ namespace MidiBottleneck
 
         private bool TryRestartForProcessingModeChange(PlaybackState previousState)
         {
+            return TryRestartForProcessingModeChange(previousState, null);
+        }
+
+        private bool TryRestartForProcessingModeChange(PlaybackState previousState, Action configureAfterStop)
+        {
             try
             {
-                RestartForProcessingModeChange(previousState);
+                RestartForProcessingModeChange(previousState, configureAfterStop);
                 return true;
             }
             catch (Exception ex)
@@ -485,7 +452,7 @@ namespace MidiBottleneck
         internal bool AlwaysOnTopForTesting { get { return TopMost; } }
         internal static int AlwaysOnTopSystemCommandForTesting { get { return SystemMenuAlwaysOnTop; } }
         internal bool PerNoteIntervalGateForTesting { get { return _perNoteIntervalGateEnabled; } }
-        internal static int PerNoteIntervalGateSystemCommandForTesting { get { return SystemMenuPerNoteIntervalGate; } }
+        internal RateModelChoice RateModelChoiceForTesting { get { return _selectedRateChoice; } }
         internal bool ApplyQueueLimitWithoutSlowdownForTesting { get { return _applyQueueLimitWithoutSlowdown; } }
         internal static int ApplyQueueLimitWithoutSlowdownSystemCommandForTesting
         { get { return SystemMenuApplyQueueLimitWithoutSlowdown; } }
@@ -499,7 +466,7 @@ namespace MidiBottleneck
         {
             get
             {
-                return !_serviceModeCombo.Enabled && !_simulateSlowdownCheck.Enabled &&
+                return _serviceModeCombo.Enabled &&
                     !_queueLimitCheck.Enabled && !_queueLimitValue.Enabled &&
                     !_overflowPolicyCombo.Enabled && _processingValue.Enabled && _processingSlider.Enabled;
             }
@@ -650,8 +617,7 @@ namespace MidiBottleneck
             _processingTable = table;
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 48));
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 52));
-            table.RowCount = 4;
-            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.RowCount = 3;
             table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -661,15 +627,6 @@ namespace MidiBottleneck
             _serviceCluster = NewInlineCluster();
             _overflowCluster.Margin = new Padding(4, 0, 0, 0);
             _serviceCluster.Margin = new Padding(4, 0, 0, 0);
-
-            _simulateSlowdownCheck = new CheckBox();
-            _simulateSlowdownCheck.Text = "Simulate slowdown";
-            _simulateSlowdownCheck.AutoSize = true;
-            _simulateSlowdownCheck.Checked = false;
-            _simulateSlowdownCheck.CheckedChanged += SimulateSlowdownChanged;
-            _toolTip.SetToolTip(_simulateSlowdownCheck, "A live change applies to the next event that begins service.");
-            table.Controls.Add(_simulateSlowdownCheck, 0, 1);
-            table.SetColumnSpan(_simulateSlowdownCheck, 2);
 
             _queueLimitCheck = new CheckBox();
             _queueLimitCheck.Text = "Queue length limit:";
@@ -730,16 +687,13 @@ namespace MidiBottleneck
             _serviceModeLabel.AutoSize = true;
             _serviceModeLabel.Anchor = AnchorStyles.Left;
 
-            _serviceModeCombo = new ComboBox();
-            _serviceModeCombo.DropDownStyle = ComboBoxStyle.DropDownList;
-            _serviceModeCombo.Items.Add("Processing time per event");
-            _serviceModeCombo.Items.Add("MIDI serial bitrate");
-            _serviceModeCombo.Items.Add("Events per second");
-            _serviceModeCombo.SelectedIndex = 0;
+            _serviceModeCombo = new RateModelComboBox();
+            _serviceModeCombo.SelectedChoice = RateModelChoice.None;
             _serviceModeCombo.Width = 210;
             _serviceModeCombo.Anchor = AnchorStyles.Left;
             _serviceModeCombo.SelectedIndexChanged += ServiceModeChanged;
-            _toolTip.SetToolTip(_serviceModeCombo, "A live change applies when the next event begins service.");
+            _toolTip.SetToolTip(_serviceModeCombo,
+                "None sends without a simulated rate. Ordinary models slow output, or limit future admission when forward-only queueing is selected. The per-note gate uses the processing-time interval. Group headings cannot be selected.");
 
             _serviceValueLabel = new Label();
             _serviceValueLabel.Text = "Processing time per event:";
@@ -783,8 +737,8 @@ namespace MidiBottleneck
             UpdateMainNumericWidth(_processingValue);
             table.Controls.Add(_queueCluster, 0, 0);
             table.Controls.Add(_overflowCluster, 1, 0);
-            table.Controls.Add(_rateCluster, 0, 2);
-            table.Controls.Add(_serviceCluster, 1, 2);
+            table.Controls.Add(_rateCluster, 0, 1);
+            table.Controls.Add(_serviceCluster, 1, 1);
 
             _processingSlider = new ProcessingTrackBar();
             _processingSlider.Minimum = 0;
@@ -794,7 +748,7 @@ namespace MidiBottleneck
             _processingSlider.AutoSize = true;
             _processingSlider.ValueChanged += ProcessingSliderChanged;
             _toolTip.SetToolTip(_processingSlider, "Click or drag to set the rate. A live edit applies when the next event begins service.");
-            table.Controls.Add(_processingSlider, 0, 3);
+            table.Controls.Add(_processingSlider, 0, 2);
             table.SetColumnSpan(_processingSlider, 2);
 
             group.Controls.Add(table);
@@ -1338,7 +1292,7 @@ namespace MidiBottleneck
             if (IsUnsupportedForwardQueueSelection())
             {
                 MessageBox.Show(this,
-                    "This policy needs Simulate slowdown: a forward-only queue cannot remove MIDI that was already sent. Turn on Simulate slowdown, choose Drop newest or Drop incoming complete notes, or turn off Apply queue limit without slowdown in the window menu.",
+                    "This policy needs simulated slowdown: a forward-only queue cannot remove MIDI that was already sent. Choose Drop newest or Drop incoming complete notes, or turn off Apply queue limit without slowdown in the window menu.",
                     "Queue policy needs simulated slowdown", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
@@ -1550,19 +1504,113 @@ namespace MidiBottleneck
         private void ServiceModeChanged(object sender, EventArgs e)
         {
             if (_updatingProcessingControls) return;
+            ApplyRateChoice(_serviceModeCombo.SelectedChoice);
+        }
+
+        private static bool IsOrdinaryRateChoice(RateModelChoice choice)
+        {
+            return choice == RateModelChoice.ProcessingTime || choice == RateModelChoice.MidiBitrate ||
+                choice == RateModelChoice.EventsPerSecond;
+        }
+
+        private static ServiceDurationMode OrdinaryModeForChoice(RateModelChoice choice)
+        {
+            switch (choice)
+            {
+                case RateModelChoice.MidiBitrate: return ServiceDurationMode.MidiBitrate;
+                case RateModelChoice.EventsPerSecond: return ServiceDurationMode.EventsPerSecond;
+                default: return ServiceDurationMode.ProcessingTime;
+            }
+        }
+
+        private static RateModelChoice ChoiceForOrdinaryMode(ServiceDurationMode mode)
+        {
+            switch (mode)
+            {
+                case ServiceDurationMode.MidiBitrate: return RateModelChoice.MidiBitrate;
+                case ServiceDurationMode.EventsPerSecond: return RateModelChoice.EventsPerSecond;
+                default: return RateModelChoice.ProcessingTime;
+            }
+        }
+
+        private void SelectRateChoice(RateModelChoice choice)
+        {
+            _updatingProcessingControls = true;
+            try { _serviceModeCombo.SelectedChoice = choice; }
+            finally { _updatingProcessingControls = false; }
+            ApplyRateChoice(choice);
+        }
+
+        private void ApplyRateChoice(RateModelChoice choice)
+        {
+            if (choice == RateModelChoice.PerNoteIntervalGate && _engine.ProcessingMicroseconds <= 0)
+            {
+                MessageBox.Show(this,
+                    "Set Processing time per event above zero before choosing the per-note interval gate.",
+                    "Per-note interval gate", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                _updatingProcessingControls = true;
+                try { _serviceModeCombo.SelectedChoice = _selectedRateChoice; }
+                finally { _updatingProcessingControls = false; }
+                return;
+            }
+
             PlaybackState previousState = _engine.State;
+            RateModelChoice previousChoice = _selectedRateChoice;
+            bool gateBoundary = (previousChoice == RateModelChoice.PerNoteIntervalGate) !=
+                (choice == RateModelChoice.PerNoteIntervalGate);
+            bool structuralBoundary = gateBoundary ||
+                ((previousChoice == RateModelChoice.None) != (choice == RateModelChoice.None));
             ServiceDurationMode previousMode = _engine.ServiceDurationMode;
-            ServiceDurationMode mode = (ServiceDurationMode)Math.Max(0, _serviceModeCombo.SelectedIndex);
+            ServiceDurationMode mode = choice == RateModelChoice.PerNoteIntervalGate
+                ? ServiceDurationMode.ProcessingTime : IsOrdinaryRateChoice(choice)
+                    ? OrdinaryModeForChoice(choice) : _lastOrdinaryServiceMode;
             long processing = _engine.ProcessingMicroseconds;
             long eventRate = _engine.EventsPerSecond;
-            if (mode == ServiceDurationMode.EventsPerSecond && previousMode == ServiceDurationMode.ProcessingTime)
+            if (IsOrdinaryRateChoice(previousChoice) && IsOrdinaryRateChoice(choice) &&
+                mode == ServiceDurationMode.EventsPerSecond && previousMode == ServiceDurationMode.ProcessingTime)
                 eventRate = ProcessingToEventRate(processing);
-            else if (mode == ServiceDurationMode.ProcessingTime && previousMode == ServiceDurationMode.EventsPerSecond)
+            else if (IsOrdinaryRateChoice(previousChoice) && IsOrdinaryRateChoice(choice) &&
+                mode == ServiceDurationMode.ProcessingTime && previousMode == ServiceDurationMode.EventsPerSecond)
                 processing = EventRateToProcessing(eventRate);
-            _engine.SetServiceConfiguration(mode, processing, _engine.MidiBitrate, eventRate);
-            ConfigureServiceControls();
+            bool applied = false;
+            Action applyConfiguration = delegate
+            {
+                if (IsOrdinaryRateChoice(choice)) _lastOrdinaryServiceMode = mode;
+                _selectedRateChoice = choice;
+                _perNoteIntervalGateEnabled = choice == RateModelChoice.PerNoteIntervalGate;
+                if (choice == RateModelChoice.None && _applyQueueLimitWithoutSlowdown && _queueLimitCheck.Checked)
+                {
+                    _applyQueueLimitWithoutSlowdown = false;
+                    _engine.ApplyQueueLimitWithoutSlowdown = false;
+                }
+                _engine.SetServiceConfiguration(mode, processing, _engine.MidiBitrate, eventRate);
+                SynchronizeRateProcessing();
+                applied = true;
+                ConfigureServiceControls();
+            };
+            if (structuralBoundary && (previousState == PlaybackState.Playing || previousState == PlaybackState.Paused))
+            {
+                if (!TryRestartForProcessingModeChange(previousState, applyConfiguration) && !applied)
+                {
+                    _updatingProcessingControls = true;
+                    try { _serviceModeCombo.SelectedChoice = previousChoice; }
+                    finally { _updatingProcessingControls = false; }
+                    return;
+                }
+            }
+            else applyConfiguration();
+            UpdateForwardQueueMenuState();
+            UpdateTransportControls();
             RefreshStatistics();
             ScheduleAnalysisRefresh();
+        }
+
+        private void SynchronizeRateProcessing()
+        {
+            bool forward = IsOrdinaryRateChoice(_selectedRateChoice) && _queueLimitCheck.Checked &&
+                _applyQueueLimitWithoutSlowdown;
+            _engine.SimulateSlowdown = IsOrdinaryRateChoice(_selectedRateChoice) && !forward;
+            _serviceModeCombo.ForwardOnlyHeading = forward;
         }
 
         private void ConfigureServiceControls()
@@ -1615,6 +1663,8 @@ namespace MidiBottleneck
                 UpdateEventRateSummary(_engine.EventsPerSecond);
             else
                 SetProcessingMicroseconds(_engine.ProcessingMicroseconds);
+            if (_selectedRateChoice == RateModelChoice.None)
+                _serviceValueLabel.Text = "Remembered rate:";
             UpdatePolicyControlState();
         }
 
@@ -1674,26 +1724,13 @@ namespace MidiBottleneck
                 : "The lower half adjusts 1–100 events/sec in small, even steps; the upper half covers higher rates. Type an exact value if needed. Fractional microseconds are shared across events, so rates above one million remain modeled precisely. A live edit applies when the next event begins service.");
         }
 
-        private void SimulateSlowdownChanged(object sender, EventArgs e)
-        {
-            PlaybackState previousState = _engine.State;
-            bool restartForwardModel = _queueLimitCheck.Checked && _applyQueueLimitWithoutSlowdown &&
-                (previousState == PlaybackState.Playing || previousState == PlaybackState.Paused);
-            _engine.SimulateSlowdown = _simulateSlowdownCheck.Checked;
-            UpdatePolicyControlState();
-            if (_engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate)
-                UpdateBitrateSummary(_engine.MidiBitrate);
-            else if (_engine.ServiceDurationMode == ServiceDurationMode.EventsPerSecond)
-                UpdateEventRateSummary(_engine.EventsPerSecond);
-            else
-                UpdateProcessingSummary(_engine.ProcessingMicroseconds);
-            RefreshStatistics();
-            ScheduleAnalysisRefresh();
-            if (restartForwardModel) TryRestartForProcessingModeChange(previousState);
-        }
-
         private void QueueLimitChanged(object sender, EventArgs e)
         {
+            if (_queueLimitCheck.Checked && _applyQueueLimitWithoutSlowdown &&
+                _selectedRateChoice == RateModelChoice.None)
+                SelectRateChoice(ChoiceForOrdinaryMode(_lastOrdinaryServiceMode));
+            else
+                SynchronizeRateProcessing();
             UpdatePolicyControlState();
             UpdateTransportControls();
             RefreshStatistics();
@@ -1707,9 +1744,9 @@ namespace MidiBottleneck
             _toolTip.SetToolTip(_overflowPolicyCombo, policy == OverflowPolicy.DropIncomingCompleteNotes
                 ? "When full, reject an incoming Note On and later suppress its paired Note Off. Required Note Off and non-note messages are retained, so the configured capacity is a soft safety limit. A live change applies at the next overflow."
                 : policy == OverflowPolicy.DropOldestCompleteNote
-                    ? "When full, remove the oldest queued Note On that has not begun service, including its queued release. A later matching release is suppressed. Required releases may exceed the limit; if no old note is eligible, other incoming MIDI is rejected. Requires Simulate slowdown."
+                    ? "When full, remove the oldest queued Note On that has not begun service, including its queued release. A later matching release is suppressed. Required releases may exceed the limit; if no old note is eligible, other incoming MIDI is rejected. Requires simulated slowdown."
                 : policy == OverflowPolicy.DropOldest || policy == OverflowPolicy.ClearBufferAndCatchUp
-                    ? "This policy requires Simulate slowdown. A forward-only queue cannot retract MIDI that has already been sent."
+                    ? "This policy requires simulated slowdown. A forward-only queue cannot retract MIDI that has already been sent."
                     : "A change made during playback applies at the next overflow.");
             UpdateTransportControls();
             ScheduleAnalysisRefresh();
@@ -1717,7 +1754,7 @@ namespace MidiBottleneck
 
         private bool IsUnsupportedForwardQueueSelection()
         {
-            if (_perNoteIntervalGateEnabled || !_queueLimitCheck.Checked || _simulateSlowdownCheck.Checked ||
+            if (_perNoteIntervalGateEnabled || !_queueLimitCheck.Checked || _engine.SimulateSlowdown ||
                 !_applyQueueLimitWithoutSlowdown) return false;
             OverflowPolicy policy = (OverflowPolicy)Math.Max(0, _overflowPolicyCombo.SelectedIndex);
             return policy == OverflowPolicy.DropOldest ||
@@ -1735,15 +1772,15 @@ namespace MidiBottleneck
         private void UpdatePolicyControlState()
         {
             bool active = _engine.State == PlaybackState.Playing || _engine.State == PlaybackState.Paused;
-            bool slowdown = _simulateSlowdownCheck.Checked;
+            bool slowdown = _engine.SimulateSlowdown;
             bool limited = _queueLimitCheck.Checked;
             bool gate = _perNoteIntervalGateEnabled;
-            bool forwardModel = !gate && limited && !slowdown && _applyQueueLimitWithoutSlowdown;
-            _simulateSlowdownCheck.Enabled = !gate;
+            bool forwardModel = !gate && limited && !slowdown && _applyQueueLimitWithoutSlowdown &&
+                IsOrdinaryRateChoice(_selectedRateChoice);
             _queueLimitCheck.Enabled = !gate && !active;
             _queueLimitValue.Enabled = !gate && limited && !active;
             _overflowPolicyCombo.Enabled = !gate && limited && !(active && forwardModel);
-            _serviceModeCombo.Enabled = !gate && (slowdown || forwardModel);
+            _serviceModeCombo.Enabled = true;
             _processingValue.Enabled = gate || slowdown || forwardModel;
             _processingSlider.Enabled = gate || slowdown || forwardModel;
             _dinPresetButton.Enabled = !gate && (slowdown || forwardModel) && _engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate;
@@ -1968,7 +2005,7 @@ namespace MidiBottleneck
             _analysisButton.Enabled = canSeek;
             _stateLabel.Text = state.ToString();
             _toolTip.SetToolTip(_playButton, IsUnsupportedForwardQueueSelection()
-                ? "This overflow policy requires Simulate slowdown because sent MIDI cannot be removed from a forward-only queue."
+                ? "This overflow policy requires simulated slowdown because sent MIDI cannot be removed from a forward-only queue."
                 : String.Empty);
             UpdateForwardQueueMenuState();
             UpdateStateChaseMenuState();
@@ -2285,7 +2322,7 @@ namespace MidiBottleneck
         private AnalysisConfiguration CurrentAnalysisConfiguration()
         {
             AnalysisConfiguration configuration = new AnalysisConfiguration();
-            configuration.SimulateSlowdown = _simulateSlowdownCheck.Checked;
+            configuration.SimulateSlowdown = _engine.SimulateSlowdown;
             configuration.ServiceDurationMode = _engine.ServiceDurationMode;
             configuration.ProcessingMicroseconds = _engine.ProcessingMicroseconds;
             configuration.MidiBitrate = _engine.MidiBitrate;
@@ -2413,7 +2450,9 @@ namespace MidiBottleneck
                 _statisticsView.Compact = compact;
                 _queueLimitCheck.Text = compact ? "Queue limit:" : "Queue length limit:";
                 _serviceModeLabel.Text = compact ? "Rate:" : "Rate model:";
-                _serviceValueLabel.Text = _engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate
+                _serviceValueLabel.Text = _selectedRateChoice == RateModelChoice.None
+                    ? "Remembered rate:"
+                    : _engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate
                     ? (compact ? "Bitrate:" : "MIDI bitrate:")
                     : _engine.ServiceDurationMode == ServiceDurationMode.EventsPerSecond
                         ? "Events/sec:"
@@ -2425,7 +2464,6 @@ namespace MidiBottleneck
                 _overflowLabel.Margin = compact ? new Padding(0, 5, 3, 2) : new Padding(0, 6, 4, 3);
                 _queueLimitCheck.Margin = compact ? new Padding(0, 4, 0, 2) : new Padding(0, 5, 1, 3);
                 _queueLimitValue.Margin = compact ? new Padding(0, 6, 3, 1) : new Padding(0, 7, 4, 2);
-                _simulateSlowdownCheck.Margin = compact ? new Padding(0, 0, 2, 0) : new Padding(0, 2, 3, 2);
                 _eventsLabel.Margin = compact ? new Padding(0, 4, 1, 2) : new Padding(0, 5, 2, 3);
                 _serviceModeLabel.Margin = compact ? new Padding(0, 5, 1, 2) : new Padding(0, 6, 4, 3);
                 _serviceModeCombo.Margin = compact ? new Padding(0, 1, 0, 1) : new Padding(0, 2, 3, 2);

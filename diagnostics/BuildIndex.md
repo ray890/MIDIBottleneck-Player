@@ -43,6 +43,7 @@ The public history was reconstructed because original Git commits did not exist.
 | 37 | interface-refinements | 2026-09-24 | exact | `v1.0.37` |
 | 38 | main-scrub-refinement | 2026-09-25 | exact | `v1.0.38` |
 | 39 | numeric-and-analysis | 2026-09-25 | exact | `v1.0.39` |
+| 40 | rate-model-selector | 2026-09-25 | exact | `v1.0.40` |
 
 ## Evidence-recovery result
 

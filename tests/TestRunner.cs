@@ -583,6 +583,15 @@ namespace MidiBottleneck.Tests
                         TestBuild39PerNoteAnalysis);
                     return 0;
                 }
+                if (arguments.Length == 1 && arguments[0] == "--test-build40")
+                {
+                    RunFocused("grouped Rate model selection and forward-only mapping", TestBuild40RateModelSelector);
+                    RunFocused("independent finite/unlimited queue processing combinations", TestIndependentPolicyCombinations);
+                    RunFocused("unchanged live service-clock transitions", TestLiveRateModelChange);
+                    RunFocused("forward-only queue decisions", TestForwardQueueLimitWithoutSlowdown);
+                    RunFocused("Per-note gate behavior", TestBuild25PerNoteIntervalGate);
+                    return 0;
+                }
                 if (arguments.Length == 1 && arguments[0] == "--test-queue-baseline")
                 {
                     RunFocused("segmented FIFO and note-index policy transitions", TestBuild37PendingQueueFastPath);
@@ -720,6 +729,7 @@ namespace MidiBottleneck.Tests
                     TestBuild39MainNumericRefinement);
                 Run("exact static Per-note Analysis and live-output parity",
                     TestBuild39PerNoteAnalysis);
+                Run("grouped Rate model selection and forward-only mapping", TestBuild40RateModelSelector);
                 Run("single-source product metadata", TestBuild23ProductMetadata);
                 Run("pre-admission channel and override filtering", TestBuild23PreAdmissionFiltering);
                 Run("corrected per-note interval gate state, scheduler, lifecycle, and UI", TestBuild25PerNoteIntervalGate);
@@ -780,12 +790,12 @@ namespace MidiBottleneck.Tests
                 form.Show(); PumpFor(100);
                 CaptureCorrectiveState(form, directory, "initial-standard");
                 List<Control> controls = new List<Control>(); CollectControls(form, controls);
-                FindCheckBox(controls, "Simulate slowdown").Checked = true;
+                ((RateModelComboBox)FindComboContaining(controls, "MIDI serial bitrate")).SelectedChoice = RateModelChoice.ProcessingTime;
                 form.Size = new Size(500, 500); PumpFor(100);
                 CaptureCorrectiveState(form, directory, "compact-enabled");
                 FindCheckBox(controls, "Queue limit:").Checked = true; PumpFor(100);
                 CaptureCorrectiveState(form, directory, "compact-pressure");
-                FindComboContaining(controls, "MIDI serial bitrate").SelectedIndex = 1; PumpFor(100);
+                ((RateModelComboBox)FindComboContaining(controls, "MIDI serial bitrate")).SelectedChoice = RateModelChoice.MidiBitrate; PumpFor(100);
                 CaptureCorrectiveState(form, directory, "compact-bitrate");
                 form.Size = new Size(806, 544); PumpFor(100);
                 CaptureCorrectiveState(form, directory, "restored-standard");
@@ -807,6 +817,7 @@ namespace MidiBottleneck.Tests
                 typeof(MainForm).GetField("_loadingSong", flags).SetValue(form, false);
                 form.Close();
             }
+
         }
 
         private static void CaptureCorrectiveState(MainForm form, string directory, string name)
@@ -1006,7 +1017,7 @@ namespace MidiBottleneck.Tests
                 form.Show(); Application.DoEvents();
                 Equal(form.RealizedRequiredWindowHeight, form.Height, "initial standard measured minimum");
                 List<Control> controls = new List<Control>(); CollectControls(form, controls);
-                Equal(false, FindCheckBox(controls, "Simulate slowdown").Checked, "initial slowdown unchecked");
+                Equal(RateModelChoice.None, form.RateModelChoiceForTesting, "initial rate model is None");
                 PlaybackEngine engine = (PlaybackEngine)typeof(MainForm).GetField("_engine", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(form);
                 Equal(false, engine.SimulateSlowdown, "initial engine slowdown disabled");
                 var loading = typeof(MainForm).GetField("_loadingSong", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
@@ -1926,8 +1937,8 @@ namespace MidiBottleneck.Tests
             using (MainForm form = new MainForm())
             {
                 form.Show(); PumpFor(40);
-                SendMessage(form.Handle, 0x0112,
-                    (IntPtr)MainForm.PerNoteIntervalGateSystemCommandForTesting, IntPtr.Zero);
+                ((RateModelComboBox)FindComboContaining(CollectControlsForTest(form), "Per-note interval gate"))
+                    .SelectedChoice = RateModelChoice.PerNoteIntervalGate;
                 var flags = BindingFlags.Instance | BindingFlags.NonPublic;
                 typeof(MainForm).GetMethod("ApplyProcessingMicroseconds", flags).Invoke(form, new object[] { 28440L, false });
                 typeof(MainForm).GetMethod("RefreshStatistics", flags).Invoke(form, null);
@@ -2318,7 +2329,7 @@ namespace MidiBottleneck.Tests
                     CollectControls(form, controls);
                     ComboBox serviceMode = FindComboContaining(controls, "MIDI serial bitrate");
                     if (serviceMode == null) throw new Exception("MIDI bitrate mode was not found for UI rendering");
-                    serviceMode.SelectedIndex = 1;
+                    ((RateModelComboBox)serviceMode).SelectedChoice = RateModelChoice.MidiBitrate;
                     if (minimumSize)
                     {
                         ScrubOrTypeTextBox bitrate = FindNumericWithMaximum(controls, 100000000m);
@@ -2338,9 +2349,8 @@ namespace MidiBottleneck.Tests
                         ComboBox policy = FindComboContaining(controls, "Drop oldest complete note");
                         if (policy == null) throw new Exception("The complete-note overflow choice is missing.");
                         policy.SelectedIndex = (int)OverflowPolicy.DropOldestCompleteNote;
-                        CheckBox slowdown = FindCheckBox(controls, "Simulate slowdown");
-                        if (slowdown == null) throw new Exception("Simulate slowdown was not found.");
-                        slowdown.Checked = true;
+                        ((RateModelComboBox)FindComboContaining(controls, "MIDI serial bitrate"))
+                            .SelectedChoice = RateModelChoice.ProcessingTime;
                     }
                     Application.DoEvents();
                 }
@@ -2496,7 +2506,7 @@ namespace MidiBottleneck.Tests
                 List<Control> controls = new List<Control>();
                 CollectControls(form, controls);
                 ComboBox serviceMode = FindComboContaining(controls, "MIDI serial bitrate");
-                serviceMode.SelectedIndex = 1; Application.DoEvents();
+                ((RateModelComboBox)serviceMode).SelectedChoice = RateModelChoice.MidiBitrate; Application.DoEvents();
                 form.Size = new Size(806, 590); Application.DoEvents();
                 form.Refresh(); PumpFor(150);
                 using (Bitmap bitmap = new Bitmap(form.Width, form.Height))
@@ -3370,7 +3380,7 @@ namespace MidiBottleneck.Tests
                 ComboBox mode = (ComboBox)typeof(MainForm).GetField("_serviceModeCombo", flags).GetValue(form);
                 ScrubOrTypeTextBox value = (ScrubOrTypeTextBox)typeof(MainForm).GetField("_processingValue", flags).GetValue(form);
                 Label label = (Label)typeof(MainForm).GetField("_serviceValueLabel", flags).GetValue(form);
-                mode.SelectedIndex = (int)ServiceDurationMode.EventsPerSecond; PumpFor(20);
+                ((RateModelComboBox)mode).SelectedChoice = RateModelChoice.EventsPerSecond; PumpFor(20);
                 Equal("Events per second", mode.SelectedItem.ToString(), "visible Events/sec Rate model");
                 Equal("Events/sec:", label.Text, "event-rate value label");
                 value.Value = 1000000; PumpFor(20);
@@ -3388,13 +3398,13 @@ namespace MidiBottleneck.Tests
                 typeof(MainForm).GetField("_activeOutput", flags).SetValue(form, restartOutput);
                 engine.ServiceDurationMode = ServiceDurationMode.ProcessingTime;
                 engine.ProcessingMicroseconds = 500000;
-                mode.SelectedIndex = (int)ServiceDurationMode.ProcessingTime; PumpFor(10);
+                ((RateModelComboBox)mode).SelectedChoice = RateModelChoice.ProcessingTime; PumpFor(10);
                 engine.Start(restartSong, restartOutput, ProcessingMode.Queue, 1000000);
                 PumpUntil(delegate { return ContainsMessage(restartOutput.SentPayloads(), 0xC0, 9); }, 1000,
                     "initial whole-state chase at nonzero start");
                 int resetsBeforeEdit = restartOutput.ResetCount;
                 int sendsBeforeEdit = restartOutput.SentPayloads().Count;
-                mode.SelectedIndex = (int)ServiceDurationMode.EventsPerSecond;
+                ((RateModelComboBox)mode).SelectedChoice = RateModelChoice.EventsPerSecond;
                 PumpFor(50);
                 Equal(resetsBeforeEdit, restartOutput.ResetCount,
                     "live Rate model leaves the output session sounding");
@@ -4010,18 +4020,20 @@ namespace MidiBottleneck.Tests
                 BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
                 ComboBox policy = (ComboBox)typeof(MainForm).GetField("_overflowPolicyCombo", flags).GetValue(form);
                 CheckBox queue = (CheckBox)typeof(MainForm).GetField("_queueLimitCheck", flags).GetValue(form);
-                CheckBox slowdown = (CheckBox)typeof(MainForm).GetField("_simulateSlowdownCheck", flags).GetValue(form);
+                RateModelComboBox rate = (RateModelComboBox)typeof(MainForm).GetField("_serviceModeCombo", flags).GetValue(form);
                 Equal("Drop oldest complete note", policy.Items[(int)OverflowPolicy.DropOldestCompleteNote].ToString(),
                     "new visible policy is distinct from old single-event Drop oldest");
                 if (policy.DropDownWidth < 200) throw new Exception("full policy name is clipped in the dropdown");
                 policy.SelectedIndex = (int)OverflowPolicy.DropOldestCompleteNote;
                 queue.Checked = true;
-                slowdown.Checked = false;
                 typeof(MainForm).GetField("_applyQueueLimitWithoutSlowdown", flags).SetValue(form, true);
+                rate.SelectedChoice = RateModelChoice.ProcessingTime;
+                typeof(MainForm).GetMethod("SynchronizeRateProcessing", flags).Invoke(form, null);
                 MethodInfo restriction = typeof(MainForm).GetMethod("IsUnsupportedForwardQueueSelection", flags);
                 Equal(true, (bool)restriction.Invoke(form, null),
                     "the new oldest-note policy cannot run as forward-only virtual dropping");
-                slowdown.Checked = true;
+                typeof(MainForm).GetField("_applyQueueLimitWithoutSlowdown", flags).SetValue(form, false);
+                typeof(MainForm).GetMethod("SynchronizeRateProcessing", flags).Invoke(form, null);
                 Equal(false, (bool)restriction.Invoke(form, null),
                     "simulated slowdown permits the delayed oldest-note policy");
                 form.Close();
@@ -6568,17 +6580,16 @@ namespace MidiBottleneck.Tests
             using (MainForm form = new MainForm())
             {
                 form.Show(); PumpFor(40);
-                SendMessage(form.Handle, 0x0112, (IntPtr)MainForm.PerNoteIntervalGateSystemCommandForTesting, IntPtr.Zero);
+                ((RateModelComboBox)FindComboContaining(CollectControlsForTest(form), "Per-note interval gate"))
+                    .SelectedChoice = RateModelChoice.PerNoteIntervalGate;
                 Application.DoEvents();
-                Equal(true, form.PerNoteIntervalGateForTesting, "system-menu command enables interval gate");
+                Equal(true, form.PerNoteIntervalGateForTesting, "Rate model enables interval gate");
                 Equal(true, form.PerNoteGateControlsLockedForTesting,
                     "gate locks competing rate/queue controls while leaving interval editable");
-                IntPtr menu = GetSystemMenu(form.Handle, false);
-                Equal(0x0008U, GetMenuState(menu, (uint)MainForm.PerNoteIntervalGateSystemCommandForTesting, 0) & 0x0008U,
-                    "system-menu check follows gate state");
-                SendMessage(form.Handle, 0x0112, (IntPtr)MainForm.PerNoteIntervalGateSystemCommandForTesting, IntPtr.Zero);
+                ((RateModelComboBox)FindComboContaining(CollectControlsForTest(form), "Per-note interval gate"))
+                    .SelectedChoice = RateModelChoice.None;
                 Application.DoEvents();
-                Equal(false, form.PerNoteIntervalGateForTesting, "second command restores ordinary mode");
+                Equal(false, form.PerNoteIntervalGateForTesting, "None exits interval gate");
                 form.Close();
             }
 
@@ -6783,12 +6794,12 @@ namespace MidiBottleneck.Tests
                 if (eventsUnit.Visible && eventsUnit.Right > eventsUnit.Parent.ClientSize.Width)
                     throw new Exception("compact events unit is visible while clipped");
                 ComboBox mode = (ComboBox)type.GetField("_serviceModeCombo", flags).GetValue(form);
-                mode.SelectedIndex = 1; Application.DoEvents();
+                ((RateModelComboBox)mode).SelectedChoice = RateModelChoice.MidiBitrate; Application.DoEvents();
                 Equal(MainForm.MeasureMainNumericWidth(value), value.Width,
                     "compact bitrate uses measured content width");
                 value.Value = value.Maximum;
                 AssertNumericFullyVisible(value, "compact bitrate maximum");
-                mode.SelectedIndex = 0; Application.DoEvents();
+                ((RateModelComboBox)mode).SelectedChoice = RateModelChoice.ProcessingTime; Application.DoEvents();
                 Equal(MainForm.MeasureMainNumericWidth(value), value.Width,
                     "compact processing-time uses measured content width");
                 value.Value = value.Maximum;
@@ -6830,7 +6841,7 @@ namespace MidiBottleneck.Tests
                 ScrubOrTypeTextBox value = (ScrubOrTypeTextBox)typeof(MainForm).GetField("_processingValue", flags).GetValue(compact);
                 ComboBox mode = (ComboBox)typeof(MainForm).GetField("_serviceModeCombo", flags).GetValue(compact);
                 queue.Value = queue.Maximum;
-                mode.SelectedIndex = 1; Application.DoEvents();
+                ((RateModelComboBox)mode).SelectedChoice = RateModelChoice.MidiBitrate; Application.DoEvents();
                 value.Value = value.Maximum;
                 StatisticsView statistics = FindStatisticsView(compact);
                 statistics.SetValues(new string[] { "01:23:45.678 / 01:23:44.999", "1,097,842 / 1,500,000", "9,500,000 events/s", "8,750,000 events/s", "10,385,604 / 38", "100.2%", "12,345.678 ms", "1,234.567 ms" });
@@ -6978,8 +6989,8 @@ namespace MidiBottleneck.Tests
             using (MainForm form = new MainForm())
             {
                 form.Show(); PumpFor(60);
-                SendMessage(form.Handle, 0x0112,
-                    (IntPtr)MainForm.PerNoteIntervalGateSystemCommandForTesting, IntPtr.Zero);
+                ((RateModelComboBox)FindComboContaining(CollectControlsForTest(form), "Per-note interval gate"))
+                    .SelectedChoice = RateModelChoice.PerNoteIntervalGate;
                 PumpFor(40);
                 using (Bitmap bitmap = new Bitmap(form.Width, form.Height))
                 {
@@ -8794,7 +8805,7 @@ namespace MidiBottleneck.Tests
                 ScrubOrTypeTextBox value = (ScrubOrTypeTextBox)typeof(MainForm)
                     .GetField("_processingValue", flags).GetValue(form);
                 PlaybackEngine engine = (PlaybackEngine)typeof(MainForm).GetField("_engine", flags).GetValue(form);
-                model.SelectedIndex = (int)ServiceDurationMode.EventsPerSecond;
+                ((RateModelComboBox)model).SelectedChoice = RateModelChoice.EventsPerSecond;
                 value.Value = 1000001m;
                 Equal(1000001m, value.Value, "typed event rate above one million stays exact");
                 Equal(1000001L, engine.EventsPerSecond, "typed high rate reaches the service clock");
@@ -8887,7 +8898,7 @@ namespace MidiBottleneck.Tests
                         Equal(126, location(queue).Y, "default Queue moves five pixels down");
                         Equal(124, location(events).Y, "default events label moves one pixel up");
                         Equal(443, location(overflow).X, "default Overflow dropdown moves three pixels left");
-                        Equal(185, location(rate).Y, "default Rate moves three pixels down");
+                        Equal(159, location(rate).Y, "default Rate follows the compacted selector row");
                     }
                 }
                 Equal(MainForm.MeasureMainNumericWidth(rate), rate.Width,
@@ -8905,10 +8916,10 @@ namespace MidiBottleneck.Tests
                     if (events.Visible && events.Left < queue.Right)
                         throw new Exception("Queue units overlap value " + number);
                 }
-                model.SelectedIndex = (int)ServiceDurationMode.MidiBitrate;
+                ((RateModelComboBox)model).SelectedChoice = RateModelChoice.MidiBitrate;
                 rate.Value = 100000000; PumpFor(5);
                 AssertNumericFullyVisible(rate, "default maximum bitrate");
-                model.SelectedIndex = (int)ServiceDurationMode.EventsPerSecond;
+                ((RateModelComboBox)model).SelectedChoice = RateModelChoice.EventsPerSecond;
                 rate.Value = 1234567; PumpFor(5);
                 Equal(1234567m, rate.Value, "model switch preserves exact typed event rate");
                 rate.ApplyScrubDeltaForTesting(1, false);
@@ -8930,7 +8941,7 @@ namespace MidiBottleneck.Tests
                         Equal(111, location(queue).Y, "compact Queue moves five pixels down");
                         Equal(109, location(events).Y, "compact events label moves one pixel up");
                         Equal(271, location(overflow).X, "compact Overflow moves three pixels left");
-                        Equal(164, location(rate).Y, "compact Rate moves three pixels down");
+                        Equal(142, location(rate).Y, "compact Rate follows the compacted selector row");
                     }
                 }
                 rate.Value = 9999999; queue.Value = 1000000; PumpFor(8);
@@ -9033,6 +9044,155 @@ namespace MidiBottleneck.Tests
                 Equal(HorizontalAlignment.Right, channel.TextAlign,
                     "Channel Monitor editor retains its original alignment");
             }
+        }
+
+        private static void TestBuild40RateModelSelector()
+        {
+            Application.EnableVisualStyles();
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(20);
+                BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                RateModelComboBox choice = (RateModelComboBox)typeof(MainForm)
+                    .GetField("_serviceModeCombo", flags).GetValue(form);
+                CheckBox queue = (CheckBox)typeof(MainForm).GetField("_queueLimitCheck", flags).GetValue(form);
+                ScrubOrTypeTextBox rate = (ScrubOrTypeTextBox)typeof(MainForm)
+                    .GetField("_processingValue", flags).GetValue(form);
+                PlaybackEngine engine = (PlaybackEngine)typeof(MainForm).GetField("_engine", flags).GetValue(form);
+                MethodInfo analysis = typeof(MainForm).GetMethod("CurrentAnalysisConfiguration", flags);
+                Equal(RateModelChoice.None, choice.SelectedChoice, "fresh selector defaults to None");
+                Equal(false, engine.SimulateSlowdown, "None disables simulated rate service");
+                Equal(false, form.ApplyQueueLimitWithoutSlowdownForTesting, "forward-only option defaults off");
+                Equal(7, choice.Items.Count, "selector contains five choices and two headings");
+                Equal(true, RateModelComboBox.IsHeadingIndex(1), "slowdown label is a heading");
+                Equal(true, RateModelComboBox.IsHeadingIndex(5), "gate label is a heading");
+                choice.SelectedIndex = 1;
+                Equal(RateModelChoice.None, choice.SelectedChoice, "programmatic heading selection is rejected");
+                typeof(RateModelComboBox).GetMethod("OnKeyDown", flags)
+                    .Invoke(choice, new object[] { new KeyEventArgs(Keys.Down) });
+                Equal(RateModelChoice.ProcessingTime, choice.SelectedChoice,
+                    "keyboard Down skips the slowdown heading");
+                choice.SelectedIndex = 5;
+                Equal(RateModelChoice.ProcessingTime, choice.SelectedChoice,
+                    "gate heading also rejects direct selection");
+                typeof(RateModelComboBox).GetMethod("OnMouseWheel", flags)
+                    .Invoke(choice, new object[] { new HandledMouseEventArgs(MouseButtons.None, 0, 0, 0, -120) });
+                Equal(RateModelChoice.MidiBitrate, choice.SelectedChoice,
+                    "mouse wheel skips the grouping heading");
+                choice.SelectedChoice = RateModelChoice.ProcessingTime;
+                Equal(UInt32.MaxValue, GetMenuState(GetSystemMenu(form.Handle, false), 0x1F40, 0),
+                    "former gate system-menu command is absent");
+                rate.Value = 640;
+                choice.SelectedChoice = RateModelChoice.None;
+                Equal(false, rate.Enabled, "None leaves remembered rate visible but inactive");
+                choice.SelectedChoice = RateModelChoice.ProcessingTime;
+                Equal(640m, rate.Value, "None round-trip remembers processing time");
+                choice.SelectedChoice = RateModelChoice.MidiBitrate;
+                rate.Value = 44444;
+                choice.SelectedChoice = RateModelChoice.None;
+                choice.SelectedChoice = RateModelChoice.MidiBitrate;
+                Equal(44444m, rate.Value, "None round-trip remembers bitrate");
+                choice.SelectedChoice = RateModelChoice.EventsPerSecond;
+                rate.Value = 12345;
+                choice.SelectedChoice = RateModelChoice.None;
+                choice.SelectedChoice = RateModelChoice.EventsPerSecond;
+                Equal(12345m, rate.Value, "None round-trip remembers exact event rate");
+
+                foreach (RateModelChoice selected in new RateModelChoice[] {
+                    RateModelChoice.ProcessingTime, RateModelChoice.MidiBitrate,
+                    RateModelChoice.EventsPerSecond })
+                {
+                    choice.SelectedChoice = selected;
+                    foreach (bool limited in new bool[] { false, true })
+                    {
+                        queue.Checked = limited;
+                        if (form.ApplyQueueLimitWithoutSlowdownForTesting)
+                            SendMessage(form.Handle, 0x0112,
+                                (IntPtr)MainForm.ApplyQueueLimitWithoutSlowdownSystemCommandForTesting, IntPtr.Zero);
+                        AnalysisConfiguration delayed = (AnalysisConfiguration)analysis.Invoke(form, null);
+                        Equal(true, delayed.SimulateSlowdown, "ordinary choice uses delayed service by default");
+                        Equal(limited, delayed.QueueLengthLimitEnabled, "queue limit remains independent");
+                        Equal(OrdinaryModeForTest(selected), delayed.ServiceDurationMode,
+                            "analysis receives explicit ordinary service model");
+                        SendMessage(form.Handle, 0x0112,
+                            (IntPtr)MainForm.ApplyQueueLimitWithoutSlowdownSystemCommandForTesting, IntPtr.Zero);
+                        AnalysisConfiguration forward = (AnalysisConfiguration)analysis.Invoke(form, null);
+                        Equal(limited ? false : true, forward.SimulateSlowdown,
+                            "forward-only command only changes active processing with a finite queue");
+                        Equal(limited, choice.ForwardOnlyHeading,
+                            "selector heading describes forward-only admission when active");
+                    }
+                }
+                if (form.ApplyQueueLimitWithoutSlowdownForTesting)
+                    SendMessage(form.Handle, 0x0112,
+                        (IntPtr)MainForm.ApplyQueueLimitWithoutSlowdownSystemCommandForTesting, IntPtr.Zero);
+                queue.Checked = false;
+                choice.SelectedChoice = RateModelChoice.ProcessingTime;
+                choice.SelectedChoice = RateModelChoice.PerNoteIntervalGate;
+                Equal(true, form.PerNoteIntervalGateForTesting, "gate choice activates existing gate");
+                Equal(true, form.PerNoteGateControlsLockedForTesting, "gate locks queue, not the selector");
+                AnalysisConfiguration gate = (AnalysisConfiguration)analysis.Invoke(form, null);
+                Equal(true, gate.PerNoteIntervalGateEnabled, "Analysis sees gate choice");
+                choice.SelectedChoice = RateModelChoice.None;
+                Equal(false, form.PerNoteIntervalGateForTesting, "None exits gate");
+                queue.Checked = true;
+                SendMessage(form.Handle, 0x0112,
+                    (IntPtr)MainForm.ApplyQueueLimitWithoutSlowdownSystemCommandForTesting, IntPtr.Zero);
+                Equal(RateModelChoice.ProcessingTime, choice.SelectedChoice,
+                    "enabling forward-only admission visibly selects remembered ordinary model");
+                choice.SelectedChoice = RateModelChoice.None;
+                Equal(false, form.ApplyQueueLimitWithoutSlowdownForTesting,
+                    "selecting None explicitly turns off active forward-only admission");
+                form.Size = form.MinimumSize; PumpFor(20);
+                Equal(true, choice.Visible && choice.Enabled, "compact selector remains accessible");
+                Equal(false, RateModelComboBox.IsHeadingIndex(choice.SelectedIndex),
+                    "compact selection is never a heading");
+                typeof(Control).GetMethod("RecreateHandle", flags).Invoke(form, null);
+                Equal(UInt32.MaxValue, GetMenuState(GetSystemMenu(form.Handle, false), 0x1F40, 0),
+                    "gate command stays absent after handle recreation");
+                form.Close();
+            }
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(20);
+                BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                RateModelComboBox choice = (RateModelComboBox)typeof(MainForm)
+                    .GetField("_serviceModeCombo", flags).GetValue(form);
+                PlaybackEngine engine = (PlaybackEngine)typeof(MainForm)
+                    .GetField("_engine", flags).GetValue(form);
+                MidiSong song = NewChannelSong("rate-selector-active.mid", 5000000,
+                    ChannelMessage(0, 0x90, 60, 100), ChannelMessage(4500000, 0x80, 60, 0));
+                FakeMidiOutput output = new FakeMidiOutput();
+                typeof(MainForm).GetField("_song", flags).SetValue(form, song);
+                typeof(MainForm).GetField("_engineSong", flags).SetValue(form, song);
+                typeof(MainForm).GetField("_activeOutput", flags).SetValue(form, output);
+                choice.SelectedChoice = RateModelChoice.ProcessingTime;
+                engine.Start(song, output, ProcessingMode.Queue);
+                PumpUntil(delegate { return output.SentPayloads().Count > 0; }, 1000,
+                    "selected-rate active playback");
+                int resets = output.ResetCount;
+                choice.SelectedChoice = RateModelChoice.MidiBitrate;
+                Equal(resets, output.ResetCount, "ordinary live choice preserves sounding output");
+                Equal(PlaybackState.Playing, engine.State, "ordinary live choice preserves Play");
+                choice.SelectedChoice = RateModelChoice.None;
+                if (output.ResetCount <= resets) throw new Exception("None transition missed safe reset");
+                Equal(PlaybackState.Playing, engine.State, "None structural change restarts at Play");
+                engine.Pause();
+                Equal(PlaybackState.Paused, engine.State, "active fixture pauses");
+                choice.SelectedChoice = RateModelChoice.PerNoteIntervalGate;
+                Equal(PlaybackState.Paused, engine.State, "gate structural change preserves Pause");
+                choice.SelectedChoice = RateModelChoice.ProcessingTime;
+                Equal(PlaybackState.Paused, engine.State, "gate exit preserves Pause");
+                engine.Stop();
+                form.Close();
+            }
+        }
+
+        private static ServiceDurationMode OrdinaryModeForTest(RateModelChoice choice)
+        {
+            if (choice == RateModelChoice.MidiBitrate) return ServiceDurationMode.MidiBitrate;
+            if (choice == RateModelChoice.EventsPerSecond) return ServiceDurationMode.EventsPerSecond;
+            return ServiceDurationMode.ProcessingTime;
         }
 
         private static void AssertCenteredNumericInk(ScrubOrTypeTextBox numeric, string name)
@@ -9480,11 +9640,11 @@ namespace MidiBottleneck.Tests
 
                 List<Control> controls = new List<Control>(); CollectControls(form, controls);
                 CheckBox queueLimit = FindCheckBox(controls, "Queue limit:");
-                CheckBox slowdown = FindCheckBox(controls, "Simulate slowdown");
+                RateModelComboBox rateChoice = (RateModelComboBox)FindComboContaining(controls, "MIDI serial bitrate");
                 ComboBox policy = FindComboContaining(controls, "Drop oldest complete note");
                 ScrubOrTypeTextBox queueValue = (ScrubOrTypeTextBox)typeof(MainForm).GetField("_queueLimitValue", flags).GetValue(form);
                 StatisticsView view = FindControl<StatisticsView>(controls);
-                slowdown.Checked = true;
+                rateChoice.SelectedChoice = RateModelChoice.ProcessingTime;
                 queueLimit.Checked = true;
                 processingValue.Value = 321;
                 queueValue.Value = 777;
@@ -9496,7 +9656,7 @@ namespace MidiBottleneck.Tests
                 Equal(true, view.QueuePressureVisible, "queue pressure is current after Statistics restoration");
                 Equal((int)OverflowPolicy.DropOldestCompleteNote, policy.SelectedIndex,
                     "view toggle preserves Build 35 overflow selection");
-                Equal(true, slowdown.Checked, "view toggle preserves slowdown");
+                Equal(RateModelChoice.ProcessingTime, rateChoice.SelectedChoice, "view toggle preserves rate model");
                 Equal(true, queueLimit.Checked, "view toggle preserves queue limit");
                 Equal(321m, processingValue.Value, "view toggle preserves processing value");
                 Equal(777m, queueValue.Value, "view toggle preserves queue capacity");
@@ -10698,7 +10858,7 @@ namespace MidiBottleneck.Tests
 
                 List<Control> controls = new List<Control>();
                 CollectControls(form, controls);
-                CheckBox slowdown = FindCheckBox(controls, "Simulate slowdown");
+                RateModelComboBox rateChoice = (RateModelComboBox)FindComboContaining(controls, "MIDI serial bitrate");
                 CheckBox queueLimit = FindCheckBox(controls, "Queue length limit:");
                 CheckBox kdmApi = FindCheckBox(controls, "KDMAPI");
                 ComboBox serviceMode = FindComboContaining(controls, "MIDI serial bitrate");
@@ -10706,7 +10866,7 @@ namespace MidiBottleneck.Tests
                 ComboBox midiOutput = FindMidiOutputCombo(controls);
                 Button dinPreset = FindButton(controls, "5-pin DIN");
                 ScrubOrTypeTextBox queueLimitValue = FindNumericWithValue(controls, 2000m);
-                if (slowdown == null || queueLimit == null || kdmApi == null || serviceMode == null || overflow == null || dinPreset == null || queueLimitValue == null)
+                if (rateChoice == null || queueLimit == null || kdmApi == null || serviceMode == null || overflow == null || dinPreset == null || queueLimitValue == null)
                     throw new Exception("independent processing policy controls were not found");
                 Equal(560, form.MinimumSize.Width, "normal-layout minimum width");
                 Equal(form.RealizedRequiredWindowHeight, form.MinimumSize.Height,
@@ -10771,9 +10931,9 @@ namespace MidiBottleneck.Tests
                 compactQueue.Value = compactQueue.Maximum;
                 AssertNumericFullyVisible(compactQueue, "compact maximum queue limit");
                 compactQueue.Value = 2000m;
-                AssertComboFullyVisible(serviceMode, "Processing time per event", "compact Rate model");
+                AssertComboFullyVisible(serviceMode, "None", "compact Rate model");
                 AssertComboFullyVisible(overflow, Convert.ToString(overflow.SelectedItem), "compact overflow policy");
-                serviceMode.SelectedIndex = 1; Application.DoEvents();
+                rateChoice.SelectedChoice = RateModelChoice.MidiBitrate; Application.DoEvents();
                 ScrubOrTypeTextBox compactBitrate = FindNumericWithMaximum(controls, 100000000m);
                 if (compactBitrate == null) throw new Exception("compact bitrate numeric field was not found");
                 compactBitrate.Value = compactBitrate.Maximum;
@@ -10811,7 +10971,7 @@ namespace MidiBottleneck.Tests
                     Application.DoEvents();
                     AssertProcessingClusters(form, "active resize at " + activeWidths[widthIndex] + " client pixels");
                 }
-                serviceMode.SelectedIndex = 0; Application.DoEvents();
+                rateChoice.SelectedChoice = RateModelChoice.ProcessingTime; Application.DoEvents();
                 form.ClientSize = new Size(639, 570); Application.DoEvents();
                 Equal(true, statistics.Compact, "one pixel below responsive breakpoint");
                 form.ClientSize = new Size(640, 570); Application.DoEvents();
@@ -10879,8 +11039,7 @@ namespace MidiBottleneck.Tests
                     kdmApi.Checked = false;
                     Equal(true, midiOutput.Enabled, "Windows output selection restored");
                 }
-                Equal(false, slowdown.Checked, "simulate slowdown default");
-                slowdown.Checked = true;
+                rateChoice.SelectedChoice = RateModelChoice.ProcessingTime;
                 Equal(false, queueLimit.Checked, "queue limit default disabled");
                 Equal(false, queueLimitValue.Enabled, "queue limit value disabled while unlimited");
                 Equal(2000m, queueLimitValue.Value, "queue limit UI default");
@@ -10906,21 +11065,21 @@ namespace MidiBottleneck.Tests
                     statistics.DrawToBitmap(queueBitmap, statistics.ClientRectangle);
                 Equal(false, statistics.ValueWasTruncated(1), "large queue value uses available cell width");
 
-                Equal(0, serviceMode.SelectedIndex, "processing-time Rate model restored for value-preservation test");
-                serviceMode.SelectedIndex = 1;
+                Equal(RateModelChoice.ProcessingTime, rateChoice.SelectedChoice, "processing-time Rate model restored for value-preservation test");
+                rateChoice.SelectedChoice = RateModelChoice.MidiBitrate;
                 Application.DoEvents();
                 dinPreset.PerformClick();
                 ScrubOrTypeTextBox serviceValue = FindNumericWithMaximum(controls, 100000000m);
                 if (serviceValue == null) throw new Exception("bitrate numeric field was not found");
                 Equal(31250m, serviceValue.Value, "5-pin DIN UI preset");
                 serviceValue.Value = 50000m;
-                serviceMode.SelectedIndex = 0;
+                rateChoice.SelectedChoice = RateModelChoice.ProcessingTime;
                 Application.DoEvents();
                 Equal(100m, serviceValue.Value, "processing-time value restored");
-                serviceMode.SelectedIndex = 1;
+                rateChoice.SelectedChoice = RateModelChoice.MidiBitrate;
                 Application.DoEvents();
                 Equal(50000m, serviceValue.Value, "bitrate value restored");
-                slowdown.Checked = false;
+                rateChoice.SelectedChoice = RateModelChoice.None;
                 Equal(false, serviceValue.Enabled,
                     "service value is disabled when both slowdown and forward-only queue mode are off");
                 SendMessage(form.Handle, 0x0112,
@@ -11042,6 +11201,13 @@ namespace MidiBottleneck.Tests
                 result.Add(child);
                 CollectControls(child, result);
             }
+        }
+
+        private static List<Control> CollectControlsForTest(Control parent)
+        {
+            List<Control> controls = new List<Control>();
+            CollectControls(parent, controls);
+            return controls;
         }
 
         private static CheckBox FindCheckBox(List<Control> controls, string text)
