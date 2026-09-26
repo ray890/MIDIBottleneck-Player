@@ -502,3 +502,14 @@ This is the human-readable history of MIDIBottleneck Player. Dates are original 
 ### Verification
 
 - Focused realized tests cover fresh defaults, nonselectable headings, remembered values, finite/unlimited and forward-only combinations, active and paused transitions, compact layout, and the unchanged queue/gate paths. Complete x86/x64 totals and release hashes are recorded in the private Build 40 checkpoint.
+
+## Build 41 — 2026-09-25
+
+### Player changes
+
+- Added one offline Help window reachable with **F1** or **Help (F1)…** in the main window's title-bar menu. It opens at the topic associated with the focused File/output, Processing, Queue, Playback, Analysis, or Statistics control, while its topic list also covers Channels and general use.
+- Reopening Help reuses the same modeless window and changes its topic; closing it releases that shell. Help does not change playback, processing settings, queue state, or statistics. Its content is built into the executable and uses the application's icon.
+
+### Verification
+
+- Focused realized WinForms tests cover key preprocessing, native system-menu invocation, focused-section selection, content, reuse, closure/reopening, handle recreation, and working-area fit. Complete architecture totals and exact release hashes are retained in the private Build 41 checkpoint.

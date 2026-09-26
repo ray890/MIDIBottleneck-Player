@@ -8,6 +8,7 @@ This is a direction of travel, not a promise of dates. Correct MIDI behavior, de
 
 ## Recently completed
 
+- **Build 41 — contextual offline Help:** F1 and a title-bar Help command open one reusable guide at the topic associated with the focused main-window control.
 - **Build 40 — discoverable processing models:** None, three ordinary rate models, and Per-note interval gate now share one grouped selector. Forward-only finite queue admission is labelled separately when active; the scheduler algorithms are unchanged.
 - **Build 39 — numeric controls and Per-note Analysis:** centered measured numeric fields and gentler Queue scrubbing; Analysis now projects the shared Per-note gate's actual selected messages and their logical emission times alongside raw source workload.
 - **Build 38 — main numeric refinement:** the Processing and Queue fields size to the visible number, and processing scrubbing follows the selected rate scale without rounding exact typed values. UI scaling remains a separate measured design.

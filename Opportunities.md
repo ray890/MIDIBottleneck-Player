@@ -23,6 +23,8 @@ The next dedicated feature is not yet selected. A future presentation or playbac
 - **Build 37 — interface refinements:** shorter gate-filter and compact slash readouts, measured Analysis-panel readout fallback, graph-hover Space transport, ordered observed-state Chase when first opening Channels, scrub-or-type main numeric values, a finer low-rate Events/sec slider, and exact 9,999,999/sec service-clock support.
 - **Build 38 — main numeric refinement:** content-measured processing and queue fields, closer numeric/label alignment, and processing scrubbing that follows the selected slider scale without rounding an exact typed starting value. The Channel Monitor editor's semantics remain separate. A bounded UI-scaling feasibility note records why no partial scale menu was added.
 - **Build 39 — numeric controls and Per-note Analysis:** centered measured numeric values preserve narrow white margins without clipping; Queue scrubbing uses a continuous gentle-low/fast-high scale with exact reversal. Static Analysis now runs the shared gate state machine over source events and graphs its selected messages at logical emission times. Its gate projection remains distinct from ordinary queue pressure and from native-provider behavior.
+- **Build 40 — Rate model presentation:** None, three ordinary service-rate choices, and Per-note gate share one visible grouped selector. A contextual heading distinguishes forward-only virtual admission from delayed slowdown without changing scheduling mathematics.
+- **Build 41 — contextual offline Help:** F1 and the title-bar Help command open one reusable first-party guide at the topic associated with the focused main-window control. It does not need a bundled file, native provider, or decorative question-mark style.
 
 Build 37 compared the older finite policies with Build 34 on the same bounded 120,000-event synthetic fixture. The Build 35 linked-node path showed a local Analysis slowdown, especially for Drop oldest. A segmented FIFO now handles policies that do not need complete-note eviction. This recovered much, but not all, of the baseline time, with matching projected drop and occupancy decisions and zero measured Gen0 collections. Further throughput conclusions require representative repeated workloads; this is not a claim about native provider speed.
 
@@ -83,9 +85,9 @@ An optional future rule could delay a matching NoteOff by roughly one quarter of
 
 A direct output-rate cap that rejects excess *note occurrences* would be distinct from the current Events/sec service-time model and from queue overflow. A future design must specify its time window, deterministic admission priority, NoteOn/NoteOff pairing, protected releases, channel filters, and how Playback and Analysis present the resulting counts. It should not be inferred from the current slider or implemented as a silent second drop stage.
 
-### Help presentation
+### Help presentation — completed in Build 41
 
-Native `WS_EX_CONTEXTHELP` conflicts with the principal windows' minimize/maximize styles. A future system-menu Help command, F1 help, or custom presentation is worthwhile only when it opens useful guidance; do not add a decorative question mark.
+Native `WS_EX_CONTEXTHELP` conflicts with the principal windows' minimize/maximize styles. The offline F1/system-menu Help window now provides topic-specific guidance without that style or a decorative question mark. Future improvements to wording can be ordinary documentation work.
 
 ## Public project maintenance
 
@@ -101,4 +103,3 @@ A bounded GitHub Actions trial was retired because realized WinForms geometry te
 - **Extreme-load pause attribution:** further claims need isolated ETW/GC/commit/page-fault evidence after the compact storage improvements.
 - **Legacy Windows or cross-platform portability:** a longer-term direction, not a current compatibility promise.
 - **Static Per-note Analysis:** completed in Build 39 using the shared gate decisions. Future extensions would need an explicit model for live mutes/overrides or native-provider delays; those are not silently inferred from the source file.
-- **Contextual help:** one F1/system-menu Help window could open at the section associated with the focused control. It should provide real guidance rather than decorative title-bar behavior.

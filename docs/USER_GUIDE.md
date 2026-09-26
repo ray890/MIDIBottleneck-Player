@@ -140,4 +140,6 @@ Overrides persist across normal playback boundaries for the same file and clear 
 
 The main window switches to a measured compact arrangement below its responsive width boundary. Controls retain full tooltips where captions or values must ellipsize.
 
-The title-bar system menu places **Always on top**, **Show Processing model**, and **Show Statistics** together after **About**. A later group contains checked-by-default **Chase MIDI state on Play/Seek** and **Apply queue limit without slowdown**, which starts unchecked. Per-note gating is selected in the visible Rate model dropdown.
+The title-bar system menu places **Help (F1)…** after **About**, then groups **Always on top**, **Show Processing model**, and **Show Statistics**. A later group contains checked-by-default **Chase MIDI state on Play/Seek** and **Apply queue limit without slowdown**, which starts unchecked. Per-note gating is selected in the visible Rate model dropdown.
+
+Press **F1** while the main window has focus for a small offline guide. It opens at File/output, Rate model, Queue, Playback, Analysis, or Statistics according to the focused control; the system-menu command uses the same route. The window can stay open while playback continues and is reused when help is requested again. Choose another topic from its list at any time. This is application help, not a special Windows question-mark title-bar mode.

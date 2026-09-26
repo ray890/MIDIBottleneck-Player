@@ -20,6 +20,7 @@ namespace MidiBottleneck
         private const int SystemMenuChaseMidiState = 0x1F60;
         private const int SystemMenuShowProcessingModel = 0x1F70;
         private const int SystemMenuShowStatistics = 0x1F80;
+        private const int SystemMenuHelp = 0x1F90;
         private const uint MfString = 0x0000;
         private const uint MfSeparator = 0x0800;
         private const uint MfChecked = 0x0008;
@@ -48,6 +49,7 @@ namespace MidiBottleneck
         private readonly HashSet<Control> _midiDropTargets = new HashSet<Control>();
         private readonly List<DiagnosticsForm> _analysisWindows = new List<DiagnosticsForm>();
         private ChannelMonitorForm _channelMonitor;
+        private PlayerHelpForm _helpWindow;
         private MidiSong _sourceReadoutSong;
         private int _sourceReadoutEventIndex = -1;
         private readonly ToolTip _toolTip = new ToolTip();
@@ -184,6 +186,7 @@ namespace MidiBottleneck
             {
                 AppendMenu(menu, MfSeparator, UIntPtr.Zero, null);
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuAbout, "About " + ProductIdentity.Name + "…");
+                AppendMenu(menu, MfString, (UIntPtr)SystemMenuHelp, "&Help (F1)…");
                 AppendMenu(menu, MfSeparator, UIntPtr.Zero, null);
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuAlwaysOnTop, "Always on top");
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuShowProcessingModel, "Show &Processing model");
@@ -206,6 +209,7 @@ namespace MidiBottleneck
             {
                 int command = message.WParam.ToInt32() & 0xFFF0;
                 if (command == SystemMenuAbout) { ShowAboutDialog(); return; }
+                if (command == SystemMenuHelp) { ShowHelpWindow(); return; }
                 if (command == SystemMenuAlwaysOnTop) { ToggleAlwaysOnTop(); return; }
                 if (command == SystemMenuApplyQueueLimitWithoutSlowdown) { ToggleForwardQueueLimit(); return; }
                 if (command == SystemMenuChaseMidiState) { ToggleStateChase(); return; }
@@ -219,6 +223,62 @@ namespace MidiBottleneck
         {
             using (AboutProductDialog dialog = new AboutProductDialog()) dialog.ShowDialog(this);
         }
+
+        protected override bool ProcessCmdKey(ref Message message, Keys keyData)
+        {
+            if (keyData == Keys.F1)
+            {
+                ShowHelpWindow();
+                return true;
+            }
+            return base.ProcessCmdKey(ref message, keyData);
+        }
+
+        private void ShowHelpWindow()
+        {
+            PlayerHelpTopic topic = HelpTopicForFocusedControl();
+            if (_helpWindow == null || _helpWindow.IsDisposed)
+            {
+                PlayerHelpForm help = new PlayerHelpForm();
+                _helpWindow = help;
+                help.FormClosed += delegate { if (ReferenceEquals(_helpWindow, help)) _helpWindow = null; };
+                help.SelectTopic(topic);
+                help.Show(this);
+            }
+            else
+            {
+                _helpWindow.SelectTopic(topic);
+                _helpWindow.Activate();
+            }
+        }
+
+        private PlayerHelpTopic HelpTopicForFocusedControl()
+        {
+            Control focused = ActiveControl;
+            ContainerControl container;
+            while ((container = focused as ContainerControl) != null && container.ActiveControl != null)
+                focused = container.ActiveControl;
+            if (IsDescendantOf(focused, _analysisButton)) return PlayerHelpTopic.Analysis;
+            if (IsDescendantOf(focused, _queueCluster) || IsDescendantOf(focused, _overflowCluster))
+                return PlayerHelpTopic.QueueAndOverflow;
+            if (IsDescendantOf(focused, _fileOutputGroup)) return PlayerHelpTopic.FileAndOutput;
+            if (IsDescendantOf(focused, _processingTable)) return PlayerHelpTopic.RateModel;
+            if (IsDescendantOf(focused, _playbackGroup)) return PlayerHelpTopic.Playback;
+            if (IsDescendantOf(focused, _statisticsGroup)) return PlayerHelpTopic.Statistics;
+            return PlayerHelpTopic.Overview;
+        }
+
+        private static bool IsDescendantOf(Control child, Control parent)
+        {
+            if (child == null || parent == null) return false;
+            for (Control current = child; current != null; current = current.Parent)
+                if (ReferenceEquals(current, parent)) return true;
+            return false;
+        }
+
+        internal PlayerHelpTopic HelpTopicForTesting { get { return HelpTopicForFocusedControl(); } }
+        internal PlayerHelpForm HelpWindowForTesting { get { return _helpWindow; } }
+        internal static int HelpSystemCommandForTesting { get { return SystemMenuHelp; } }
 
         private void ToggleAlwaysOnTop()
         {
@@ -2830,6 +2890,7 @@ namespace MidiBottleneck
             _output.Dispose();
             _kdmApiOutput.Dispose();
             _nullOutput.Dispose();
+            if (_helpWindow != null && !_helpWindow.IsDisposed) _helpWindow.Close();
             if (_speedWindowMenu != null) _speedWindowMenu.Dispose();
             _toolTip.Dispose();
             base.OnFormClosing(e);

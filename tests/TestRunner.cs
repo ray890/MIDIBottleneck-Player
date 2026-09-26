@@ -193,6 +193,11 @@ namespace MidiBottleneck.Tests
                     RenderBuild36SessionViews(arguments[1]);
                     return 0;
                 }
+                if (arguments.Length == 2 && arguments[0] == "--render-build41-help")
+                {
+                    RenderBuild41Help(arguments[1]);
+                    return 0;
+                }
                 if (arguments.Length == 2 && arguments[0] == "--render-ui-none")
                 {
                     RenderMainWindow(arguments[1], false, false, false, true);
@@ -592,6 +597,11 @@ namespace MidiBottleneck.Tests
                     RunFocused("Per-note gate behavior", TestBuild25PerNoteIntervalGate);
                     return 0;
                 }
+                if (arguments.Length == 1 && arguments[0] == "--test-build41")
+                {
+                    RunFocused("offline F1 and system-menu contextual Help", TestBuild41ContextHelp);
+                    return 0;
+                }
                 if (arguments.Length == 1 && arguments[0] == "--test-queue-baseline")
                 {
                     RunFocused("segmented FIFO and note-index policy transitions", TestBuild37PendingQueueFastPath);
@@ -730,6 +740,7 @@ namespace MidiBottleneck.Tests
                 Run("exact static Per-note Analysis and live-output parity",
                     TestBuild39PerNoteAnalysis);
                 Run("grouped Rate model selection and forward-only mapping", TestBuild40RateModelSelector);
+                Run("offline F1 and system-menu contextual Help", TestBuild41ContextHelp);
                 Run("single-source product metadata", TestBuild23ProductMetadata);
                 Run("pre-admission channel and override filtering", TestBuild23PreAdmissionFiltering);
                 Run("corrected per-note interval gate state, scheduler, lifecycle, and UI", TestBuild25PerNoteIntervalGate);
@@ -9193,6 +9204,102 @@ namespace MidiBottleneck.Tests
             if (choice == RateModelChoice.MidiBitrate) return ServiceDurationMode.MidiBitrate;
             if (choice == RateModelChoice.EventsPerSecond) return ServiceDurationMode.EventsPerSecond;
             return ServiceDurationMode.ProcessingTime;
+        }
+
+        private static void TestBuild41ContextHelp()
+        {
+            Application.EnableVisualStyles();
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(20);
+                BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                Button open = (Button)typeof(MainForm).GetField("_openButton", flags).GetValue(form);
+                RateModelComboBox rate = (RateModelComboBox)typeof(MainForm)
+                    .GetField("_serviceModeCombo", flags).GetValue(form);
+                CheckBox queue = (CheckBox)typeof(MainForm).GetField("_queueLimitCheck", flags).GetValue(form);
+                Button reset = (Button)typeof(MainForm).GetField("_resetStatsButton", flags).GetValue(form);
+                MethodInfo command = typeof(MainForm).GetMethod("ProcessCmdKey", flags);
+                int originalMenuCount = GetMenuItemCount(GetSystemMenu(form.Handle, false));
+
+                open.Focus(); Application.DoEvents();
+                Equal(PlayerHelpTopic.FileAndOutput, form.HelpTopicForTesting,
+                    "F1 topic follows focused file control");
+                object[] keyArguments = { Message.Create(form.Handle, 0x0100, (IntPtr)Keys.F1,
+                    IntPtr.Zero), Keys.F1 };
+                form.Activate(); open.Focus();
+                Message key = Message.Create(open.Handle, 0x0100, (IntPtr)Keys.F1, IntPtr.Zero);
+                Equal(true, open.PreProcessMessage(ref key),
+                    "F1 travels through WinForms key preprocessing to main-window Help");
+                PumpFor(20);
+                PlayerHelpForm help = form.HelpWindowForTesting;
+                if (help == null || !help.Visible || help.Icon == null)
+                    throw new Exception("preprocessed F1 did not open an icon-bearing application Help window");
+                Equal(PlayerHelpTopic.FileAndOutput, help.SelectedTopic, "F1 opens at file/output guidance");
+                if (!help.VisibleHelpText.Contains("WinMM") || !help.VisibleHelpText.Contains("drag"))
+                    throw new Exception("file/output Help content is missing useful guidance");
+                Rectangle area = Screen.FromControl(help).WorkingArea;
+                if (help.Width > area.Width || help.Height > area.Height)
+                    throw new Exception("Help exceeds the monitor working area");
+
+                form.Activate(); rate.Focus(); Application.DoEvents();
+                Equal(PlayerHelpTopic.RateModel, form.HelpTopicForTesting,
+                    "focused rate selector selects rate guidance");
+                Equal(true, (bool)command.Invoke(form, keyArguments),
+                    "F1 is consumed by the shared Help route");
+                PumpFor(10);
+                Equal(true, ReferenceEquals(help, form.HelpWindowForTesting),
+                    "repeated F1 reuses one Help window");
+                Equal(PlayerHelpTopic.RateModel, help.SelectedTopic,
+                    "reused Help follows changed focus");
+                if (!help.VisibleHelpText.Contains("Per-note interval gate") ||
+                    !help.VisibleHelpText.Contains("None"))
+                    throw new Exception("rate Help does not explain the visible choices");
+
+                form.Activate(); queue.Focus(); Application.DoEvents();
+                Equal(PlayerHelpTopic.QueueAndOverflow, form.HelpTopicForTesting,
+                    "queue control selects queue guidance");
+                SendMessage(form.Handle, 0x0112, (IntPtr)MainForm.HelpSystemCommandForTesting, IntPtr.Zero);
+                Equal(PlayerHelpTopic.QueueAndOverflow, help.SelectedTopic,
+                    "native system-menu Help uses the same topic route");
+                if (!help.VisibleHelpText.Contains("Forward-only queue admission"))
+                    throw new Exception("queue Help omits the virtual-admission distinction");
+
+                form.Activate(); reset.Focus(); Application.DoEvents();
+                Equal(PlayerHelpTopic.Playback, form.HelpTopicForTesting,
+                    "playback control selects playback guidance");
+                help.Close(); PumpFor(10);
+                Equal(null, form.HelpWindowForTesting, "closing Help releases its reusable shell");
+                command.Invoke(form, keyArguments); PumpFor(10);
+                if (form.HelpWindowForTesting == null ||
+                    form.HelpWindowForTesting.SelectedTopic != PlayerHelpTopic.Playback)
+                    throw new Exception("Help did not reopen at the current section");
+                form.HelpWindowForTesting.Close();
+
+                typeof(Control).GetMethod("RecreateHandle", flags).Invoke(form, null);
+                Application.DoEvents();
+                Equal(originalMenuCount, GetMenuItemCount(GetSystemMenu(form.Handle, false)),
+                    "handle recreation does not duplicate Help command");
+                form.Close();
+            }
+        }
+
+        private static void RenderBuild41Help(string outputPath)
+        {
+            Application.EnableVisualStyles();
+            using (MainForm main = new MainForm())
+            using (PlayerHelpForm help = new PlayerHelpForm())
+            {
+                main.Show(); PumpFor(20);
+                help.SelectTopic(PlayerHelpTopic.RateModel);
+                help.Show(main); PumpFor(50);
+                using (Bitmap bitmap = new Bitmap(help.Width, help.Height))
+                {
+                    CaptureForm(help, bitmap);
+                    bitmap.Save(outputPath);
+                }
+                help.Close(); main.Close();
+            }
+            Console.WriteLine("Rendered Help: " + Path.GetFullPath(outputPath));
         }
 
         private static void AssertCenteredNumericInk(ScrubOrTypeTextBox numeric, string name)
