@@ -110,8 +110,7 @@ namespace MidiBottleneck
                 value = Math.Max(50, Math.Min(200, value));
                 if (_applicationScalePercent == value) return;
                 _applicationScalePercent = value;
-                Font replacement = new Font("Segoe UI", 8F * value / 100F,
-                    FontStyle.Regular, GraphicsUnit.Point);
+                Font replacement = UiScaleFont.CreateUi(8F, FontStyle.Regular, value);
                 Font previous = _labelFont;
                 _labelFont = replacement;
                 if (previous != null) previous.Dispose();
@@ -699,6 +698,9 @@ namespace MidiBottleneck
             using (Brush low = new SolidBrush(Color.FromArgb(100, 75, 150, 95)))
             using (Brush medium = new SolidBrush(Color.FromArgb(150, 230, 170, 45)))
             using (Brush high = new SolidBrush(Color.FromArgb(190, 230, 65, 65)))
+            using (Brush over = new SolidBrush(Color.FromArgb(210,
+                QueuePressurePalette.OverLimit.R, QueuePressurePalette.OverLimit.G,
+                QueuePressurePalette.OverLimit.B)))
             {
                 for (int x = 0; x < area.Width; x++)
                 {
@@ -725,7 +727,8 @@ namespace MidiBottleneck
                         double ratio = _analysis.Configuration.QueueAgeLimitEnabled
                             ? queueAge / (double)Math.Max(1L, _analysis.Configuration.QueueAgeLimitMicroseconds)
                             : occupancy / (double)Math.Max(1, _analysis.Configuration.QueueLengthLimit);
-                        graphics.FillRectangle(ratio >= 0.9 ? high : ratio >= 0.65 ? medium : low, area.Left + x, pressureY, 1, ScaleMetric(6));
+                        graphics.FillRectangle(ratio > 1.0 ? over : ratio >= 0.9 ? high :
+                            ratio >= 0.65 ? medium : low, area.Left + x, pressureY, 1, ScaleMetric(6));
                     }
                 }
             }
@@ -738,7 +741,7 @@ namespace MidiBottleneck
                 int next = 64;
                 if (finite)
                 {
-                    DrawLegendLine(graphics, area, next, "Red area: overflow  •  Strip: queue pressure");
+                    DrawLegendLine(graphics, area, next, "Red area: overflow  •  Purple strip: over limit");
                     next += 17;
                 }
                 DrawLegendLine(graphics, area, next, "White dots: playback timeline");
@@ -760,7 +763,7 @@ namespace MidiBottleneck
 
             DrawLegendLine(graphics, area, 47, "Magenta diamond: ≥50 simultaneous events");
             if (finite)
-                DrawLegendLine(graphics, area, 64, "Red: predicted overflow  •  Strip: predicted queue pressure");
+                DrawLegendLine(graphics, area, 64, "Red: predicted overflow  •  Purple pressure: over limit");
             string liveLegend = "White dots: playback timeline  •  Green dash-dot: MIDI output  •  " +
                 FormatResolution(_analysis.BucketMicroseconds);
             DrawLegendLine(graphics, area, finite ? 81 : 64, liveLegend);

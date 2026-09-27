@@ -477,8 +477,7 @@ namespace MidiBottleneck
             {
                 _uiScalePercent = percent;
                 Font previous = Font;
-                Font = new Font("Segoe UI", 9F * percent / 100F,
-                    FontStyle.Regular, GraphicsUnit.Point);
+                Font = UiScaleFont.CreateUi(9F, FontStyle.Regular, percent);
                 if (previous != null) previous.Dispose();
                 _statisticsView.ApplicationScalePercent = percent;
                 _timelineView.ApplicationScalePercent = percent;
@@ -489,6 +488,11 @@ namespace MidiBottleneck
                     (int)Math.Round(canonicalSurplus * percent / 100.0,
                         MidpointRounding.AwayFromZero));
                 _responsiveLayoutInitialized = false;
+                // Release the previous scale's fixed-height constraints before
+                // applying the next canonical client size. The newly measured
+                // layout installs its own matching constraints below.
+                MinimumSize = Size.Empty;
+                MaximumSize = Size.Empty;
                 ClientSize = new Size(targetClientWidth, targetClientHeight);
                 UpdateResponsiveLayout();
                 _rootLayout.PerformLayout();
@@ -496,10 +500,8 @@ namespace MidiBottleneck
                 ApplyMeasuredWindowConstraints();
                 if (!_compactLayout)
                 {
-                    ClientSize = new Size(ClientSize.Width, targetClientHeight);
                     _lastDefaultHeight = Height;
-                    _lastDefaultHeightSurplus = Math.Max(0,
-                        Height - _lastDefaultRequiredHeight);
+                    _lastDefaultHeightSurplus = 0;
                 }
             }
             finally
@@ -2403,9 +2405,9 @@ namespace MidiBottleneck
             _statisticsView.SetValues(new string[]
             {
                 FormatTime(snapshot.IntendedTimelineMicroseconds) + (_compactLayout ? "\u2009/\u2009" : " / ") + FormatTime(snapshot.LastDispatchedTimelineMicroseconds),
-                (_queueAgeLimitEnabled
-                    ? snapshot.QueueAgeMicroseconds.ToString("N0", CultureInfo.CurrentCulture) + (_compactLayout ? "\u2009/\u2009" : " / ") + snapshot.MaximumQueueAgeMicroseconds.ToString("N0", CultureInfo.CurrentCulture) + " µs"
-                    : snapshot.OutstandingEvents.ToString("N0", CultureInfo.CurrentCulture) + (_compactLayout ? "\u2009/\u2009" : " / ") + snapshot.MaximumQueueLength.ToString("N0", CultureInfo.CurrentCulture)) +
+                snapshot.OutstandingEvents.ToString("N0", CultureInfo.CurrentCulture) +
+                    (_compactLayout ? "\u2009/\u2009" : " / ") +
+                    snapshot.MaximumQueueLength.ToString("N0", CultureInfo.CurrentCulture) +
                     (snapshot.VirtualQueueActive ? (_compactLayout ? " actual" : " actual backlog") : String.Empty),
                 configuredRate,
                 _compactLayout && outputRate.HasValue
@@ -2437,9 +2439,8 @@ namespace MidiBottleneck
                     {
                         State = snapshot.State.ToString(),
                         TimelineAndOutput = FormatTime(snapshot.IntendedTimelineMicroseconds) + " / " + FormatTime(snapshot.LastDispatchedTimelineMicroseconds),
-                        Queue = _queueAgeLimitEnabled
-                            ? snapshot.QueueAgeMicroseconds.ToString("N0", CultureInfo.CurrentCulture) + " / " + snapshot.MaximumQueueAgeMicroseconds.ToString("N0", CultureInfo.CurrentCulture) + " µs"
-                            : snapshot.OutstandingEvents.ToString("N0", CultureInfo.CurrentCulture) + " / " + snapshot.MaximumQueueLength.ToString("N0", CultureInfo.CurrentCulture),
+                        Queue = snapshot.OutstandingEvents.ToString("N0", CultureInfo.CurrentCulture) +
+                            " / " + snapshot.MaximumQueueLength.ToString("N0", CultureInfo.CurrentCulture),
                         Events = FormatEventCounts(snapshot, false),
                         EventsCaption = snapshot.ProcessingMode == ProcessingMode.PerNoteIntervalGate
                             ? "Events sent / excluded: " : "Events sent / dropped: ",
@@ -2929,6 +2930,7 @@ namespace MidiBottleneck
                     ? (compact ? "Wait limit:" : "Queue waiting-time limit:")
                     : (compact ? "Queue limit:" : "Queue length limit:");
                 _serviceModeLabel.Text = compact ? "Rate:" : "Rate model:";
+                _serviceModeCombo.CompactDisplay = compact;
                 _serviceValueLabel.Text = _selectedRateChoice == RateModelChoice.None
                     ? String.Empty
                     : _engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate
@@ -2945,7 +2947,9 @@ namespace MidiBottleneck
                 _queueLimitValue.Margin = compact ? ScalePadding(0, 6, 3, 1) : ScalePadding(0, 7, 4, 2);
                 _eventsLabel.Margin = compact ? ScalePadding(0, 4, 1, 2) : ScalePadding(0, 5, 2, 3);
                 _serviceModeLabel.Margin = compact ? ScalePadding(0, 4, 1, 3) : ScalePadding(0, 5, 4, 4);
-                _serviceModeCombo.Margin = compact ? ScalePadding(0, 1, 0, 1) : ScalePadding(0, 2, 3, 2);
+                // Leave one explicit pixel below the native selector so its
+                // themed bottom border is not clipped by the measured row.
+                _serviceModeCombo.Margin = compact ? ScalePadding(0, 1, 0, 2) : ScalePadding(0, 2, 3, 3);
                 _serviceValueLabel.Margin = compact ? ScalePadding(0, 5, 3, 2) : ScalePadding(0, 6, 4, 3);
                 // The standard Rate slider intentionally sits two pixels lower,
                 // but that taller row must not move the adjacent numeric field.
@@ -2955,8 +2959,8 @@ namespace MidiBottleneck
                 _processingTable.Padding = compact ? new Padding(0) : new Padding(ScaleMetric(1));
                 // The one-pixel compact inset keeps the native TrackBar paint
                 // from touching the rate-model row above it.
-                _rateCluster.MinimumSize = compact
-                    ? new Size(0, _serviceModeCombo.PreferredHeight + ScaleMetric(4)) : Size.Empty;
+                _rateCluster.MinimumSize = new Size(0,
+                    _serviceModeCombo.PreferredHeight + ScaleMetric(compact ? 4 : 5));
                 _processingSlider.Margin = compact ? ScalePadding(0, 2, 0, 0) : ScalePadding(3, 5, 3, 1);
                 _processingSlider.AutoSize = false;
                 _processingSlider.Height = ScaleMetric(compact ? 32 : 36);
@@ -3083,9 +3087,11 @@ namespace MidiBottleneck
             else
             {
                 _lastDefaultRequiredHeight = requiredHeight;
-                if (MaximumSize != Size.Empty) MaximumSize = Size.Empty;
                 Size defaultMinimum = new Size(ScaleMetric(560), requiredHeight);
+                Size defaultMaximum = new Size(10000, requiredHeight);
                 if (MinimumSize != defaultMinimum) MinimumSize = defaultMinimum;
+                if (MaximumSize != defaultMaximum) MaximumSize = defaultMaximum;
+                if (Height != requiredHeight) Height = requiredHeight;
             }
         }
 

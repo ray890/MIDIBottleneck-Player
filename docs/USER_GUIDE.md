@@ -32,7 +32,9 @@ Pause resets and silences the output, so state is restored once when Resume cont
 
 The title-bar menu (Alt+Space) has checked **Show Processing model** and **Show Statistics** commands. Uncheck either to reclaim that section's height; both can be hidden together. File/output and Playback stay visible. These choices last only until the application closes. Hiding a section does not turn off its model, reset statistics, or interrupt playback; current values appear when the section returns. The same commands work while loading, playing, paused, or stopped.
 
-**Application scale** in the same menu offers 50%, 75%, 100%, 125%, 150%, and 200%. Each choice is calculated directly from each window's established 100% measurements at the current Windows DPI, rather than scaling the previous result. Returning to 100% therefore restores the exact ordinary layout. The setting lasts for the session and applies to the main, Analysis, and Channels windows. Analysis preserves its report/graph split; Channels preserves automatic fitting or manually resized window and column widths.
+**Application scale** in the same menu offers 50%, 75%, 100%, 125%, 150%, and 200%. Each choice is calculated directly from each window's established 100% measurements at the current Windows DPI, rather than scaling the previous result. Returning to 100% therefore restores the exact ordinary layout and fonts. At 50% and 75%, the player uses strongly hinted Windows small-screen fonts for better readability. The setting lasts for the session and applies to the main, Analysis, and Channels windows. Analysis preserves its report/graph split; Channels preserves automatic fitting or manually resized window and column widths.
+
+Both compact and standard main-window layouts use their measured content height. Vertical resizing is fixed so extra height cannot turn into an unexplained blank area; horizontal resizing and width-only maximize behavior remain available.
 
 **Rate model** starts at **None**, which sends eligible MIDI without a simulated service delay. Processing time, MIDI bitrate, Events/sec, and the Per-note interval each remember their own last value while another choice is active. The dropdown has two nonselectable headings: **Simulated slowdown** for the three ordinary service models, and **Bandwidth / note gating** for the Per-note interval gate. The headings are labels rather than choices: mouse, keyboard, wheel, search, and programmatic navigation skip them. Choose an ordinary model to apply its service rate:
 
@@ -78,7 +80,9 @@ Waiting-time mode offers only policies that can reduce an overdue head: **Drop o
 
 Waiting-time mode and forward-only admission cannot be active together. Enabling either one turns the other off and restores the appropriate remembered units and policies. This is deliberate: forward-only output does not retain accepted events that a pending-age limit could later remove.
 
-A blocked driver or synthesizer call can create a real backlog even when simulated slowdown is off. **Queue now / maximum** counts those due, eligible, unsent events and the call currently in service. Muted channels and source attribute changes blocked by a forced override are excluded. This real backlog is separate from virtual pressure and can exceed the configured virtual limit while a native call is unable to return.
+A blocked driver or synthesizer call can create a real backlog even when simulated slowdown is off. **Queue now / maximum** always counts current and maximum outstanding events, including the call currently in service. Waiting-time mode keeps its age in the pressure readout rather than replacing these event counts. Muted channels and source attribute changes blocked by a forced override are excluded. Real backlog is separate from virtual pressure and can exceed a soft limit while required releases or safety messages remain pending.
+
+Queue pressure is green below 65%, amber from 65% to below 90%, and red from 90% through 100%. Purple means required protected traffic has pushed the queue strictly above its configured soft limit. The numeric pressure readout receives space before the decorative bar, and its tooltip retains the complete value if a very narrow layout needs an abbreviated display.
 
 ### Per-note interval gate
 

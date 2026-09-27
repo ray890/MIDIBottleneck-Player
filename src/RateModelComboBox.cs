@@ -31,12 +31,16 @@ namespace MidiBottleneck
         private ToolStripLabel _gateHeadingItem;
         private Font _headingFont;
         private bool _forwardOnlyHeading;
+        private bool _compactDisplay;
         private int _popupWidth = 252;
 
         internal RateModelComboBox()
         {
             DropDownStyle = ComboBoxStyle.DropDownList;
-            DrawMode = DrawMode.OwnerDrawFixed;
+            // The native collapsed field deliberately remains normally drawn
+            // so its themed field, border, arrow, disabled state, and focus
+            // treatment match the adjacent Overflow ComboBox.
+            DrawMode = DrawMode.Normal;
             DropDownWidth = 252;
             AccessibleName = "Rate model";
             AccessibleDescription = "Choose None, an ordinary MIDI processing rate, or the Per-note interval gate. Static group labels organize the choices.";
@@ -94,8 +98,27 @@ namespace MidiBottleneck
                 DropDownWidth = Math.Max(1, (252 * value + 50) / 100);
                 _popupWidth = DropDownWidth;
                 if (_groupedDropDown != null)
+                {
                     _groupedDropDown.MinimumSize = new Size(_popupWidth, 0);
+                    UpdateHeadingSizes();
+                }
                 Invalidate();
+            }
+        }
+
+        internal bool CompactDisplay
+        {
+            get { return _compactDisplay; }
+            set
+            {
+                if (_compactDisplay == value) return;
+                RateModelChoice selected = SelectedChoice;
+                _compactDisplay = value;
+                Items[ProcessingIndex] = value ? "Time per event" : "Processing time per event";
+                Items[BitrateIndex] = value ? "MIDI bitrate" : "MIDI serial bitrate";
+                Items[EventsIndex] = value ? "Events/sec" : "Events per second";
+                Items[GateIndex] = value ? "Per-note gate" : "Per-note interval gate";
+                SelectedChoice = selected;
             }
         }
 
@@ -129,13 +152,31 @@ namespace MidiBottleneck
         {
             ToolStripLabel heading = new ToolStripLabel(text);
             heading.Enabled = false;
+            heading.AutoSize = false;
             heading.Font = _headingFont;
             heading.ForeColor = SystemColors.GrayText;
+            heading.BackColor = SystemColors.Control;
             heading.AccessibleName = text;
             heading.AccessibleRole = AccessibleRole.StaticText;
-            heading.Margin = new Padding(4, 2, 2, 1);
+            heading.TextAlign = ContentAlignment.MiddleLeft;
+            heading.Padding = new Padding(5, 0, 2, 0);
+            heading.Margin = new Padding(0, 2, 0, 1);
             _groupedDropDown.Items.Add(heading);
+            UpdateHeadingSize(heading);
             return heading;
+        }
+
+        private void UpdateHeadingSizes()
+        {
+            UpdateHeadingSize(_slowdownHeadingItem);
+            UpdateHeadingSize(_gateHeadingItem);
+        }
+
+        private void UpdateHeadingSize(ToolStripLabel heading)
+        {
+            if (heading == null) return;
+            heading.Size = new Size(Math.Max(1, _popupWidth - 2),
+                Math.Max(18, Font.Height + 6));
         }
 
         private void AddChoice(string text, RateModelChoice choice)
@@ -211,26 +252,6 @@ namespace MidiBottleneck
             base.WndProc(ref m);
         }
 
-        protected override void OnDrawItem(DrawItemEventArgs e)
-        {
-            if (e.Index < 0 || e.Index >= Items.Count) return;
-            e.DrawBackground();
-            string label = Items[e.Index].ToString();
-            if (e.Bounds.Width < 190 && (e.State & DrawItemState.ComboBoxEdit) != 0)
-            {
-                if (e.Index == ProcessingIndex) label = "Time per event";
-                else if (e.Index == BitrateIndex) label = "MIDI bitrate";
-                else if (e.Index == EventsIndex) label = "Events/sec";
-                else if (e.Index == GateIndex) label = "Per-note gate";
-            }
-            Rectangle bounds = e.Bounds;
-            bounds.Inflate(-2, 0);
-            TextRenderer.DrawText(e.Graphics, label, Font, bounds, e.ForeColor,
-                TextFormatFlags.NoPadding | TextFormatFlags.SingleLine |
-                TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
-            e.DrawFocusRectangle();
-        }
-
         protected override void OnFontChanged(EventArgs e)
         {
             base.OnFontChanged(e);
@@ -281,5 +302,29 @@ namespace MidiBottleneck
         }
         internal bool PopupVisibleForTesting
         { get { return _groupedDropDown != null && _groupedDropDown.Visible; } }
+        internal string[] HeadingTextsForTesting
+        {
+            get
+            {
+                EnsureGroupedDropDown();
+                return new string[] { _slowdownHeadingItem.Text, _gateHeadingItem.Text };
+            }
+        }
+        internal Rectangle[] HeadingBoundsForTesting
+        {
+            get
+            {
+                EnsureGroupedDropDown();
+                return new Rectangle[] { _slowdownHeadingItem.Bounds, _gateHeadingItem.Bounds };
+            }
+        }
+        internal Bitmap CapturePopupForTesting()
+        {
+            EnsureGroupedDropDown();
+            Size size = _groupedDropDown.GetPreferredSize(Size.Empty);
+            Bitmap bitmap = new Bitmap(Math.Max(1, size.Width), Math.Max(1, size.Height));
+            _groupedDropDown.DrawToBitmap(bitmap, new Rectangle(Point.Empty, bitmap.Size));
+            return bitmap;
+        }
     }
 }

@@ -4,11 +4,12 @@ This is a direction of travel, not a promise of dates. Correct MIDI behavior, de
 
 ## Near term
 
-- Validate Build 42's queue waiting-time and application-window scaling choices under ordinary user workloads.
-- Settle the musical and safety contract for either delayed NoteOff handling or a separate real-time event cap before selecting the next implementation. Neither is currently scheduled.
+- Validate Build 43's native Rate popup, tiny-scale fonts, fixed-height layout, and protected soft-limit presentation under ordinary user workloads.
+- Specify Delayed NoteOff source-occurrence, coalescing, retrigger-protection, and lifecycle behavior before exposing the model.
 
 ## Recently completed
 
+- **Build 43 — presentation and soft-limit clarity:** restored visible noninteractive Rate headings and native selector rendering, improved low-scale font legibility, removed blank standard-window height, restored queue event-count statistics, added a purple over-limit state, and protected required release/safety traffic consistently in Playback and Analysis.
 - **Build 42 — queue-age and presentation controls:** Rate headings are static presentation elements rather than selectable items, each model remembers its own value, zero-interval Per-note processing has deterministic source-time boundaries, Playback and Analysis share an optional waiting-time queue limit, and the main, Analysis, and Channels windows have non-cumulative 50%–200% scaling.
 - **Build 41 — contextual offline Help:** F1 and a title-bar Help command open one reusable guide at the topic associated with the focused main-window control.
 - **Build 40 — discoverable processing models:** None, three ordinary rate models, and Per-note interval gate now share one grouped selector. Forward-only finite queue admission is labelled separately when active; the scheduler algorithms are unchanged.

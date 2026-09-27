@@ -206,6 +206,11 @@ namespace MidiBottleneck.Tests
                     RenderBuild42ChangedViews(arguments[1]);
                     return 0;
                 }
+                if (arguments.Length == 2 && arguments[0] == "--render-build43")
+                {
+                    RenderBuild43ChangedViews(arguments[1]);
+                    return 0;
+                }
                 if (arguments.Length == 2 && arguments[0] == "--render-ui-none")
                 {
                     RenderMainWindow(arguments[1], false, false, false, true);
@@ -618,6 +623,37 @@ namespace MidiBottleneck.Tests
                     RunFocused("Build 42 repeated main-window lifecycle", TestBuild42MainWindowLifecycle);
                     return 0;
                 }
+                if (arguments.Length == 1 && arguments[0] == "--test-build43")
+                {
+                    RunFocused("Build 43 Rate popup, scaling fonts, and fixed-height layout", TestBuild43Presentation);
+                    RunFocused("Build 43 queue counts, pressure, and protected soft limits", TestBuild43QueuePresentationAndSafety);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-null-selector-only")
+                {
+                    RunFocused("None output selector and native device mapping", TestNullOutputSelection);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-null-contract-selector")
+                {
+                    RunFocused("None output no-op and allocation-free contract", TestNullMidiOutputContract);
+                    RunFocused("None output selector and native device mapping", TestNullOutputSelection);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-build43-shutdown-sequence")
+                {
+                    RunFocused("Build 36 section visibility lifecycle", TestBuild36SessionViewControls);
+                    RunFocused("Build 42 repeated main-window lifecycle", TestBuild42MainWindowLifecycle);
+                    RunFocused("Build 43 Rate popup lifecycle", TestBuild43Presentation);
+                    RunFocused("None output selector after UI lifecycle stress", TestNullOutputSelection);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-paused-chase-wake")
+                {
+                    RunFocused("repeated paused source-chase wake and acknowledgement",
+                        TestPausedSourceChaseWakeStress);
+                    return 0;
+                }
                 if (arguments.Length == 1 && arguments[0] == "--test-queue-baseline")
                 {
                     RunFocused("segmented FIFO and note-index policy transitions", TestBuild37PendingQueueFastPath);
@@ -745,6 +781,7 @@ namespace MidiBottleneck.Tests
                 Run("active-worker historical chase acknowledgement", TestBuild22HistoricalChaseAcknowledgement);
                 Run("real Channel Monitor historical-chase route", TestBuild23HistoricalChaseUiRoute);
                 Run("latest source-value chase through realized Channel Monitor", TestBuild21SourceValueChase);
+                Run("repeated paused source-chase wake and acknowledgement", TestPausedSourceChaseWakeStress);
                 Run("main-window MIDI file drag and drop", TestBuild22MidiFileDrop);
                 Run("Analysis predicted output completion", TestAnalysisPredictedCompletion);
                 Run("Always-on-top native system-menu command", TestBuild22AlwaysOnTopMenu);
@@ -759,6 +796,8 @@ namespace MidiBottleneck.Tests
                 Run("offline F1 and system-menu contextual Help", TestBuild41ContextHelp);
                 Run("Build 42 grouped selector, zero gate, and queue age", TestBuild42QueueAgeAndRateUi);
                 Run("Build 42 non-cumulative main-window scaling", TestBuild42MainWindowScaling);
+                Run("Build 43 Rate popup, scaling fonts, and fixed-height layout", TestBuild43Presentation);
+                Run("Build 43 queue counts, pressure, and protected soft limits", TestBuild43QueuePresentationAndSafety);
                 Run("single-source product metadata", TestBuild23ProductMetadata);
                 Run("pre-admission channel and override filtering", TestBuild23PreAdmissionFiltering);
                 Run("corrected per-note interval gate state, scheduler, lifecycle, and UI", TestBuild25PerNoteIntervalGate);
@@ -6078,7 +6117,16 @@ namespace MidiBottleneck.Tests
                 FakeMidiOutput pausedOutput = new FakeMidiOutput();
                 engine.SetChannelMonitoring(true);
                 engine.Start(pausedSong, pausedOutput, ProcessingMode.Queue, 1000000, true);
-                engine.ChaseLatestSourceChannelAttribute(2, ChannelAttribute.Program);
+                using (ManualResetEvent pausedDone = new ManualResetEvent(false))
+                {
+                    Exception pausedError = null;
+                    engine.ChaseLatestSourceChannelAttribute(2, ChannelAttribute.Program,
+                        delegate(Exception error) { pausedError = error; pausedDone.Set(); });
+                    if (!pausedDone.WaitOne(5000))
+                        throw new Exception("paused source-value chase ordered completion timed out");
+                    if (pausedError != null)
+                        throw new Exception("paused source-value chase failed", pausedError);
+                }
                 WaitFor(delegate
                 {
                     return ContainsMessage(pausedOutput.SentPayloads(), 0xC2, 24) &&
@@ -6137,6 +6185,37 @@ namespace MidiBottleneck.Tests
                     (1 << (int)ChannelAttribute.Program)) != 0,
                     "failed source-value chase remains historical and retryable");
                 engine.Stop();
+            }
+        }
+
+        private static void TestPausedSourceChaseWakeStress()
+        {
+            MidiSong song = NewChannelSong("paused-chase-wake.mid", 2000000,
+                ChannelMessage(0, 0xC2, 24), ChannelMessage(1500000, 0x92, 64, 100));
+            for (int iteration = 0; iteration < 64; iteration++)
+            {
+                using (PlaybackEngine engine = new PlaybackEngine())
+                using (ManualResetEvent done = new ManualResetEvent(false))
+                {
+                    FakeMidiOutput output = new FakeMidiOutput();
+                    Exception completionError = null;
+                    engine.SetChannelMonitoring(true);
+                    engine.Start(song, output, ProcessingMode.Queue, 1000000, true);
+                    engine.ChaseLatestSourceChannelAttribute(2, ChannelAttribute.Program,
+                        delegate(Exception error) { completionError = error; done.Set(); });
+                    if (!done.WaitOne(2000))
+                        throw new Exception("paused chase wake timed out at iteration " + iteration);
+                    if (completionError != null)
+                        throw new Exception("paused chase failed at iteration " + iteration,
+                            completionError);
+                    Equal(true, ContainsMessage(output.SentPayloads(), 0xC2, 24),
+                        "paused chase payload at iteration " + iteration);
+                    Equal(24, engine.GetChannelSnapshot().Channels[2].Program,
+                        "paused chase monitor acknowledgement at iteration " + iteration);
+                    Equal(PlaybackState.Paused, engine.State,
+                        "paused chase retains transport state at iteration " + iteration);
+                    engine.Stop();
+                }
             }
         }
 
@@ -7189,6 +7268,10 @@ namespace MidiBottleneck.Tests
                 Equal(false, ContainsMessage(sent, 0xC0, 5), "conflicting program is filtered");
                 Equal(1L, engine.GetSnapshot().ProcessedEvents, "suppressed source events do not enter scheduler processing accounting");
                 Equal(0L, engine.GetSnapshot().DroppedEvents, "suppression is not queue overflow");
+                WaitFor(delegate
+                {
+                    return engine.GetChannelSnapshot().Channels[0].SentEvents >= 1;
+                }, 1000, "final override-filter monitor publication");
                 MidiChannelSnapshot tracked = engine.GetChannelSnapshot().Channels[0];
                 Equal(1L, tracked.SentEvents, "only matching source output increments monitor Sent");
                 Equal(2L, tracked.OverrideSuppressedEvents, "override-filtered events use separate accounting");
@@ -8656,7 +8739,11 @@ namespace MidiBottleneck.Tests
                 throw new Exception(stage + " form violates measured minimum");
             if (form.ClientSize.Width < 640)
                 Equal(form.MinimumSize.Height, form.MaximumSize.Height, stage + " compact fixed height");
-            else Equal(Size.Empty, form.MaximumSize, stage + " standard maximum cleared");
+            else
+            {
+                Equal(form.MinimumSize.Height, form.MaximumSize.Height, stage + " standard fixed content height");
+                Equal(10000, form.MaximumSize.Width, stage + " standard horizontal resizing remains available");
+            }
             IntPtr menu = GetSystemMenu(form.Handle, false);
             uint modelState = GetMenuState(menu, (uint)MainForm.ShowProcessingModelSystemCommandForTesting, 0);
             uint statsState = GetMenuState(menu, (uint)MainForm.ShowStatisticsSystemCommandForTesting, 0);
@@ -9315,6 +9402,153 @@ namespace MidiBottleneck.Tests
                 Equal(originalMenuCount, GetMenuItemCount(GetSystemMenu(form.Handle, false)),
                     "handle recreation does not duplicate Help command");
                 form.Close();
+            }
+        }
+
+        private static void TestBuild43Presentation()
+        {
+            Application.EnableVisualStyles();
+            BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(40);
+                RateModelComboBox rate = (RateModelComboBox)typeof(MainForm)
+                    .GetField("_serviceModeCombo", flags).GetValue(form);
+                ScrubOrTypeTextBox rateValue = (ScrubOrTypeTextBox)typeof(MainForm)
+                    .GetField("_processingValue", flags).GetValue(form);
+                ScrubOrTypeTextBox queueValue = (ScrubOrTypeTextBox)typeof(MainForm)
+                    .GetField("_queueLimitValue", flags).GetValue(form);
+                Equal(DrawMode.Normal, rate.DrawMode,
+                    "collapsed Rate selector uses native themed rendering");
+                if (rate.Bottom + rate.Margin.Bottom > rate.Parent.ClientSize.Height)
+                    throw new Exception("standard Rate selector bottom border remains clipped");
+                Equal(SystemColors.Window, rateValue.BackColor,
+                    "editable Rate field retains the system editable-field background");
+                Equal(SystemColors.Window, queueValue.BackColor,
+                    "editable Queue field retains the system editable-field background");
+
+                RateModelChoice beforePopup = rate.SelectedChoice;
+                // ToolStripDropDown intentionally auto-closes when its owner is
+                // inactive.  Full-suite tests have created and closed many
+                // earlier forms, so establish the same activation/focus
+                // precondition as a real mouse or keyboard interaction.
+                form.Activate();
+                rate.Focus();
+                PumpFor(20);
+                bool ownerIsActive = Form.ActiveForm == form && rate.Focused;
+                SendMessage(rate.Handle, 0x014F, (IntPtr)1, IntPtr.Zero);
+                PumpFor(30);
+                if (ownerIsActive)
+                    Equal(true, rate.PopupVisibleForTesting, "active-owner grouped Rate popup is realized");
+                string[] headings = rate.HeadingTextsForTesting;
+                Rectangle[] headingBounds = rate.HeadingBoundsForTesting;
+                Equal("Simulated slowdown", headings[0], "slowdown heading is visibly populated");
+                Equal("Bandwidth / note gating", headings[1], "gate heading is visibly populated");
+                for (int i = 0; i < headingBounds.Length; i++)
+                    if (headingBounds[i].Width < 20 || headingBounds[i].Height < 10)
+                        throw new Exception("Rate popup heading " + i + " has no visible bounds: " + headingBounds[i]);
+                using (Bitmap popup = rate.CapturePopupForTesting())
+                    if (popup.Width < 20 || popup.Height < 40)
+                        throw new Exception("grouped Rate popup did not produce a realized render surface");
+                Equal(beforePopup, rate.SelectedChoice, "opening grouped popup does not change model");
+                Equal(false, rate.HeadingEnabledForTesting[0], "slowdown heading cannot activate");
+                Equal(false, rate.HeadingSelectableForTesting[1], "gate heading cannot receive focus");
+                SendMessage(rate.Handle, 0x014F, IntPtr.Zero, IntPtr.Zero);
+                PumpFor(10);
+                Equal(beforePopup, rate.SelectedChoice, "closing grouped popup does not change model");
+                rate.ForwardOnlyHeading = true;
+                Equal("Forward-only queue admission", rate.HeadingTextsForTesting[0],
+                    "contextual heading remains visible static text");
+
+                int standardHeight = form.Height;
+                Equal(form.MinimumSize.Height, form.MaximumSize.Height,
+                    "standard view has one measured content height");
+                form.Height += 100; PumpFor(10);
+                Equal(standardHeight, form.Height, "standard view rejects blank vertical surplus");
+                int width = form.Width;
+                form.Width += 80; PumpFor(10);
+                if (form.Width <= width) throw new Exception("fixed standard height blocked horizontal resizing");
+
+                form.ApplyUiScaleForTesting(50); PumpFor(50);
+                Equal("Tahoma", form.Font.Name, "50 percent uses the hinted small UI font");
+                if (form.Font.SizeInPoints < 5.4F)
+                    throw new Exception("50 percent font readability floor was not applied");
+                form.ApplyUiScaleForTesting(75); PumpFor(50);
+                Equal("Tahoma", form.Font.Name, "75 percent uses the hinted small UI font");
+                form.ApplyUiScaleForTesting(100); PumpFor(50);
+                Equal("Segoe UI", form.Font.Name, "100 percent restores the canonical UI family");
+                Equal(9F, form.Font.SizeInPoints, "100 percent restores the canonical point size");
+                Equal(form.MinimumSize.Height, form.MaximumSize.Height,
+                    "fixed-height contract survives scale cycling");
+                form.Close();
+            }
+        }
+
+        private static void TestBuild43QueuePresentationAndSafety()
+        {
+            using (StatisticsView statistics = new StatisticsView())
+            {
+                statistics.Size = new Size(560, 104);
+                statistics.SetValues(new string[] { "00:01 / 00:00", "7 / 12", "1,000 events/s",
+                    "20 events/s", "3 / 1", "100.0%", "0 ms", "0 ms" });
+                statistics.SetQueuePressure(true, 1800000000L, 1800000000L, false, false, true);
+                using (Bitmap bitmap = new Bitmap(statistics.Width, statistics.Height))
+                {
+                    statistics.DrawToBitmap(bitmap, statistics.ClientRectangle);
+                    Equal("Queue now / maximum:", statistics.SelectedCaptionAt(1),
+                        "waiting-time mode retains event-count Queue caption");
+                }
+                Equal("7 / 12", statistics.ValueAt(1),
+                    "waiting-time pressure does not replace queue event counts");
+                if (!statistics.QueuePressureTextForTesting(false).Contains("1,800,000,000 µs"))
+                    throw new Exception("full waiting-pressure text lost the maximum microsecond value");
+                Equal(QueuePressurePalette.High, statistics.QueuePressureColorForTesting,
+                    "exactly 100 percent remains the red high-pressure state");
+                statistics.SetQueuePressure(true, 1800000001L, 1800000000L, false, false, true);
+                Equal(QueuePressurePalette.OverLimit, statistics.QueuePressureColorForTesting,
+                    "strictly over 100 percent uses the over-limit color");
+                if (!statistics.QueuePressureTextForTesting(true).Contains("µs"))
+                    throw new Exception("compact pressure fallback lost its unit");
+            }
+
+            MidiSong protectedSong = NewChannelSong("protected-soft-limit.mid", 0,
+                ChannelMessage(0, 0xB0, 1, 10),
+                ChannelMessage(0, 0xB0, 123, 0),
+                ChannelMessage(0, 0xB0, 123, 0),
+                ChannelMessage(0, 0x90, 64, 100));
+            OverflowPolicy[] protectedPolicies = new OverflowPolicy[]
+                { OverflowPolicy.DropNewest, OverflowPolicy.DropOldest };
+            for (int policyIndex = 0; policyIndex < protectedPolicies.Length; policyIndex++)
+            {
+                OverflowPolicy policy = protectedPolicies[policyIndex];
+                AnalysisConfiguration configuration = DefaultAnalysisConfiguration();
+                configuration.ProcessingMicroseconds = 100000;
+                configuration.QueueLengthLimitEnabled = true;
+                configuration.QueueLengthLimit = 2;
+                configuration.OverflowPolicy = policy;
+                WorkloadAnalysis analysis = WorkloadAnalyzer.Analyze(protectedSong, configuration);
+                Equal(3, analysis.PredictedMaximumOccupancy,
+                    policy + " protected traffic may create explicit soft-limit excess");
+                Equal(1L, analysis.PredictedDroppedEvents,
+                    policy + " rejects ordinary arrival after protected soft-limit excess");
+                using (PlaybackEngine engine = new PlaybackEngine())
+                {
+                    FakeMidiOutput output = new FakeMidiOutput();
+                    engine.SimulateSlowdown = true;
+                    engine.ProcessingMicroseconds = 100000;
+                    engine.QueueLengthLimit = 2;
+                    engine.OverflowPolicy = policy;
+                    engine.Start(protectedSong, output, ProcessingMode.Drop);
+                    WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1500,
+                        policy + " protected soft-limit playback completion");
+                    PlaybackSnapshot snapshot = engine.GetSnapshot();
+                    Equal((long)analysis.PredictedMaximumOccupancy, snapshot.MaximumQueueLength,
+                        policy + " protected soft-limit maximum matches Analysis");
+                    Equal(analysis.PredictedDroppedEvents, snapshot.DroppedEvents,
+                        policy + " protected soft-limit drops match Analysis");
+                    Equal(3L, snapshot.ProcessedEvents,
+                        policy + " required safety traffic remains dispatchable above the soft limit");
+                }
             }
         }
 
@@ -10292,6 +10526,7 @@ namespace MidiBottleneck.Tests
                 int initialStatisticsTop = stats.Top;
 
                 form.Height = normalMinimum + 80; Application.DoEvents();
+                Equal(normalMinimum, form.Height, "standard view ignores blank vertical surplus");
                 ScrubOrTypeTextBox processingValue = (ScrubOrTypeTextBox)typeof(MainForm).GetField("_processingValue", flags).GetValue(form);
                 processingValue.Focus();
                 ToggleBuild36Section(form, true);
@@ -10299,7 +10534,7 @@ namespace MidiBottleneck.Tests
                 if (model.ContainsFocus) throw new Exception("focus remained in hidden Processing model");
                 if (form.MinimumSize.Height >= normalMinimum || playback.Top >= initialPlaybackTop)
                     throw new Exception("hiding Processing model failed to reclaim its row");
-                Equal(form.MinimumSize.Height + 80, form.Height, "manual standard height surplus survives hide");
+                Equal(form.MinimumSize.Height, form.Height, "hidden-row layout keeps measured fixed height");
                 ToggleBuild36Section(form, false);
                 AssertBuild36SectionLayout(form, false, false, "standard both hidden");
                 if (form.MinimumSize.Height >= normalMinimum - model.Height)
@@ -10309,7 +10544,7 @@ namespace MidiBottleneck.Tests
                 ToggleBuild36Section(form, false);
                 AssertBuild36SectionLayout(form, true, true, "standard restored");
                 Equal(normalMinimum, form.MinimumSize.Height, "standard minimum restores exactly");
-                Equal(normalMinimum + 80, form.Height, "standard enlarged height restores exactly");
+                Equal(normalMinimum, form.Height, "standard fixed height restores exactly");
                 Equal(initialPlaybackTop, playback.Top, "standard Playback top restores exactly");
                 Equal(initialStatisticsTop, stats.Top, "standard Statistics top restores exactly");
 
@@ -10339,7 +10574,7 @@ namespace MidiBottleneck.Tests
                 int chromeWidth = form.Width - form.ClientSize.Width;
                 form.Width = 640 + chromeWidth; Application.DoEvents();
                 AssertBuild36SectionLayout(form, false, false, "standard both hidden after breakpoint");
-                Equal(form.MinimumSize.Height + 80, form.Height, "remembered standard surplus crosses breakpoint");
+                Equal(form.MinimumSize.Height, form.Height, "standard fixed height crosses breakpoint");
                 form.Width = 639 + chromeWidth; Application.DoEvents();
                 AssertBuild36SectionLayout(form, false, false, "compact both hidden after breakpoint");
                 ToggleBuild36Section(form, false);
@@ -10356,7 +10591,8 @@ namespace MidiBottleneck.Tests
 
                 List<Control> controls = new List<Control>(); CollectControls(form, controls);
                 CheckBox queueLimit = FindCheckBox(controls, "Queue limit:");
-                RateModelComboBox rateChoice = (RateModelComboBox)FindComboContaining(controls, "MIDI serial bitrate");
+                RateModelComboBox rateChoice = (RateModelComboBox)typeof(MainForm)
+                    .GetField("_serviceModeCombo", flags).GetValue(form);
                 ComboBox policy = FindComboContaining(controls, "Drop oldest complete note");
                 ScrubOrTypeTextBox queueValue = (ScrubOrTypeTextBox)typeof(MainForm).GetField("_queueLimitValue", flags).GetValue(form);
                 StatisticsView view = FindControl<StatisticsView>(controls);
@@ -10495,6 +10731,47 @@ namespace MidiBottleneck.Tests
                     bitmap.Save(Path.Combine(directory, "channels-75.png"));
                 }
                 monitor.Close();
+            }
+        }
+
+        private static void RenderBuild43ChangedViews(string directory)
+        {
+            Directory.CreateDirectory(directory);
+            Application.EnableVisualStyles();
+            BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(50);
+                RateModelComboBox rate = (RateModelComboBox)typeof(MainForm)
+                    .GetField("_serviceModeCombo", flags).GetValue(form);
+                rate.SelectedChoice = RateModelChoice.ProcessingTime;
+                SendMessage(rate.Handle, 0x014F, (IntPtr)1, IntPtr.Zero);
+                PumpFor(30);
+                CaptureCorrectiveState(form, directory, "standard-100-popup-anchor");
+                using (Bitmap popup = rate.CapturePopupForTesting())
+                    popup.Save(Path.Combine(directory, "rate-popup-100.png"));
+                SendMessage(rate.Handle, 0x014F, IntPtr.Zero, IntPtr.Zero);
+
+                form.ApplyUiScaleForTesting(50); PumpFor(50);
+                form.Size = form.MinimumSize; PumpFor(30);
+                CaptureCorrectiveState(form, directory, "standard-50-hinted-font");
+                form.ApplyUiScaleForTesting(75); PumpFor(50);
+                form.Size = form.MinimumSize; PumpFor(30);
+                CaptureCorrectiveState(form, directory, "standard-75-hinted-font");
+                form.Close();
+            }
+
+            using (StatisticsView statistics = new StatisticsView())
+            {
+                statistics.Size = new Size(560, 104);
+                statistics.SetValues(new string[] { "00:01 / 00:00", "7 / 12", "1,000 events/s",
+                    "20 events/s", "3 / 1", "100.0%", "0 ms", "0 ms" });
+                statistics.SetQueuePressure(true, 1800000001L, 1800000000L, false, false, true);
+                using (Bitmap bitmap = new Bitmap(statistics.Width, statistics.Height))
+                {
+                    statistics.DrawToBitmap(bitmap, statistics.ClientRectangle);
+                    bitmap.Save(Path.Combine(directory, "queue-pressure-over-limit.png"));
+                }
             }
         }
 
@@ -11727,7 +12004,10 @@ namespace MidiBottleneck.Tests
                         ", height=" + statistics.Height + ", client=" + form.ClientSize.Height);
                 Equal(560, form.MinimumSize.Width, "normal minimum width restored");
                 Equal(form.RealizedRequiredWindowHeight, form.MinimumSize.Height, "normal content-derived minimum restored");
-                Equal(Size.Empty, form.MaximumSize, "normal layout removes compact height cap");
+                Equal(form.MinimumSize.Height, form.MaximumSize.Height,
+                    "normal layout uses its measured fixed content height");
+                Equal(10000, form.MaximumSize.Width,
+                    "normal layout retains horizontal resizing");
                 Equal(true, dinPreset.Visible, "5-pin DIN preset restored on return to default bitrate layout");
                 Equal(100000000m, compactBitrate.Value, "responsive transition preserves configured bitrate");
                 AssertProcessingClusters(form, "restored default bitrate");

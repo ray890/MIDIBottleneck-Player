@@ -219,8 +219,7 @@ namespace MidiBottleneck
                 Font oldApplication = _applicationFont;
                 Font oldHistorical = _historicalFont;
                 Font oldForced = _forcedFont;
-                _applicationFont = new Font("Segoe UI", 9F * percent / 100F,
-                    FontStyle.Regular, GraphicsUnit.Point);
+                _applicationFont = UiScaleFont.CreateUi(9F, FontStyle.Regular, percent);
                 _historicalFont = new Font(_applicationFont, FontStyle.Italic);
                 _forcedFont = new Font(_applicationFont, FontStyle.Bold);
                 Font = _applicationFont;

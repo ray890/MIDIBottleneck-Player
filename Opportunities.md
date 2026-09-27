@@ -4,7 +4,7 @@ These are evidence-backed future directions, not promises for a particular relea
 
 ## Near term
 
-Build 42 completes the selected grouped Rate, zero-interval Per-note, queue waiting-time, and application-window scaling work. The next implementation is not scheduled. Delayed NoteOff handling and a separate real-time event cap each still need the musical and safety decisions recorded below; personal use of Build 42 may also identify smaller follow-up work.
+Build 43 refines the grouped Rate presentation, small-scale readability, fixed-height layout, queue statistics, and protected soft-limit behavior. Delayed NoteOff handling and a separate real-time event cap still need the musical and safety decisions recorded below.
 
 ## Completed foundations
 
@@ -26,6 +26,7 @@ Build 42 completes the selected grouped Rate, zero-interval Per-note, queue wait
 - **Build 40 — Rate model presentation:** None, three ordinary service-rate choices, and Per-note gate share one visible grouped selector. A contextual heading distinguishes forward-only virtual admission from delayed slowdown without changing scheduling mathematics.
 - **Build 41 — contextual offline Help:** F1 and the title-bar Help command open one reusable first-party guide at the topic associated with the focused main-window control. It does not need a bundled file, native provider, or decorative question-mark style.
 - **Build 42 — queue-age and presentation controls:** grouped Rate headings are static, disabled popup text and are absent from the ComboBox's selectable/accessibility item model; None and all four active models retain independent values. Zero Per-note intervals resolve at source timestamps. A default-off waiting-time queue limit shares strict age and overflow decisions with Analysis. Session-only 50%–200% scaling for the main, Analysis, and Channels windows is recalculated from canonical 100% measurements.
+- **Build 43 — presentation and protected pressure:** the grouped popup visibly renders its static headings while the collapsed Rate field uses native themed rendering. Tahoma/Lucida Console improve 50%/75% readability, standard height is content-locked, Queue now/max remains an event count, and purple identifies required protected traffic above a soft limit. Playback and Analysis preserve the same protected-admission decisions.
 
 Build 37 compared the older finite policies with Build 34 on the same bounded 120,000-event synthetic fixture. The Build 35 linked-node path showed a local Analysis slowdown, especially for Drop oldest. A segmented FIFO now handles policies that do not need complete-note eviction. This recovered much, but not all, of the baseline time, with matching projected drop and occupancy decisions and zero measured Gen0 collections. Further throughput conclusions require representative repeated workloads; this is not a claim about native provider speed.
 
@@ -79,7 +80,9 @@ The visible selector has **None**, ordinary models under **Simulated slowdown**,
 
 ### Delayed NoteOff treatment
 
-The selected delay would define the minimum time a Note On remains active before its matching Note Off may be emitted. A new Note On arriving while that release is pending could be coalesced under a future, explicitly specified rule. A separate retrigger-protection interval would begin only after the Note Off is actually emitted; its initial proposed value is one quarter of the configured Note Off delay. That quarter-delay is neither the Note Off delay itself nor a cancellation window. The design still needs exact channel/track pairing, bounded pending-release state, coalescing priority, and safety behavior for Pause, Seek, Stop, output failure, and disabled channels.
+The selected delay would define the minimum time a Note On remains active before its matching Note Off may be emitted. A separate retrigger-protection interval would begin only after the Note Off is actually emitted; its initial proposed value is one quarter of the configured Note Off delay. That quarter-delay is neither the Note Off delay itself nor a cancellation window.
+
+Build 43's implementation review found one product decision that must precede code: when a new same-pitch attack arrives while release is pending, suppressing it as continuous sustain avoids an Off/On pair but also removes a potentially intentional attack or a different-channel instrument change. Retriggering it preserves that attack but necessarily inserts the audible transition the proposed coalescing was meant to avoid. The rule may need to differ for same-channel and cross-channel occurrences. Exact channel/track pairing, simultaneous velocity choice, bounded pending-release state, and Pause/Seek/Stop/failure/disabled-channel safety can then be specified around that decision. No partial Rate choice is exposed meanwhile.
 
 ### A separate real-time Events/sec limit
 

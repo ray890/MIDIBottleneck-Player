@@ -780,6 +780,8 @@ namespace MidiBottleneck
                 int occupancy = pending.Count + (busy ? 1 : 0);
                 bool ageExceeded = configuration.QueueAgeLimitEnabled &&
                     AnalysisQueueAgeExceeded(pending, events, arrival, ageLimit);
+                bool protectedTraffic = noteKind == CompleteNoteEventKind.NoteOff ||
+                    CompleteNoteTracker.IsSafetyControl(incomingEvent);
                 bool safetyAdmission = configuration.OverflowPolicy == OverflowPolicy.DropIncomingCompleteNotes &&
                     noteKind != CompleteNoteEventKind.NoteOn;
                 if ((!configuration.QueueAgeLimitEnabled && occupancy < limit ||
@@ -797,11 +799,24 @@ namespace MidiBottleneck
                 }
                 else if (configuration.OverflowPolicy == OverflowPolicy.DropOldest && pending.Count > 0)
                 {
-                    pending.Dequeue();
-                    pending.Enqueue(incomingEntry);
-                    if (noteKind == CompleteNoteEventKind.NoteOn)
-                        completeNotes.RecordNoteOn(incomingEvent, i, true, false);
-                    RecordDrop(result, bucketIndex, 1);
+                    MidiEventView oldestEvent = events[pending.OldestEventIndex];
+                    bool oldestProtected = CompleteNoteTracker.Classify(oldestEvent) ==
+                        CompleteNoteEventKind.NoteOff || CompleteNoteTracker.IsSafetyControl(oldestEvent);
+                    if (!oldestProtected)
+                    {
+                        pending.Dequeue();
+                        pending.Enqueue(incomingEntry);
+                        if (noteKind == CompleteNoteEventKind.NoteOn)
+                            completeNotes.RecordNoteOn(incomingEvent, i, true, false);
+                        RecordDrop(result, bucketIndex, 1);
+                    }
+                    else if (protectedTraffic) pending.Enqueue(incomingEntry);
+                    else
+                    {
+                        if (noteKind == CompleteNoteEventKind.NoteOn)
+                            completeNotes.RecordNoteOn(incomingEvent, i, false, false);
+                        RecordDrop(result, bucketIndex, 1);
+                    }
                 }
                 else if (configuration.OverflowPolicy == OverflowPolicy.DropOldestCompleteNote)
                 {
@@ -816,8 +831,6 @@ namespace MidiBottleneck
                     }
                     bool ownAttackEvicted = evicted && noteKind == CompleteNoteEventKind.NoteOff &&
                         noteMatch.AttackIndex == evictedAttack;
-                    bool protectedTraffic = noteKind == CompleteNoteEventKind.NoteOff ||
-                        CompleteNoteTracker.IsSafetyControl(incomingEvent);
                     if (ownAttackEvicted || (!evicted && !protectedTraffic))
                     {
                         if (noteKind == CompleteNoteEventKind.NoteOn)
@@ -844,10 +857,14 @@ namespace MidiBottleneck
                 }
                 else
                 {
-                    if (noteKind == CompleteNoteEventKind.NoteOn)
-                        completeNotes.RecordNoteOn(incomingEvent, false,
-                            configuration.OverflowPolicy == OverflowPolicy.DropIncomingCompleteNotes);
-                    RecordDrop(result, bucketIndex, 1);
+                    if (protectedTraffic) pending.Enqueue(incomingEntry);
+                    else
+                    {
+                        if (noteKind == CompleteNoteEventKind.NoteOn)
+                            completeNotes.RecordNoteOn(incomingEvent, false,
+                                configuration.OverflowPolicy == OverflowPolicy.DropIncomingCompleteNotes);
+                        RecordDrop(result, bucketIndex, 1);
+                    }
                 }
 
                 occupancy = pending.Count + (busy ? 1 : 0);

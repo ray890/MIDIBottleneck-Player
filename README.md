@@ -48,7 +48,7 @@ The window menu also enables **Chase MIDI state on Play/Seek** by default. Start
 
 To make the main window shorter, use **Show Processing model** and **Show Statistics** in its Windows title-bar menu (Alt+Space). Both start checked. Hiding a section changes only the view; its settings and statistics continue normally.
 
-The same menu can scale the application windows to 50%, 75%, 100%, 125%, 150%, or 200% for unusual display sizes. Scaling is recalculated from each window's 100% layout, so repeated changes do not accumulate rounding or drift. Analysis keeps its split/report/graph geometry, while Channels preserves automatic fitting or a user's manually resized columns and window.
+The same menu can scale the application windows to 50%, 75%, 100%, 125%, 150%, or 200% for unusual display sizes. Scaling is recalculated from each window's 100% layout, so repeated changes do not accumulate rounding or drift. The two smallest choices use Windows fonts designed to remain clearer at tiny sizes. Analysis keeps its split/report/graph geometry, while Channels preserves automatic fitting or a user's manually resized columns and window.
 
 Press **F1** for help with the focused main-window control, or choose **Help (F1)…** from the title-bar menu. The guide is built into the executable, so it works offline.
 

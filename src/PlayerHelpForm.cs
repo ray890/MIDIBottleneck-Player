@@ -115,7 +115,8 @@ namespace MidiBottleneck
                         "Apply queue limit without slowdown is a title-bar menu choice. With a finite queue and an ordinary rate model, " +
                         "it models pressure and rejects future arrivals without delaying accepted output. Its heading changes to Forward-only queue admission. " +
                         "Only Drop newest and Drop incoming complete notes work there; already-sent MIDI cannot be withdrawn. It cannot be combined with waiting-time mode.\r\n\r\n" +
-                        "Queue now reports real unsent backlog. The Virtual pressure bar, when shown, is a separate model.";
+                        "Queue now / maximum always reports outstanding event counts. Waiting age appears only in the pressure readout. The Virtual pressure bar, when shown, is a separate model. " +
+                        "Green, amber, and red show increasing pressure through 100%; purple means required release or safety traffic has exceeded a soft limit.";
                 case PlayerHelpTopic.Playback:
                     return "Play starts the loaded MIDI. The same button pauses and resumes. Stop silences the output and clears pending work. " +
                         "Use the timeline or five-second buttons to seek.\r\n\r\n" +

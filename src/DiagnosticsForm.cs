@@ -422,14 +422,10 @@ namespace MidiBottleneck
                 Font oldSummary = _summaryFont;
                 Font oldHeading = _summaryHeadingFont;
                 Font oldInspection = _inspectionFont;
-                _applicationFont = new Font("Segoe UI", 9F * percent / 100F,
-                    FontStyle.Regular, GraphicsUnit.Point);
-                _summaryFont = new Font("Consolas", 9F * percent / 100F,
-                    FontStyle.Regular, GraphicsUnit.Point);
-                _summaryHeadingFont = new Font("Consolas", 9F * percent / 100F,
-                    FontStyle.Bold, GraphicsUnit.Point);
-                _inspectionFont = new Font("Consolas", 8.5F * percent / 100F,
-                    FontStyle.Regular, GraphicsUnit.Point);
+                _applicationFont = UiScaleFont.CreateUi(9F, FontStyle.Regular, percent);
+                _summaryFont = UiScaleFont.CreateMonospace(9F, FontStyle.Regular, percent);
+                _summaryHeadingFont = UiScaleFont.CreateMonospace(9F, FontStyle.Bold, percent);
+                _inspectionFont = UiScaleFont.CreateMonospace(8.5F, FontStyle.Regular, percent);
                 Font = _applicationFont;
                 _summary.Font = _summaryFont;
                 _inspection.Font = _inspectionFont;

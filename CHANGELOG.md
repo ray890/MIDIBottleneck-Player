@@ -535,3 +535,19 @@ This is the human-readable history of MIDIBottleneck Player. Dates are original 
 
 - Focused tests cover structurally static Rate headings, model-value restoration, zero-gate Playback/Analysis parity, queue-age boundaries and policies, filtered blocked output, statistics reset, scale cycling across all three windows, section visibility, responsive transitions, handle recreation, native resource cleanup, and exact 100% restoration.
 - Complete x86/x64 suite totals and the exact release hashes are retained in the private Build 42 checkpoint.
+
+## Build 43 — 2026-09-26
+
+### Player changes
+
+- Restored visible **Simulated slowdown** and **Bandwidth / note gating** headings in the Rate popup without returning them to the selectable or accessibility item list. The collapsed Rate field now uses the native Windows ComboBox renderer, and its complete bottom border remains visible.
+- Improved 50% and 75% scaling with strongly hinted Windows fonts while preserving non-cumulative geometry and exact 100% restoration.
+- Standard view now uses one measured content height, matching compact view's useful no-blank-space contract while retaining horizontal resizing.
+- **Queue now / maximum** remains an event count in every mode. Waiting age appears only in queue pressure.
+- Pressure text receives layout space before the decorative bar. Purple identifies pressure strictly above 100%; green, amber, and red retain their earlier thresholds through 100%.
+- Required NoteOff and channel-silencing traffic is retained as explicit soft-limit work. Drop oldest no longer removes a protected pending head, and Playback and Analysis make the same decisions.
+- Ordered channel-control requests now publish their resulting monitor snapshot before invoking completion. A queued request no longer races a speculative pre-control publication that could make a successful source-value chase appear stale.
+
+### Project and verification
+
+- Added realized popup, low-scale font, fixed-height, pressure-format, protected-traffic, Playback/Analysis parity, repeated paused-chase acknowledgement, and clean child-process lifecycle tests plus targeted renders.

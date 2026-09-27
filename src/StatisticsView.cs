@@ -92,10 +92,8 @@ namespace MidiBottleneck
             {
                 value = Math.Max(50, Math.Min(200, value));
                 _applicationScalePercent = value;
-                Font caption = new Font("Segoe UI", 8.5F * value / 100F,
-                    FontStyle.Regular, GraphicsUnit.Point);
-                Font readout = new Font("Consolas", 9F * value / 100F,
-                    FontStyle.Bold, GraphicsUnit.Point);
+                Font caption = UiScaleFont.CreateUi(8.5F, FontStyle.Regular, value);
+                Font readout = UiScaleFont.CreateMonospace(9F, FontStyle.Bold, value);
                 Font previousCaption = _captionFont;
                 Font previousReadout = _valueFont;
                 _captionFont = caption;
@@ -209,7 +207,6 @@ namespace MidiBottleneck
             TextFormatFlags vertical = TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding;
             string captionText = _perNoteIntervalGate && index == 4
                 ? (_compact ? "Sent/excluded:" : "Events sent / excluded:")
-                : _queueAgePressure && index == 1 ? (_compact ? "Wait now/max:" : "Waiting age now / maximum:")
                 : (_compact ? CompactCaptionChoices[index][0] : Captions[index]);
             int measuredValue = MeasureStatisticValue(graphics, _values[index], vertical);
             int innerWidth = Math.Max(1, width - 4);
@@ -317,11 +314,13 @@ namespace MidiBottleneck
             if (_queueLimited && e.Y >= ClientSize.Height - 18)
             {
                 _lastToolTipCell = -2;
-                _toolTip.SetToolTip(this, _virtualQueuePressure
+                string explanation = _virtualQueuePressure
                     ? "Virtual pressure uses the selected rate model to decide whether a newly arriving MIDI event fits. Accepted MIDI is sent immediately. This is separate from the actual unsent scheduler/output backlog shown above, and it does not predict delay inside a driver or synthesizer."
                     : _queueAgePressure
                         ? "Waiting-time pressure is the age of the oldest pending event divided by the configured microsecond limit. The event currently in service is not removable. Drop oldest complete note is a soft limit when protected traffic remains at the head."
-                        : "Finite-buffer occupancy includes the event currently in service. Safety-preserving overflow policies may temporarily exceed the configured soft limit so a required Note Off or non-note message is not discarded.");
+                        : "Finite-buffer occupancy includes the event currently in service. Safety-preserving overflow policies may temporarily exceed the configured soft limit so a required Note Off or non-note message is not discarded.";
+                _toolTip.SetToolTip(this, FormatQueuePressureText(false) + Environment.NewLine + explanation +
+                    Environment.NewLine + "Purple means protected pending work has exceeded the configured soft limit.");
                 return;
             }
             if (cell == _lastToolTipCell) return;
@@ -360,26 +359,65 @@ namespace MidiBottleneck
 
         private void DrawQueuePressure(Graphics graphics)
         {
-            Rectangle bar = new Rectangle(3, ClientSize.Height - 14, Math.Max(10, ClientSize.Width - 150), 9);
             double ratio = QueuePressureRatio;
-            Color color = _overflowPulse || ratio >= 0.9 ? Color.FromArgb(210, 70, 70) :
-                ratio >= 0.65 ? Color.FromArgb(215, 155, 35) : Color.FromArgb(65, 165, 90);
-            using (Brush background = new SolidBrush(Color.FromArgb(225, 228, 232)))
+            Color color = QueuePressurePalette.Choose(ratio, _overflowPulse);
+            string text = FormatQueuePressureText(false);
+            TextFormatFlags flags = TextFormatFlags.Left | TextFormatFlags.VerticalCenter |
+                TextFormatFlags.SingleLine | TextFormatFlags.NoPadding;
+            int available = Math.Max(1, ClientSize.Width - 6);
+            int gap = ScaleMetric(7, _applicationScalePercent);
+            int minimumBar = ScaleMetric(24, _applicationScalePercent);
+            int measured = TextRenderer.MeasureText(graphics, text, _valueFont, Size.Empty, flags).Width;
+            if (measured + minimumBar + gap > available)
+            {
+                string compact = FormatQueuePressureText(true);
+                int compactMeasured = TextRenderer.MeasureText(graphics, compact, _valueFont, Size.Empty, flags).Width;
+                if (compactMeasured < measured) { text = compact; measured = compactMeasured; }
+            }
+            int textWidth = Math.Min(measured, Math.Max(1, available - minimumBar - gap));
+            int barWidth = Math.Max(minimumBar, available - textWidth - gap);
+            Rectangle bar = new Rectangle(3, ClientSize.Height - 14, barWidth, 9);
+            Rectangle textBounds = new Rectangle(bar.Right + gap, bar.Y - 4,
+                Math.Max(1, ClientSize.Width - bar.Right - gap - 3), 18);
+            using (Brush background = new SolidBrush(QueuePressurePalette.Background))
             using (Brush fill = new SolidBrush(color))
-            using (Pen outline = new Pen(Color.FromArgb(155, 160, 166)))
+            using (Pen outline = new Pen(QueuePressurePalette.Outline))
             {
                 graphics.FillRectangle(background, bar);
                 graphics.FillRectangle(fill, new Rectangle(bar.X, bar.Y,
                     (int)Math.Round(bar.Width * Math.Min(1.0, ratio)), bar.Height));
                 graphics.DrawRectangle(outline, bar);
             }
-            string unit = _queueAgePressure ? " µs" : String.Empty;
-            string text = (_virtualQueuePressure ? "Virtual " : String.Empty) + _occupied.ToString("N0") + unit + " / " +
-                _limit.ToString("N0") + unit + " — " + Math.Round(100 * ratio).ToString("N0") + "%";
-            TextRenderer.DrawText(graphics, text, _valueFont,
-                new Rectangle(bar.Right + 7, bar.Y - 4, Math.Max(110, ClientSize.Width - bar.Right - 10), 18), color,
-                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);
+            TextRenderer.DrawText(graphics, text, _valueFont, textBounds, color,
+                flags | TextFormatFlags.EndEllipsis);
         }
+
+        private string FormatQueuePressureText(bool compact)
+        {
+            string prefix = _virtualQueuePressure ? "Virtual " : String.Empty;
+            string unit = _queueAgePressure ? " µs" : String.Empty;
+            string occupied = compact ? FormatCompactPressureNumber(_occupied) : _occupied.ToString("N0");
+            string limit = compact ? FormatCompactPressureNumber(_limit) : _limit.ToString("N0");
+            if (compact && _queueAgePressure)
+                return prefix + occupied + " / " + limit + unit + " — " +
+                    Math.Round(100 * QueuePressureRatio).ToString("N0") + "%";
+            return prefix + occupied + unit + " / " + limit + unit + " — " +
+                Math.Round(100 * QueuePressureRatio).ToString("N0") + "%";
+        }
+
+        private static string FormatCompactPressureNumber(long value)
+        {
+            double magnitude = Math.Abs((double)value);
+            if (magnitude >= 1000000000D) return (value / 1000000000D).ToString("0.#") + "B";
+            if (magnitude >= 1000000D) return (value / 1000000D).ToString("0.#") + "M";
+            if (magnitude >= 1000D) return (value / 1000D).ToString("0.#") + "K";
+            return value.ToString("N0");
+        }
+
+        internal string QueuePressureTextForTesting(bool compact)
+        { return FormatQueuePressureText(compact); }
+        internal Color QueuePressureColorForTesting
+        { get { return QueuePressurePalette.Choose(QueuePressureRatio, _overflowPulse); } }
 
         protected override void Dispose(bool disposing)
         {

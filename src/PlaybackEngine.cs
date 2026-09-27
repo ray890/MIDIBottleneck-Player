@@ -719,13 +719,20 @@ namespace MidiBottleneck
                     catch (Exception ex) { immediateError = ex; }
                 }
             }
-            if (queued) SignalWake();
-            else
+            if (queued)
             {
-                request.Complete(immediateError);
-                if (immediateError != null && !request.HasCompletion) throw immediateError;
+                // Nothing is observable until the worker reaches the ordered
+                // boundary. Publishing here can race that later publication
+                // and overwrite it with the pre-control snapshot.
+                SignalWake();
+                return;
             }
+            // Completion is an acknowledgement of both the direct output
+            // operation and its observable monitor state. Publish first so a
+            // callback cannot read the pre-control snapshot.
             PublishChannelState(true);
+            request.Complete(immediateError);
+            if (immediateError != null && !request.HasCompletion) throw immediateError;
         }
 
         private void ApplyPendingChannelControls()
@@ -746,8 +753,10 @@ namespace MidiBottleneck
                     EventHandler<ChannelControlErrorEventArgs> handler = ChannelControlFailed;
                     if (handler != null) handler(this, new ChannelControlErrorEventArgs(request.Channel, request.Attribute, ex));
                 }
-                request.Complete(error);
                 PublishChannelState(true);
+                // The callback may immediately refresh Channels. It must never
+                // outrun the snapshot representing this exact control result.
+                request.Complete(error);
             }
         }
 
@@ -968,9 +977,9 @@ namespace MidiBottleneck
                 _currentLagMicroseconds = 0;
                 abandonedControls = DrainChannelControlRequestsLocked();
             }
+            PublishChannelState(true);
             CompleteRetiredChannelControls(abandonedControls, failure ??
                 new OperationCanceledException("Playback ended before the channel-control request reached the output boundary."));
-            PublishChannelState(true);
 
             if (failure != null)
             {
@@ -1391,6 +1400,8 @@ namespace MidiBottleneck
                     }
                     int outstanding = pending.Count + (inService >= 0 ? 1 : 0);
                     bool ageExceeded = ageLimited && QueueAgeExceeded(pending, arrivalMicroseconds, ageLimit);
+                    bool protectedTraffic = noteKind == CompleteNoteEventKind.NoteOff ||
+                        CompleteNoteTracker.IsSafetyControl(incomingEvent);
                     bool safetyAdmission = overflowPolicy == OverflowPolicy.DropIncomingCompleteNotes &&
                         noteKind != CompleteNoteEventKind.NoteOn;
                     if ((!ageLimited && outstanding < bufferCapacity || ageLimited && !ageExceeded) || safetyAdmission)
@@ -1427,25 +1438,55 @@ namespace MidiBottleneck
                     {
                         if (overflowPolicy == OverflowPolicy.DropOldest && pending.Count > 0)
                         {
-                            int evicted = pending.Dequeue();
-                            consecutiveDrops++;
-                            lock (_sync) _droppedEvents++;
-                            RecordChannelDrop(evicted);
-                            if (traceEnabled)
-                                TraceDropped(evicted, now, "oldest pending event evicted on overflow", ClusterSizeAt(evicted), consecutiveDrops,
-                                    EstimateBusyUntil(completionTicks, pending, serviceClock), outstanding - 1, maximumBufferOccupancy);
-
-                            int acceptedIndex = nextArrival;
-                            pending.Enqueue(incomingEntry);
-                            if (noteKind == CompleteNoteEventKind.NoteOn)
-                                completeNotes.RecordNoteOn(incomingEvent, acceptedIndex, true, false);
-                            if (traceEnabled)
+                            MidiEventView oldestEvent = _events[pending.OldestEventIndex];
+                            bool oldestProtected = CompleteNoteTracker.Classify(oldestEvent) ==
+                                CompleteNoteEventKind.NoteOff || CompleteNoteTracker.IsSafetyControl(oldestEvent);
+                            if (!oldestProtected)
                             {
-                                long busyUntil = EstimateBusyUntil(completionTicks, pending, serviceClock);
-                                TraceAcceptedAdmission(acceptedIndex, now, clusterSize, outstanding, maximumBufferOccupancy, busyUntil);
+                                int evicted = pending.Dequeue();
+                                consecutiveDrops++;
+                                lock (_sync) _droppedEvents++;
+                                RecordChannelDrop(evicted);
+                                if (traceEnabled)
+                                    TraceDropped(evicted, now, "oldest removable pending event evicted on overflow", ClusterSizeAt(evicted), consecutiveDrops,
+                                        EstimateBusyUntil(completionTicks, pending, serviceClock), outstanding - 1, maximumBufferOccupancy);
+
+                                pending.Enqueue(incomingEntry);
+                                if (noteKind == CompleteNoteEventKind.NoteOn)
+                                    completeNotes.RecordNoteOn(incomingEvent, nextArrival, true, false);
+                                if (traceEnabled)
+                                {
+                                    long busyUntil = EstimateBusyUntil(completionTicks, pending, serviceClock);
+                                    TraceAcceptedAdmission(nextArrival, now, clusterSize, outstanding, maximumBufferOccupancy, busyUntil);
+                                }
+                                consecutiveDrops = 0;
+                            }
+                            else if (protectedTraffic)
+                            {
+                                // A protected head cannot be removed safely.
+                                // Admit the arriving release/safety message as
+                                // explicit soft-limit traffic.
+                                pending.Enqueue(incomingEntry);
+                                int occupancy = pending.Count + (inService >= 0 ? 1 : 0);
+                                if (occupancy > maximumBufferOccupancy) maximumBufferOccupancy = occupancy;
+                                if (traceEnabled)
+                                    TraceAcceptedAdmission(nextArrival, now, clusterSize, occupancy,
+                                        maximumBufferOccupancy, EstimateBusyUntil(completionTicks, pending, serviceClock));
+                                consecutiveDrops = 0;
+                            }
+                            else
+                            {
+                                if (noteKind == CompleteNoteEventKind.NoteOn)
+                                    completeNotes.RecordNoteOn(incomingEvent, nextArrival, false, false);
+                                consecutiveDrops++;
+                                lock (_sync) _droppedEvents++;
+                                RecordChannelDrop(nextArrival);
+                                if (traceEnabled)
+                                    TraceDropped(nextArrival, now, "oldest pending event is protected; incoming event rejected",
+                                        clusterSize, consecutiveDrops, EstimateBusyUntil(completionTicks, pending, serviceClock),
+                                        outstanding, maximumBufferOccupancy);
                             }
                             UpdateQueue(pending.Count, inService >= 0);
-                            consecutiveDrops = 0;
                         }
                         else if (overflowPolicy == OverflowPolicy.DropOldestCompleteNote)
                         {
@@ -1476,8 +1517,6 @@ namespace MidiBottleneck
                             }
                             bool ownAttackEvicted = evicted && noteKind == CompleteNoteEventKind.NoteOff &&
                                 noteMatch.AttackIndex == evictedAttack;
-                            bool protectedTraffic = noteKind == CompleteNoteEventKind.NoteOff ||
-                                CompleteNoteTracker.IsSafetyControl(incomingEvent);
                             if (ownAttackEvicted || (!evicted && !protectedTraffic))
                             {
                                 if (noteKind == CompleteNoteEventKind.NoteOn)
@@ -1581,14 +1620,28 @@ namespace MidiBottleneck
                         }
                         else
                         {
-                            if (noteKind == CompleteNoteEventKind.NoteOn)
-                                completeNotes.RecordNoteOn(incomingEvent, nextArrival, false, false);
-                            consecutiveDrops++;
-                            lock (_sync) _droppedEvents++;
-                            RecordChannelDrop(nextArrival);
-                            if (traceEnabled)
-                                TraceDropped(nextArrival, now, "newest event dropped; buffer full (" + bufferCapacity + " events outstanding)",
-                                    clusterSize, consecutiveDrops, EstimateBusyUntil(completionTicks, pending, serviceClock), outstanding, maximumBufferOccupancy);
+                            if (protectedTraffic)
+                            {
+                                pending.Enqueue(incomingEntry);
+                                int occupancy = pending.Count + (inService >= 0 ? 1 : 0);
+                                if (occupancy > maximumBufferOccupancy) maximumBufferOccupancy = occupancy;
+                                if (traceEnabled)
+                                    TraceAcceptedAdmission(nextArrival, now, clusterSize, occupancy,
+                                        maximumBufferOccupancy, EstimateBusyUntil(completionTicks, pending, serviceClock));
+                                consecutiveDrops = 0;
+                                UpdateQueue(pending.Count, inService >= 0);
+                            }
+                            else
+                            {
+                                if (noteKind == CompleteNoteEventKind.NoteOn)
+                                    completeNotes.RecordNoteOn(incomingEvent, nextArrival, false, false);
+                                consecutiveDrops++;
+                                lock (_sync) _droppedEvents++;
+                                RecordChannelDrop(nextArrival);
+                                if (traceEnabled)
+                                    TraceDropped(nextArrival, now, "newest event dropped; buffer full (" + bufferCapacity + " events outstanding)",
+                                        clusterSize, consecutiveDrops, EstimateBusyUntil(completionTicks, pending, serviceClock), outstanding, maximumBufferOccupancy);
+                            }
                         }
                     }
                     nextArrival++;
