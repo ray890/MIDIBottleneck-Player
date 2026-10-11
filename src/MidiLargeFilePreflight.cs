@@ -18,10 +18,17 @@ namespace MidiBottleneck
         internal long SourceValueEntryCount;
         internal long ChaseStateEntryCount;
         internal long ChaseParameterValueEntryCount;
+        internal long RunningStatusRepairCount;
+        internal long RoutingLaneCount;
+        internal long RoutingPatchStateEventCount;
+        internal long RoutingPatchTimelineEntryUpperBound;
+        internal long RoutingGeneratedStateEventUpperBound;
         internal long[] EventsByTrack;
         internal long[] PayloadBytesByTrack;
         internal long[] TempoChangesByTrack;
         internal long[] SourceEntriesBySlot;
+        internal long[] RoutingNoteLanesByChannel;
+        internal long[] RoutingPatchStateEventsByChannel;
     }
 
     internal sealed class MidiMemoryProjection
@@ -31,6 +38,11 @@ namespace MidiBottleneck
         internal long ProjectedPeakHighBytes;
         internal long ProvisionalBytes;
         internal long MergeWorkspaceBytes;
+        internal long RetainedNameAllowanceBytes;
+        internal long RoutingRetainedAdditionalBytes;
+        internal long RoutingPeakAdditionalBytes;
+        internal long ProjectedRetainedWithRoutingBytes;
+        internal long ProjectedRoutingPeakBytes;
         internal int PointerSize;
         internal bool IsArchitectureRisk;
         internal long WarningThresholdBytes;
@@ -75,7 +87,9 @@ namespace MidiBottleneck
         {
             if (projection == null) throw new ArgumentNullException("projection");
             return projection.ProjectedPeakHighBytes >= projection.WarningThresholdBytes ||
-                projection.ProjectedRetainedBytes >= projection.WarningThresholdBytes;
+                projection.ProjectedRetainedBytes >= projection.WarningThresholdBytes ||
+                projection.ProjectedRetainedWithRoutingBytes >= projection.WarningThresholdBytes ||
+                projection.ProjectedRoutingPeakBytes >= projection.WarningThresholdBytes;
         }
 
         internal static MidiLargeFileInspection Inspect(string path, int pointerSize,
@@ -90,9 +104,10 @@ namespace MidiBottleneck
             Action<MidiLoadProgress> progress)
         {
             if (String.IsNullOrEmpty(path)) throw new ArgumentException("A MIDI file path is required.", "path");
-            using (FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
-            using (BinaryReader reader = new BinaryReader(stream))
+            using (MidiFileContent content = MidiFileContent.Open(path))
+            using (BinaryReader reader = new BinaryReader(content.Stream))
             {
+                Stream stream = content.Stream;
                 long fileLength = Math.Max(1, stream.Length);
                 Report(progress, 0, fileLength, 0, fileLength, 0, 0);
                 DirectCompactMidiParser.RequireChunk(reader, "MThd");
@@ -105,7 +120,7 @@ namespace MidiBottleneck
                 if (headerLength > 6) DirectCompactMidiParser.SkipStream(stream, headerLength - 6, cancellationToken);
 
                 MidiPreflightCounts counts = new MidiPreflightCounts();
-                counts.FileSizeBytes = stream.Length;
+                counts.FileSizeBytes = content.FileSizeBytes;
                 counts.Format = format;
                 counts.TrackCount = trackCount;
                 counts.TicksPerQuarterNote = division;
@@ -113,6 +128,9 @@ namespace MidiBottleneck
                 counts.PayloadBytesByTrack = new long[trackCount];
                 counts.TempoChangesByTrack = new long[trackCount];
                 counts.SourceEntriesBySlot = new long[16 * SourceAttributeCount];
+                counts.RoutingNoteLanesByChannel = new long[16];
+                counts.RoutingPatchStateEventsByChannel = new long[16];
+                bool[] routingLaneSeen = new bool[trackCount * 16];
                 byte[] trackBuffer = new byte[65536];
 
                 for (int trackIndex = 0; trackIndex < trackCount; trackIndex++)
@@ -128,8 +146,15 @@ namespace MidiBottleneck
                                 trackIndex, trackCount);
                         }, trackBuffer);
                     ScanTrack(trackReader, trackIndex, counts, cancellationToken, progress,
-                        trackStart, fileLength, length, trackCount);
+                        trackStart, fileLength, length, trackCount, routingLaneSeen);
                 }
+                for (int channel = 0; channel < 16; channel++)
+                    counts.RoutingPatchTimelineEntryUpperBound = Add(
+                        counts.RoutingPatchTimelineEntryUpperBound,
+                        Multiply(counts.RoutingNoteLanesByChannel[channel],
+                            counts.RoutingPatchStateEventsByChannel[channel]));
+                counts.RoutingGeneratedStateEventUpperBound = Multiply(3L,
+                    Add(counts.NoteOnCount, counts.RoutingPatchStateEventCount));
                 cancellationToken.ThrowIfCancellationRequested();
                 Report(progress, fileLength, fileLength, 1, 1, trackCount, trackCount);
                 return counts;
@@ -138,9 +163,12 @@ namespace MidiBottleneck
 
         private static void ScanTrack(DirectCompactMidiParser.TrackReader reader, int trackIndex,
             MidiPreflightCounts counts, CancellationToken cancellationToken, Action<MidiLoadProgress> progress,
-            long trackStart, long fileLength, uint declaredLength, int trackCount)
+            long trackStart, long fileLength, uint declaredLength, int trackCount,
+            bool[] routingLaneSeen)
         {
             byte runningStatus = 0;
+            byte lastChannelStatus = 0;
+            bool immediatelyAfterMeta = false;
             int order = 0;
             while (!reader.AtEnd)
             {
@@ -155,17 +183,29 @@ namespace MidiBottleneck
                 byte first = reader.ReadByte();
                 byte status;
                 int firstData = -1;
+                bool repairedRunningStatus = false;
                 if (first < 0x80)
                 {
                     if (runningStatus < 0x80 || runningStatus >= 0xF0)
-                        throw new InvalidDataException("Invalid running status in track " + trackIndex + ".");
-                    status = runningStatus;
+                    {
+                        if (!MidiRunningStatusCompatibility.CanRepairAfterMeta(
+                            lastChannelStatus, immediatelyAfterMeta, first))
+                            throw new InvalidDataException("Invalid running status in track " + trackIndex + ".");
+                        status = lastChannelStatus;
+                        runningStatus = status;
+                        repairedRunningStatus = true;
+                    }
+                    else status = runningStatus;
                     firstData = first;
                 }
                 else
                 {
                     status = first;
-                    if (status < 0xF0) runningStatus = status;
+                    if (status < 0xF0)
+                    {
+                        runningStatus = status;
+                        lastChannelStatus = status;
+                    }
                 }
 
                 if (status == 0xFF)
@@ -184,10 +224,12 @@ namespace MidiBottleneck
                         }
                     }
                     else reader.Skip(length);
+                    immediatelyAfterMeta = true;
                 }
                 else if (status == 0xF0 || status == 0xF7)
                 {
                     runningStatus = 0;
+                    immediatelyAfterMeta = false;
                     uint length = reader.ReadVariableLength();
                     long payloadLength = (long)length + (status == 0xF0 ? 1L : 0L);
                     AddDispatchable(counts, trackIndex);
@@ -216,13 +258,40 @@ namespace MidiBottleneck
                     AddDispatchable(counts, trackIndex);
                     int high = status & 0xF0;
                     if (high == 0x90 && secondValue != 0)
+                    {
                         counts.NoteOnCount = CheckedIncrement(counts.NoteOnCount, "NoteOn");
+                        int routingSlot = trackIndex * 16 + (status & 0x0F);
+                        if (!routingLaneSeen[routingSlot])
+                        {
+                            routingLaneSeen[routingSlot] = true;
+                            counts.RoutingLaneCount = CheckedIncrement(
+                                counts.RoutingLaneCount, "track-routing lane");
+                            int channel = status & 0x0F;
+                            counts.RoutingNoteLanesByChannel[channel] = CheckedIncrement(
+                                counts.RoutingNoteLanesByChannel[channel], "track-routing channel lane");
+                        }
+                    }
+                    if (high == 0xC0 || high == 0xB0 &&
+                        (firstValue == 0 || firstValue == 32))
+                    {
+                        int channel = status & 0x0F;
+                        counts.RoutingPatchStateEventCount = CheckedIncrement(
+                            counts.RoutingPatchStateEventCount, "track-routing patch-state event");
+                        counts.RoutingPatchStateEventsByChannel[channel] = CheckedIncrement(
+                            counts.RoutingPatchStateEventsByChannel[channel],
+                            "track-routing channel patch-state event");
+                    }
                     AddSourceValueEntries(counts, status & 0x0F, high, firstValue);
                     AddChaseEntries(counts, high, firstValue);
+                    if (repairedRunningStatus)
+                        counts.RunningStatusRepairCount = CheckedIncrement(
+                            counts.RunningStatusRepairCount, "running-status repair");
+                    immediatelyAfterMeta = false;
                 }
                 else
                 {
                     runningStatus = 0;
+                    immediatelyAfterMeta = false;
                     int dataLength = DirectCompactMidiParser.SystemDataLength(status);
                     if (dataLength > 0) reader.ReadByte();
                     if (dataLength > 1) reader.ReadByte();
@@ -332,6 +401,15 @@ namespace MidiBottleneck
             retained = Add(retained, Multiply(parameterSeriesUpperBound,
                 3L * ObjectHeader(pointerSize) + 2L * pointerSize));
 
+            // Track and instrument names are capped at two 128-character values
+            // per track.  Account for their strings and owning references even
+            // though most files retain much less.
+            long retainedNames = Multiply(counts.TrackCount,
+                2L * (pointerSize + ObjectHeader(pointerSize) +
+                    Align(ArrayHeader(pointerSize) + 128L * 2L,
+                        pointerSize == 8 ? 8 : 4)));
+            retained = Add(retained, retainedNames);
+
             long workspace = Multiply(counts.TrackCount, pointerSize == 8 ? 112L : 72L);
             workspace = Add(workspace, ReferenceArrayBytes(counts.TrackCount, pointerSize));
             workspace = Add(workspace, 2L * 1024L * 1024L);
@@ -339,6 +417,36 @@ namespace MidiBottleneck
             long transientSegments = CompactPayloadStore.SegmentSize +
                 CompactMidiEventStore.RecordSegmentCapacity * 40L + TempoSegmentCapacity * 24L;
             long upper = Add(Add(provisional, retained), Add(workspace, transientSegments));
+
+            long routedEventUpperBound = Add(counts.DispatchableEventCount,
+                counts.RoutingGeneratedStateEventUpperBound);
+            long routedEntrySize = pointerSize == 8 ? 16L : 8L;
+            long routingRetained = Align(Add(ArrayHeader(pointerSize),
+                counts.DispatchableEventCount), pointerSize == 8 ? 8 : 4);
+            routingRetained = Add(routingRetained,
+                Align(Add(ArrayHeader(pointerSize),
+                    Multiply(routedEventUpperBound, routedEntrySize)),
+                    pointerSize == 8 ? 8 : 4));
+            routingRetained = Add(routingRetained,
+                Multiply(counts.NoteOnCount, 40L));
+            routingRetained = Add(routingRetained,
+                Multiply(counts.RoutingPatchTimelineEntryUpperBound, 16L));
+            routingRetained = Add(routingRetained,
+                Multiply(counts.RoutingLaneCount, pointerSize == 8 ? 768L : 512L));
+            routingRetained = Add(routingRetained,
+                Multiply(counts.RoutingGeneratedStateEventUpperBound,
+                    pointerSize == 8 ? 104L : 72L));
+            long activeOccurrenceWorkspace = Multiply(
+                Math.Min(counts.NoteOnCount, TrackRoutePlanner.MaximumActiveAttacks),
+                pointerSize == 8 ? 64L : 44L);
+            long routingWorkspace = Add(activeOccurrenceWorkspace,
+                Align(Add(ArrayHeader(pointerSize),
+                    Multiply(routedEventUpperBound, routedEntrySize)),
+                    pointerSize == 8 ? 8 : 4));
+            routingWorkspace = Add(routingWorkspace,
+                Multiply(Add(counts.NoteOnCount,
+                    counts.RoutingPatchTimelineEntryUpperBound), 16L));
+            long routingPeak = Add(routingRetained, routingWorkspace);
             long warning = WarningThreshold(pointerSize);
             return new MidiMemoryProjection
             {
@@ -347,9 +455,15 @@ namespace MidiBottleneck
                 ProjectedPeakHighBytes = upper,
                 ProvisionalBytes = provisional,
                 MergeWorkspaceBytes = workspace,
+                RetainedNameAllowanceBytes = retainedNames,
+                RoutingRetainedAdditionalBytes = routingRetained,
+                RoutingPeakAdditionalBytes = routingPeak,
+                ProjectedRetainedWithRoutingBytes = Add(retained, routingRetained),
+                ProjectedRoutingPeakBytes = Add(retained, routingPeak),
                 PointerSize = pointerSize,
                 WarningThresholdBytes = warning,
-                IsArchitectureRisk = pointerSize == 4 && upper >= warning
+                IsArchitectureRisk = pointerSize == 4 &&
+                    (upper >= warning || Add(retained, routingPeak) >= warning)
             };
         }
 

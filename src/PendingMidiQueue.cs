@@ -53,6 +53,12 @@ namespace MidiBottleneck
         private int _eligibleCount;
         private int _count;
         private bool _noteIndexEnabled;
+        private readonly MusicalNotePrioritySelector _musicalPriority =
+            new MusicalNotePrioritySelector();
+        private MusicalNotePriorityCandidate[] _musicalCandidates =
+            new MusicalNotePriorityCandidate[16];
+        private int[] _musicalAttackNodes = new int[16];
+        private int[] _musicalReleaseNodes = new int[16];
 
         internal PendingMidiQueue(int capacity, bool noteIndexEnabled = false)
         {
@@ -185,6 +191,65 @@ namespace MidiBottleneck
                 return false;
             }
             return TryEvictOldestCompleteNote(out attackIndex, out releaseIndex);
+        }
+
+        internal bool TryEvictLeastImportantCompleteNote(MidiEventReader events,
+            ref int fairnessCursor, out int attackIndex, out int releaseIndex)
+        {
+            if (!_noteIndexEnabled)
+                throw new InvalidOperationException("The pending-note index has not been enabled.");
+            EnsureMusicalCapacity(_eligibleCount);
+            int candidateCount = 0;
+            for (int nodeId = _eligibleHead; nodeId >= 0;
+                nodeId = Get(nodeId).EligibleNext)
+            {
+                Node node = Get(nodeId);
+                MidiEventView attack = events[node.Entry.EventIndex];
+                int releaseNode = node.PairedReleaseNode;
+                long duration = releaseNode < 0 ? Int64.MaxValue :
+                    Math.Max(0, events[Get(releaseNode).Entry.EventIndex].IntendedMicroseconds -
+                        attack.IntendedMicroseconds);
+                _musicalCandidates[candidateCount] = new MusicalNotePriorityCandidate
+                {
+                    Pitch = attack.GetDataByte(1) & 0x7F,
+                    Velocity = attack.GetDataByte(2) & 0x7F,
+                    Track = attack.Track,
+                    Channel = attack.Channel,
+                    SourceOrder = attack.EventIndex,
+                    IntendedMicroseconds = attack.IntendedMicroseconds,
+                    DurationMicroseconds = duration
+                };
+                _musicalAttackNodes[candidateCount] = nodeId;
+                _musicalReleaseNodes[candidateCount] = releaseNode;
+                candidateCount++;
+            }
+            if (candidateCount == 0)
+            {
+                attackIndex = releaseIndex = -1;
+                return false;
+            }
+            int victimIndex = _musicalPriority.SelectLeastImportant(
+                _musicalCandidates, candidateCount, fairnessCursor);
+            int victimAttack = _musicalAttackNodes[victimIndex];
+            int victimRelease = _musicalReleaseNodes[victimIndex];
+            attackIndex = Get(victimAttack).Entry.EventIndex;
+            releaseIndex = victimRelease < 0 ? -1 : Get(victimRelease).Entry.EventIndex;
+            if (victimRelease >= 0) Remove(victimRelease);
+            Remove(victimAttack);
+            fairnessCursor = _musicalPriority.NextFairnessCursor(
+                _musicalCandidates[victimIndex]);
+            return true;
+        }
+
+        private void EnsureMusicalCapacity(int count)
+        {
+            if (_musicalCandidates.Length >= count) return;
+            int capacity = _musicalCandidates.Length;
+            while (capacity < count && capacity <= Int32.MaxValue / 2) capacity *= 2;
+            if (capacity < count) capacity = count;
+            Array.Resize(ref _musicalCandidates, capacity);
+            Array.Resize(ref _musicalAttackNodes, capacity);
+            Array.Resize(ref _musicalReleaseNodes, capacity);
         }
 
         // A live policy edit may build or retire the note index once at its

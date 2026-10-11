@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
@@ -16,6 +17,27 @@ namespace MidiBottleneck
 
     internal sealed class DiagnosticsForm : Form
     {
+        private const int WmSysCommand = 0x0112;
+        private const int SystemMenuShowEventCounts = 0x1F20;
+        private const int SystemMenuAlwaysOnTop = 0x1F30;
+        private const int SystemMenuProjectForcedOverrides = 0x1F40;
+        private const uint MfString = 0x0000;
+        private const uint MfSeparator = 0x0800;
+        private const uint MfChecked = 0x0008;
+        private const uint MfUnchecked = 0x0000;
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetSystemMenu(IntPtr window, bool revert);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern bool AppendMenu(IntPtr menu, uint flags, UIntPtr identifier, string text);
+
+        [DllImport("user32.dll")]
+        private static extern uint CheckMenuItem(IntPtr menu, uint identifier, uint flags);
+
+        [DllImport("user32.dll")]
+        private static extern bool DrawMenuBar(IntPtr window);
+
         private readonly RichTextBox _summary;
         private readonly SplitContainer _split;
         private readonly WorkloadGraph _graph;
@@ -54,6 +76,8 @@ namespace MidiBottleneck
         private int _displayedProgressPermille;
         private bool _updatingAnalysis;
         private bool _hasCompletedAnalysis;
+        private bool _showEventCounts;
+        private bool _projectForcedOverrides;
         private int _previewPublicationCount;
         private bool _suppressResolutionSelection;
         private ResolutionSelectionMode _resolutionMode = ResolutionSelectionMode.Auto;
@@ -91,14 +115,96 @@ namespace MidiBottleneck
         internal event EventHandler<WorkloadSelectionEventArgs> SeekRequested;
         internal event EventHandler ChannelsRequested;
         internal event EventHandler TransportToggleRequested;
-        private Point? _graphShortcutPointerForTesting;
-        internal Point? GraphShortcutPointerForTesting
+        internal event EventHandler OverrideProjectionChanged;
+        internal MidiSong SourceSong { get; private set; }
+        internal bool AlwaysOnTopForTesting { get { return TopMost; } }
+        internal bool ShowEventCountsForTesting { get { return _showEventCounts; } }
+        internal bool ProjectForcedOverridesForTesting { get { return _projectForcedOverrides; } }
+        internal static int ShowEventCountsSystemCommandForTesting { get { return SystemMenuShowEventCounts; } }
+        internal static int AlwaysOnTopSystemCommandForTesting { get { return SystemMenuAlwaysOnTop; } }
+        internal static int ProjectForcedOverridesSystemCommandForTesting
+        { get { return SystemMenuProjectForcedOverrides; } }
+
+        protected override void OnHandleCreated(EventArgs e)
         {
-            get { return _graphShortcutPointerForTesting; }
-            set { _graphShortcutPointerForTesting = value; }
+            base.OnHandleCreated(e);
+            IntPtr menu = GetSystemMenu(Handle, false);
+            if (menu == IntPtr.Zero) return;
+            AppendMenu(menu, MfSeparator, UIntPtr.Zero, null);
+            AppendMenu(menu, MfString, (UIntPtr)SystemMenuShowEventCounts, "Show event counts");
+            AppendMenu(menu, MfString, (UIntPtr)SystemMenuProjectForcedOverrides,
+                "Project forced overrides");
+            AppendMenu(menu, MfString, (UIntPtr)SystemMenuAlwaysOnTop, "Always on top");
+            UpdateShowEventCountsMenuCheck();
+            UpdateOverrideProjectionMenuCheck();
+            UpdateAlwaysOnTopMenuCheck();
         }
 
-        internal MidiSong SourceSong { get; private set; }
+        protected override void WndProc(ref Message message)
+        {
+            if (message.Msg == WmSysCommand &&
+                (message.WParam.ToInt32() & 0xFFF0) == SystemMenuShowEventCounts)
+            {
+                SetShowEventCounts(!_showEventCounts);
+                return;
+            }
+            if (message.Msg == WmSysCommand &&
+                (message.WParam.ToInt32() & 0xFFF0) == SystemMenuProjectForcedOverrides)
+            {
+                _projectForcedOverrides = !_projectForcedOverrides;
+                UpdateOverrideProjectionMenuCheck();
+                EventHandler changed = OverrideProjectionChanged;
+                if (changed != null) changed(this, EventArgs.Empty);
+                return;
+            }
+            if (message.Msg == WmSysCommand &&
+                (message.WParam.ToInt32() & 0xFFF0) == SystemMenuAlwaysOnTop)
+            {
+                TopMost = !TopMost;
+                UpdateAlwaysOnTopMenuCheck();
+                return;
+            }
+            base.WndProc(ref message);
+        }
+
+        private void SetShowEventCounts(bool value)
+        {
+            if (_showEventCounts == value) return;
+            _showEventCounts = value;
+            if (_graph != null) _graph.ShowEventCounts = value;
+            if (_graph != null && _graph.InspectedTimeMicroseconds.HasValue)
+                UpdateInspection(_graph.InspectedTimeMicroseconds.Value, _graph.PinnedTimeMicroseconds.HasValue);
+            UpdateShowEventCountsMenuCheck();
+        }
+
+        private void UpdateShowEventCountsMenuCheck()
+        {
+            if (!IsHandleCreated) return;
+            IntPtr menu = GetSystemMenu(Handle, false);
+            if (menu == IntPtr.Zero) return;
+            CheckMenuItem(menu, (uint)SystemMenuShowEventCounts,
+                _showEventCounts ? MfChecked : MfUnchecked);
+            DrawMenuBar(Handle);
+        }
+
+        private void UpdateAlwaysOnTopMenuCheck()
+        {
+            if (!IsHandleCreated) return;
+            IntPtr menu = GetSystemMenu(Handle, false);
+            if (menu == IntPtr.Zero) return;
+            CheckMenuItem(menu, (uint)SystemMenuAlwaysOnTop, TopMost ? MfChecked : MfUnchecked);
+            DrawMenuBar(Handle);
+        }
+
+        private void UpdateOverrideProjectionMenuCheck()
+        {
+            if (!IsHandleCreated) return;
+            IntPtr menu = GetSystemMenu(Handle, false);
+            if (menu == IntPtr.Zero) return;
+            CheckMenuItem(menu, (uint)SystemMenuProjectForcedOverrides,
+                _projectForcedOverrides ? MfChecked : MfUnchecked);
+            DrawMenuBar(Handle);
+        }
 
         public DiagnosticsForm(MidiSong song)
             : this(song, null)
@@ -312,8 +418,6 @@ namespace MidiBottleneck
             _graph.InspectionChanged += GraphInspectionChanged;
             _graph.SeekRequested += GraphSeekRequested;
             _graph.ViewportChanged += delegate { ScheduleResolutionRefresh(); };
-            _graph.MouseEnter += delegate { FocusGraphForTransportShortcut(); };
-            _graph.MouseMove += delegate { FocusGraphForTransportShortcut(); };
             graphLayout.Controls.Add(_graph, 0, 0);
             graphLayout.SetColumnSpan(_graph, 2);
 
@@ -527,17 +631,6 @@ namespace MidiBottleneck
 
         internal WorkloadGraph Graph { get { return _graph; } }
 
-        private void FocusGraphForTransportShortcut()
-        {
-            if (!IsAnalysisActive || !_graph.Visible || !_graph.IsHandleCreated) return;
-            Control focused = FindFocusedControl(this);
-            TextBoxBase text = focused as TextBoxBase;
-            if (text != null && !text.ReadOnly) return;
-            ComboBox combo = focused as ComboBox;
-            if (combo != null && (combo.DroppedDown || combo.DropDownStyle != ComboBoxStyle.DropDownList)) return;
-            if (!_graph.Focused) _graph.Focus();
-        }
-
         private static Control FindFocusedControl(Control parent)
         {
             if (parent.Focused) return parent;
@@ -548,13 +641,13 @@ namespace MidiBottleneck
 
         protected override bool ProcessCmdKey(ref Message message, Keys keyData)
         {
-            if (keyData == Keys.Space && TryHandleGraphSpace()) return true;
+            if (keyData == Keys.Space && TryHandleAnalysisSpace()) return true;
             return base.ProcessCmdKey(ref message, keyData);
         }
 
-        internal bool TryHandleGraphSpace()
+        internal bool TryHandleAnalysisSpace()
         {
-            return TryHandleGraphSpaceAt(_graphShortcutPointerForTesting ?? Cursor.Position, IsAnalysisActive);
+            return TryHandleAnalysisSpace(IsAnalysisActive);
         }
 
         private bool IsAnalysisActive
@@ -562,11 +655,9 @@ namespace MidiBottleneck
             get { return Form.ActiveForm == this || Form.ActiveForm == null && ContainsFocus; }
         }
 
-        internal bool TryHandleGraphSpaceAt(Point screenPointer, bool analysisActive)
+        internal bool TryHandleAnalysisSpace(bool analysisActive)
         {
-            if (analysisActive && !Modal &&
-                _graph != null && _graph.IsHandleCreated && _graph.Visible &&
-                _graph.RectangleToScreen(_graph.ClientRectangle).Contains(screenPointer))
+            if (analysisActive && !Modal && IsHandleCreated && Visible)
             {
                 Control focused = FindFocusedControl(this);
                 TextBoxBase text = focused as TextBoxBase;
@@ -589,6 +680,7 @@ namespace MidiBottleneck
         internal RichTextBoxScrollBars SummaryScrollBars { get { return _summary.ScrollBars; } }
         internal bool SummaryEnabled { get { return _summary.Enabled; } }
         internal string SummaryText { get { return _summary.Text; } }
+        internal string InspectionTextForTesting { get { return _inspection.Text; } }
         internal bool SeekToPinEnabled { get { return _seekButton.Enabled; } }
         internal bool CalculationStatusVisible { get { return _calculationStatus.Visible; } }
         internal bool CalculationProgressVisible { get { return _calculationProgress.Visible; } }
@@ -645,9 +737,16 @@ namespace MidiBottleneck
 
         internal void RequestAnalysis(AnalysisConfiguration configuration)
         {
+            RequestAnalysis(configuration, null);
+        }
+
+        internal void RequestAnalysis(AnalysisConfiguration configuration,
+            AnalysisOverrideSnapshot overrideProjection)
+        {
             if (IsDisposed || SourceSong == null) return;
             _resolutionDebounceTimer.Stop();
             _pendingConfiguration = CloneConfiguration(configuration);
+            _pendingConfiguration.OverrideProjection = overrideProjection;
             long resolution = SelectedResolutionMicroseconds();
             string cacheKey = AnalysisCacheKey(_pendingConfiguration, resolution);
             WorkloadAnalysis cached;
@@ -722,7 +821,10 @@ namespace MidiBottleneck
                             }
                             EndBusyPeriod();
                             _calculationStatus.Text = (retainedPreview
-                                ? requested.PerNoteIntervalGateEnabled ? "Per-note projection failed — " : "Queue projection failed — "
+                                ? requested.OutputRateLimitEnabled ? "Output rate projection failed — " :
+                                    requested.NoteAttackLimitEnabled ? "Note start rate projection failed — " :
+                                    requested.DelayedNoteOffEnabled ? "Delayed NoteOff projection failed — " :
+                                    requested.PerNoteIntervalGateEnabled ? "Per-note projection failed — " : "Queue projection failed — "
                                 : "Analysis failed — ") + reason;
                             _calculationStatus.Visible = true;
                             return;
@@ -776,6 +878,12 @@ namespace MidiBottleneck
 
         internal void AttachSong(MidiSong song, AnalysisConfiguration configuration)
         {
+            AttachSong(song, configuration, null);
+        }
+
+        internal void AttachSong(MidiSong song, AnalysisConfiguration configuration,
+            AnalysisOverrideSnapshot overrideProjection)
+        {
             if (song == null) throw new ArgumentNullException("song");
             _resolutionDebounceTimer.Stop();
             CancelCurrentAnalysisWork();
@@ -793,7 +901,7 @@ namespace MidiBottleneck
             Text = "MIDIBottleneck Player — Analysis — " + System.IO.Path.GetFileName(song.FilePath);
             _summary.Text = "Analysis will appear here when calculation completes.";
             _graph.DetachAnalysis("Calculating workload analysis…");
-            RequestAnalysis(configuration);
+            RequestAnalysis(configuration, overrideProjection);
         }
 
         private void ScheduleResolutionRefresh()
@@ -1114,23 +1222,48 @@ namespace MidiBottleneck
                 QueueAgeLimitMicroseconds = source.QueueAgeLimitMicroseconds,
                 OverflowPolicy = source.OverflowPolicy,
                 PerNoteIntervalGateEnabled = source.PerNoteIntervalGateEnabled,
-                ApplyQueueLimitWithoutSlowdown = source.ApplyQueueLimitWithoutSlowdown
+                DelayedNoteOffEnabled = source.DelayedNoteOffEnabled,
+                ScaleNoteIntervalByTraffic = source.ScaleNoteIntervalByTraffic,
+                IntervalPolyphonyLimitEnabled = source.IntervalPolyphonyLimitEnabled,
+                IntervalPolyphonyLimit = source.IntervalPolyphonyLimit,
+                NoteAttackLimitEnabled = source.NoteAttackLimitEnabled,
+                OutputRateLimitEnabled = source.OutputRateLimitEnabled,
+                OutputPacedTimeline = source.OutputPacedTimeline,
+                ApplyQueueLimitWithoutSlowdown = source.ApplyQueueLimitWithoutSlowdown,
+                OverrideProjection = source.OverrideProjection
             };
         }
 
         private static string AnalysisCacheKey(AnalysisConfiguration value, long resolution)
         {
+            string overrideKey = "|forced-overrides=" +
+                (value.OverrideProjection == null ? "off" : value.OverrideProjection.Signature);
             if (value.PerNoteIntervalGateEnabled)
                 return resolution.ToString(CultureInfo.InvariantCulture) + "|per-note|" +
-                    value.ProcessingMicroseconds.ToString(CultureInfo.InvariantCulture);
+                    value.ProcessingMicroseconds.ToString(CultureInfo.InvariantCulture) + "|adaptive=" +
+                    value.ScaleNoteIntervalByTraffic + "|polyphony=" +
+                    value.IntervalPolyphonyLimitEnabled + ":" +
+                    value.IntervalPolyphonyLimit.ToString(CultureInfo.InvariantCulture) + overrideKey;
+            if (value.DelayedNoteOffEnabled)
+                return resolution.ToString(CultureInfo.InvariantCulture) + "|delayed-note-off|" +
+                    value.ProcessingMicroseconds.ToString(CultureInfo.InvariantCulture) + "|adaptive=" +
+                    value.ScaleNoteIntervalByTraffic + "|polyphony=" +
+                    value.IntervalPolyphonyLimitEnabled + ":" +
+                    value.IntervalPolyphonyLimit.ToString(CultureInfo.InvariantCulture) + overrideKey;
+            if (value.NoteAttackLimitEnabled)
+                return resolution.ToString(CultureInfo.InvariantCulture) + "|note-start-rate-gate|" +
+                    value.EventsPerSecond.ToString(CultureInfo.InvariantCulture) + overrideKey;
+            if (value.OutputRateLimitEnabled)
+                return resolution.ToString(CultureInfo.InvariantCulture) + "|output-rate-gate|" +
+                    value.EventsPerSecond.ToString(CultureInfo.InvariantCulture) + overrideKey;
             return resolution.ToString(CultureInfo.InvariantCulture) + "|" +
-                value.SimulateSlowdown + "|" + value.ApplyQueueLimitWithoutSlowdown + "|" + (int)value.ServiceDurationMode + "|" +
+                value.SimulateSlowdown + "|paced=" + value.OutputPacedTimeline + "|" + value.ApplyQueueLimitWithoutSlowdown + "|" + (int)value.ServiceDurationMode + "|" +
                 ((value.SimulateSlowdown || value.ApplyQueueLimitWithoutSlowdown && value.QueueLengthLimitEnabled) && value.ServiceDurationMode == ServiceDurationMode.ProcessingTime ? value.ProcessingMicroseconds : 0).ToString(CultureInfo.InvariantCulture) + "|" +
                 ((value.SimulateSlowdown || value.ApplyQueueLimitWithoutSlowdown && value.QueueLengthLimitEnabled) && value.ServiceDurationMode == ServiceDurationMode.MidiBitrate ? value.MidiBitrate : 0).ToString(CultureInfo.InvariantCulture) + "|" +
                 ((value.SimulateSlowdown || value.ApplyQueueLimitWithoutSlowdown && value.QueueLengthLimitEnabled) && value.ServiceDurationMode == ServiceDurationMode.EventsPerSecond ? value.EventsPerSecond : 0).ToString(CultureInfo.InvariantCulture) + "|" +
                 value.QueueLengthLimitEnabled + "|" + (value.QueueLengthLimitEnabled ? value.QueueLengthLimit : 0).ToString(CultureInfo.InvariantCulture) + "|" +
                 value.QueueAgeLimitEnabled + "|" + (value.QueueAgeLimitEnabled ? value.QueueAgeLimitMicroseconds : 0).ToString(CultureInfo.InvariantCulture) + "|" +
-                (value.QueueLengthLimitEnabled ? (int)value.OverflowPolicy : 0);
+                (value.QueueLengthLimitEnabled ? (int)value.OverflowPolicy : 0) + overrideKey;
         }
 
         private void RememberLocalAnalysis(string key, WorkloadAnalysis analysis)
@@ -1202,14 +1335,26 @@ namespace MidiBottleneck
             double seconds = _analysis.BucketMicroseconds / 1000000.0;
             StringBuilder text = new StringBuilder();
             text.Append(pinned ? "Pinned: " : "Cursor: ").AppendLine(FormatClock(timeMicroseconds));
-            text.Append("Bucket: ").Append(FormatClock(start)).Append("–").AppendLine(FormatClock(end));
+            text.Append(_showEventCounts ? "Interval: " : "Bucket: ")
+                .Append(FormatIntervalBoundary(start)).Append("–").AppendLine(FormatIntervalBoundary(end));
             if (bucket != null)
             {
-                text.Append(_analysis.HasGateProjection ? "Source events/sec: " : "Events/sec: ")
-                    .Append((bucket.EventCount / seconds).ToString("N1", CultureInfo.CurrentCulture));
-                if (_analysis.HasGateProjection)
-                    text.Append("   Gate output/sec: ").Append((_analysis.GateOutputBuckets[bucketIndex] / seconds)
-                        .ToString("N1", CultureInfo.CurrentCulture));
+                if (_showEventCounts)
+                {
+                    text.Append(_analysis.HasGateProjection ? "Source events in interval: " : "Events in interval: ")
+                        .Append(bucket.EventCount.ToString("N0", CultureInfo.CurrentCulture));
+                    if (_analysis.HasGateProjection)
+                        text.Append("   Gate output in interval: ").Append(_analysis.GateOutputBuckets[bucketIndex]
+                            .ToString("N0", CultureInfo.CurrentCulture));
+                }
+                else
+                {
+                    text.Append(_analysis.HasGateProjection ? "Source events/sec: " : "Events/sec: ")
+                        .Append((bucket.EventCount / seconds).ToString("N1", CultureInfo.CurrentCulture));
+                    if (_analysis.HasGateProjection)
+                        text.Append("   Gate output/sec: ").Append((_analysis.GateOutputBuckets[bucketIndex] / seconds)
+                            .ToString("N1", CultureInfo.CurrentCulture));
+                }
                 text.Append("   MIDI bytes/sec: ").AppendLine((bucket.ByteCount / seconds).ToString("N1", CultureInfo.CurrentCulture));
                 text.Append("Largest simultaneous cluster: ").Append(bucket.LargestCluster.ToString("N0", CultureInfo.CurrentCulture));
                 if (_analysis.HasQueueProjection && _analysis.Configuration != null &&
@@ -1230,7 +1375,8 @@ namespace MidiBottleneck
         private void ApplySummary(string text)
         {
             _summary.Text = text;
-            string[] headings = new string[] { "MIDI FILE", "WORKLOAD", "PROCESSING MODEL", "QUEUE PROJECTION", "PER-NOTE PROJECTION", "EVENT CLUSTERS", "MESSAGE TYPES" };
+            string[] headings = new string[] { "MIDI FILE", "WORKLOAD", "FORCED OVERRIDE PROJECTION",
+                "PROCESSING MODEL", "QUEUE PROJECTION", "PER-NOTE PROJECTION", "EVENT CLUSTERS", "MESSAGE TYPES" };
             for (int i = 0; i < headings.Length; i++)
             {
                 int start = _summary.Text.IndexOf(headings[i], StringComparison.Ordinal);
@@ -1263,18 +1409,50 @@ namespace MidiBottleneck
             text.AppendLine("Average events/sec    " + analysis.AverageEventsPerSecond.ToString("N1", CultureInfo.CurrentCulture));
             text.AppendLine("Peak events/sec       " + analysis.PeakEventsPerSecond.ToString("N1", CultureInfo.CurrentCulture));
             text.AppendLine("Peak bytes/sec        " + analysis.PeakBytesPerSecond.ToString("N1", CultureInfo.CurrentCulture));
+            if (analysis.Configuration != null && analysis.Configuration.OverrideProjection != null)
+            {
+                text.AppendLine();
+                text.AppendLine("FORCED OVERRIDE PROJECTION");
+                text.AppendLine("Snapshot              This Analysis window only");
+                text.AppendLine("Forced messages       " +
+                    analysis.Configuration.OverrideProjection.ForcedMessageCount.ToString("N0", CultureInfo.CurrentCulture));
+                if (analysis.ProjectionState == AnalysisProjectionState.Complete)
+                {
+                    text.AppendLine("Projected forced      " +
+                        analysis.OverrideProjectedForcedMessages.ToString("N0", CultureInfo.CurrentCulture) +
+                        " generated MIDI messages");
+                    text.AppendLine("Filtered competing    " +
+                        analysis.OverrideFilteredSourceMessages.ToString("N0", CultureInfo.CurrentCulture) +
+                        " source MIDI messages");
+                }
+                else text.AppendLine("Status                Projection pending");
+                text.AppendLine("Order                 Track routing, then this forced-override snapshot");
+                text.AppendLine("Playback              Unchanged by this Analysis setting");
+            }
             if (!analysis.HasQueueProjection && !analysis.HasGateProjection)
             {
                 text.AppendLine();
-                bool gatePending = analysis.Configuration != null && analysis.Configuration.PerNoteIntervalGateEnabled;
-                text.AppendLine(gatePending ? "PER-NOTE PROJECTION" : "QUEUE PROJECTION");
+                bool gatePending = analysis.Configuration != null &&
+                    (analysis.Configuration.PerNoteIntervalGateEnabled || analysis.Configuration.DelayedNoteOffEnabled ||
+                    analysis.Configuration.NoteAttackLimitEnabled ||
+                    analysis.Configuration.OutputRateLimitEnabled);
+                bool delayedPending = gatePending && analysis.Configuration.DelayedNoteOffEnabled;
+                bool attackPending = gatePending && analysis.Configuration.NoteAttackLimitEnabled;
+                bool outputPending = gatePending && analysis.Configuration.OutputRateLimitEnabled;
+                text.AppendLine(gatePending ? (outputPending ? "OUTPUT RATE GATE PROJECTION" :
+                    attackPending ? "NOTE START RATE GATE PROJECTION" :
+                    delayedPending ? "DELAYED NOTEOFF PROJECTION" : "PER-NOTE PROJECTION") : "QUEUE PROJECTION");
                 if (analysis.ProjectionState == AnalysisProjectionState.Pending)
-                    text.AppendLine("Status                " + (gatePending ? "Per-note gate" : "Queue") + " projection pending");
+                    text.AppendLine("Status                " + (outputPending ? "Output rate gate" :
+                        attackPending ? "Note start rate gate" :
+                        delayedPending ? "Delayed NoteOff" : gatePending ? "Per-note gate" : "Queue") + " projection pending");
                 else if (analysis.ProjectionState == AnalysisProjectionState.Cancelled)
                     text.AppendLine("Status                Workload only — projection cancelled");
                 else
                 {
-                    text.AppendLine("Status                Workload only — " + (gatePending ? "Per-note" : "queue") + " projection failed");
+                    text.AppendLine("Status                Workload only — " + (outputPending ? "Output rate gate" :
+                        attackPending ? "Note start rate gate" :
+                        delayedPending ? "Delayed NoteOff" : gatePending ? "Per-note" : "queue") + " projection failed");
                     if (!String.IsNullOrEmpty(analysis.ProjectionFailureReason))
                         text.AppendLine("Failure               " + analysis.ProjectionFailureReason);
                 }
@@ -1282,22 +1460,67 @@ namespace MidiBottleneck
             if (analysis.HasGateProjection)
             {
                 text.AppendLine();
-                text.AppendLine("PER-NOTE PROJECTION");
-                text.AppendLine("Gate interval         " + analysis.Configuration.ProcessingMicroseconds.ToString("N0", CultureInfo.CurrentCulture) + " µs");
+                bool delayed = analysis.Configuration.DelayedNoteOffEnabled;
+                bool attackLimit = analysis.Configuration.NoteAttackLimitEnabled;
+                bool outputLimit = analysis.Configuration.OutputRateLimitEnabled;
+                text.AppendLine(outputLimit ? "OUTPUT RATE GATE PROJECTION" :
+                    attackLimit ? "NOTE START RATE GATE PROJECTION" :
+                    delayed ? "DELAYED NOTEOFF PROJECTION" : "PER-NOTE PROJECTION");
+                if (outputLimit)
+                    text.AppendLine("Maximum output rate   " + (analysis.Configuration.EventsPerSecond == 0
+                        ? "Unlimited" : analysis.Configuration.EventsPerSecond.ToString("N0", CultureInfo.CurrentCulture) +
+                            " events/sec progressively paced"));
+                else if (attackLimit)
+                    text.AppendLine("Maximum note starts   " + (analysis.Configuration.EventsPerSecond == 0
+                        ? "Unlimited" : analysis.Configuration.EventsPerSecond.ToString("N0", CultureInfo.CurrentCulture) +
+                            " starts/sec progressively paced"));
+                else text.AppendLine((delayed ? "Minimum NoteOn       " : "Gate interval         ") +
+                    analysis.Configuration.ProcessingMicroseconds.ToString("N0", CultureInfo.CurrentCulture) + " µs");
+                if (delayed)
+                {
+                    long recovery = Math.Min(analysis.Configuration.ProcessingMicroseconds / 4, 40000);
+                    text.AppendLine("Recovery (derived)    " + recovery.ToString("N0", CultureInfo.CurrentCulture) + " µs");
+                }
                 text.AppendLine("Source events         " + analysis.TotalEvents.ToString("N0", CultureInfo.CurrentCulture));
                 text.AppendLine("Projected output      " + analysis.GateOutputEvents.ToString("N0", CultureInfo.CurrentCulture) + " MIDI messages");
+                long projectedGateDropped = outputLimit
+                    ? analysis.OutputRateRejectedAttacks + analysis.OutputRateSuppressedReleases +
+                        analysis.OutputRateRejectedOtherMessages
+                    : attackLimit
+                    ? analysis.MusicalLimitRejectedAttacks + analysis.MusicalLimitSuppressedReleases
+                    : analysis.GateFilteredNoteEvents;
+                text.AppendLine("Projected dropped     " + projectedGateDropped.ToString("N0", CultureInfo.CurrentCulture) +
+                    (outputLimit ? " source MIDI messages" : " source note messages"));
                 text.AppendLine("Note transitions      " + analysis.GateOutputNoteTransitions.ToString("N0", CultureInfo.CurrentCulture) +
-                    " (including required retrigger releases)");
+                    (delayed ? " (after inside-threshold coalescing)" : " (including required retrigger releases)"));
                 text.AppendLine("Other MIDI messages   " + analysis.GateOutputNonNoteEvents.ToString("N0", CultureInfo.CurrentCulture));
-                text.AppendLine("Gate-filtered notes   " + analysis.GateFilteredNoteEvents.ToString("N0", CultureInfo.CurrentCulture) +
-                    " source note messages");
-                text.AppendLine("Peak gate output      " + analysis.GatePeakEventsPerSecond.ToString("N1", CultureInfo.CurrentCulture) + " messages/sec");
+                if (outputLimit)
+                {
+                    text.AppendLine("Rejected attacks      " + analysis.OutputRateRejectedAttacks.ToString("N0", CultureInfo.CurrentCulture));
+                    text.AppendLine("Suppressed releases   " + analysis.OutputRateSuppressedReleases.ToString("N0", CultureInfo.CurrentCulture));
+                    text.AppendLine("Rejected other msgs   " + analysis.OutputRateRejectedOtherMessages.ToString("N0", CultureInfo.CurrentCulture));
+                    text.AppendLine("Required over target  " + analysis.OutputRateSafetySoftExcess.ToString("N0", CultureInfo.CurrentCulture) +
+                        " required messages sent over target");
+                }
+                else if (attackLimit)
+                {
+                    text.AppendLine("Rejected attacks      " + analysis.MusicalLimitRejectedAttacks.ToString("N0", CultureInfo.CurrentCulture));
+                    text.AppendLine("Suppressed releases   " + analysis.MusicalLimitSuppressedReleases.ToString("N0", CultureInfo.CurrentCulture));
+                }
+                else text.AppendLine((delayed ? "Coalesced note msgs   " : "Gate-filtered notes   ") +
+                    analysis.GateFilteredNoteEvents.ToString("N0", CultureInfo.CurrentCulture) + " source note messages");
+                text.AppendLine((delayed ? "Peak model output     " : "Peak gate output      ") +
+                    analysis.GatePeakEventsPerSecond.ToString("N1", CultureInfo.CurrentCulture) + " messages/sec");
                 text.AppendLine("Source end            " + FormatClock(song.DurationMicroseconds));
                 text.AppendLine("Projected last send   " + (analysis.GateOutputEvents == 0
                     ? "No MIDI messages" : FormatClock(analysis.GateOutputCompletionMicroseconds)));
                 text.AppendLine("Blue graph: source MIDI; amber graph: projected messages at gate emission times.");
-                text.AppendLine("This is a static source-file projection, not a queue-overflow or native-output prediction.");
-                text.AppendLine("It excludes driver delays, synth tails, live channel mutes, and forced overrides.");
+                text.AppendLine(outputLimit
+                    ? "This is the deterministic ideal nonblocking result. Live decisions use actual completed dispatch timing and may differ after unpredictable provider blocking."
+                    : "This is a static source-file projection, not a queue-overflow or native-output prediction.");
+                text.AppendLine(analysis.Configuration.OverrideProjection == null
+                    ? "It excludes driver delays, synth tails, live channel mutes, and forced overrides."
+                    : "It includes this window's forced-override snapshot, but excludes driver delays, synth tails, and live channel mutes.");
             }
             if (analysis.HasQueueProjection && analysis.Configuration != null)
             {
@@ -1307,6 +1530,9 @@ namespace MidiBottleneck
                 bool virtualForward = !configuration.SimulateSlowdown && configuration.QueueLengthLimitEnabled &&
                     configuration.ApplyQueueLimitWithoutSlowdown;
                 text.AppendLine("Simulate slowdown     " + (configuration.SimulateSlowdown ? "On" : "Off (accepted output is immediate)"));
+                text.AppendLine("Output-paced timeline " + (configuration.OutputPacedTimeline
+                    ? "On — source time resumes after deterministic simulated acceptance; native-provider blocking is not predicted"
+                    : "Off — source time follows the file independently of output service"));
                 if (virtualForward)
                     text.AppendLine("Forward queue limit   On — modeled pressure can reject new MIDI, but never delays or retracts sent MIDI");
                 if (configuration.ServiceDurationMode == ServiceDurationMode.MidiBitrate)
@@ -1413,6 +1639,18 @@ namespace MidiBottleneck
             TimeSpan value = TimeSpan.FromTicks(Math.Max(0, microseconds) * 10);
             return ((int)value.TotalMinutes).ToString("00", CultureInfo.InvariantCulture) + ":" +
                 value.Seconds.ToString("00", CultureInfo.InvariantCulture) + "." + value.Milliseconds.ToString("000", CultureInfo.InvariantCulture);
+        }
+
+        private static string FormatIntervalBoundary(long microseconds)
+        {
+            microseconds = Math.Max(0, microseconds);
+            long minutes = microseconds / 60000000L;
+            long remainder = microseconds % 60000000L;
+            long seconds = remainder / 1000000L;
+            long fraction = remainder % 1000000L;
+            return minutes.ToString("00", CultureInfo.InvariantCulture) + ":" +
+                seconds.ToString("00", CultureInfo.InvariantCulture) + "." +
+                fraction.ToString("000000", CultureInfo.InvariantCulture);
         }
 
         protected override void Dispose(bool disposing)

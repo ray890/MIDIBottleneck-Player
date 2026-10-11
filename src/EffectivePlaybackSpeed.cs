@@ -141,7 +141,8 @@ namespace MidiBottleneck
     {
         private sealed class Sample { public long Count; public long TimeMicroseconds; }
         private readonly Queue<Sample> _samples = new Queue<Sample>();
-        private const long WindowMicroseconds = 250000;
+        // Match the rate gates' user-facing rolling one-second contract.
+        private const long WindowMicroseconds = 1000000;
         private double? _maximumObserved;
 
         public void Reset()

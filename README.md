@@ -11,7 +11,7 @@ MIDIBottleneck Player is a Windows MIDI player and deterministic workload simula
 ## Key features
 
 - WinMM, compatible KDMAPI, and silent **None** output choices.
-- Drag-and-drop loading for `.mid` and `.midi` files.
+- Open or drag-and-drop loading for `.mid`, `.midi`, and bounded RIFF/RMID `.rmi` files.
 - Cancellable background loading with compact, segmented storage for very large event counts.
 - A memory preflight and warning for unusually large files.
 - Optional processing-time, direct events-per-second, MIDI-bitrate, finite-queue, and overflow models, including forward-only dropping without delayed output.
@@ -41,7 +41,7 @@ Windows 7 SP1 is untested. Windows XP and cross-platform support are longer-term
 1. Open the [latest release](https://github.com/ray890/MIDIBottleneck-Player/releases/latest).
 2. Download `MIDIBottleneck-Player-v<version>-x64.exe` for a typical modern system, or the x86 executable when a 32-bit MIDI environment requires it.
 3. Run the downloaded executable. No extraction or adjacent configuration file is required.
-4. Choose an output, then open or drag one `.mid` or `.midi` file onto the window.
+4. Choose an output, then open or drag one `.mid`, `.midi`, or `.rmi` file onto the window.
 5. Leave **Rate model** at **None** and **Queue length limit** off for ordinary uncapped playback. Choose an ordinary rate model to simulate slower output, or choose **Per-note interval gate** to limit pitch changes. Optional title-bar menu choices can apply a forward-only event-count limit or interpret Queue limit as maximum waiting time; those two modes are intentionally mutually exclusive.
 
 The window menu also enables **Chase MIDI state on Play/Seek** by default. Starting in the middle restores ordinary channel state before later notes without replaying earlier notes.

@@ -25,9 +25,6 @@ namespace MidiBottleneck
             new string[] { "Max lag:" },
             new string[] { "Current lag:" }
         };
-        private static readonly string[] PerNoteCompactEventCaptions =
-            new string[] { "Sent/excluded:", "Events:" };
-
         private readonly string[] _values = new string[8];
         private Font _captionFont;
         private Font _valueFont;
@@ -205,34 +202,50 @@ namespace MidiBottleneck
         {
             int gap = _compact ? 2 : 6;
             TextFormatFlags vertical = TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding;
-            string captionText = _perNoteIntervalGate && index == 4
-                ? (_compact ? "Sent/excluded:" : "Events sent / excluded:")
-                : (_compact ? CompactCaptionChoices[index][0] : Captions[index]);
+            string fullCaption = Captions[index];
             int measuredValue = MeasureStatisticValue(graphics, _values[index], vertical);
             int innerWidth = Math.Max(1, width - 4);
-            int minimumCaption = _compact ? 16 : 60;
-            int valueWidth = Math.Min(measuredValue, Math.Max(24, innerWidth - minimumCaption - gap));
+            // Readouts are the data.  Give a complete value every available
+            // pixel before allowing its caption to consume space.  A caption
+            // may shorten progressively or disappear; the value is clipped
+            // only when it physically cannot fit in the entire cell.
+            int valueWidth = Math.Min(measuredValue, innerWidth);
             _lastValueWidths[index] = valueWidth;
-            int captionWidth = Math.Max(1, innerWidth - valueWidth - gap);
-            if (_compact)
+            int captionAllowance = Math.Max(0, innerWidth - valueWidth);
+            string[] compactChoices = CompactCaptionChoices[index];
+            string[] choices;
+            if (_compact) choices = compactChoices;
+            else
             {
-                string[] choices = _perNoteIntervalGate && index == 4
-                    ? PerNoteCompactEventCaptions : CompactCaptionChoices[index];
-                captionText = choices[choices.Length - 1];
-                for (int choice = 0; choice < choices.Length; choice++)
+                choices = new string[compactChoices.Length + 1];
+                choices[0] = fullCaption;
+                Array.Copy(compactChoices, 0, choices, 1, compactChoices.Length);
+            }
+            string captionText = String.Empty;
+            int captionWidth = 0;
+            for (int choice = 0; choice < choices.Length; choice++)
+            {
+                int measured = TextRenderer.MeasureText(graphics, choices[choice], _captionFont,
+                    Size.Empty, vertical).Width;
+                if (measured + gap <= captionAllowance)
                 {
-                    int measured = TextRenderer.MeasureText(graphics, choices[choice], _captionFont, Size.Empty, vertical).Width;
-                    if (measured <= captionWidth) { captionText = choices[choice]; break; }
+                    captionText = choices[choice];
+                    captionWidth = measured;
+                    break;
                 }
             }
+            int realizedGap = captionText.Length == 0 ? 0 : gap;
             _selectedCaptions[index] = captionText;
-            int measuredCaption = TextRenderer.MeasureText(graphics, captionText, _captionFont, Size.Empty, vertical).Width;
             Rectangle caption = new Rectangle(left + 2, row * rowHeight, captionWidth, rowHeight);
-            Rectangle value = new Rectangle(caption.Right + gap, row * rowHeight, valueWidth, rowHeight);
-            _captionTruncated[index] = measuredCaption > caption.Width;
+            Rectangle value = new Rectangle(left + 2 + innerWidth - valueWidth,
+                row * rowHeight, valueWidth, rowHeight);
+            _captionTruncated[index] = !String.Equals(captionText, fullCaption, StringComparison.Ordinal);
             _valueTruncated[index] = measuredValue > value.Width;
-            TextRenderer.DrawText(graphics, captionText, _captionFont, caption, ForeColor,
-                vertical | TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
+            if (captionText.Length != 0)
+                TextRenderer.DrawText(graphics, captionText, _captionFont,
+                    new Rectangle(caption.Left, caption.Top,
+                        Math.Min(caption.Width, Math.Max(0, value.Left - realizedGap - caption.Left)),
+                        caption.Height), ForeColor, vertical | TextFormatFlags.Left);
             DrawStatisticValue(graphics, _values[index], value, vertical, measuredValue);
         }
 
@@ -269,7 +282,7 @@ namespace MidiBottleneck
             if (!_compact || text.IndexOf(CompactSlash, StringComparison.Ordinal) < 0 || measuredWidth > bounds.Width)
             {
                 TextRenderer.DrawText(graphics, text, _valueFont, bounds, ForeColor,
-                    flags | TextFormatFlags.Right | TextFormatFlags.EndEllipsis);
+                    flags | TextFormatFlags.Right);
                 return;
             }
             int x = bounds.Right - measuredWidth;
@@ -333,15 +346,13 @@ namespace MidiBottleneck
                 cell == 2 ? (_perNoteIntervalGate
                     ? "One frame is one configured gate interval. Each of the 128 MIDI pitches can make at most one Note On or Note Off transition in a frame, while different pitches can transition together. Other MIDI messages are not limited by this figure, so it is not the player's total event-throughput ceiling."
                     : "With immediate simulated service, this is the highest observed 250 ms rolling dispatch rate since statistics were reset—not a theoretical hardware or scheduler capacity. Nonzero service models show their theoretical configured maximum.") :
-                cell == 4 ? "Sent means MIDI messages successfully dispatched. Dropped means queue overflow; gate-filtered means note messages combined or excluded by the per-note gate. These are separate counts. With None, sent means logically consumed; no physical MIDI data leaves the application." :
+                cell == 4 ? "Sent means MIDI messages successfully dispatched. Dropped is one total covering queue overflow and note or rate-gate exclusions; detailed reason counters remain available in diagnostics. Forced Override suppression is not added again. With None, sent means logically consumed; no physical MIDI data leaves the application." :
                 cell == 6 || cell == 7 ? (_perNoteIntervalGate
                     ? "Lag is how late the most recently sent MIDI event was compared with its original time in the file. In Per-note mode it includes waiting for a gate frame, scheduler delay, and a blocking output call. Different transitions in one frame can come from different source times, so current lag may vary. It cannot measure synthesizer rendering or audio-device latency."
                     : "Lag is lateness through MIDI dispatch, including scheduler delay or a blocking output call. It cannot measure synthesizer rendering or audio-device latency.") : String.Empty;
             if (cell >= 0 && (_captionTruncated[cell] || _valueTruncated[cell]))
             {
-                string full = (_perNoteIntervalGate && cell == 4
-                    ? "Events sent / excluded (gate-filtered and queue-dropped separately):"
-                    : Captions[cell]) + " " + _values[cell];
+                string full = Captions[cell] + " " + _values[cell];
                 text = String.IsNullOrEmpty(text) ? full : full + Environment.NewLine + text;
             }
             _toolTip.SetToolTip(this, text);

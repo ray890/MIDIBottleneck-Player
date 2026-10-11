@@ -1,8 +1,74 @@
 using System;
+using System.Text;
 using System.Threading;
 
 namespace MidiBottleneck
 {
+    internal sealed class AnalysisOverrideSnapshot
+    {
+        private readonly int[] _values;
+        private readonly string _signature;
+        private readonly int _forcedMessageCount;
+
+        internal AnalysisOverrideSnapshot(int[] values)
+        {
+            if (values == null || values.Length != 16 * ChannelOverrideState.AttributeCount)
+                throw new ArgumentException("A complete 16-channel override snapshot is required.", "values");
+            _values = (int[])values.Clone();
+            StringBuilder signature = new StringBuilder();
+            int count = 0;
+            for (int channel = 0; channel < 16; channel++)
+            {
+                for (int attribute = 0; attribute < ChannelOverrideState.AttributeCount; attribute++)
+                {
+                    int value = _values[channel * ChannelOverrideState.AttributeCount + attribute];
+                    if (value == ChannelOverrideState.AutoValue) continue;
+                    if (signature.Length != 0) signature.Append(';');
+                    signature.Append(channel).Append('.').Append(attribute).Append('=').Append(value);
+                    count++;
+                }
+            }
+            _signature = signature.Length == 0 ? "none" : signature.ToString();
+            _forcedMessageCount = count;
+        }
+
+        internal string Signature { get { return _signature; } }
+        internal int ForcedMessageCount { get { return _forcedMessageCount; } }
+        internal bool AnyOverrides { get { return _forcedMessageCount != 0; } }
+
+        internal int GetValue(int channel, ChannelAttribute attribute)
+        {
+            if (channel < 0 || channel >= 16) throw new ArgumentOutOfRangeException("channel");
+            return _values[channel * ChannelOverrideState.AttributeCount + (int)attribute];
+        }
+
+        internal bool ShouldSuppress(MidiEventView midiEvent)
+        {
+            if (!AnyOverrides || !midiEvent.IsValid || midiEvent.Channel < 0 || midiEvent.Channel >= 16)
+                return false;
+            if ((midiEvent.Status & 0xF0) == 0xB0 && midiEvent.DataLength > 2 &&
+                midiEvent.GetDataByte(1) == 121)
+            {
+                return ConflictsWithReset(midiEvent.Channel, ChannelAttribute.Expression, 127) ||
+                    ConflictsWithReset(midiEvent.Channel, ChannelAttribute.Pan, 64) ||
+                    ConflictsWithReset(midiEvent.Channel, ChannelAttribute.Sustain, 0) ||
+                    ConflictsWithReset(midiEvent.Channel, ChannelAttribute.PitchBend, 0) ||
+                    ConflictsWithReset(midiEvent.Channel, ChannelAttribute.Aftertouch, 0);
+            }
+            ChannelAttribute attribute;
+            int sourceValue;
+            if (!ChannelOverrideState.TryClassify(midiEvent, out attribute, out sourceValue)) return false;
+            int forcedValue = GetValue(midiEvent.Channel, attribute);
+            return forcedValue != ChannelOverrideState.AutoValue && forcedValue != sourceValue;
+        }
+
+        private bool ConflictsWithReset(int channel, ChannelAttribute attribute, int resetValue)
+        {
+            int value = GetValue(channel, attribute);
+            return value != ChannelOverrideState.AutoValue && value != resetValue;
+        }
+    }
+
     internal enum ChannelAttribute
     {
         BankMsb = 0,
@@ -35,6 +101,18 @@ namespace MidiBottleneck
 
         internal bool AnyOverrides { get { return Volatile.Read(ref _anyOverrides) != 0; } }
         internal int FilterGeneration { get { return Volatile.Read(ref _filterGeneration); } }
+        internal bool HasPendingOutput
+        {
+            get
+            {
+                lock (_changeSync)
+                {
+                    for (int channel = 0; channel < _pendingMasks.Length; channel++)
+                        if (_pendingMasks[channel] != 0) return true;
+                    return false;
+                }
+            }
+        }
 
         internal int GetValue(int channel, ChannelAttribute attribute)
         {

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 
 namespace MidiBottleneck
 {
@@ -210,20 +211,54 @@ namespace MidiBottleneck
         private CompactMidiEventStore _compact;
         private MidiEvent _legacy;
         private int _eventIndex;
+        private int _logicalEventIndex;
+        private bool _hasLogicalEventIndex;
+        private byte _routedChannelPlusOne;
 
         public long AbsoluteTick { [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)] get { return _legacy != null ? _legacy.AbsoluteTick : _compact.GetAbsoluteTick(_eventIndex); } }
         public long IntendedMicroseconds { [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)] get { return _legacy != null ? _legacy.IntendedMicroseconds : _compact.GetIntendedMicroseconds(_eventIndex); } }
         public int Track { [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)] get { return _legacy != null ? _legacy.Track : _compact.GetTrack(_eventIndex); } }
         public MidiEventKind Kind { [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)] get { return _legacy != null ? _legacy.Kind : _compact.GetKind(_eventIndex); } }
-        public int Channel { [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)] get { return _legacy != null ? _legacy.Channel : _compact.GetChannel(_eventIndex); } }
-        public byte Status { [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)] get { return _legacy != null ? _legacy.Status : _compact.GetStatus(_eventIndex); } }
-        public int EventIndex { [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)] get { return _eventIndex; } }
-        public MidiEventData Data { [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)] get { return _legacy != null ? _legacy.Data : _compact.GetData(_eventIndex); } }
+        public int Channel { [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)] get { return _routedChannelPlusOne != 0 ? _routedChannelPlusOne - 1 : _legacy != null ? _legacy.Channel : _compact.GetChannel(_eventIndex); } }
+        public byte Status { [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)] get { byte status = _legacy != null ? _legacy.Status : _compact.GetStatus(_eventIndex); return _routedChannelPlusOne == 0 ? status : (byte)((status & 0xF0) | (_routedChannelPlusOne - 1)); } }
+        public int EventIndex { [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)] get { return _hasLogicalEventIndex ? _logicalEventIndex : _eventIndex; } }
+        internal int SourceEventIndex { [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)] get { return _eventIndex; } }
+        public MidiEventData Data
+        {
+            [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                MidiEventData source = _legacy != null ? _legacy.Data : _compact.GetData(_eventIndex);
+                if (_routedChannelPlusOne == 0) return source;
+                int length = source.Length;
+                return MidiEventData.FromShort(Status, length > 1 ? source[1] : (byte)0,
+                    length > 2 ? source[2] : (byte)0, length);
+            }
+        }
         internal bool IsValid { [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)] get { return _legacy != null || _compact != null; } }
         internal int DataLength { [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)] get { return _legacy != null ? _legacy.DataLength : _compact.GetDataLength(_eventIndex); } }
-        internal uint PackedShortMessage { [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)] get { return _legacy != null ? _legacy.PackedShortMessage : _compact.GetPackedShortMessage(_eventIndex); } }
+        internal uint PackedShortMessage { [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)] get { uint packed = _legacy != null ? _legacy.PackedShortMessage : _compact.GetPackedShortMessage(_eventIndex); return _routedChannelPlusOne == 0 ? packed : (packed & 0xFFFFFF00U) | Status; } }
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        internal byte GetDataByte(int index) { return _legacy != null ? _legacy.GetDataByte(index) : _compact.GetDataByte(_eventIndex, index); }
+        internal byte GetDataByte(int index) { return index == 0 && _routedChannelPlusOne != 0 ? Status : _legacy != null ? _legacy.GetDataByte(index) : _compact.GetDataByte(_eventIndex, index); }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal MidiEventView WithOutputChannel(int channel)
+        {
+            if (Channel < 0) return this;
+            if (channel < 0 || channel > 15) throw new ArgumentOutOfRangeException("channel");
+            MidiEventView result = this;
+            result._routedChannelPlusOne = (byte)(channel + 1);
+            return result;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        internal MidiEventView WithLogicalEventIndex(int eventIndex)
+        {
+            MidiEventView result = this;
+            result._logicalEventIndex = eventIndex;
+            result._hasLogicalEventIndex = true;
+            return result;
+        }
 
         internal static MidiEventView FromEvent(MidiEvent midiEvent, int eventIndex)
         {
@@ -287,6 +322,56 @@ namespace MidiBottleneck
         }
     }
 
+    internal sealed class MidiTrackMetadata
+    {
+        internal const int MaximumStoredBytes = 512;
+        internal const int MaximumDisplayCharacters = 128;
+        internal readonly string TrackName;
+        internal readonly string InstrumentName;
+        internal readonly bool TrackNameTruncated;
+        internal readonly bool InstrumentNameTruncated;
+
+        internal MidiTrackMetadata(string trackName, bool trackNameTruncated,
+            string instrumentName, bool instrumentNameTruncated)
+        {
+            TrackName = trackName ?? String.Empty;
+            TrackNameTruncated = trackNameTruncated;
+            InstrumentName = instrumentName ?? String.Empty;
+            InstrumentNameTruncated = instrumentNameTruncated;
+        }
+
+        internal static string DecodeDisplayText(byte[] bytes, int count, out bool truncated)
+        {
+            if (bytes == null) throw new ArgumentNullException("bytes");
+            count = Math.Max(0, Math.Min(count, bytes.Length));
+            truncated = count < bytes.Length;
+            string decoded;
+            try { decoded = new UTF8Encoding(false, true).GetString(bytes, 0, count); }
+            catch (DecoderFallbackException)
+            {
+                char[] fallback = new char[count];
+                for (int index = 0; index < count; index++) fallback[index] = (char)bytes[index];
+                decoded = new string(fallback);
+            }
+            StringBuilder clean = new StringBuilder(Math.Min(decoded.Length, MaximumDisplayCharacters));
+            bool pendingSpace = false;
+            for (int index = 0; index < decoded.Length; index++)
+            {
+                char value = decoded[index];
+                if (Char.IsControl(value) || Char.IsWhiteSpace(value))
+                {
+                    if (clean.Length != 0) pendingSpace = true;
+                    continue;
+                }
+                if (pendingSpace && clean.Length < MaximumDisplayCharacters) clean.Append(' ');
+                pendingSpace = false;
+                if (clean.Length == MaximumDisplayCharacters) { truncated = true; break; }
+                clean.Append(value);
+            }
+            return clean.ToString();
+        }
+    }
+
     internal sealed class MidiSong
     {
         public string FilePath;
@@ -295,8 +380,18 @@ namespace MidiBottleneck
         public int TrackCount;
         public int TicksPerQuarterNote;
         public long NoteCount;
+        public long NonstandardRunningStatusRepairCount;
         public IList<MidiEvent> Events;
         public long DurationMicroseconds;
+        public MidiTrackMetadata[] TrackMetadata;
+
+        internal MidiTrackMetadata MetadataForTrack(int track)
+        {
+            if (TrackMetadata == null || track < 0 || track >= TrackMetadata.Length ||
+                TrackMetadata[track] == null)
+                return new MidiTrackMetadata(String.Empty, false, String.Empty, false);
+            return TrackMetadata[track];
+        }
 
         private IMidiEventStore _eventStore;
         private IList<MidiEvent> _eventCompatibility;
@@ -389,7 +484,10 @@ namespace MidiBottleneck
     {
         Queue,
         Drop,
-        PerNoteIntervalGate
+        PerNoteIntervalGate,
+        DelayedNoteOff,
+        NoteAttackLimit,
+        OutputRateLimit
     }
 
     internal enum OverflowPolicy
@@ -398,7 +496,8 @@ namespace MidiBottleneck
         DropOldest,
         ClearBufferAndCatchUp,
         DropIncomingCompleteNotes,
-        DropOldestCompleteNote
+        DropOldestCompleteNote,
+        DropBackgroundNotes
     }
 
     internal enum PlaybackState
@@ -423,6 +522,13 @@ namespace MidiBottleneck
         public long ProcessedEvents;
         public long DroppedEvents;
         public long GateFilteredEvents;
+        public long MusicalLimitRejectedAttacks;
+        public long MusicalLimitSuppressedReleases;
+        public long OutputRateRejectedAttacks;
+        public long OutputRateSuppressedReleases;
+        public long OutputRateRejectedOtherMessages;
+        public long OutputRateSafetySoftExcess;
+        public long OutputRateSafetyBypassMessages;
         public bool VirtualQueueActive;
         public long VirtualQueueLength;
         public long VirtualOutstandingEvents;

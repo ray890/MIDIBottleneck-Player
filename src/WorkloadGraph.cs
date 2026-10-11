@@ -69,6 +69,7 @@ namespace MidiBottleneck
         private PlaybackOverlayData _overlayData;
         private PlaybackState _playbackState;
         private bool _playbackStatisticsVisible;
+        private bool _showEventCounts;
         private int _staticLayerBuildCount;
         private readonly Timer _dynamicTimer;
         private Point _pendingPointer;
@@ -152,7 +153,8 @@ namespace MidiBottleneck
         internal long? HoverTimeMicroseconds { get { return _hoverTime; } }
         internal long? InspectedTimeMicroseconds { get { return _hoverTime ?? _pinnedTime; } }
         internal bool UsesByteRate { get { return _analysis != null && _analysis.Configuration != null &&
-            !_analysis.Configuration.PerNoteIntervalGateEnabled &&
+            !_analysis.Configuration.PerNoteIntervalGateEnabled && !_analysis.Configuration.DelayedNoteOffEnabled &&
+            !_analysis.Configuration.NoteAttackLimitEnabled && !_analysis.Configuration.OutputRateLimitEnabled &&
             _analysis.Configuration.ServiceDurationMode == ServiceDurationMode.MidiBitrate; } }
         internal long ViewStartMicroseconds { get { return _viewStart; } }
         internal long ViewEndMicroseconds { get { return _viewEnd; } }
@@ -161,6 +163,30 @@ namespace MidiBottleneck
         {
             get { return _playbackStatisticsVisible; }
             set { if (_playbackStatisticsVisible != value) { _playbackStatisticsVisible = value; Invalidate(); } }
+        }
+        internal bool ShowEventCounts
+        {
+            get { return _showEventCounts; }
+            set
+            {
+                if (_showEventCounts == value) return;
+                _showEventCounts = value;
+                InvalidateStaticLayer();
+            }
+        }
+        internal string EventPanelTitleForTesting
+        {
+            get { return UsesByteRate ? "MIDI bytes/sec" : EventPanelTitle(); }
+        }
+        internal double EventPanelPeakForTesting
+        {
+            get
+            {
+                if (_analysis == null) return 0;
+                return _showEventCounts && !UsesByteRate ? PeakEventCount() :
+                    UsesByteRate ? _analysis.PeakBytesPerSecond :
+                    Math.Max(_analysis.PeakEventsPerSecond, _analysis.GatePeakEventsPerSecond);
+            }
         }
         internal bool PlaybackStatisticsDrawn
         {
@@ -487,13 +513,16 @@ namespace MidiBottleneck
                 Rectangle area = GraphArea;
                 TextRenderer.DrawText(graphics, scope, _labelFont, new Rectangle(area.Left, ScaleMetric(5), area.Width, ScaleMetric(20)), Color.Gainsboro,
                     TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
-                string title = byteModel ? "MIDI bytes/sec" : "Events/sec";
-                string unit = byteModel ? "bytes/sec" : "events/sec";
-                double peak = byteModel ? _analysis.PeakBytesPerSecond :
-                    Math.Max(_analysis.PeakEventsPerSecond, _analysis.GatePeakEventsPerSecond);
+                bool eventCounts = _showEventCounts && !byteModel;
+                string title = byteModel ? "MIDI bytes/sec" : EventPanelTitle();
+                string unit = byteModel ? "bytes/sec" : eventCounts ? "events/interval" : "events/sec";
+                double peak = byteModel ? _analysis.PeakBytesPerSecond : eventCounts
+                    ? PeakEventCount()
+                    : Math.Max(_analysis.PeakEventsPerSecond, _analysis.GatePeakEventsPerSecond);
                 double capacity = _analysis.HasQueueProjection
                     ? (byteModel ? _analysis.ByteServiceCapacityPerSecond : _analysis.EventServiceCapacityPerSecond) : 0;
-                DrawPanel(graphics, area, byteModel, title, unit, peak, capacity);
+                if (eventCounts) capacity *= _analysis.BucketMicroseconds / 1000000.0;
+                DrawPanel(graphics, area, byteModel, eventCounts, title, unit, peak, capacity);
                 DrawTimelineAxis(graphics, area);
                 DrawMarkerLanes(graphics, area);
             }
@@ -529,7 +558,28 @@ namespace MidiBottleneck
             last = (int)Math.Max(first + 1, Math.Min(_analysis.Buckets.Length, end / Math.Max(1, _analysis.BucketMicroseconds) + 1));
         }
 
-        private void DrawPanel(Graphics graphics, Rectangle area, bool bytes, string title, string unit, double peak, double capacity)
+        private string EventPanelTitle()
+        {
+            return _showEventCounts && _analysis != null
+                ? "Events per interval — " + FormatResolution(_analysis.BucketMicroseconds)
+                : "Events/sec";
+        }
+
+        private double PeakEventCount()
+        {
+            if (_analysis == null || _analysis.Buckets == null) return 0;
+            long peak = 0;
+            for (int i = 0; i < _analysis.Buckets.Length; i++)
+            {
+                peak = Math.Max(peak, _analysis.Buckets[i].EventCount);
+                if (_analysis.HasGateProjection && i < _analysis.GateOutputBuckets.Length)
+                    peak = Math.Max(peak, _analysis.GateOutputBuckets[i]);
+            }
+            return peak;
+        }
+
+        private void DrawPanel(Graphics graphics, Rectangle area, bool bytes, bool eventCounts,
+            string title, string unit, double peak, double capacity)
         {
             using (Pen grid = new Pen(Color.FromArgb(65, 75, 86)))
             using (Pen plot = new Pen(bytes ? Color.FromArgb(255, 174, 66) : Color.FromArgb(63, 190, 255), 1.5F))
@@ -552,10 +602,13 @@ namespace MidiBottleneck
                     bool predictedOverflow = false;
                     for (int bucket = first; bucket < last; bucket++)
                     {
-                        double current = bytes ? _analysis.Buckets[bucket].ByteCount / bucketSeconds : _analysis.Buckets[bucket].EventCount / bucketSeconds;
+                        double current = bytes ? _analysis.Buckets[bucket].ByteCount / bucketSeconds :
+                            eventCounts ? _analysis.Buckets[bucket].EventCount :
+                            _analysis.Buckets[bucket].EventCount / bucketSeconds;
                         value = Math.Max(value, current);
                         if (_analysis.HasGateProjection)
-                            gateValue = Math.Max(gateValue, _analysis.GateOutputBuckets[bucket] / bucketSeconds);
+                            gateValue = Math.Max(gateValue, eventCounts ? _analysis.GateOutputBuckets[bucket] :
+                                _analysis.GateOutputBuckets[bucket] / bucketSeconds);
                         predictedOverflow |= _analysis.HasQueueProjection &&
                             _analysis.Buckets[bucket].PredictedDroppedEvents > 0;
                     }
@@ -588,7 +641,8 @@ namespace MidiBottleneck
             if (area.Width < ScaleMetric(430))
             {
                 scale = "peak " + peak.ToString("N0");
-                if (capacity > 0) scale += "  •  max " + capacity.ToString("N0") + "/s";
+                if (capacity > 0) scale += "  •  max " + capacity.ToString("N0") +
+                    (eventCounts ? "/interval" : "/s");
             }
             else
             {
@@ -753,11 +807,17 @@ namespace MidiBottleneck
                     DrawLegendLine(graphics, area, next + 34,
                         _analysis.ProjectionState == AnalysisProjectionState.Pending
                             ? "Workload only — " + (_analysis.Configuration != null &&
-                                _analysis.Configuration.PerNoteIntervalGateEnabled ? "gate" : "queue") + " projection pending"
+                                (_analysis.Configuration.PerNoteIntervalGateEnabled ||
+                                _analysis.Configuration.DelayedNoteOffEnabled ||
+                                _analysis.Configuration.NoteAttackLimitEnabled ||
+                                _analysis.Configuration.OutputRateLimitEnabled) ? "gate" : "queue") + " projection pending"
                             : _analysis.ProjectionState == AnalysisProjectionState.Cancelled
                                 ? "Workload only — projection cancelled"
                                 : "Workload only — " + (_analysis.Configuration != null &&
-                                    _analysis.Configuration.PerNoteIntervalGateEnabled ? "gate" : "queue") + " projection failed");
+                                    (_analysis.Configuration.PerNoteIntervalGateEnabled ||
+                                    _analysis.Configuration.DelayedNoteOffEnabled ||
+                                    _analysis.Configuration.NoteAttackLimitEnabled ||
+                                    _analysis.Configuration.OutputRateLimitEnabled) ? "gate" : "queue") + " projection failed");
                 return;
             }
 
@@ -774,11 +834,17 @@ namespace MidiBottleneck
                 DrawLegendLine(graphics, area, finite ? 98 : 81,
                     _analysis.ProjectionState == AnalysisProjectionState.Pending
                         ? "Workload only — " + (_analysis.Configuration != null &&
-                            _analysis.Configuration.PerNoteIntervalGateEnabled ? "gate" : "queue") + " projection pending"
+                            (_analysis.Configuration.PerNoteIntervalGateEnabled ||
+                            _analysis.Configuration.DelayedNoteOffEnabled ||
+                            _analysis.Configuration.NoteAttackLimitEnabled ||
+                            _analysis.Configuration.OutputRateLimitEnabled) ? "gate" : "queue") + " projection pending"
                         : _analysis.ProjectionState == AnalysisProjectionState.Cancelled
                             ? "Workload only — projection cancelled"
                             : "Workload only — " + (_analysis.Configuration != null &&
-                                _analysis.Configuration.PerNoteIntervalGateEnabled ? "gate" : "queue") + " projection failed");
+                                (_analysis.Configuration.PerNoteIntervalGateEnabled ||
+                                _analysis.Configuration.DelayedNoteOffEnabled ||
+                                _analysis.Configuration.NoteAttackLimitEnabled ||
+                                _analysis.Configuration.OutputRateLimitEnabled) ? "gate" : "queue") + " projection failed");
         }
 
         private void DrawLegendLine(Graphics graphics, Rectangle area, int offset, string text)
@@ -803,10 +869,23 @@ namespace MidiBottleneck
                 using (Pen hover = new Pen(Color.FromArgb(230, 245, 215, 100), 1F)) graphics.DrawLine(hover, x, area.Top, x, area.Bottom);
             }
             WorkloadBucket bucket = BucketAt(inspected.Value);
+            int bucketIndex = (int)Math.Max(0, Math.Min(_analysis.Buckets.Length - 1,
+                inspected.Value / Math.Max(1, _analysis.BucketMicroseconds)));
+            long start = bucketIndex * _analysis.BucketMicroseconds;
+            long end = Math.Min(_analysis.DurationMicroseconds, start + _analysis.BucketMicroseconds);
             double seconds = _analysis.BucketMicroseconds / 1000000.0;
             double value = bucket == null ? 0 : (bytes ? bucket.ByteCount : bucket.EventCount) / seconds;
-            string tip = FormatClockDetailed(inspected.Value) + "   " + value.ToString("N1") + (bytes ? " bytes/sec" : " events/sec");
-            int tipWidth = ScaleMetric(210);
+            string tip;
+            if (_showEventCounts && !bytes)
+            {
+                int count = bucket == null ? 0 : bucket.EventCount;
+                tip = count.ToString("N0") + " events   " + FormatIntervalBoundary(start) + "–" +
+                    FormatIntervalBoundary(end);
+            }
+            else
+                tip = FormatClockDetailed(inspected.Value) + "   " + value.ToString("N1") +
+                    (bytes ? " bytes/sec" : " events/sec");
+            int tipWidth = ScaleMetric(_showEventCounts && !bytes ? 350 : 210);
             int tipHeight = ScaleMetric(20);
             int tipX = Math.Max(area.Left, Math.Min(area.Right - tipWidth - ScaleMetric(5), x + ScaleMetric(7)));
             int tipY = area.Top + ScaleMetric(5);
@@ -943,6 +1022,16 @@ namespace MidiBottleneck
         {
             TimeSpan value = TimeSpan.FromTicks(Math.Max(0, microseconds) * 10);
             return ((int)value.TotalMinutes).ToString("00") + ":" + value.Seconds.ToString("00") + "." + value.Milliseconds.ToString("000");
+        }
+
+        internal static string FormatIntervalBoundary(long microseconds)
+        {
+            microseconds = Math.Max(0, microseconds);
+            long minutes = microseconds / 60000000L;
+            long remainder = microseconds % 60000000L;
+            long seconds = remainder / 1000000L;
+            long fraction = remainder % 1000000L;
+            return minutes.ToString("00") + ":" + seconds.ToString("00") + "." + fraction.ToString("000000");
         }
 
         protected override void Dispose(bool disposing)

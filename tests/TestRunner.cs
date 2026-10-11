@@ -24,6 +24,9 @@ namespace MidiBottleneck.Tests
         [DllImport("user32.dll")]
         private static extern int GetMenuItemCount(IntPtr menu);
 
+        [DllImport("user32.dll")]
+        private static extern uint GetMenuItemID(IntPtr menu, int position);
+
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
         private static extern int GetMenuString(IntPtr menu, uint identifier,
             System.Text.StringBuilder text, int capacity, uint flags);
@@ -34,8 +37,48 @@ namespace MidiBottleneck.Tests
         [STAThread]
         private static int Main(string[] arguments)
         {
+            bool fixture = arguments.Length == 1 &&
+                (arguments[0] == "--native-window-monitor-fixture" ||
+                 arguments[0] == "--native-process-monitor-fixture" ||
+                 arguments[0] == "--native-process-monitor-helper");
+            bool legacyManualShutdownGroup = arguments.Length == 2 &&
+                arguments[0] == "--test-shutdown-group";
+            if (fixture || legacyManualShutdownGroup) return RunCore(arguments);
+            return RunCoreInsideApplicationMessageLoop(arguments);
+        }
+
+        private static int RunCore(string[] arguments)
+        {
             try
             {
+                if (arguments.Length == 1 && arguments[0] == "--native-window-monitor-fixture")
+                {
+                    RunNativeWindowMonitorFixture();
+                    Console.WriteLine("PASS: native-window monitor fixture");
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--native-process-monitor-fixture")
+                {
+                    RunNativeProcessMonitorFixture();
+                    Console.WriteLine("PASS: native-process monitor fixture");
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--native-process-monitor-helper")
+                {
+                    Thread.Sleep(1500);
+                    Console.WriteLine("PASS: native-process monitor helper");
+                    return 0;
+                }
+                if ((arguments.Length == 2 || arguments.Length == 3) &&
+                    arguments[0] == "--test-shutdown-group")
+                {
+                    bool applicationRun = arguments.Length == 3 &&
+                        arguments[2] == "--application-run";
+                    if (arguments.Length == 3 && !applicationRun)
+                        throw new ArgumentException("The optional shutdown-group mode must be --application-run.");
+                    RunShutdownGroup(arguments[1], applicationRun);
+                    return 0;
+                }
                 if (arguments.Length == 2 && arguments[0] == "--midi-device")
                 {
                     TestSingleMidiDevice(UInt32.Parse(arguments[1]));
@@ -97,6 +140,11 @@ namespace MidiBottleneck.Tests
                 if (arguments.Length == 2 && arguments[0] == "--sysex-report")
                 {
                     ReportSystemExclusivePackets(arguments[1]);
+                    return 0;
+                }
+                if (arguments.Length == 2 && arguments[0] == "--probe-midi-compat-file")
+                {
+                    ProbeMidiCompatibilityFile(arguments[1]);
                     return 0;
                 }
                 if (arguments.Length == 3 && arguments[0] == "--analyze-drop")
@@ -209,6 +257,11 @@ namespace MidiBottleneck.Tests
                 if (arguments.Length == 2 && arguments[0] == "--render-build43")
                 {
                     RenderBuild43ChangedViews(arguments[1]);
+                    return 0;
+                }
+                if (arguments.Length == 2 && arguments[0] == "--render-build44-rate-popup-real")
+                {
+                    RenderBuild44RealRatePopup(arguments[1]);
                     return 0;
                 }
                 if (arguments.Length == 2 && arguments[0] == "--render-ui-none")
@@ -541,6 +594,11 @@ namespace MidiBottleneck.Tests
                     RunFocused("large-file count-only preflight and memory projection", TestLargeFilePreflight);
                     return 0;
                 }
+                if (arguments.Length == 1 && arguments[0] == "--test-build44-midi-compat")
+                {
+                    RunFocused("bounded RMID and post-meta running-status compatibility", TestMidiCompatibility);
+                    return 0;
+                }
                 if (arguments.Length == 1 && arguments[0] == "--test-build30")
                 {
                     RunFocused("large-MIDI warning and elapsed-time pause", TestLargeFilePreflight);
@@ -578,7 +636,7 @@ namespace MidiBottleneck.Tests
                 }
                 if (arguments.Length == 1 && arguments[0] == "--test-build37")
                 {
-                    RunFocused("readout formatting and Analysis graph Space", TestBuild37ReadoutsAndGraphSpace);
+                    RunFocused("readout formatting and Analysis Space", TestBuild37ReadoutsAndAnalysisSpace);
                     RunFocused("main numeric scrub controls and high event rates", TestBuild37NumericControls);
                     RunFocused("ordered Channels opening chase provenance", TestBuild37MonitorOpeningChase);
                     return 0;
@@ -627,6 +685,186 @@ namespace MidiBottleneck.Tests
                 {
                     RunFocused("Build 43 Rate popup, scaling fonts, and fixed-height layout", TestBuild43Presentation);
                     RunFocused("Build 43 queue counts, pressure, and protected soft limits", TestBuild43QueuePresentationAndSafety);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-build44-delayed-noteoff")
+                {
+                    RunFocused("Build 44 Delayed NoteOff scheduler, Analysis parity, and UI",
+                        TestBuild44DelayedNoteOff);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-build44-delayed-zero-acceptance")
+                {
+                    RunFocused("Build 44 Delayed NoteOff melody retention and zero-interval identity",
+                        TestBuild44DelayedMelodyAndZeroInterval);
+                    RunFocused("Build 44 Delayed NoteOff scheduler, Analysis parity, and UI",
+                        TestBuild44DelayedNoteOff);
+                    RunFocused("Build 44 adaptive live timing audit",
+                        TestBuild44AdaptiveTimingAudit);
+                    RunFocused("Build 44 interval polyphony limit",
+                        TestBuild44IntervalPolyphonyLimit);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-build44-delayed-override")
+                {
+                    RunFocused("Build 44 Delayed NoteOff forced-override terminal invariant",
+                        TestBuild44DelayedOverrideBranch);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-build44-note-start-rate-gate")
+                {
+                    RunFocused("Build 44 Note start rate gate progressive pacing and parity",
+                        TestBuild44NoteAttackLimit);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-build44-output-rate-gate")
+                {
+                    RunFocused("Build 44 Output rate gate progressive pacing and parity",
+                        TestBuild44OutputRateLimit);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-build44-output-rate-investigation")
+                {
+                    RunFocused("Build 44 Output rate dispatch-window and graph-cadence investigation",
+                        TestBuild44OutputRateTimelineInvestigation);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-build44-output-paced-timeline")
+                {
+                    RunFocused("Build 44 Output-paced source timeline and lifecycle",
+                        TestBuild44OutputPacedTimeline);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-build44-preserve-pause-seek")
+                {
+                    RunFocused("Build 44 lossless Pause and ordered preserving Seek",
+                        TestBuild44PreservePauseSeek);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-build44-rate-popup-real")
+                {
+                    RunFocused("Build 44 genuine Rate popup input routes",
+                        TestBuild44RealRatePopup);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-build44-compact-overflow-width")
+                {
+                    RunFocused("Build 44 compact-only Overflow width",
+                        TestBuild44CompactOverflowWidth);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-build44-ordered-generation-core")
+                {
+                    RunFocused("Build 44 ordered-generation representation and pure ordering",
+                        TestBuild44OrderedGenerationCore);
+                    RunFocused("Build 44 inactive unlimited-generation recorded payloads",
+                        TestBuild44OrderedUnlimitedAdapter);
+                    RunFocused("Build 44 inactive finite admission and preservation barriers",
+                        TestBuild44OrderedFiniteAdmissionCore);
+                    RunFocused("Build 44 inactive virtual-forward ordered boundaries",
+                        TestBuild44OrderedVirtualForwardAdapter);
+                    RunFocused("Build 44 inactive per-generation musical gates",
+                        TestBuild44OrderedMusicalGateAdapter);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-build44-musical-overflow")
+                {
+                    RunFocused("Build 44 Drop background notes Playback/Analysis parity",
+                        TestBuild44DropBackgroundNotes);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-build44-interval-polyphony")
+                {
+                    RunFocused("Build 44 Interval polyphony limit and parity",
+                        TestBuild44IntervalPolyphonyLimit);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-build44-track-routing-core")
+                {
+                    RunFocused("Build 44 bounded track-routing planner core",
+                        TestBuild44TrackRoutingCore);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-build44-borderless")
+                {
+                    RunFocused("Build 44 borderless main-window mode",
+                        TestBuild44BorderlessMainWindow);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-build44-borderless-acceptance")
+                {
+                    RunFocused("Build 44 three-style borderless main window and child-edge resizing",
+                        TestBuild44BorderlessMainWindow);
+                    RunFocused("Build 44 affected contextual Help", TestBuild41ContextHelp);
+                    RunFocused("Build 44 affected non-cumulative main-window scaling",
+                        TestBuild42MainWindowScaling);
+                    RunFocused("Build 44 affected main-window lifecycle",
+                        TestBuild42MainWindowLifecycle);
+                    RunFocused("Build 44 affected fixed-height presentation",
+                        TestBuild43Presentation);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-build44-override-wire")
+                {
+                    RunFocused("Build 44 forced-override outbound payloads and None timing",
+                        TestBuild44OverrideWireCorrectness);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-build44-external-backlog")
+                {
+                    RunFocused("Build 44 blocked-provider backlog admission and wire decisions",
+                        TestBuild44ExternalBacklogAdmission);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-build44-live-backlog")
+                {
+                    RunFocused("Build 44 shared live external-backlog statistics",
+                        TestBuild44SharedLiveBacklogStatistics);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-build44-analysis-space")
+                {
+                    RunFocused("Build 44 active-Analysis Space shortcut",
+                        TestBuild37ReadoutsAndAnalysisSpace);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-build44-subwindow-topmost")
+                {
+                    RunFocused("Build 44 independent Analysis and Channels Always on top",
+                        TestBuild44SubwindowAlwaysOnTop);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-build44-analysis-event-counts")
+                {
+                    RunFocused("Build 44 per-window Analysis event-count presentation",
+                        TestBuild44AnalysisEventCounts);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-build44-analysis-overrides")
+                {
+                    RunFocused("Build 44 per-window forced-override Analysis projection",
+                        TestBuild44AnalysisOverrideProjection);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-build44-analysis-override-acceptance")
+                {
+                    RunFocused("Build 44 per-window forced-override Analysis projection",
+                        TestBuild44AnalysisOverrideProjection);
+                    RunFocused("Build 44 compatible per-window event-count presentation",
+                        TestBuild44AnalysisEventCounts);
+                    RunFocused("Build 44 compatible independent Analysis window menu state",
+                        TestBuild44SubwindowAlwaysOnTop);
+                    RunFocused("Build 44 affected contextual Help", TestBuild41ContextHelp);
+                    return 0;
+                }
+                if (arguments.Length == 1 && arguments[0] == "--test-build44-adaptive-live-queue")
+                {
+                    RunFocused("Build 44 adaptive note traffic and live queue capacity",
+                        TestBuild44AdaptiveNoteTrafficAndLiveQueueCapacity);
+                    RunFocused("Build 44 adaptive live timing audit",
+                        TestBuild44AdaptiveTimingAudit);
+                    RunFocused("Build 44 bounded internal gate backlog",
+                        TestBuild44InternalGateBacklogRule);
                     return 0;
                 }
                 if (arguments.Length == 1 && arguments[0] == "--test-null-selector-only")
@@ -798,6 +1036,10 @@ namespace MidiBottleneck.Tests
                 Run("Build 42 non-cumulative main-window scaling", TestBuild42MainWindowScaling);
                 Run("Build 43 Rate popup, scaling fonts, and fixed-height layout", TestBuild43Presentation);
                 Run("Build 43 queue counts, pressure, and protected soft limits", TestBuild43QueuePresentationAndSafety);
+                Run("Build 44 Delayed NoteOff scheduler, Analysis parity, and UI", TestBuild44DelayedNoteOff);
+                Run("Build 44 Note start rate gate progressive pacing and parity", TestBuild44NoteAttackLimit);
+                Run("Build 44 Output rate gate progressive pacing and parity", TestBuild44OutputRateLimit);
+                Run("Build 44 borderless main-window mode", TestBuild44BorderlessMainWindow);
                 Run("single-source product metadata", TestBuild23ProductMetadata);
                 Run("pre-admission channel and override filtering", TestBuild23PreAdmissionFiltering);
                 Run("corrected per-note interval gate state, scheduler, lifecycle, and UI", TestBuild25PerNoteIntervalGate);
@@ -842,11 +1084,209 @@ namespace MidiBottleneck.Tests
             }
         }
 
+        private static int RunCoreInsideApplicationMessageLoop(string[] arguments)
+        {
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
+            int result = 1;
+            Exception failure = null;
+            bool ran = false;
+            EventHandler firstIdle = null;
+            firstIdle = delegate
+            {
+                Application.Idle -= firstIdle;
+                try
+                {
+                    result = RunCore(arguments);
+                    ran = true;
+                }
+                catch (Exception ex)
+                {
+                    failure = ex;
+                }
+                finally
+                {
+                    Application.ExitThread();
+                }
+            };
+            Application.Idle += firstIdle;
+            Application.Run();
+            Application.Idle -= firstIdle;
+            if (failure != null)
+            {
+                Console.Error.WriteLine("FAIL: " + failure.ToString());
+                return 1;
+            }
+            if (!ran)
+            {
+                Console.Error.WriteLine("FAIL: test entry did not execute inside Application.Run.");
+                return 1;
+            }
+            return result;
+        }
+
         private static void Run(string name, Action test)
         {
             test();
             _passed++;
             Console.WriteLine("  OK  " + name);
+        }
+
+        private static void RunNativeWindowMonitorFixture()
+        {
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
+            using (Form form = new Form())
+            using (System.Windows.Forms.Timer closeTimer = new System.Windows.Forms.Timer())
+            {
+                form.Text = "MIDIBottleneck Native Window Monitor Fixture";
+                form.Name = "NativeWindowMonitorFixture";
+                form.StartPosition = FormStartPosition.CenterScreen;
+                form.ClientSize = new Size(420, 90);
+                form.Controls.Add(new Label
+                {
+                    AutoSize = true,
+                    Location = new Point(18, 18),
+                    Text = "Deliberately identifiable detector proof window"
+                });
+                closeTimer.Interval = 5000;
+                closeTimer.Tick += delegate
+                {
+                    closeTimer.Stop();
+                    form.Close();
+                };
+                form.Shown += delegate { closeTimer.Start(); };
+                Application.Run(form);
+            }
+        }
+
+        private static void RunNativeProcessMonitorFixture()
+        {
+            ProcessStartInfo start = new ProcessStartInfo(
+                Assembly.GetExecutingAssembly().Location,
+                "--native-process-monitor-helper");
+            start.UseShellExecute = false;
+            using (Process descendant = Process.Start(start))
+            {
+                if (descendant == null)
+                    throw new InvalidOperationException("The controlled descendant process did not start.");
+                if (!descendant.WaitForExit(10000))
+                    throw new InvalidOperationException(
+                        "The controlled descendant process did not exit; it was left running for inspection.");
+                if (descendant.ExitCode != 0)
+                    throw new InvalidOperationException(
+                        "The controlled descendant process exited with code " + descendant.ExitCode + ".");
+            }
+        }
+
+        private static void RunShutdownGroup(string group, bool applicationRun)
+        {
+            Action test;
+            string name;
+            switch ((group ?? String.Empty).ToLowerInvariant())
+            {
+                case "build36":
+                    name = "Build 36 section visibility lifecycle";
+                    test = TestBuild36SessionViewControls;
+                    break;
+                case "build42":
+                    name = "Build 42 repeated main-window scaling and handle lifecycle";
+                    test = TestBuild42MainWindowLifecycle;
+                    break;
+                case "build43":
+                    name = "Build 43 Rate-popup lifecycle";
+                    test = TestBuild43Presentation;
+                    break;
+                case "build43-form":
+                    name = "Build 43 MainForm show/close control";
+                    test = TestBuild43FormOnlyLifecycle;
+                    break;
+                case "build43-popup":
+                    name = "Build 43 basic Rate-popup open/close lifecycle";
+                    test = TestBuild43PopupOnlyLifecycle;
+                    break;
+                case "build43-popup-capture":
+                    name = "Build 43 Rate-popup capture lifecycle";
+                    test = TestBuild43PopupCaptureLifecycle;
+                    break;
+                case "build43-scaling":
+                    name = "Build 43 fixed-height and scaling lifecycle";
+                    test = TestBuild43ScalingOnlyLifecycle;
+                    break;
+                case "none":
+                    name = "None-output selector lifecycle";
+                    test = TestNullOutputSelection;
+                    break;
+                default:
+                    throw new ArgumentException("Unknown shutdown group '" + group +
+                        "'. Expected build36, build42, build43, build43-form, build43-popup, " +
+                        "build43-popup-capture, build43-scaling, or none.");
+            }
+
+            RunFocused(applicationRun ? name + " under Application.Run" : name, test);
+        }
+
+        private static void TestBuild43FormOnlyLifecycle()
+        {
+            Application.EnableVisualStyles();
+            using (MainForm form = new MainForm())
+            {
+                form.Show();
+                PumpFor(40);
+                form.Close();
+            }
+        }
+
+        private static void TestBuild43PopupOnlyLifecycle()
+        {
+            Application.EnableVisualStyles();
+            BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(40);
+                RateModelComboBox rate = (RateModelComboBox)typeof(MainForm)
+                    .GetField("_serviceModeCombo", flags).GetValue(form);
+                form.Activate(); rate.Focus(); PumpFor(20);
+                SendMessage(rate.Handle, 0x014F, (IntPtr)1, IntPtr.Zero);
+                PumpFor(30);
+                SendMessage(rate.Handle, 0x014F, IntPtr.Zero, IntPtr.Zero);
+                PumpFor(10);
+                form.Close();
+            }
+        }
+
+        private static void TestBuild43PopupCaptureLifecycle()
+        {
+            Application.EnableVisualStyles();
+            BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(40);
+                RateModelComboBox rate = (RateModelComboBox)typeof(MainForm)
+                    .GetField("_serviceModeCombo", flags).GetValue(form);
+                form.Activate(); rate.Focus(); PumpFor(20);
+                SendMessage(rate.Handle, 0x014F, (IntPtr)1, IntPtr.Zero);
+                PumpFor(30);
+                using (Bitmap popup = rate.CapturePopupForTesting())
+                    if (popup.Width < 20 || popup.Height < 40)
+                        throw new Exception("grouped Rate popup did not produce a realized render surface");
+                SendMessage(rate.Handle, 0x014F, IntPtr.Zero, IntPtr.Zero);
+                PumpFor(10);
+                form.Close();
+            }
+        }
+
+        private static void TestBuild43ScalingOnlyLifecycle()
+        {
+            Application.EnableVisualStyles();
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(40);
+                form.ApplyUiScaleForTesting(50); PumpFor(50);
+                form.ApplyUiScaleForTesting(75); PumpFor(50);
+                form.ApplyUiScaleForTesting(100); PumpFor(50);
+                form.Close();
+            }
         }
 
         private static void RenderCorrectiveDesktop(string directory)
@@ -956,6 +1396,79 @@ namespace MidiBottleneck.Tests
             }
             public void Panic() { }
             public void Reset() { }
+        }
+
+        private sealed class RecordingNoteBlockingOutput : IMidiOutput
+        {
+            internal readonly ManualResetEvent Entered = new ManualResetEvent(false);
+            internal readonly ManualResetEvent Release = new ManualResetEvent(false);
+            private readonly object _sync = new object();
+            private readonly List<byte[]> _payloads = new List<byte[]>();
+            private int _blocked;
+
+            public void Send(MidiEventView midiEvent)
+            {
+                if ((midiEvent.Status & 0xF0) == 0x90 && midiEvent.DataLength > 2 &&
+                    midiEvent.GetDataByte(2) != 0 && Interlocked.CompareExchange(ref _blocked, 1, 0) == 0)
+                {
+                    Entered.Set();
+                    Release.WaitOne(2000);
+                }
+                byte[] payload = midiEvent.Data.ToArray();
+                lock (_sync) _payloads.Add((byte[])payload.Clone());
+            }
+
+            public void Panic() { }
+            public void Reset() { lock (_sync) _payloads.Clear(); }
+
+            internal List<byte[]> Payloads()
+            {
+                lock (_sync)
+                {
+                    List<byte[]> copy = new List<byte[]>(_payloads.Count);
+                    for (int i = 0; i < _payloads.Count; i++) copy.Add((byte[])_payloads[i].Clone());
+                    return copy;
+                }
+            }
+        }
+
+        private sealed class SelectiveNoteBlockingOutput : IMidiOutput
+        {
+            internal readonly ManualResetEvent Entered = new ManualResetEvent(false);
+            internal readonly ManualResetEvent Release = new ManualResetEvent(false);
+            private readonly int _note;
+            private readonly object _sync = new object();
+            private readonly List<byte[]> _payloads = new List<byte[]>();
+            private int _blocked;
+
+            internal SelectiveNoteBlockingOutput(int note) { _note = note; }
+
+            public void Send(MidiEventView midiEvent)
+            {
+                if ((midiEvent.Status & 0xF0) == 0x90 && midiEvent.DataLength > 2 &&
+                    midiEvent.GetDataByte(1) == _note && midiEvent.GetDataByte(2) != 0 &&
+                    Interlocked.CompareExchange(ref _blocked, 1, 0) == 0)
+                {
+                    Entered.Set();
+                    Release.WaitOne(2000);
+                }
+                byte[] payload = midiEvent.Data.ToArray();
+                lock (_sync) _payloads.Add((byte[])payload.Clone());
+            }
+
+            public void Panic() { }
+            public void Reset() { lock (_sync) _payloads.Clear(); }
+
+            internal List<byte[]> Payloads()
+            {
+                lock (_sync)
+                {
+                    List<byte[]> copy = new List<byte[]>(_payloads.Count);
+                    for (int index = 0; index < _payloads.Count; index++)
+                        copy.Add((byte[])_payloads[index].Clone());
+                    return copy;
+                }
+            }
         }
 
         private static void TestQueueFreshness()
@@ -1699,6 +2212,99 @@ namespace MidiBottleneck.Tests
             }
         }
 
+        private static void TestMidiCompatibility()
+        {
+            string rmidPath = Path.Combine(Path.GetTempPath(), "midi-bottleneck-rmid-" + Guid.NewGuid().ToString("N") + ".rmi");
+            string repairPath = Path.Combine(Path.GetTempPath(), "midi-bottleneck-running-repair-" + Guid.NewGuid().ToString("N") + ".mid");
+            try
+            {
+                byte[] smf = BuildTestMidi();
+                byte[] rmid = BuildRmid(smf, true, true);
+                File.WriteAllBytes(rmidPath, rmid);
+                MidiSong direct = MidiFileParser.Load(rmidPath);
+                MidiSong legacy = MidiFileParser.LoadLegacyForTests(rmidPath, CancellationToken.None, null);
+                MidiPreflightCounts preflight = MidiLargeFilePreflight.Scan(rmidPath, CancellationToken.None, null);
+                CompareParsedSongs(legacy, direct, "RMID direct/reference parser");
+                Equal((long)rmid.Length, direct.FileSizeBytes, "RMID reports physical container size");
+                Equal((long)direct.EventStore.Count, preflight.DispatchableEventCount,
+                    "RMID preflight event count matches production");
+                Equal(direct.NoteCount, preflight.NoteOnCount, "RMID preflight note count matches production");
+                Equal(true, MainForm.MidiOpenFileFilter.IndexOf("*.rmi", StringComparison.OrdinalIgnoreCase) >= 0,
+                    "open-file filter includes RMI");
+                DataObject dropped = new DataObject();
+                dropped.SetData(DataFormats.FileDrop, new string[] { rmidPath });
+                string droppedPath;
+                Equal(true, MainForm.TryGetDroppedMidiPath(dropped, out droppedPath), "RMI drag-and-drop acceptance");
+                Equal(Path.GetFullPath(rmidPath), droppedPath, "RMI drag-and-drop path");
+
+                List<byte> repairedTrack = new List<byte>();
+                Add(repairedTrack, 0x00, 0x90, 0x3C, 0x64);
+                Add(repairedTrack, 0x00, 0xFF, 0x59, 0x02, 0x00, 0x00);
+                Add(repairedTrack, 0x00, 0x3E, 0x64); // One explicit compatibility repair.
+                Add(repairedTrack, 0x00, 0x3F, 0x64); // Ordinary running status resumes from it.
+                Add(repairedTrack, 0x10, 0x80, 0x3C, 0x00);
+                Add(repairedTrack, 0x00, 0x3E, 0x00);
+                Add(repairedTrack, 0x00, 0x3F, 0x00);
+                Add(repairedTrack, 0x00, 0xFF, 0x2F, 0x00);
+                File.WriteAllBytes(repairPath, BuildSingleTrackMidi(repairedTrack));
+                MidiSong repaired = MidiFileParser.Load(repairPath);
+                MidiSong repairedLegacy = MidiFileParser.LoadLegacyForTests(repairPath, CancellationToken.None, null);
+                MidiPreflightCounts repairedPreflight = MidiLargeFilePreflight.Scan(repairPath, CancellationToken.None, null);
+                CompareParsedSongs(repairedLegacy, repaired, "post-meta repair direct/reference parser");
+                Equal(1L, repaired.NonstandardRunningStatusRepairCount, "production repair count");
+                Equal(1L, repairedLegacy.NonstandardRunningStatusRepairCount, "reference repair count");
+                Equal(1L, repairedPreflight.RunningStatusRepairCount, "preflight repair count");
+                Equal(6, repaired.EventStore.Count, "repaired event and following running-status count");
+                Equal((byte)0x90, repaired.EventStore.GetEvent(1).Status, "repaired message uses the preceding channel status");
+                string disclosure = MainForm.FormatFileInformation(repaired, false);
+                Equal(true, disclosure.IndexOf("Loaded with 1 nonstandard running-status repair", StringComparison.Ordinal) >= 0,
+                    "repaired-file disclosure");
+
+                List<byte> noPriorStatus = new List<byte>();
+                Add(noPriorStatus, 0x00, 0xFF, 0x59, 0x02, 0x00, 0x00);
+                Add(noPriorStatus, 0x00, 0x3C, 0x64);
+                AssertAllParserFailureEquivalent(BuildSingleTrackMidi(noPriorStatus),
+                    "post-meta data without a prior channel status");
+
+                List<byte> afterSysEx = new List<byte>();
+                Add(afterSysEx, 0x00, 0x90, 0x3C, 0x64);
+                Add(afterSysEx, 0x00, 0xF0, 0x01, 0xF7);
+                Add(afterSysEx, 0x00, 0x3E, 0x64);
+                AssertAllParserFailureEquivalent(BuildSingleTrackMidi(afterSysEx),
+                    "running status after SysEx remains strict");
+
+                byte[] wrongForm = BuildRiff("WAVE", new byte[] { 0x00 }, "data", false);
+                AssertAllParserFailureEquivalent(wrongForm, "non-RMID RIFF form");
+                byte[] missingData = BuildRiff("RMID", new byte[] { 0x01, 0x02, 0x03 }, "JUNK", true);
+                AssertAllParserFailureEquivalent(missingData, "RMID without data chunk");
+
+                List<byte> shortSmf = new List<byte>();
+                AddAscii(shortSmf, "MThd"); AddUInt32(shortSmf, 6); AddUInt16(shortSmf, 0); AddUInt16(shortSmf, 1); AddUInt16(shortSmf, 480);
+                AddAscii(shortSmf, "MTrk"); AddUInt32(shortSmf, 4); Add(shortSmf, 0x00, 0x90);
+                byte[] bounded = BuildRmid(shortSmf.ToArray(), false, true);
+                AssertAllParserFailureEquivalent(bounded,
+                    "RMID data cannot read through its bound into a following chunk");
+            }
+            finally
+            {
+                if (File.Exists(rmidPath)) File.Delete(rmidPath);
+                if (File.Exists(repairPath)) File.Delete(repairPath);
+            }
+        }
+
+        private static void ProbeMidiCompatibilityFile(string path)
+        {
+            MidiPreflightCounts counts = MidiLargeFilePreflight.Scan(path, CancellationToken.None, null);
+            MidiSong song = MidiFileParser.Load(path);
+            if (counts.DispatchableEventCount != song.EventStore.Count ||
+                counts.NoteOnCount != song.NoteCount ||
+                counts.RunningStatusRepairCount != song.NonstandardRunningStatusRepairCount)
+                throw new Exception("Preflight and production parsing disagree for the compatibility probe.");
+            Console.WriteLine("Loaded: events={0:N0}, notes={1:N0}, tracks={2:N0}, repairs={3:N0}",
+                song.EventStore.Count, song.NoteCount, song.TrackCount,
+                song.NonstandardRunningStatusRepairCount);
+        }
+
         private static void TestLargeFilePreflight()
         {
             string path = Path.Combine(Path.GetTempPath(), "midi-bottleneck-preflight-" + Guid.NewGuid().ToString("N") + ".mid");
@@ -1718,6 +2324,14 @@ namespace MidiBottleneck.Tests
                 Equal(4L, counts.ProvisionalPayloadBytes, "preflight provisional F0 payload count");
                 Equal(1L, counts.SourceValueEntryCount, "preflight Program source-index count");
                 Equal(2, counts.TrackCount, "preflight synchronous format-one track count");
+                Equal(1L, counts.RoutingLaneCount,
+                    "preflight counts distinct note-bearing routing lanes");
+                Equal(1L, counts.RoutingPatchStateEventCount,
+                    "preflight counts routing Bank/Program state");
+                Equal(1L, counts.RoutingPatchTimelineEntryUpperBound,
+                    "preflight accounts for source-channel state copied to note lanes");
+                Equal(9L, counts.RoutingGeneratedStateEventUpperBound,
+                    "preflight bounds generated destination patch messages");
 
                 List<byte> stateTrack = new List<byte>();
                 Add(stateTrack, 0x00, 0xB1, 0x00, 0x02); // Bank MSB.
@@ -1799,6 +2413,42 @@ namespace MidiBottleneck.Tests
                 if (x86Projection.ProjectedPeakLowBytes > x86Projection.ProjectedPeakHighBytes ||
                     x86Projection.ProjectedRetainedBytes <= 0)
                     throw new Exception("preflight memory range is not internally consistent");
+                if (x86Projection.RetainedNameAllowanceBytes <= 0 ||
+                    x86Projection.RoutingRetainedAdditionalBytes <= 0 ||
+                    x86Projection.RoutingPeakAdditionalBytes <
+                        x86Projection.RoutingRetainedAdditionalBytes ||
+                    x86Projection.ProjectedRetainedWithRoutingBytes <=
+                        x86Projection.ProjectedRetainedBytes ||
+                    x86Projection.ProjectedRoutingPeakBytes <=
+                        x86Projection.ProjectedRetainedWithRoutingBytes)
+                    throw new Exception("preflight routing/name allowance is not internally consistent");
+
+                MidiPreflightCounts routingRiskCounts = new MidiPreflightCounts
+                {
+                    TrackCount = 1,
+                    DispatchableEventCount = 5000000,
+                    NoteOnCount = 4000000,
+                    RoutingLaneCount = 1,
+                    RoutingPatchStateEventCount = 1,
+                    RoutingPatchTimelineEntryUpperBound = 1,
+                    RoutingGeneratedStateEventUpperBound = 12000003,
+                    EventsByTrack = new long[] { 5000000 },
+                    PayloadBytesByTrack = new long[] { 0 },
+                    TempoChangesByTrack = new long[] { 0 },
+                    SourceEntriesBySlot = new long[16 * ChannelOverrideState.AttributeCount]
+                };
+                MidiMemoryProjection routingRisk = MidiLargeFilePreflight.Estimate(
+                    routingRiskCounts, 4);
+                Equal(false, routingRisk.ProjectedPeakHighBytes >=
+                    routingRisk.WarningThresholdBytes,
+                    "base compact load remains below the synthetic routing-risk threshold");
+                Equal(true, routingRisk.ProjectedRoutingPeakBytes >=
+                    routingRisk.WarningThresholdBytes,
+                    "routing workspace independently crosses the synthetic x86 threshold");
+                Equal(true, MidiLargeFilePreflight.RequiresWarning(routingRisk),
+                    "routing-only address-space risk triggers the existing safe Continue/Cancel decision");
+                Equal(true, routingRisk.IsArchitectureRisk,
+                    "routing-only x86 risk receives the explicit 32-bit warning");
 
                 int decisions = 0;
                 List<MidiLoadProgress> combined = new List<MidiLoadProgress>();
@@ -1853,6 +2503,8 @@ namespace MidiBottleneck.Tests
                 if (message.IndexOf("MIDI events to process:", StringComparison.Ordinal) < 0 ||
                     message.IndexOf("Estimated memory while the MIDI is open:", StringComparison.Ordinal) < 0 ||
                     message.IndexOf("Estimated highest memory use while loading:", StringComparison.Ordinal) < 0 ||
+                    message.IndexOf("Estimated memory if Track routing is applied:", StringComparison.Ordinal) < 0 ||
+                    message.IndexOf("Estimated highest memory use while planning/applying a route:", StringComparison.Ordinal) < 0 ||
                     message.IndexOf(Environment.NewLine + Environment.NewLine + "Estimated memory", StringComparison.Ordinal) < 0 ||
                     message.IndexOf("Other application and system memory", StringComparison.Ordinal) >= 0 ||
                     message.IndexOf("retained", StringComparison.OrdinalIgnoreCase) >= 0 ||
@@ -2040,6 +2692,8 @@ namespace MidiBottleneck.Tests
             Equal(expected.TrackCount, actual.TrackCount, name + " tracks");
             Equal(expected.TicksPerQuarterNote, actual.TicksPerQuarterNote, name + " PPQN");
             Equal(expected.NoteCount, actual.NoteCount, name + " notes");
+            Equal(expected.NonstandardRunningStatusRepairCount,
+                actual.NonstandardRunningStatusRepairCount, name + " compatibility repairs");
             Equal(expected.DurationMicroseconds, actual.DurationMicroseconds, name + " duration");
             MidiEventReader left = expected.GetEventReader();
             MidiEventReader right = actual.GetEventReader();
@@ -2084,6 +2738,29 @@ namespace MidiBottleneck.Tests
                 if (directType == null || legacyType == null)
                     throw new Exception(name + " was not rejected by both parser paths");
                 Equal(legacyType, directType, name + " exception type");
+            }
+            finally { if (File.Exists(path)) File.Delete(path); }
+        }
+
+        private static void AssertAllParserFailureEquivalent(byte[] bytes, string name)
+        {
+            string path = Path.Combine(Path.GetTempPath(), "midi-bottleneck-compat-malformed-" + Guid.NewGuid().ToString("N") + ".mid");
+            try
+            {
+                File.WriteAllBytes(path, bytes);
+                Type directType = null;
+                Type legacyType = null;
+                Type preflightType = null;
+                try { MidiFileParser.Load(path); }
+                catch (Exception ex) { directType = ex.GetType(); }
+                try { MidiFileParser.LoadLegacyForTests(path, CancellationToken.None, null); }
+                catch (Exception ex) { legacyType = ex.GetType(); }
+                try { MidiLargeFilePreflight.Scan(path, CancellationToken.None, null); }
+                catch (Exception ex) { preflightType = ex.GetType(); }
+                if (directType == null || legacyType == null || preflightType == null)
+                    throw new Exception(name + " was not rejected by all parser paths");
+                Equal(directType, legacyType, name + " reference exception parity");
+                Equal(directType, preflightType, name + " preflight exception parity");
             }
             finally { if (File.Exists(path)) File.Delete(path); }
         }
@@ -2307,6 +2984,10 @@ namespace MidiBottleneck.Tests
                     timer.Elapsed.TotalMilliseconds, managedAfter - managedBefore, GC.CollectionCount(0) - gen0Before);
                 Console.WriteLine("Projection: retained={0:N0}, peak-low={1:N0}, peak-high={2:N0}",
                     projection.ProjectedRetainedBytes, projection.ProjectedPeakLowBytes, projection.ProjectedPeakHighBytes);
+                Console.WriteLine("Routing allowance: retained={0:N0}, peak={1:N0}, lanes={2:N0}, generated-state-upper={3:N0}",
+                    projection.ProjectedRetainedWithRoutingBytes,
+                    projection.ProjectedRoutingPeakBytes, counts.RoutingLaneCount,
+                    counts.RoutingGeneratedStateEventUpperBound);
             }
             finally { if (File.Exists(path)) File.Delete(path); }
         }
@@ -2416,7 +3097,7 @@ namespace MidiBottleneck.Tests
                     {
                         ComboBox policy = FindComboContaining(controls, "Drop oldest complete note");
                         if (policy == null) throw new Exception("The complete-note overflow choice is missing.");
-                        policy.SelectedIndex = (int)OverflowPolicy.DropOldestCompleteNote;
+                        policy.SelectedIndex = FindComboItemIndex(policy, "Drop oldest complete note");
                         ((RateModelComboBox)FindComboContaining(controls, "MIDI serial bitrate"))
                             .SelectedChoice = RateModelChoice.ProcessingTime;
                     }
@@ -4089,10 +4770,11 @@ namespace MidiBottleneck.Tests
                 ComboBox policy = (ComboBox)typeof(MainForm).GetField("_overflowPolicyCombo", flags).GetValue(form);
                 CheckBox queue = (CheckBox)typeof(MainForm).GetField("_queueLimitCheck", flags).GetValue(form);
                 RateModelComboBox rate = (RateModelComboBox)typeof(MainForm).GetField("_serviceModeCombo", flags).GetValue(form);
-                Equal("Drop oldest complete note", policy.Items[(int)OverflowPolicy.DropOldestCompleteNote].ToString(),
+                int oldestCompleteIndex = FindComboItemIndex(policy, "Drop oldest complete note");
+                Equal("Drop oldest complete note", policy.Items[oldestCompleteIndex].ToString(),
                     "new visible policy is distinct from old single-event Drop oldest");
                 if (policy.DropDownWidth < 200) throw new Exception("full policy name is clipped in the dropdown");
-                policy.SelectedIndex = (int)OverflowPolicy.DropOldestCompleteNote;
+                policy.SelectedIndex = oldestCompleteIndex;
                 queue.Checked = true;
                 typeof(MainForm).GetField("_applyQueueLimitWithoutSlowdown", flags).SetValue(form, true);
                 rate.SelectedChoice = RateModelChoice.ProcessingTime;
@@ -4212,14 +4894,19 @@ namespace MidiBottleneck.Tests
             using (PlaybackEngine engine = new PlaybackEngine())
             {
                 engine.SimulateSlowdown = true;
-                engine.ProcessingMicroseconds = 1000000;
+                // Keep the protected in-service event long enough for the
+                // overflow, but do not make its intentional service time the
+                // dominant part of this binary catch-up performance check.
+                engine.ProcessingMicroseconds = 100000;
                 engine.QueueLengthLimit = 1;
                 engine.OverflowPolicy = OverflowPolicy.ClearBufferAndCatchUp;
                 engine.Start(song, output, ProcessingMode.Drop);
                 WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000, "binary clear-buffer catch-up");
                 PlaybackSnapshot result = engine.GetSnapshot();
-                Equal((long)count, result.DroppedEvents, "binary catch-up exact skipped count");
-                Equal(0L, result.ProcessedEvents, "binary catch-up dispatches no stale overdue event");
+                Equal((long)count - 1L, result.DroppedEvents,
+                    "binary catch-up skips every overdue event except the protected in-service event");
+                Equal(1L, result.ProcessedEvents,
+                    "binary catch-up preserves the event already in service");
                 Equal(0L, result.OutstandingEvents, "binary catch-up clears outstanding work");
             }
             optimized.Stop();
@@ -4241,9 +4928,10 @@ namespace MidiBottleneck.Tests
                 engine.Start(song, output, ProcessingMode.Drop);
                 WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000, "clear/catch-up playback completion");
                 PlaybackSnapshot snapshot = engine.GetSnapshot();
-                Equal(1L, snapshot.ProcessedEvents, "clear/catch-up processed");
-                Equal(3L, snapshot.DroppedEvents, "clear/catch-up dropped");
-                Sequence(new long[] { 100000 }, output.SentTimes(), "clear/catch-up output");
+                Equal(2L, snapshot.ProcessedEvents,
+                    "clear/catch-up preserves the event already in service plus realtime output");
+                Equal(2L, snapshot.DroppedEvents, "clear/catch-up drops only pending overdue work");
+                Sequence(new long[] { 0, 100000 }, output.SentTimes(), "clear/catch-up output");
                 if (output.PanicCount < 1) throw new Exception("clear/catch-up did not terminate sounding notes");
             }
         }
@@ -5358,6 +6046,48 @@ namespace MidiBottleneck.Tests
                 Equal("5 — Electric Piano 1", monitor.CellText(0, "Program"), "channel monitor displays program with GM reference name");
                 Equal("1", monitor.CellText(0, "KeysDown"), "channel monitor displays live key count");
                 Equal("00:01.234", monitor.CellText(0, "Position"), "channel monitor displays output position");
+
+                tracker.RecordSuccessful(ChannelMessage(1234568, 0xB9, 0, 120));
+                tracker.RecordSuccessful(ChannelMessage(1234568, 0xB9, 32, 0));
+                tracker.RecordSuccessful(ChannelMessage(1234568, 0xC9, 0));
+                monitor.UpdateSnapshot(tracker.CreateSnapshot());
+                Equal("1 — Standard Set (GM2)", monitor.CellText(9, "Program"),
+                    "Channel 10 recognizes the GM2 standard drum set from Bank and Program");
+                string drumTip = monitor.GridForTesting.Rows[9].Cells["Program"].ToolTipText;
+                if (drumTip.IndexOf("Bank 120/0", StringComparison.Ordinal) < 0 ||
+                    drumTip.IndexOf("Device-specific", StringComparison.Ordinal) < 0)
+                    throw new Exception("Channel 10 kit tooltip omits its Bank reference or device qualification");
+
+                tracker.RecordSuccessful(ChannelMessage(1234569, 0xB9, 0, 0));
+                tracker.RecordSuccessful(ChannelMessage(1234569, 0xC9, 25));
+                monitor.UpdateSnapshot(tracker.CreateSnapshot());
+                Equal("26 — TR-808 Set (common GS)", monitor.CellText(9, "Program"),
+                    "Channel 10 recognizes a common GS drum-set mapping");
+
+                ChannelOverrideState kitOverrides = new ChannelOverrideState();
+                kitOverrides.SetValue(9, ChannelAttribute.BankMsb, 127);
+                kitOverrides.SetValue(9, ChannelAttribute.BankLsb, 0);
+                kitOverrides.SetValue(9, ChannelAttribute.Program, 16);
+                ChannelPlaybackSnapshot forcedKit = tracker.CreateSnapshot();
+                kitOverrides.ApplyToSnapshot(forcedKit);
+                monitor.UpdateSnapshot(forcedKit);
+                Equal("17 — Rock Kit (XG)", monitor.CellText(9, "Program"),
+                    "Channel 10 reacts to effective forced Bank and Program state");
+
+                tracker.RecordSuccessful(ChannelMessage(1234570, 0xB9, 0, 5));
+                tracker.RecordSuccessful(ChannelMessage(1234570, 0xB9, 32, 6));
+                tracker.RecordSuccessful(ChannelMessage(1234570, 0xC9, 10));
+                monitor.UpdateSnapshot(tracker.CreateSnapshot());
+                Equal("11 — Drum kit 11", monitor.CellText(9, "Program"),
+                    "unrecognized Channel 10 Bank uses the truthful numbered fallback");
+                if (monitor.GridForTesting.Rows[9].Cells["Program"].ToolTipText.IndexOf(
+                    "unrecognized Bank 5/6", StringComparison.Ordinal) < 0)
+                    throw new Exception("Channel 10 fallback tooltip omits the unrecognized Bank");
+
+                Equal("SFX Kit 2 (XG)", GeneralMidiProgramCatalog.ChannelProgramName(9, 126, 0, 1),
+                    "XG SFX bank uses its recognized kit name");
+                Equal("Electric Piano 1", GeneralMidiProgramCatalog.ChannelProgramName(0, 120, 0, 4),
+                    "melodic channels ignore percussion-bank naming");
                 tracker.PauseBoundaryDirect();
                 monitor.UpdateSnapshot(tracker.CreateSnapshot());
                 Equal(Color.DimGray, monitor.CellForeColor(0, "Program"), "retained post-reset state is visibly subdued");
@@ -6068,10 +6798,16 @@ namespace MidiBottleneck.Tests
                 WaitFor(delegate { return engine.GetSnapshot().ProcessedEvents >= 2; }, 1000,
                     "source-value fixture initial Program and note");
 
+                output.BlockAfterRecordSendNumber = 3;
                 engine.SetChannelOverride(1, ChannelAttribute.Program, 5);
-                PumpUntil(delegate { return output.CountPayload(0xC1, 5) == 1; }, 1000,
-                    "forced displayed Program 6 reaches output");
+                if (!output.AfterRecordEntered.WaitOne(1000))
+                {
+                    output.AfterRecordRelease.Set();
+                    throw new Exception("forced displayed Program 6 did not reach the controlled post-send boundary");
+                }
+                Equal(1, output.CountPayload(0xC1, 5), "forced displayed Program 6 reaches output");
                 engine.SetChannelOverride(1, ChannelAttribute.Program, ChannelOverrideState.AutoValue);
+                output.AfterRecordRelease.Set();
                 PumpUntil(delegate
                 {
                     MidiChannelSnapshot state = engine.GetChannelSnapshot().Channels[1];
@@ -6522,9 +7258,9 @@ namespace MidiBottleneck.Tests
             MidiEvent controller = ChannelMessage(50, 0xB0, 7, 100);
             Equal(PerNoteGateAdmission.NotNote, gate.Admit(controller), "controllers remain outside note gate");
 
-            // Compact regression for the reported real-file shape: one long
-            // lower-track note must not suppress representable attacks from a
-            // different track/channel on the same pitch.
+            // A long sounding owner keeps the pitch until its source release.
+            // Later same-pitch occurrences that cannot legally retrigger in
+            // their current source batch are rejected with their releases.
             MidiEvent longOn = ChannelMessage(0, 0x90, 59, 70); longOn.Track = 0;
             MidiEvent attack1 = ChannelMessage(30000, 0x91, 59, 100); attack1.Track = 1;
             MidiEvent attackOff1 = ChannelMessage(35000, 0x81, 59, 0); attackOff1.Track = 1;
@@ -6548,15 +7284,18 @@ namespace MidiBottleneck.Tests
                 for (int index = 0; index < messages.Count; index++)
                     if ((messages[index][0] & 0xF0) == 0x90 && messages[index][2] != 0 && messages[index][1] == 59)
                         pitch59Attacks++;
-                Equal(4, pitch59Attacks, "overlapping long note does not glue three representable repeated attacks");
+                Equal(1, pitch59Attacks,
+                    "current-batch ownership rejects same-pitch attacks without a legal release gap");
                 Equal(true, ContainsMessage(messages, 0xB0, 7, 90), "controller keeps its normal source-time path");
-                Equal(0x82, (int)messages[messages.Count - 1][0],
-                    "final release follows the channel of the last emitted retrigger");
+                Equal(0x80, (int)messages[messages.Count - 1][0],
+                    "final release follows the original sounding owner");
                 PlaybackSnapshot snapshot = engine.GetSnapshot();
                 Equal(ProcessingMode.PerNoteIntervalGate, snapshot.ProcessingMode, "snapshot identifies gate mode");
                 Equal(0L, snapshot.DroppedEvents, "gate filtering is not queue overflow");
-                Equal(3L, snapshot.GateFilteredEvents, "non-output supporting releases have separate accounting");
-                Equal(0L, snapshot.MaximumQueueLength, "gate does not expose generic queue pressure");
+                Equal(6L, snapshot.GateFilteredEvents,
+                    "rejected same-pitch attacks and their paired releases have separate accounting");
+                Equal(1L, snapshot.MaximumQueueLength,
+                    "gate reports its one in-service transmitted transition as live due-work pressure");
                 Equal(0, engine.GetChannelSnapshot().Channels[0].KeysDown, "monitor has no stuck keys after gate completion");
                 engine.ResetStatistics();
                 Equal(0L, engine.GetSnapshot().GateFilteredEvents, "Reset stats clears the gate-filter counter");
@@ -6693,8 +7432,8 @@ namespace MidiBottleneck.Tests
                 DroppedEvents = 0,
                 GateFilteredEvents = 2
             };
-            Equal("5 / 2 gate-filtered", MainForm.FormatEventCounts(formatted, false),
-                "gate-filtered statistic is explicit and separate");
+            Equal("5 / 2", MainForm.FormatEventCounts(formatted, false),
+                "gate filtering contributes to the unified dropped statistic");
             Equal("35.2 frames/sec", MainForm.FormatMaximumRate(formatted, 999, false),
                 "maximum-rate cell reports gate frame frequency rather than aggregate capacity");
 
@@ -6702,14 +7441,14 @@ namespace MidiBottleneck.Tests
             using (MainForm form = new MainForm())
             {
                 form.Show(); PumpFor(40);
-                ((RateModelComboBox)FindComboContaining(CollectControlsForTest(form), "Per-note interval gate"))
-                    .SelectedChoice = RateModelChoice.PerNoteIntervalGate;
+                RateModelComboBox perNoteChoice = (RateModelComboBox)FindComboContaining(
+                    CollectControlsForTest(form), "Per-note interval gate");
+                perNoteChoice.SelectedChoice = RateModelChoice.PerNoteIntervalGate;
                 Application.DoEvents();
                 Equal(true, form.PerNoteIntervalGateForTesting, "Rate model enables interval gate");
-                Equal(true, form.PerNoteGateControlsLockedForTesting,
-                    "gate locks competing rate/queue controls while leaving interval editable");
-                ((RateModelComboBox)FindComboContaining(CollectControlsForTest(form), "Per-note interval gate"))
-                    .SelectedChoice = RateModelChoice.None;
+                Equal(true, perNoteChoice.Enabled,
+                    "gate leaves the Rate selector available while interval-polyphony controls use the Queue row");
+                perNoteChoice.SelectedChoice = RateModelChoice.None;
                 Application.DoEvents();
                 Equal(false, form.PerNoteIntervalGateForTesting, "None exits interval gate");
                 form.Close();
@@ -6941,7 +7680,8 @@ namespace MidiBottleneck.Tests
                 statistics.SetValues(new string[] { "01:23:45.678 / 01:23:44.999", "1,097,842 / 1,500,000", "9,500,000 events/s", "8,750,000 events/s", "10,385,604 / 38", "100.2%", "12,345.678 ms", "1,234.567 ms" });
                 using (Bitmap bitmap = new Bitmap(statistics.Width, statistics.Height)) statistics.DrawToBitmap(bitmap, statistics.ClientRectangle);
                 string first = statistics.SelectedCaptionAt(0);
-                if (first != "Timeline/output:" && first != "Timeline:" && first != "Time:") throw new Exception("invalid measured Timeline caption");
+                if (first.Length != 0 && first != "Timeline/output:" && first != "Timeline:" && first != "Time:")
+                    throw new Exception("invalid measured Timeline caption");
                 if (statistics.ValueWasTruncated(1)) throw new Exception("Queue readout was truncated instead of abbreviating its caption");
             }
         }
@@ -8803,7 +9543,7 @@ namespace MidiBottleneck.Tests
             Equal(0, pending.Count, "clear retires simple queue entries");
         }
 
-        private static void TestBuild37ReadoutsAndGraphSpace()
+        private static void TestBuild37ReadoutsAndAnalysisSpace()
         {
             PlaybackSnapshot gate = new PlaybackSnapshot
             {
@@ -8811,9 +9551,9 @@ namespace MidiBottleneck.Tests
                 ProcessedEvents = 1234,
                 GateFilteredEvents = 1234
             };
-            Equal("1,234 / 1,234 gate-filtered", MainForm.FormatEventCounts(gate, false),
-                "usual gate count omits redundant queue zero and parentheses");
-            Equal("1,234\u2009/\u20091,234 gate", MainForm.FormatEventCounts(gate, true),
+            Equal("1,234 / 1,234", MainForm.FormatEventCounts(gate, false),
+                "gate exclusions contribute to the unified dropped total");
+            Equal("1,234\u2009/\u20091,234", MainForm.FormatEventCounts(gate, true),
                 "compact slash uses rendered thin spaces");
             using (StatisticsView statistic = new StatisticsView())
             using (Bitmap bitmap = new Bitmap(200, 100))
@@ -8826,8 +9566,22 @@ namespace MidiBottleneck.Tests
                     throw new Exception("compact slash renderer did not use narrower visual spacing");
             }
             gate.DroppedEvents = 7;
-            Equal("1,234 / 7 dropped / 1,234 gate-filtered", MainForm.FormatEventCounts(gate, false),
-                "gate and overflow exclusions remain distinct");
+            Equal("1,234 / 1,241", MainForm.FormatEventCounts(gate, false),
+                "queue and gate reasons combine without losing their internal counters");
+            PlaybackSnapshot attack = new PlaybackSnapshot
+            {
+                ProcessedEvents = 10,
+                DroppedEvents = 2,
+                MusicalLimitRejectedAttacks = 3,
+                MusicalLimitSuppressedReleases = 4
+            };
+            Equal("10 / 9", MainForm.FormatEventCounts(attack, false),
+                "queue and note-start gate exclusions share one dropped total");
+            Equal(9L, MainForm.TotalDroppedEvents(attack),
+                "unified dropped helper preserves separate attack and release reasons");
+            attack.DroppedEvents = Int64.MaxValue;
+            Equal(Int64.MaxValue, MainForm.TotalDroppedEvents(attack),
+                "unified dropped total saturates");
 
             using (WorkloadGraph graph = new WorkloadGraph())
             using (Bitmap image = new Bitmap(400, 200))
@@ -8858,29 +9612,54 @@ namespace MidiBottleneck.Tests
                 analysis.Show(); analysis.Activate(); PumpFor(30);
                 try
                 {
-                    Rectangle graph = analysis.Graph.RectangleToScreen(analysis.Graph.ClientRectangle);
-                    Point pointer = new Point(graph.Left + graph.Width / 2, graph.Top + graph.Height / 2);
                     analysis.Activate(); PumpFor(20);
-                    Equal(true, analysis.TryHandleGraphSpaceAt(pointer, true),
-                        "Space over active Analysis graph is handled");
-                    Equal(1, toggles, "graph Space follows one transport route");
+                    Cursor.Position = analysis.Graph.PointToScreen(new Point(
+                        analysis.Graph.Width / 2, analysis.Graph.Height / 2));
+                    Equal(true, analysis.TryHandleAnalysisSpace(true),
+                        "active Analysis form handles Space with the pointer over the graph");
+                    Equal(1, toggles, "Analysis Space follows one transport route");
                     List<Control> controls = new List<Control>(); CollectControls(analysis, controls);
                     Button resetZoom = FindButton(controls, "Reset zoom");
                     if (resetZoom == null) throw new Exception("Analysis Reset zoom button is missing");
                     resetZoom.Focus();
-                    analysis.GraphShortcutPointerForTesting = pointer;
-                    typeof(WorkloadGraph).GetMethod("OnMouseMove", BindingFlags.Instance | BindingFlags.NonPublic)
-                        .Invoke(analysis.Graph, new object[] { new MouseEventArgs(MouseButtons.None, 0,
-                            analysis.Graph.Width / 2, analysis.Graph.Height / 2, 0) });
-                    Equal(true, analysis.Graph.Focused, "hovering the graph moves focus off the button");
-                    Message space = Message.Create(analysis.Graph.Handle, 0x0100, (IntPtr)Keys.Space, IntPtr.Zero);
-                    Equal(true, analysis.Graph.PreProcessMessage(ref space),
-                        "real graph keyboard preprocessing handles Space");
-                    Equal(2, toggles, "real graph Space invokes the shared transport request");
+                    Cursor.Position = resetZoom.PointToScreen(new Point(
+                        resetZoom.Width / 2, resetZoom.Height / 2));
+                    Message space = Message.Create(resetZoom.Handle, 0x0100, (IntPtr)Keys.Space, IntPtr.Zero);
+                    Equal(true, resetZoom.PreProcessMessage(ref space),
+                        "active Analysis intercepts Space before a focused button clicks");
+                    Equal(2, toggles, "focused-button Space invokes the shared transport request");
+                    Equal(true, resetZoom.Focused, "Space routing does not redirect button focus");
+                    Cursor.Position = new Point(analysis.Bounds.Right + 20, analysis.Bounds.Bottom + 20);
+                    Equal(true, analysis.TryHandleAnalysisSpace(true),
+                        "active Analysis handles Space with the pointer outside its bounds");
+                    Equal(3, toggles, "pointer location does not change Analysis Space routing");
+                    analysis.Graph.Focus();
+                    Equal(true, analysis.TryHandleAnalysisSpace(true), "focused graph permits Analysis Space");
+                    Equal(4, toggles, "graph focus uses the same transport route");
+                    TextBox report = FindControl<TextBox>(controls);
+                    if (report == null) throw new Exception("Analysis report control is missing");
+                    report.Focus();
+                    Equal(true, analysis.TryHandleAnalysisSpace(true),
+                        "read-only Analysis report permits transport Space");
+                    Equal(5, toggles, "report focus uses the same transport route");
+                    CheckBox statistics = FindControl<CheckBox>(controls);
+                    if (statistics == null) throw new Exception("Analysis statistics control is missing");
+                    statistics.Focus();
+                    Equal(true, analysis.TryHandleAnalysisSpace(true),
+                        "focused Analysis statistics control permits transport Space");
+                    Equal(6, toggles, "statistics focus uses the same transport route");
+                    using (TextBox editor = new TextBox())
+                    {
+                        analysis.Controls.Add(editor);
+                        editor.BringToFront(); editor.Focus();
+                        Equal(false, analysis.TryHandleAnalysisSpace(true),
+                            "active text editing retains Space");
+                        analysis.Controls.Remove(editor);
+                    }
                     other.Show(); other.Activate(); PumpFor(20);
-                    Equal(false, analysis.TryHandleGraphSpaceAt(pointer, false),
+                    Equal(false, analysis.TryHandleAnalysisSpace(false),
                         "inactive Analysis cannot toggle transport");
-                    Equal(2, toggles, "inactive Analysis sends no transport command");
+                    Equal(6, toggles, "inactive Analysis sends no transport command");
                 }
                 finally { other.Close(); analysis.Close(); }
             }
@@ -9025,10 +9804,10 @@ namespace MidiBottleneck.Tests
                     if (Math.Abs(graphics.DpiX - 96F) < 0.5F && form.Font.Name == "Segoe UI")
                     {
                         Equal(143, location(queue).X, "default Queue moves three pixels left");
-                        Equal(126, location(queue).Y, "default Queue moves five pixels down");
-                        Equal(124, location(events).Y, "default events label moves one pixel up");
-                        Equal(443, location(overflow).X, "default Overflow dropdown moves three pixels left");
-                        Equal(159, location(rate).Y, "default Rate follows the compacted selector row");
+                        Equal(125, location(queue).Y, "default Queue matches the real message-loop layout");
+                        Equal(126, location(events).Y, "default events label matches the real message-loop layout");
+                        Equal(445, location(overflow).X, "default Overflow matches the real message-loop layout");
+                        Equal(158, location(rate).Y, "default Rate matches the real message-loop layout");
                     }
                 }
                 Equal(MainForm.MeasureMainNumericWidth(rate), rate.Width,
@@ -9069,11 +9848,11 @@ namespace MidiBottleneck.Tests
                 {
                     if (Math.Abs(graphics.DpiX - 96F) < 0.5F && form.Font.Name == "Segoe UI")
                     {
-                        Equal(96, location(queue).X, "compact Queue moves three pixels left");
-                        Equal(111, location(queue).Y, "compact Queue moves five pixels down");
-                        Equal(109, location(events).Y, "compact events label moves one pixel up");
-                        Equal(271, location(overflow).X, "compact Overflow moves three pixels left");
-                        Equal(142, location(rate).Y, "compact Rate follows the compacted selector row");
+                        Equal(97, location(queue).X, "compact Queue matches the real message-loop layout");
+                        Equal(110, location(queue).Y, "compact Queue top matches the real message-loop layout");
+                        Equal(111, location(events).Y, "compact events label matches the real message-loop layout");
+                        Equal(273, location(overflow).X, "compact Overflow matches the real message-loop layout");
+                        Equal(140, location(rate).Y, "compact Rate matches the real message-loop layout");
                     }
                 }
                 rate.Value = 9999999; queue.Value = 1000000; PumpFor(8);
@@ -9086,7 +9865,12 @@ namespace MidiBottleneck.Tests
                     rate.Font = larger; PumpFor(5);
                     if (rate.Width <= before)
                         throw new Exception("numeric width did not follow a larger DPI-like font");
-                    AssertNumericFullyVisible(rate, "larger-font event rate");
+                    Equal(MainForm.MeasureMainNumericWidth(rate), rate.Width,
+                        "larger-font event rate retains its measured horizontal width");
+                    using (Graphics graphics = rate.CreateGraphics())
+                        if (graphics.MeasureString(rate.Text, rate.Font, PointF.Empty,
+                            StringFormat.GenericTypographic).Width > rate.ClientSize.Width + 0.01F)
+                            throw new Exception("larger-font event rate clips its numeric text");
                     rate.Font = normal; PumpFor(5);
                 }
                 form.ClientSize = new Size(640, form.ClientSize.Height); PumpFor(10);
@@ -9199,7 +9983,7 @@ namespace MidiBottleneck.Tests
                 Equal(RateModelChoice.None, choice.SelectedChoice, "fresh selector defaults to None");
                 Equal(false, engine.SimulateSlowdown, "None disables simulated rate service");
                 Equal(false, form.ApplyQueueLimitWithoutSlowdownForTesting, "forward-only option defaults off");
-                Equal(5, choice.Items.Count, "selector item model contains only five actual choices");
+                Equal(8, choice.Items.Count, "selector item model contains only the eight actual choices");
                 Equal(AccessibleRole.StaticText, choice.HeadingRolesForTesting[0],
                     "slowdown group is static accessibility text");
                 Equal(AccessibleRole.StaticText, choice.HeadingRolesForTesting[1],
@@ -9263,7 +10047,8 @@ namespace MidiBottleneck.Tests
                 choice.SelectedChoice = RateModelChoice.ProcessingTime;
                 choice.SelectedChoice = RateModelChoice.PerNoteIntervalGate;
                 Equal(true, form.PerNoteIntervalGateForTesting, "gate choice activates existing gate");
-                Equal(true, form.PerNoteGateControlsLockedForTesting, "gate locks queue, not the selector");
+                Equal(true, choice.Enabled,
+                    "gate leaves the selector available while interval polyphony uses the Queue controls");
                 AnalysisConfiguration gate = (AnalysisConfiguration)analysis.Invoke(form, null);
                 Equal(true, gate.PerNoteIntervalGateEnabled, "Analysis sees gate choice");
                 choice.SelectedChoice = RateModelChoice.None;
@@ -9374,7 +10159,9 @@ namespace MidiBottleneck.Tests
                 Equal(PlayerHelpTopic.RateModel, help.SelectedTopic,
                     "reused Help follows changed focus");
                 if (!help.VisibleHelpText.Contains("Per-note interval gate") ||
-                    !help.VisibleHelpText.Contains("None"))
+                    !help.VisibleHelpText.Contains("SLOWDOWN MODELS") ||
+                    !help.VisibleHelpText.Contains("does not survive into another batch") ||
+                    help.VisibleHelpText.Contains("current and one following"))
                     throw new Exception("rate Help does not explain the visible choices");
 
                 form.Activate(); queue.Focus(); Application.DoEvents();
@@ -9383,7 +10170,10 @@ namespace MidiBottleneck.Tests
                 SendMessage(form.Handle, 0x0112, (IntPtr)MainForm.HelpSystemCommandForTesting, IntPtr.Zero);
                 Equal(PlayerHelpTopic.QueueAndOverflow, help.SelectedTopic,
                     "native system-menu Help uses the same topic route");
-                if (!help.VisibleHelpText.Contains("Forward-only queue admission"))
+                if (!help.VisibleHelpText.Contains("FORWARD-ONLY") ||
+                    !help.VisibleHelpText.Contains("Interval polyphony") ||
+                    !help.VisibleHelpText.Contains("Drop background notes") ||
+                    !help.VisibleHelpText.Contains("1–128"))
                     throw new Exception("queue Help omits the virtual-admission distinction");
 
                 form.Activate(); reset.Focus(); Application.DoEvents();
@@ -9405,6 +10195,61 @@ namespace MidiBottleneck.Tests
             }
         }
 
+        private static void AssertRatePopupHasPerceptibleGroups(Bitmap popup,
+            Rectangle[] headings, Rectangle[] choices)
+        {
+            if (headings == null || headings.Length != 2 || choices == null || choices.Length < 5)
+                throw new Exception("Rate popup did not expose the expected rendered group structure");
+            int[] followingChoice = new int[] { 1, 4 };
+            for (int i = 0; i < headings.Length; i++)
+            {
+                Rectangle heading = Rectangle.Intersect(new Rectangle(Point.Empty, popup.Size), headings[i]);
+                Rectangle choice = Rectangle.Intersect(new Rectangle(Point.Empty, popup.Size), choices[followingChoice[i]]);
+                // Sample realized right-side padding rather than a fractional
+                // width. The popup is now measured tightly from its longest
+                // label, so the old two-thirds sample can legitimately cross
+                // glyph antialiasing when a shorter label becomes the width
+                // determinant.
+                int sampleWidth = Math.Max(1, Math.Min(4, heading.Width));
+                Rectangle headingSample = new Rectangle(
+                    Math.Max(heading.Left, heading.Right - sampleWidth - 2), heading.Top + 2,
+                    sampleWidth, Math.Max(1, heading.Height - 5));
+                Rectangle choiceSample = new Rectangle(
+                    Math.Max(choice.Left, choice.Right - sampleWidth - 2), choice.Top + 2,
+                    sampleWidth, Math.Max(1, choice.Height - 4));
+                Color headingColor = AverageBitmapColor(popup, headingSample);
+                Color choiceColor = AverageBitmapColor(popup, choiceSample);
+                int contrast = Math.Abs(headingColor.R - choiceColor.R) +
+                    Math.Abs(headingColor.G - choiceColor.G) + Math.Abs(headingColor.B - choiceColor.B);
+                if (contrast < 8)
+                    throw new Exception("Rate popup group " + i +
+                        " has no perceptible rendered background hierarchy (RGB distance " + contrast +
+                        ", heading " + headingColor + ", choice " + choiceColor + ")");
+
+                Color separatorColor = AverageBitmapColor(popup,
+                    new Rectangle(heading.Left + 5, heading.Bottom - 1,
+                        Math.Max(1, heading.Width - 10), 1));
+                int separatorContrast = Math.Abs(separatorColor.R - headingColor.R) +
+                    Math.Abs(separatorColor.G - headingColor.G) + Math.Abs(separatorColor.B - headingColor.B);
+                if (separatorContrast < 18)
+                    throw new Exception("Rate popup group " + i + " lacks a perceptible rendered separator");
+            }
+        }
+
+        private static Color AverageBitmapColor(Bitmap bitmap, Rectangle bounds)
+        {
+            bounds = Rectangle.Intersect(new Rectangle(Point.Empty, bitmap.Size), bounds);
+            if (bounds.Width <= 0 || bounds.Height <= 0) return Color.Empty;
+            long red = 0, green = 0, blue = 0, count = 0;
+            for (int y = bounds.Top; y < bounds.Bottom; y++)
+                for (int x = bounds.Left; x < bounds.Right; x++)
+                {
+                    Color pixel = bitmap.GetPixel(x, y);
+                    red += pixel.R; green += pixel.G; blue += pixel.B; count++;
+                }
+            return Color.FromArgb((int)(red / count), (int)(green / count), (int)(blue / count));
+        }
+
         private static void TestBuild43Presentation()
         {
             Application.EnableVisualStyles();
@@ -9418,14 +10263,31 @@ namespace MidiBottleneck.Tests
                     .GetField("_processingValue", flags).GetValue(form);
                 ScrubOrTypeTextBox queueValue = (ScrubOrTypeTextBox)typeof(MainForm)
                     .GetField("_queueLimitValue", flags).GetValue(form);
+                Button openButton = (Button)typeof(MainForm).GetField("_openButton", flags).GetValue(form);
+                Label outputLabel = (Label)typeof(MainForm).GetField("_outputLabel", flags).GetValue(form);
+                ComboBox outputCombo = (ComboBox)typeof(MainForm).GetField("_outputCombo", flags).GetValue(form);
+                TableLayoutPanel fileTable = (TableLayoutPanel)typeof(MainForm)
+                    .GetField("_fileOutputTable", flags).GetValue(form);
+                Rectangle canonicalOpen = openButton.Bounds;
+                Rectangle canonicalOutputLabel = outputLabel.Bounds;
+                Rectangle canonicalOutputCombo = outputCombo.Bounds;
                 Equal(DrawMode.Normal, rate.DrawMode,
                     "collapsed Rate selector uses native themed rendering");
                 if (rate.Bottom + rate.Margin.Bottom > rate.Parent.ClientSize.Height)
                     throw new Exception("standard Rate selector bottom border remains clipped");
-                Equal(SystemColors.Window, rateValue.BackColor,
-                    "editable Rate field retains the system editable-field background");
-                Equal(SystemColors.Window, queueValue.BackColor,
-                    "editable Queue field retains the system editable-field background");
+                Equal(true, ScrubOrTypeTextBox.FieldPaletteMeasuredFromComboBoxForTesting,
+                    "current-theme field colors were measured from native ComboBox fields");
+                Equal(ScrubOrTypeTextBox.DisabledFieldBackColorForTesting, rateValue.BackColor,
+                    "inactive Rate field follows the current disabled ComboBox field background");
+                Equal(ScrubOrTypeTextBox.DisabledFieldBackColorForTesting, queueValue.BackColor,
+                    "inactive Queue field follows the current disabled ComboBox field background");
+                rate.SelectedChoice = RateModelChoice.ProcessingTime; PumpFor(10);
+                Equal(ScrubOrTypeTextBox.EnabledFieldBackColorForTesting, rateValue.BackColor,
+                    "active Rate field follows the current enabled ComboBox field background");
+                queueValue.Enabled = true;
+                Equal(ScrubOrTypeTextBox.EnabledFieldBackColorForTesting, queueValue.BackColor,
+                    "active Queue field follows the current enabled ComboBox field background");
+                queueValue.Enabled = false;
 
                 RateModelChoice beforePopup = rate.SelectedChoice;
                 // ToolStripDropDown intentionally auto-closes when its owner is
@@ -9448,10 +10310,14 @@ namespace MidiBottleneck.Tests
                     if (headingBounds[i].Width < 20 || headingBounds[i].Height < 10)
                         throw new Exception("Rate popup heading " + i + " has no visible bounds: " + headingBounds[i]);
                 using (Bitmap popup = rate.CapturePopupForTesting())
+                {
                     if (popup.Width < 20 || popup.Height < 40)
                         throw new Exception("grouped Rate popup did not produce a realized render surface");
+                    AssertRatePopupHasPerceptibleGroups(popup, headingBounds, rate.ChoiceBoundsForTesting);
+                }
                 Equal(beforePopup, rate.SelectedChoice, "opening grouped popup does not change model");
-                Equal(false, rate.HeadingEnabledForTesting[0], "slowdown heading cannot activate");
+                Equal(true, rate.HeadingEnabledForTesting[0], "slowdown heading remains legible instead of disabled-gray");
+                Equal(false, rate.HeadingSelectableForTesting[0], "slowdown heading cannot receive focus");
                 Equal(false, rate.HeadingSelectableForTesting[1], "gate heading cannot receive focus");
                 SendMessage(rate.Handle, 0x014F, IntPtr.Zero, IntPtr.Zero);
                 PumpFor(10);
@@ -9468,20 +10334,703 @@ namespace MidiBottleneck.Tests
                 int width = form.Width;
                 form.Width += 80; PumpFor(10);
                 if (form.Width <= width) throw new Exception("fixed standard height blocked horizontal resizing");
+                canonicalOpen = openButton.Bounds;
+                canonicalOutputLabel = outputLabel.Bounds;
+                canonicalOutputCombo = outputCombo.Bounds;
+
+                form.ApplyUiScaleForTesting(150); PumpFor(50);
+                form.ApplyUiScaleForTesting(100); PumpFor(50);
+                Equal(canonicalOpen, openButton.Bounds,
+                    "Open MIDI returns exactly after above-100 scaling");
+                Equal(canonicalOutputLabel, outputLabel.Bounds,
+                    "MIDI output caption returns exactly after above-100 scaling");
+                Equal(canonicalOutputCombo, outputCombo.Bounds,
+                    "MIDI output selector returns exactly after above-100 scaling");
 
                 form.ApplyUiScaleForTesting(50); PumpFor(50);
                 Equal("Tahoma", form.Font.Name, "50 percent uses the hinted small UI font");
                 if (form.Font.SizeInPoints < 5.4F)
                     throw new Exception("50 percent font readability floor was not applied");
+                if (openButton.Width < openButton.GetPreferredSize(Size.Empty).Width ||
+                    openButton.Height < openButton.GetPreferredSize(Size.Empty).Height)
+                    throw new Exception("50 percent Open MIDI button clips its actual scaled-font preferred size");
+                if (fileTable.RowStyles[0].Height < openButton.Height + openButton.Margin.Vertical)
+                    throw new Exception("50 percent file header row clips the Open MIDI button");
+                Equal(openButton.Right, outputLabel.Right,
+                    "50 percent MIDI output caption aligns with Open MIDI right edge");
                 form.ApplyUiScaleForTesting(75); PumpFor(50);
                 Equal("Tahoma", form.Font.Name, "75 percent uses the hinted small UI font");
+                if (openButton.Width < openButton.GetPreferredSize(Size.Empty).Width ||
+                    openButton.Height < openButton.GetPreferredSize(Size.Empty).Height)
+                    throw new Exception("75 percent Open MIDI button clips its actual scaled-font preferred size: actual " +
+                        openButton.Size + ", preferred " + openButton.GetPreferredSize(Size.Empty));
+                Equal(openButton.Right, outputLabel.Right,
+                    "75 percent MIDI output caption aligns with Open MIDI right edge");
                 form.ApplyUiScaleForTesting(100); PumpFor(50);
                 Equal("Segoe UI", form.Font.Name, "100 percent restores the canonical UI family");
                 Equal(9F, form.Font.SizeInPoints, "100 percent restores the canonical point size");
+                Equal(canonicalOpen, openButton.Bounds,
+                    "Open MIDI returns to exact canonical bounds after low-scale cycling");
+                Equal(canonicalOutputLabel, outputLabel.Bounds,
+                    "MIDI output caption returns to exact canonical bounds after low-scale cycling");
+                Equal(canonicalOutputCombo, outputCombo.Bounds,
+                    "MIDI output selector returns to exact canonical bounds after low-scale cycling");
                 Equal(form.MinimumSize.Height, form.MaximumSize.Height,
                     "fixed-height contract survives scale cycling");
                 form.Close();
             }
+
+            using (StatisticsView statistics = new StatisticsView())
+            {
+                string longTimeline = "123:45.678\u2009/\u2009987:54.321";
+                statistics.Compact = true;
+                statistics.SetValues(new string[] { longTimeline, "1,097,842\u2009/\u20091,500,000",
+                    "9,500,000 events/s", "8,750,000 events/s", "10,385,604\u2009/\u200938",
+                    "100.2%", "12,345.678 ms", "1,234.567 ms" });
+                foreach (int scale in new int[] { 50, 75 })
+                {
+                    statistics.ApplicationScalePercent = scale;
+                    int measured;
+                    using (Bitmap measureBitmap = new Bitmap(1, 1))
+                    using (Graphics graphics = Graphics.FromImage(measureBitmap))
+                        measured = statistics.MeasureStatisticValueForTesting(graphics, longTimeline);
+                    statistics.Size = new Size((measured + 4) * 2, statistics.Height);
+                    using (Bitmap bitmap = new Bitmap(statistics.Width, statistics.Height))
+                        statistics.DrawToBitmap(bitmap, statistics.ClientRectangle);
+                    Equal(false, statistics.ValueWasTruncated(0),
+                        scale + " percent timeline/output uses caption space before clipping its value");
+                    Equal(measured, statistics.ValueAllocationWidth(0),
+                        scale + " percent timeline/output receives its complete measured width");
+                    if (statistics.SelectedCaptionAt(0) != String.Empty)
+                        throw new Exception(scale + " percent caption did not yield to the complete timeline value");
+                }
+            }
+
+            using (PlaybackTimelineView timeline = new PlaybackTimelineView())
+            {
+                const long duration = 987L * 60L * 1000000L + 54321000L;
+                const long position = 123L * 60L * 1000000L + 45678000L;
+                timeline.SetTimeline(position, duration);
+                foreach (int scale in new int[] { 50, 75 })
+                {
+                    timeline.ApplicationScalePercent = scale;
+                    timeline.Size = new Size((300 * scale + 50) / 100,
+                        Math.Max(20, (42 * scale + 50) / 100));
+                    using (Bitmap bitmap = new Bitmap(timeline.Width, timeline.Height))
+                        timeline.DrawToBitmap(bitmap, timeline.ClientRectangle);
+                    Equal("123:45.678 / 987:54.321", timeline.TimeTextForTesting,
+                        scale + " percent timeline formats multi-hour/large-minute time completely");
+                    if (timeline.MeasuredTimeWidthForTesting > timeline.TimeBoundsForTesting.Width)
+                        throw new Exception(scale + " percent timeline clipped a timestamp that fits beside the track");
+                }
+            }
+        }
+
+        private static void TestBuild44RealRatePopup()
+        {
+            Application.EnableVisualStyles();
+            BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(50);
+                RateModelComboBox rate = (RateModelComboBox)typeof(MainForm)
+                    .GetField("_serviceModeCombo", flags).GetValue(form);
+                form.Activate(); rate.Focus(); PumpFor(25);
+
+                rate.SelectedChoice = RateModelChoice.ProcessingTime; PumpFor(20);
+                int originalRateWidth = rate.Width;
+                ComboBoxInfo initialRateInfo = GetRateComboBoxInfo(rate,
+                    "collapsed Rate fit boundary");
+                int rateChromeWidth = rate.Width -
+                    (initialRateInfo.Item.Right - initialRateInfo.Item.Left);
+                int fullProcessingWidth = TextRenderer.MeasureText(
+                    FullRateLabel(RateModelChoice.ProcessingTime), rate.Font, Size.Empty,
+                    TextFormatFlags.SingleLine | TextFormatFlags.NoPadding).Width;
+                int collapsedPadding = Math.Max(2,
+                    (4 * form.UiScalePercentForTesting + 50) / 100);
+                rate.Width = rateChromeWidth + fullProcessingWidth + collapsedPadding;
+                PumpFor(25);
+                AssertCollapsedRateLabel(rate, form.UiScalePercentForTesting,
+                    "collapsed Rate exact-fit boundary");
+                rate.Width--;
+                PumpFor(25);
+                AssertCollapsedRateLabel(rate, form.UiScalePercentForTesting,
+                    "collapsed Rate below-fit boundary");
+                rate.Width = originalRateWidth;
+                rate.SelectedChoice = RateModelChoice.None;
+                PumpFor(25);
+
+                OpenRatePopupByMouse(rate);
+                AssertRealRatePopupVisible(form, rate, "mouse arrow");
+                RateModelChoice unchanged = rate.SelectedChoice;
+                Rectangle[] headings = rate.HeadingScreenBoundsForTesting;
+                NativeClick(rate.PopupHandleForTesting, Center(headings[0])); PumpFor(25);
+                Equal(unchanged, rate.SelectedChoice,
+                    "mouse cannot select the slowdown heading");
+                OpenRatePopupByMouse(rate);
+                AssertRealRatePopupVisible(form, rate, "reopen after heading click");
+                NativeCharacter(rate.PopupHandleForTesting, 'S'); PumpFor(20);
+                Equal(unchanged, rate.SelectedChoice,
+                    "prefix search cannot select a heading");
+                Equal(true, rate.PopupVisibleForTesting,
+                    "prefix search leaves the real popup open");
+                NativeKey(rate.Handle, 0x1B); PumpFor(25);
+                Equal(false, rate.PopupVisibleForTesting,
+                    "Escape closes the real popup");
+                Equal(unchanged, rate.SelectedChoice,
+                    "Escape does not change the Rate model");
+
+                OpenRatePopupByMouse(rate);
+                AssertRealRatePopupVisible(form, rate, "reopen after Escape");
+                NativeClick(form.Handle,
+                    form.PointToScreen(new Point(form.ClientSize.Width - 6, 6)));
+                PumpFor(30);
+                Equal(false, rate.PopupVisibleForTesting,
+                    "outside click closes the real popup");
+                Equal(unchanged, rate.SelectedChoice,
+                    "outside click does not change the Rate model");
+
+                OpenRatePopupByF4(rate);
+                AssertRealRatePopupVisible(form, rate, "F4");
+                NativeKey(rate.Handle, 0x1B); PumpFor(20);
+
+                int selectionChanges = 0;
+                rate.SelectedIndexChanged += delegate { selectionChanges++; };
+                rate.SelectedChoice = RateModelChoice.ProcessingTime;
+                selectionChanges = 0;
+                OpenRatePopupByF4(rate);
+                NativeKey(rate.Handle, 0x24);
+                NativeKey(rate.Handle, 0x0D); PumpFor(35);
+                Equal(RateModelChoice.None, rate.SelectedChoice,
+                    "keyboard selection reaches the first real model");
+                Equal(1, selectionChanges,
+                    "keyboard selection changes the model exactly once");
+                Equal(false, rate.PopupVisibleForTesting,
+                    "completed keyboard selection closes the real popup");
+
+                OpenRatePopupByAltDown(rate);
+                AssertRealRatePopupVisible(form, rate, "Alt+Down");
+                NativeKey(rate.Handle, 0x1B); PumpFor(20);
+
+                RateModelChoice[] choices = new RateModelChoice[] {
+                    RateModelChoice.None, RateModelChoice.ProcessingTime,
+                    RateModelChoice.MidiBitrate, RateModelChoice.EventsPerSecond,
+                    RateModelChoice.PerNoteIntervalGate, RateModelChoice.DelayedNoteOff,
+                    RateModelChoice.NoteAttackLimit };
+                for (int index = 0; index < choices.Length; index++)
+                {
+                    rate.SelectedChoice = choices[index] == RateModelChoice.None
+                        ? RateModelChoice.ProcessingTime : RateModelChoice.None;
+                    selectionChanges = 0;
+                    OpenRatePopupByMouse(rate);
+                    AssertRealRatePopupVisible(form, rate,
+                        "choice " + choices[index]);
+                    Rectangle choice = rate.ChoiceScreenBoundsForTesting[index];
+                    NativeClick(rate.PopupHandleForTesting, Center(choice)); PumpFor(30);
+                    Equal(choices[index], rate.SelectedChoice,
+                        "real popup selects " + choices[index]);
+                    Equal(1, selectionChanges,
+                        "real popup changes " + choices[index] + " exactly once");
+                    Equal(false, rate.PopupVisibleForTesting,
+                        "completed selection closes the real popup");
+                }
+
+                OpenRatePopupByMouse(rate);
+                AssertRealRatePopupVisible(form, rate, "reopen after selection");
+                NativeKey(rate.Handle, 0x1B); PumpFor(20);
+
+                ExerciseRapidRatePopupActivation(form, rate, "100% standard rapid");
+                using (ChannelMonitorForm channels = new ChannelMonitorForm("rate-popup.mid"))
+                using (DiagnosticsForm analysis = new DiagnosticsForm(
+                    BuildSong(new long[] { 0, 100000 })))
+                {
+                    channels.Show(); analysis.Show(); PumpFor(30);
+                    AssertOutsideApplicationClickClosesRatePopup(form, rate, form,
+                        "main-window outside click");
+                    AssertOutsideApplicationClickClosesRatePopup(form, rate, channels,
+                        "Channels outside click");
+                    AssertOutsideApplicationClickClosesRatePopup(form, rate, analysis,
+                        "Analysis outside click");
+                    OpenRatePopupByMouse(rate);
+                    SendMessage(form.Handle, 0x0006, IntPtr.Zero, channels.Handle);
+                    PumpFor(30);
+                    AssertRatePopupClosedStable(rate, "focus loss");
+                    form.Activate(); rate.Focus(); PumpFor(20);
+                }
+
+                foreach (int scale in new int[] { 50, 75, 100, 200 })
+                foreach (bool compact in new bool[] { false, true })
+                {
+                    form.ApplyUiScaleForTesting(scale); PumpFor(45);
+                    int logicalWidth = compact ? 620 : 800;
+                    form.ClientSize = new Size(Math.Max(1,
+                        (logicalWidth * scale + 50) / 100), form.ClientSize.Height);
+                    PumpFor(45);
+                    Equal(compact, form.CompactLayoutForTesting,
+                        "Rate popup layout at " + scale + "% compact=" + compact);
+                    rate.SelectedChoice = RateModelChoice.ProcessingTime;
+                    PumpFor(20);
+                    AssertCollapsedRateLabel(rate, scale,
+                        scale + "% compact=" + compact + " measured collapsed label");
+                    form.Activate(); rate.Focus(); PumpFor(15);
+                    OpenRatePopupByMouse(rate);
+                    AssertRealRatePopupVisible(form, rate,
+                        scale + "% compact=" + compact);
+                    NativeKey(rate.Handle, 0x1B); PumpFor(20);
+                    ExerciseRapidRatePopupActivation(form, rate,
+                        scale + "% compact=" + compact + " rapid");
+                }
+
+                typeof(Control).GetMethod("RecreateHandle", flags).Invoke(form, null);
+                PumpFor(40); form.Activate(); rate.Focus(); PumpFor(15);
+                AssertCollapsedRateLabel(rate, form.UiScalePercentForTesting,
+                    "collapsed Rate after handle recreation");
+                OpenRatePopupByMouse(rate);
+                AssertRealRatePopupVisible(form, rate, "handle recreation");
+                NativeKey(rate.Handle, 0x1B); PumpFor(20);
+                form.Close();
+            }
+        }
+
+        private static void TestBuild44CompactOverflowWidth()
+        {
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(60);
+                const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Instance |
+                    System.Reflection.BindingFlags.NonPublic;
+                FlowLayoutPanel cluster = (FlowLayoutPanel)typeof(MainForm)
+                    .GetField("_overflowCluster", flags).GetValue(form);
+                FlowLayoutPanel queueCluster = (FlowLayoutPanel)typeof(MainForm)
+                    .GetField("_queueCluster", flags).GetValue(form);
+                FlowLayoutPanel rateCluster = (FlowLayoutPanel)typeof(MainForm)
+                    .GetField("_rateCluster", flags).GetValue(form);
+                TableLayoutPanel processingTable = (TableLayoutPanel)typeof(MainForm)
+                    .GetField("_processingTable", flags).GetValue(form);
+                Label caption = (Label)typeof(MainForm)
+                    .GetField("_overflowLabel", flags).GetValue(form);
+                ComboBox combo = (ComboBox)typeof(MainForm)
+                    .GetField("_overflowPolicyCombo", flags).GetValue(form);
+                Label rateCaption = (Label)typeof(MainForm)
+                    .GetField("_serviceModeLabel", flags).GetValue(form);
+                RateModelComboBox rateCombo = (RateModelComboBox)typeof(MainForm)
+                    .GetField("_serviceModeCombo", flags).GetValue(form);
+
+                foreach (int scale in new int[] { 50, 75, 100, 200 })
+                {
+                    form.ApplyUiScaleForTesting(scale); PumpFor(45);
+                    int standardWidth = (800 * scale + 50) / 100;
+                    form.ClientSize = new Size(standardWidth, form.ClientSize.Height); PumpFor(45);
+                    Equal(false, form.CompactLayoutForTesting,
+                        "standard Overflow layout at " + scale + "%");
+                    Equal((235 * scale + 50) / 100, combo.Width,
+                        "standard Overflow width stays fixed at " + scale + "%");
+                    Equal((210 * scale + 50) / 100, rateCombo.Width,
+                        "standard Rate width stays fixed at " + scale + "%");
+                    int fixedWidth = combo.Width;
+                    int fixedRateWidth = rateCombo.Width;
+                    int naturalRateHeight = rateCombo.Height;
+                    int standardRequiredHeight = form.RealizedRequiredWindowHeight;
+
+                    int largeCompactWidth = 620;
+                    int smallCompactWidth = 500;
+                    int[] logicalWidths = new int[] { largeCompactWidth, smallCompactWidth };
+                    int[] realizedWidths = new int[logicalWidths.Length];
+                    int compactRequiredHeight = -1;
+                    int compactWindowHeight = -1;
+                    Rectangle referenceQueueBounds = Rectangle.Empty;
+                    Rectangle referenceOverflowBounds = Rectangle.Empty;
+                    Rectangle referenceRateBounds = Rectangle.Empty;
+                    Rectangle referenceRateComboBounds = Rectangle.Empty;
+                    for (int widthIndex = 0; widthIndex < logicalWidths.Length; widthIndex++)
+                    {
+                        form.ClientSize = new Size((logicalWidths[widthIndex] * scale + 50) / 100,
+                            form.ClientSize.Height);
+                        PumpFor(45);
+                        Equal(true, form.CompactLayoutForTesting,
+                            "compact Overflow layout at " + scale + "% and " + logicalWidths[widthIndex]);
+                        int expected = Math.Max(1, cluster.ClientSize.Width - cluster.Padding.Horizontal -
+                            caption.Width - caption.Margin.Horizontal - combo.Margin.Horizontal);
+                        Equal(expected, combo.Width,
+                            "compact Overflow consumes remaining width at " + scale + "% and " + logicalWidths[widthIndex]);
+                        int expectedRate = Math.Max(1, rateCluster.ClientSize.Width -
+                            rateCluster.Padding.Horizontal - rateCaption.Width -
+                            rateCaption.Margin.Horizontal - rateCombo.Margin.Horizontal);
+                        Equal(expectedRate, rateCombo.Width,
+                            "compact Rate consumes remaining width at " + scale + "% and " +
+                            logicalWidths[widthIndex]);
+                        Equal(naturalRateHeight, rateCombo.Height,
+                            "compact Rate retains natural native height at " + scale + "% and " +
+                            logicalWidths[widthIndex]);
+                        if (rateCombo.Left < rateCaption.Right ||
+                            rateCombo.Right > rateCluster.ClientSize.Width - rateCluster.Padding.Right)
+                            throw new Exception("compact Rate overlaps or clips at " + scale + "% and " +
+                                logicalWidths[widthIndex] + ": caption=" + rateCaption.Bounds +
+                                ", combo=" + rateCombo.Bounds + ", cluster=" + rateCluster.ClientRectangle);
+                        if (combo.Left < caption.Right || combo.Right > cluster.ClientSize.Width - cluster.Padding.Right)
+                            throw new Exception("compact Overflow overlaps or clips at " + scale + "% and " +
+                                logicalWidths[widthIndex] + ": caption=" + caption.Bounds + ", combo=" + combo.Bounds +
+                                ", cluster=" + cluster.ClientRectangle);
+                        int tolerance = Math.Max(2, (3 * scale + 50) / 100);
+                        int queueCenter = queueCluster.Top + queueCluster.Height / 2;
+                        int overflowCenter = cluster.Top + cluster.Height / 2;
+                        if (Math.Abs(queueCenter - overflowCenter) > tolerance ||
+                            queueCluster.Bottom <= cluster.Top || cluster.Bottom <= queueCluster.Top)
+                            throw new Exception("compact Queue/Overflow vertical alignment drifted at " + scale +
+                                "% and " + logicalWidths[widthIndex] + ": queue=" + queueCluster.Bounds +
+                                ", overflow=" + cluster.Bounds);
+                        int naturalFirstRow = Math.Max(InlineClusterNaturalHeight(queueCluster),
+                            InlineClusterNaturalHeight(cluster));
+                        int[] rowHeights = processingTable.GetRowHeights();
+                        if (rowHeights.Length < 2 || rowHeights[0] > naturalFirstRow + tolerance)
+                            throw new Exception("compact first processing row retained surplus height at " + scale +
+                                "% and " + logicalWidths[widthIndex] + ": row=" +
+                                (rowHeights.Length == 0 ? -1 : rowHeights[0]) + ", natural=" + naturalFirstRow);
+                        int naturalRateRow = InlineClusterNaturalHeight(rateCluster);
+                        if (rowHeights.Length < 2 || rowHeights[1] > naturalRateRow + tolerance)
+                            throw new Exception("compact Rate row retained surplus height at " + scale +
+                                "% and " + logicalWidths[widthIndex] + ": row=" +
+                                (rowHeights.Length < 2 ? -1 : rowHeights[1]) + ", natural=" + naturalRateRow);
+                        int intendedRateGap = Math.Max(2, (5 * scale + 50) / 100);
+                        int firstBottom = Math.Max(queueCluster.Bottom, cluster.Bottom);
+                        if (rateCluster.Top - firstBottom > intendedRateGap + tolerance)
+                            throw new Exception("compact Rate row follows the Queue/Overflow row with surplus space at " +
+                                scale + "% and " + logicalWidths[widthIndex] + ": gap=" +
+                                (rateCluster.Top - firstBottom));
+                        int requiredHeight = form.RealizedRequiredWindowHeight;
+                        if (widthIndex == 0)
+                        {
+                            compactRequiredHeight = requiredHeight;
+                            compactWindowHeight = form.Height;
+                            referenceQueueBounds = queueCluster.Bounds;
+                            referenceOverflowBounds = cluster.Bounds;
+                            referenceRateBounds = rateCluster.Bounds;
+                            referenceRateComboBounds = rateCombo.Bounds;
+                            int materialDifference = Math.Max(12, (50 * scale + 50) / 100);
+                            if (standardRequiredHeight - compactRequiredHeight < materialDifference)
+                                throw new Exception("compact view is not materially shorter than standard at " +
+                                    scale + "%: standard=" + standardRequiredHeight + ", compact=" +
+                                    compactRequiredHeight);
+                        }
+                        else
+                        {
+                            Equal(compactRequiredHeight, requiredHeight,
+                                "compact required height is width-independent at " + scale + "%");
+                            Equal(compactWindowHeight, form.Height,
+                                "compact fixed height is width-independent at " + scale + "%");
+                        }
+                        realizedWidths[widthIndex] = combo.Width;
+                    }
+                    if (realizedWidths[0] <= realizedWidths[1])
+                        throw new Exception("compact Overflow did not contract with the window at " + scale + "%");
+
+                    form.ClientSize = new Size((1000 * scale + 50) / 100, form.ClientSize.Height); PumpFor(45);
+                    Equal(false, form.CompactLayoutForTesting,
+                        "standard Overflow restored at " + scale + "%");
+                    Equal(fixedWidth, combo.Width,
+                        "standard Overflow does not stretch at " + scale + "%");
+                    Equal(fixedRateWidth, rateCombo.Width,
+                        "standard Rate does not stretch at " + scale + "%");
+                    form.ClientSize = new Size((largeCompactWidth * scale + 50) / 100,
+                        form.ClientSize.Height); PumpFor(45);
+                    Equal(true, form.CompactLayoutForTesting,
+                        "compact Overflow restored after standard transition at " + scale + "%");
+                    Equal(referenceQueueBounds, queueCluster.Bounds,
+                        "compact Queue bounds restore non-cumulatively at " + scale + "%");
+                    Equal(referenceOverflowBounds, cluster.Bounds,
+                        "compact Overflow bounds restore non-cumulatively at " + scale + "%");
+                    Equal(referenceRateBounds, rateCluster.Bounds,
+                        "compact Rate bounds restore non-cumulatively at " + scale + "%");
+                    Equal(referenceRateComboBounds, rateCombo.Bounds,
+                        "compact Rate selector bounds restore non-cumulatively at " + scale + "%");
+                    Equal(compactRequiredHeight, form.RealizedRequiredWindowHeight,
+                        "compact required height restores non-cumulatively at " + scale + "%");
+                    Equal(compactWindowHeight, form.Height,
+                        "compact window height restores non-cumulatively at " + scale + "%");
+                }
+                form.Close();
+            }
+        }
+
+        private static int InlineClusterNaturalHeight(FlowLayoutPanel cluster)
+        {
+            return cluster.GetPreferredSize(new Size(Math.Max(1, cluster.Width), 0)).Height +
+                cluster.Margin.Vertical;
+        }
+
+        private static void OpenRatePopupByMouse(RateModelComboBox rate)
+        {
+            NativeClick(rate.Handle, rate.PointToScreen(new Point(Math.Max(1, rate.Width - 8),
+                Math.Max(1, rate.Height / 2))));
+            PumpFor(35);
+        }
+
+        private static void OpenRatePopupByF4(RateModelComboBox rate)
+        {
+            rate.Focus(); PumpFor(10); NativeKey(rate.Handle, 0x73); PumpFor(35);
+        }
+
+        private static void OpenRatePopupByAltDown(RateModelComboBox rate)
+        {
+            rate.Focus(); PumpFor(10);
+            SendMessage(rate.Handle, 0x0104, (IntPtr)0x28,
+                new IntPtr(unchecked((int)0x20000000)));
+            SendMessage(rate.Handle, 0x0105, (IntPtr)0x28,
+                new IntPtr(unchecked((int)0xE0000000)));
+            PumpFor(35);
+        }
+
+        private static void ExerciseRapidRatePopupActivation(MainForm form,
+            RateModelComboBox rate, string state)
+        {
+            Point arrow = rate.PointToScreen(new Point(Math.Max(1, rate.Width - 8),
+                Math.Max(1, rate.Height / 2)));
+            Point field = rate.PointToScreen(new Point(Math.Max(2, rate.Width / 3),
+                Math.Max(1, rate.Height / 2)));
+            RateModelChoice unchanged = rate.SelectedChoice;
+
+            NativeDoubleClick(rate.Handle, arrow); PumpFor(45);
+            AssertRatePopupClosedStable(rate, state + " arrow double-click");
+            NativeTripleClick(rate.Handle, arrow); PumpFor(45);
+            AssertRealRatePopupVisible(form, rate, state + " arrow triple-click");
+            NativeClick(rate.Handle, arrow); PumpFor(45);
+            AssertRatePopupClosedStable(rate, state + " click while open");
+
+            NativeDoubleClick(rate.Handle, field); PumpFor(45);
+            AssertRatePopupClosedStable(rate, state + " field double-click");
+            NativeTripleClick(rate.Handle, field); PumpFor(45);
+            AssertRealRatePopupVisible(form, rate, state + " field triple-click");
+            NativeKey(rate.Handle, 0x1B); PumpFor(25);
+
+            NativeKeyNoPump(rate.Handle, 0x73);
+            NativeKeyNoPump(rate.Handle, 0x73);
+            PumpFor(45);
+            AssertRatePopupClosedStable(rate, state + " repeated F4");
+            NativeKeyNoPump(rate.Handle, 0x73);
+            NativeAltDownNoPump(rate.Handle);
+            PumpFor(45);
+            AssertRatePopupClosedStable(rate, state + " F4/Alt+Down interleave");
+            NativeAltDownNoPump(rate.Handle);
+            NativeAltDownNoPump(rate.Handle);
+            NativeAltDownNoPump(rate.Handle);
+            PumpFor(45);
+            AssertRealRatePopupVisible(form, rate, state + " Alt+Down triple activation");
+            NativeKey(rate.Handle, 0x1B); PumpFor(25);
+
+            for (int cycle = 0; cycle < 3; cycle++)
+            {
+                OpenRatePopupByMouse(rate);
+                AssertRealRatePopupVisible(form, rate, state + " reopen cycle " + cycle);
+                NativeKey(rate.Handle, 0x1B); PumpFor(20);
+                AssertRatePopupClosedStable(rate, state + " Escape cycle " + cycle);
+            }
+            Equal(unchanged, rate.SelectedChoice,
+                state + " rapid activation does not change selection");
+        }
+
+        private static void AssertOutsideApplicationClickClosesRatePopup(MainForm main,
+            RateModelComboBox rate, Form target, string state)
+        {
+            main.Activate(); rate.Focus(); PumpFor(15);
+            OpenRatePopupByMouse(rate);
+            AssertRealRatePopupVisible(main, rate, state + " setup");
+            NativeClick(target.Handle, target.PointToScreen(new Point(
+                Math.Max(2, target.ClientSize.Width - 8), 6)));
+            PumpFor(45);
+            AssertRatePopupClosedStable(rate, state);
+        }
+
+        private static void AssertRatePopupClosedStable(RateModelComboBox rate, string state)
+        {
+            Equal(false, rate.PopupVisibleForTesting, state + " closes the grouped popup");
+            AssertNativeRateListHidden(rate, state);
+            PumpFor(80);
+            Equal(false, rate.PopupVisibleForTesting, state + " remains closed");
+            AssertNativeRateListHidden(rate, state + " after settling");
+        }
+
+        private static void AssertNativeRateListHidden(RateModelComboBox rate, string state)
+        {
+            ComboBoxInfo info = GetRateComboBoxInfo(rate, state);
+            if (info.ListHandle != IntPtr.Zero && IsWindowVisible(info.ListHandle))
+                throw new Exception(state + " exposed the native ungrouped list");
+        }
+
+        private static ComboBoxInfo GetRateComboBoxInfo(RateModelComboBox rate, string state)
+        {
+            ComboBoxInfo info = new ComboBoxInfo();
+            info.Size = Marshal.SizeOf(typeof(ComboBoxInfo));
+            if (!GetComboBoxInfo(rate.Handle, ref info))
+                throw new Exception(state + " could not inspect the native ComboBox");
+            return info;
+        }
+
+        private static void AssertCollapsedRateLabel(RateModelComboBox rate, int scale,
+            string state)
+        {
+            string full = FullRateLabel(rate.SelectedChoice);
+            string fallback = FallbackRateLabel(rate.SelectedChoice);
+            ComboBoxInfo info = GetRateComboBoxInfo(rate, state);
+            int usable = Math.Max(0, info.Item.Right - info.Item.Left -
+                Math.Max(2, (4 * scale + 50) / 100));
+            int measured = TextRenderer.MeasureText(full, rate.Font, Size.Empty,
+                TextFormatFlags.SingleLine | TextFormatFlags.NoPadding).Width;
+            string expected = measured <= usable ? full : fallback;
+            Equal(expected, rate.Text, state + " follows actual native text width");
+        }
+
+        private static string FullRateLabel(RateModelChoice choice)
+        {
+            switch (choice)
+            {
+                case RateModelChoice.ProcessingTime: return "Processing time per event";
+                case RateModelChoice.MidiBitrate: return "MIDI serial bitrate";
+                case RateModelChoice.EventsPerSecond: return "Events per second";
+                case RateModelChoice.PerNoteIntervalGate: return "Per-note interval gate";
+                case RateModelChoice.DelayedNoteOff: return "Delayed NoteOff";
+                case RateModelChoice.NoteAttackLimit: return "Note start rate gate";
+                default: return "None";
+            }
+        }
+
+        private static string FallbackRateLabel(RateModelChoice choice)
+        {
+            switch (choice)
+            {
+                case RateModelChoice.ProcessingTime: return "Time per event";
+                case RateModelChoice.MidiBitrate: return "MIDI bitrate";
+                case RateModelChoice.EventsPerSecond: return "Events/sec";
+                case RateModelChoice.PerNoteIntervalGate: return "Per-note gate";
+                case RateModelChoice.NoteAttackLimit: return "Note start gate";
+                default: return FullRateLabel(choice);
+            }
+        }
+
+        private static void AssertRealRatePopupVisible(MainForm form,
+            RateModelComboBox rate, string route)
+        {
+            Equal(true, rate.PopupVisibleForTesting,
+                route + " opens the grouped popup");
+            IntPtr popup = rate.PopupHandleForTesting;
+            if (popup == IntPtr.Zero || !IsWindowVisible(popup))
+                throw new Exception(route + " grouped popup is not an actual visible window");
+            ComboBoxInfo info = new ComboBoxInfo();
+            info.Size = Marshal.SizeOf(typeof(ComboBoxInfo));
+            if (!GetComboBoxInfo(rate.Handle, ref info))
+                throw new Exception(route + " could not inspect the native ComboBox popup");
+            if (info.ListHandle != IntPtr.Zero && IsWindowVisible(info.ListHandle))
+                throw new Exception(route + " left the native ungrouped list visible under the grouped popup");
+            string[] texts = rate.HeadingTextsForTesting;
+            Equal("Simulated slowdown", texts[0], route + " slowdown heading");
+            Equal("Bandwidth / note gating", texts[1], route + " gate heading");
+            Equal(AccessibleRole.StaticText, rate.HeadingRolesForTesting[0],
+                route + " slowdown accessibility role");
+            Equal(false, rate.HeadingSelectableForTesting[0],
+                route + " slowdown heading is nonselectable");
+            Equal(false, rate.HeadingSelectableForTesting[1],
+                route + " gate heading is nonselectable");
+
+            Rectangle popupBounds = rate.PopupScreenBoundsForTesting;
+            Rectangle displayBounds = rate.PopupDisplayScreenBoundsForTesting;
+            Rectangle controlBounds = rate.RectangleToScreen(rate.ClientRectangle);
+            Rectangle working = Screen.FromControl(form).WorkingArea;
+            if (Math.Abs(popupBounds.Left - controlBounds.Left) > 2 ||
+                popupBounds.Top < controlBounds.Bottom - 2 ||
+                popupBounds.Width < rate.DropDownWidth ||
+                !working.Contains(popupBounds))
+                throw new Exception(route + " popup placement or scaled size is invalid: " + popupBounds);
+            int maximumTextWidth = 0;
+            string[] popupTexts = new string[] { "None", "Simulated slowdown",
+                "Processing time per event", "MIDI serial bitrate", "Events per second",
+                "Bandwidth / note gating", "Per-note interval gate", "Delayed NoteOff",
+                "Note start rate gate" };
+            for (int textIndex = 0; textIndex < popupTexts.Length; textIndex++)
+                maximumTextWidth = Math.Max(maximumTextWidth, TextRenderer.MeasureText(
+                    popupTexts[textIndex], rate.Font, Size.Empty,
+                    TextFormatFlags.SingleLine | TextFormatFlags.NoPadding).Width);
+            int scaledPaddingMinimum = Math.Max(12,
+                (24 * form.UiScalePercentForTesting + 50) / 100);
+            int scaledPaddingMaximum = Math.Max(26,
+                (52 * form.UiScalePercentForTesting + 50) / 100);
+            if (popupBounds.Width < maximumTextWidth + scaledPaddingMinimum ||
+                popupBounds.Width > maximumTextWidth + scaledPaddingMaximum)
+                throw new Exception(route + " popup is not measured from its longest full label: width=" +
+                    popupBounds.Width + ", text=" + maximumTextWidth + ", allowance=" +
+                    scaledPaddingMinimum + ".." + scaledPaddingMaximum);
+            int balancedTolerance = Math.Max(2, (3 * form.UiScalePercentForTesting + 50) / 100);
+            Rectangle[] visibleRows = rate.HeadingScreenBoundsForTesting;
+            Rectangle[] choiceRows = rate.ChoiceScreenBoundsForTesting;
+            int edgeTolerance = Math.Max(1,
+                (1 * form.UiScalePercentForTesting + 50) / 100);
+            for (int headingIndex = 0; headingIndex < visibleRows.Length; headingIndex++)
+            {
+                int left = visibleRows[headingIndex].Left - displayBounds.Left;
+                int right = displayBounds.Right - visibleRows[headingIndex].Right;
+                if (left > edgeTolerance || right > edgeTolerance)
+                    throw new Exception(route + " heading band is not edge-to-edge: left=" + left +
+                        ", right=" + right + ", heading=" + visibleRows[headingIndex] +
+                        ", display=" + displayBounds);
+            }
+            for (int row = 0; row < visibleRows.Length + choiceRows.Length; row++)
+            {
+                Rectangle bounds = row < visibleRows.Length ? visibleRows[row] :
+                    choiceRows[row - visibleRows.Length];
+                int leftGap = bounds.Left - displayBounds.Left;
+                int rightGap = displayBounds.Right - bounds.Right;
+                if (Math.Abs(leftGap - rightGap) > balancedTolerance)
+                    throw new Exception(route + " popup row spacing is unbalanced: left=" + leftGap +
+                        ", right=" + rightGap + ", row=" + bounds + ", display=" + displayBounds);
+            }
+            using (Bitmap rendered = CaptureVisibleRatePopup(rate))
+                AssertRatePopupHasPerceptibleGroups(rendered,
+                    rate.HeadingBoundsForTesting, rate.ChoiceBoundsForTesting);
+            if (ColorContrastRatio(SystemColors.ControlText,
+                RateModelComboBox.HeadingBandColorForTesting) < 3.0)
+                throw new Exception(route + " heading foreground contrast is below 3:1");
+            if (RateModelComboBox.HeadingBandColorForTesting.GetBrightness() <=
+                SystemColors.ControlDark.GetBrightness())
+                throw new Exception(route + " heading band did not restore the light system style");
+        }
+
+        private static double ColorContrastRatio(Color first, Color second)
+        {
+            double one = RelativeLuminance(first) + 0.05;
+            double two = RelativeLuminance(second) + 0.05;
+            return Math.Max(one, two) / Math.Min(one, two);
+        }
+
+        private static double RelativeLuminance(Color color)
+        {
+            double red = color.R / 255.0, green = color.G / 255.0, blue = color.B / 255.0;
+            red = red <= 0.03928 ? red / 12.92 : Math.Pow((red + 0.055) / 1.055, 2.4);
+            green = green <= 0.03928 ? green / 12.92 : Math.Pow((green + 0.055) / 1.055, 2.4);
+            blue = blue <= 0.03928 ? blue / 12.92 : Math.Pow((blue + 0.055) / 1.055, 2.4);
+            return red * 0.2126 + green * 0.7152 + blue * 0.0722;
+        }
+
+        private static Point Center(Rectangle rectangle)
+        {
+            return new Point(rectangle.Left + rectangle.Width / 2,
+                rectangle.Top + rectangle.Height / 2);
+        }
+
+        private static Bitmap CaptureVisibleRatePopup(RateModelComboBox rate)
+        {
+            Rectangle bounds = rate.PopupScreenBoundsForTesting;
+            Bitmap bitmap = new Bitmap(Math.Max(1, bounds.Width), Math.Max(1, bounds.Height));
+            bool captured;
+            using (Graphics graphics = Graphics.FromImage(bitmap))
+            {
+                IntPtr deviceContext = graphics.GetHdc();
+                try { captured = PrintWindow(rate.PopupHandleForTesting, deviceContext, 0); }
+                finally { graphics.ReleaseHdc(deviceContext); }
+            }
+            if (!captured)
+            {
+                bitmap.Dispose();
+                throw new Exception("Could not capture the actual visible Rate popup window.");
+            }
+            return bitmap;
         }
 
         private static void TestBuild43QueuePresentationAndSafety()
@@ -9570,7 +11119,7 @@ namespace MidiBottleneck.Tests
                 int changes = 0;
                 rate.SelectedIndexChanged += delegate { changes++; };
                 rate.SelectedChoice = RateModelChoice.MidiBitrate;
-                Equal(5, rate.SemanticChoiceCountForTesting,
+                Equal(8, rate.SemanticChoiceCountForTesting,
                     "the native ComboBox item model contains only real Rate choices");
                 for (int itemIndex = 0; itemIndex < rate.Items.Count; itemIndex++)
                 {
@@ -9585,8 +11134,8 @@ namespace MidiBottleneck.Tests
                     "slowdown group is exposed as static accessibility text");
                 Equal(AccessibleRole.StaticText, headingRoles[1],
                     "gate group is exposed as static accessibility text");
-                Equal(false, headingEnabled[0], "slowdown group cannot receive popup focus or activation");
-                Equal(false, headingEnabled[1], "gate group cannot receive popup focus or activation");
+                Equal(true, headingEnabled[0], "slowdown group is not faded as disabled text");
+                Equal(true, headingEnabled[1], "gate group is not faded as disabled text");
                 Equal(false, headingSelectable[0], "slowdown group cannot be selected by accessibility navigation");
                 Equal(false, headingSelectable[1], "gate group cannot be selected by accessibility navigation");
                 MethodInfo keyDown = typeof(Control).GetMethod("OnKeyDown", flags);
@@ -9604,12 +11153,12 @@ namespace MidiBottleneck.Tests
                 keyDown.Invoke(rate, new object[] { new KeyEventArgs(Keys.Home) });
                 Equal(RateModelChoice.None, rate.SelectedChoice, "Home reaches the first real choice");
                 keyDown.Invoke(rate, new object[] { new KeyEventArgs(Keys.End) });
-                Equal(RateModelChoice.PerNoteIntervalGate, rate.SelectedChoice, "End reaches the last real choice");
+                Equal(RateModelChoice.OutputRateLimit, rate.SelectedChoice, "End reaches the last real choice");
                 HandledMouseEventArgs wheel = new HandledMouseEventArgs(
                     MouseButtons.None, 0, 0, 0, 120);
                 typeof(Control).GetMethod("OnMouseWheel", flags).Invoke(rate, new object[] { wheel });
                 Equal(true, wheel.Handled, "Rate-model wheel navigation is consumed locally");
-                Equal(RateModelChoice.EventsPerSecond, rate.SelectedChoice,
+                Equal(RateModelChoice.NoteAttackLimit, rate.SelectedChoice,
                     "mouse wheel skips the gate heading");
                 int beforeOpen = changes;
                 rate.DroppedDown = true; PumpFor(10);
@@ -9631,6 +11180,12 @@ namespace MidiBottleneck.Tests
                 rateValue.Value = 777;
                 rate.SelectedChoice = RateModelChoice.PerNoteIntervalGate;
                 rateValue.Value = 4321;
+                rate.SelectedChoice = RateModelChoice.DelayedNoteOff;
+                rateValue.Value = 8765;
+                rate.SelectedChoice = RateModelChoice.NoteAttackLimit;
+                rateValue.Value = 55;
+                rate.SelectedChoice = RateModelChoice.OutputRateLimit;
+                rateValue.Value = 5432;
                 rate.SelectedChoice = RateModelChoice.None;
                 Equal(rateSlider.Minimum, rateSlider.Value, "returning to None restores its own slider endpoint");
                 rate.SelectedChoice = RateModelChoice.ProcessingTime;
@@ -9641,11 +11196,17 @@ namespace MidiBottleneck.Tests
                 Equal(777m, rateValue.Value, "Events/sec value is remembered independently");
                 rate.SelectedChoice = RateModelChoice.PerNoteIntervalGate;
                 Equal(4321m, rateValue.Value, "Per-note interval is remembered independently");
+                rate.SelectedChoice = RateModelChoice.DelayedNoteOff;
+                Equal(8765m, rateValue.Value, "Delayed NoteOff duration is remembered independently");
+                rate.SelectedChoice = RateModelChoice.NoteAttackLimit;
+                Equal(55m, rateValue.Value, "Note start rate gate is remembered independently");
+                rate.SelectedChoice = RateModelChoice.OutputRateLimit;
+                Equal(5432m, rateValue.Value, "Output rate gate is remembered independently");
 
                 ComboBox overflow = (ComboBox)typeof(MainForm).GetField("_overflowPolicyCombo", flags).GetValue(form);
                 CheckBox limit = (CheckBox)typeof(MainForm).GetField("_queueLimitCheck", flags).GetValue(form);
                 limit.Checked = true; PumpFor(10);
-                overflow.SelectedIndex = 3; // Drop incoming complete notes in event-count mode.
+                overflow.SelectedIndex = 2; // Drop incoming complete notes in event-count mode.
                 SendMessage(form.Handle, 0x0112, (IntPtr)MainForm.QueueAgeSystemCommandForTesting, IntPtr.Zero);
                 PumpFor(20);
                 Equal(true, form.QueueAgeLimitEnabledForTesting, "queue waiting-time mode enables from system menu");
@@ -9657,6 +11218,14 @@ namespace MidiBottleneck.Tests
                     if (item == "Drop newest" || item == "Drop incoming complete notes")
                         throw new Exception("queue waiting-time mode exposed an incompatible policy");
                 }
+                string[] waitingOrder = new string[] { "Drop oldest",
+                    "Drop oldest complete note (soft limit)",
+                    "Clear buffer and jump to realtime" };
+                Equal(waitingOrder.Length, overflow.Items.Count,
+                    "waiting-time overflow menu count");
+                for (int i = 0; i < waitingOrder.Length; i++)
+                    Equal(waitingOrder[i], overflow.Items[i].ToString(),
+                        "waiting-time overflow menu order " + i);
                 SendMessage(form.Handle, 0x0112,
                     (IntPtr)MainForm.ApplyQueueLimitWithoutSlowdownSystemCommandForTesting, IntPtr.Zero);
                 PumpFor(20);
@@ -9768,8 +11337,8 @@ namespace MidiBottleneck.Tests
             clearConfiguration.QueueAgeLimitMicroseconds = 15000;
             clearConfiguration.OverflowPolicy = OverflowPolicy.ClearBufferAndCatchUp;
             WorkloadAnalysis clearAnalysis = WorkloadAnalyzer.Analyze(ageSong, clearConfiguration);
-            Equal(4L, clearAnalysis.PredictedDroppedEvents,
-                "waiting-time clear removes in-service, pending, and due work at its realtime boundary");
+            Equal(3L, clearAnalysis.PredictedDroppedEvents,
+                "waiting-time clear preserves the event in service and removes pending plus arriving work");
             Equal(1, clearAnalysis.PredictedBufferClears,
                 "waiting-time clear is reported separately from individual eviction");
             using (PlaybackEngine engine = new PlaybackEngine())
@@ -9820,11 +11389,11 @@ namespace MidiBottleneck.Tests
             BlockingLifecycleOutput blocked = new BlockingLifecycleOutput();
             try
             {
-                MidiSong filteredBlockedSong = NewChannelSong("queue-age-filtered-blocked.mid", 30000,
+                MidiSong filteredBlockedSong = NewChannelSong("queue-age-filtered-blocked.mid", 500000,
                     ChannelMessage(0, 0x90, 50, 100),
                     ChannelMessage(1000, 0x91, 51, 100),
                     ChannelMessage(2000, 0x91, 52, 100),
-                    ChannelMessage(30000, 0x92, 53, 100));
+                    ChannelMessage(500000, 0x92, 53, 100));
                 using (PlaybackEngine engine = new PlaybackEngine())
                 {
                     engine.SimulateSlowdown = true;
@@ -9835,19 +11404,24 @@ namespace MidiBottleneck.Tests
                     engine.SetChannelEnabled(1, false);
                     engine.Start(filteredBlockedSong, blocked, ProcessingMode.Drop);
                     Equal(true, blocked.Entered.WaitOne(1000), "blocking output entered first native send");
-                    PumpFor(12);
-                    PlaybackSnapshot beforeEligible = engine.GetSnapshot();
+                    PlaybackSnapshot beforeEligible;
+                    PlaybackSnapshot afterEligible;
+                    try
+                    {
+                        PumpFor(25);
+                        beforeEligible = engine.GetSnapshot();
+                        PumpFor(520);
+                        afterEligible = engine.GetSnapshot();
+                    }
+                    finally { blocked.Release.Set(); }
                     Equal(0L, beforeEligible.QueueLength,
                         "filtered events accumulating behind a blocked send do not enter queue occupancy");
-                    Equal(0L, beforeEligible.QueueAgeMicroseconds,
-                        "filtered events do not become the oldest waiting event");
-                    PumpFor(35);
-                    PlaybackSnapshot afterEligible = engine.GetSnapshot();
+                    if (beforeEligible.QueueAgeMicroseconds <= 0)
+                        throw new Exception("blocked in-service work did not acquire the shared waiting age");
                     Equal(1L, afterEligible.QueueLength,
                         "the later eligible event is reflected while the native send remains blocked");
                     if (afterEligible.QueueAgeMicroseconds <= 0)
                         throw new Exception("eligible blocked backlog did not acquire a waiting age");
-                    blocked.Release.Set();
                     WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1000,
                         "filtered blocked waiting-limit completion");
                     if (engine.GetSnapshot().MaximumQueueAgeMicroseconds <= 0)
@@ -9893,9 +11467,8 @@ namespace MidiBottleneck.Tests
             Equal(1, zeroRetrigger.EmitBoundary(10, zeroBoundary),
                 "zero gate emits the preparatory release as a same-time resolution phase");
             Equal(0x80, zeroBoundary[0].Status & 0xF0, "zero gate retrigger first resolves Note Off");
-            Equal(1, zeroRetrigger.EmitBoundary(10, zeroBoundary),
-                "zero gate emits the repeated attack in the next same-time phase");
-            Equal(0x91, (int)zeroBoundary[0].Status, "zero gate repeated attack retains its source channel");
+            Equal(0, zeroRetrigger.EmitBoundary(10, zeroBoundary),
+                "strict current-batch filtering does not retain the replacement attack for a second same-time batch");
         }
 
         private static void TestBuild42MainWindowScaling()
@@ -9993,6 +11566,20 @@ namespace MidiBottleneck.Tests
             BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
             using (Process process = Process.GetCurrentProcess())
             {
+                // Exclude process-wide WinForms, text-services, and font caches from
+                // the per-form retention measurement.  In the complete suite these
+                // are already initialized by earlier UI tests; an independently
+                // runnable lifecycle group needs the same stable baseline.
+                using (MainForm warmup = new MainForm())
+                {
+                    warmup.Show(); PumpFor(8);
+                    warmup.ApplyUiScaleForTesting(75); PumpFor(4);
+                    typeof(Control).GetMethod("RecreateHandle", flags).Invoke(warmup, null);
+                    PumpFor(4);
+                    warmup.ApplyUiScaleForTesting(100); PumpFor(4);
+                    warmup.Close(); PumpFor(2);
+                }
+                GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
                 uint userBefore = GetGuiResources(process.Handle, 1);
                 uint gdiBefore = GetGuiResources(process.Handle, 0);
                 for (int i = 0; i < 8; i++)
@@ -10189,7 +11776,7 @@ namespace MidiBottleneck.Tests
             MidiSong song = NewChannelSong("gate-analysis-synthetic.mid", 130000,
                 longOn, sameTick, layerOff, controller, system, sysex,
                 strike1, strikeOff1, strike2, strikeOff2, unmatched, longOff, shortOn, shortOff);
-            song.TrackCount = 3;
+            song.TrackCount = 4;
             AnalysisConfiguration configuration = DefaultAnalysisConfiguration();
             configuration.PerNoteIntervalGateEnabled = true;
             configuration.SimulateSlowdown = false;
@@ -10260,7 +11847,8 @@ namespace MidiBottleneck.Tests
                 if (!pitchTransitions.Add(key))
                     throw new Exception("one pitch produced two transitions at a boundary");
             }
-            Equal(4, attacks, "long support does not glue repeated strikes and short note still attacks");
+            Equal(2, attacks,
+                "current-batch ownership filters same-pitch strikes without a release gap while the short note still attacks");
             using (PlaybackEngine engine = new PlaybackEngine())
             {
                 FakeMidiOutput output = new FakeMidiOutput();
@@ -10396,6 +11984,4603 @@ namespace MidiBottleneck.Tests
                     CaptureForm(form, image);
                 form.Close();
             }
+        }
+
+        private static void TestBuild44DelayedNoteOff()
+        {
+            List<MidiEventView> emissions = new List<MidiEventView>();
+
+            Equal(0L, new DelayedNoteOffGate(0).RecoveryMicroseconds,
+                "zero Delayed NoteOff duration has zero recovery");
+            Equal(25000L, new DelayedNoteOffGate(100000).RecoveryMicroseconds,
+                "uncapped recovery is one quarter of the selected duration");
+            Equal(40000L, new DelayedNoteOffGate(200000).RecoveryMicroseconds,
+                "large Delayed NoteOff recovery is capped at 40 ms");
+
+            DelayedNoteOffGate global = new DelayedNoteOffGate(40000);
+            MidiEvent root = ChannelMessage(0, 0x90, 60, 90); root.Track = 0;
+            global.Admit(MidiEventView.FromEvent(root, 0));
+            Equal(1, global.EmitBoundary(0, emissions), "first global pitch owner emits");
+            Equal("90-3C-5A", BitConverter.ToString(emissions[0].Data.ToArray()),
+                "first owner retains its output channel");
+            MidiEvent independent = ChannelMessage(1000, 0x91, 61, 80); independent.Track = 1;
+            global.Admit(MidiEventView.FromEvent(independent, 1));
+            Equal(1, global.EmitBoundary(1000, emissions), "a different pitch remains independent");
+            MidiEvent tooEarly = ChannelMessage(39999, 0x92, 60, 110); tooEarly.Track = 2;
+            global.Admit(MidiEventView.FromEvent(tooEarly, 2));
+            MidiEvent tooEarlyOff = ChannelMessage(41000, 0x82, 60, 5); tooEarlyOff.Track = 2;
+            global.Admit(MidiEventView.FromEvent(tooEarlyOff, 3));
+            Equal(2L, global.TakeFilteredEventCount(),
+                "cross-channel inside-D attack and paired release coalesce globally");
+            Equal(2L, global.InsideDurationFilteredForTesting,
+                "inside-D diagnostic reason remains distinguishable");
+
+            MidiEvent eligible = ChannelMessage(40000, 0x93, 60, 120); eligible.Track = 3;
+            global.Admit(MidiEventView.FromEvent(eligible, 4));
+            Equal(1, global.EmitBoundary(40000, emissions),
+                "eligible global competitor first closes the old output voice");
+            Equal("80-3C-00", BitConverter.ToString(emissions[0].Data.ToArray()),
+                "retriggering Off uses the old owner's actual output channel");
+            Equal(50000L, global.NextBoundaryMicroseconds,
+                "eligible attack waits for derived recovery");
+            Equal(1, global.EmitBoundary(50000, emissions),
+                "one recovered replacement attack emits");
+            Equal("93-3C-78", BitConverter.ToString(emissions[0].Data.ToArray()),
+                "replacement retains its own output channel");
+            MidiEvent displacedRelease = ChannelMessage(60000, 0x80, 60, 7);
+            displacedRelease.Track = 0;
+            global.Admit(MidiEventView.FromEvent(displacedRelease, 5));
+            Equal(false, global.HasPendingTransitions,
+                "displaced older release cannot release the new global owner");
+
+            DelayedNoteOffGate justAfter = new DelayedNoteOffGate(40000);
+            justAfter.Admit(MidiEventView.FromEvent(root, 0));
+            justAfter.EmitBoundary(0, emissions);
+            MidiEvent afterD = ChannelMessage(40001, 0x94, 60, 100); afterD.Track = 4;
+            justAfter.Admit(MidiEventView.FromEvent(afterD, 1));
+            Equal(1, justAfter.EmitBoundary(40001, emissions),
+                "attack just after D closes the held owner rather than filtering");
+            Equal(1, justAfter.EmitBoundary(50001, emissions),
+                "attack just after D emits after recovery");
+            Equal("94-3C-64", BitConverter.ToString(emissions[0].Data.ToArray()),
+                "just-after-D attack becomes the replacement owner");
+            Equal(0L, justAfter.TakeFilteredEventCount(),
+                "attack beyond D is never counted as coalesced");
+
+            DelayedNoteOffGate natural = new DelayedNoteOffGate(40000);
+            natural.Admit(MidiEventView.FromEvent(root, 0));
+            natural.EmitBoundary(0, emissions);
+            MidiEvent rootOff = ChannelMessage(10000, 0x80, 60, 11); rootOff.Track = 0;
+            natural.Admit(MidiEventView.FromEvent(rootOff, 1));
+            Equal(40000L, natural.NextBoundaryMicroseconds,
+                "early natural release waits for the minimum transmitted duration");
+            Equal(1, natural.EmitBoundary(40000, emissions), "natural release emits at D");
+            Equal("80-3C-0B", BitConverter.ToString(emissions[0].Data.ToArray()),
+                "natural release preserves source encoding");
+            Equal(50000L, natural.NextBoundaryMicroseconds,
+                "natural NoteOff begins the derived recovery interval");
+            MidiEvent beforeRecovery = ChannelMessage(49999, 0x91, 60, 70);
+            beforeRecovery.Track = 1;
+            natural.Admit(MidiEventView.FromEvent(beforeRecovery, 2));
+            Equal(1, natural.EmitBoundary(50000, emissions),
+                "attack before recovery completion waits and emits at R");
+            Equal("91-3C-46", BitConverter.ToString(emissions[0].Data.ToArray()),
+                "pre-boundary recovery candidate becomes the new owner");
+
+            DelayedNoteOffGate exactRecovery = new DelayedNoteOffGate(40000);
+            exactRecovery.Admit(MidiEventView.FromEvent(root, 0));
+            exactRecovery.EmitBoundary(0, emissions);
+            exactRecovery.Admit(MidiEventView.FromEvent(rootOff, 1));
+            exactRecovery.EmitBoundary(40000, emissions);
+            MidiEvent atRecovery = ChannelMessage(50000, 0x92, 60, 91);
+            atRecovery.Track = 2;
+            Equal(true, exactRecovery.SourcePrecedesBoundary(MidiEventView.FromEvent(atRecovery, 2)),
+                "source attack at exact R participates before recovery resolves");
+            exactRecovery.Admit(MidiEventView.FromEvent(atRecovery, 2));
+            Equal(1, exactRecovery.EmitBoundary(50000, emissions),
+                "exact-recovery attack emits at that boundary");
+            Equal("92-3C-5B", BitConverter.ToString(emissions[0].Data.ToArray()),
+                "exact-recovery owner uses its channel");
+
+            DelayedNoteOffGate afterRecovery = new DelayedNoteOffGate(40000);
+            afterRecovery.Admit(MidiEventView.FromEvent(root, 0));
+            afterRecovery.EmitBoundary(0, emissions);
+            afterRecovery.Admit(MidiEventView.FromEvent(rootOff, 1));
+            afterRecovery.EmitBoundary(40000, emissions);
+            Equal(0, afterRecovery.EmitBoundary(50000, emissions),
+                "empty recovery ends without a phantom NoteOn");
+            MidiEvent afterRecoveryAttack = ChannelMessage(50001, 0x94, 60, 92);
+            afterRecoveryAttack.Track = 4;
+            afterRecovery.Admit(MidiEventView.FromEvent(afterRecoveryAttack, 2));
+            Equal(1, afterRecovery.EmitBoundary(50001, emissions),
+                "attack after completed recovery starts immediately");
+
+            DelayedNoteOffGate competition = new DelayedNoteOffGate(40000);
+            competition.Admit(MidiEventView.FromEvent(root, 0));
+            competition.EmitBoundary(0, emissions);
+            MidiEvent weak = ChannelMessage(40000, 0x91, 60, 70); weak.Track = 1;
+            competition.Admit(MidiEventView.FromEvent(weak, 1));
+            competition.EmitBoundary(40000, emissions);
+            MidiEvent strong = ChannelMessage(45000, 0x92, 60, 120); strong.Track = 2;
+            competition.Admit(MidiEventView.FromEvent(strong, 2));
+            MidiEvent equalLater = ChannelMessage(45000, 0x93, 60, 120); equalLater.Track = 3;
+            competition.Admit(MidiEventView.FromEvent(equalLater, 3));
+            MidiEvent weakRelease = ChannelMessage(47000, 0x81, 60, 1); weakRelease.Track = 1;
+            competition.Admit(MidiEventView.FromEvent(weakRelease, 4));
+            MidiEvent equalRelease = ChannelMessage(48000, 0x83, 60, 2); equalRelease.Track = 3;
+            competition.Admit(MidiEventView.FromEvent(equalRelease, 5));
+            Equal(1, competition.EmitBoundary(50000, emissions),
+                "recovery emits at most one strongest live candidate");
+            Equal("92-3C-78", BitConverter.ToString(emissions[0].Data.ToArray()),
+                "stronger candidate replaces weaker and stable earlier equal velocity wins");
+            Equal(4L, competition.TakeFilteredEventCount(),
+                "two losing candidates and their paired releases are coalesced");
+            Equal(4L, competition.RecoveryLostFilteredForTesting,
+                "candidate-selection losses have a distinct diagnostic reason");
+
+            DelayedNoteOffGate noPhantom = new DelayedNoteOffGate(40000);
+            noPhantom.Admit(MidiEventView.FromEvent(root, 0));
+            noPhantom.EmitBoundary(0, emissions);
+            noPhantom.Admit(MidiEventView.FromEvent(weak, 1));
+            noPhantom.EmitBoundary(40000, emissions);
+            MidiEvent weakEnds = ChannelMessage(45000, 0x81, 60, 0); weakEnds.Track = 1;
+            noPhantom.Admit(MidiEventView.FromEvent(weakEnds, 2));
+            Equal(0, noPhantom.EmitBoundary(50000, emissions),
+                "candidate ending before recovery produces no phantom NoteOn");
+            Equal(2L, noPhantom.TakeFilteredEventCount(),
+                "ended candidate attack and paired release are both counted");
+            Equal(2L, noPhantom.RecoveryEndedFilteredForTesting,
+                "ended-before-recovery reason remains distinguishable");
+
+            DelayedNoteOffGate sustain = new DelayedNoteOffGate(40000);
+            sustain.Admit(MidiEventView.FromEvent(root, 0));
+            sustain.EmitBoundary(0, emissions);
+            sustain.Admit(MidiEventView.FromEvent(weak, 1));
+            sustain.EmitBoundary(40000, emissions);
+            MidiEvent pedalDown = ChannelMessage(41000, 0xB1, 64, 127);
+            sustain.Admit(MidiEventView.FromEvent(pedalDown, 2));
+            MidiEvent sustainedRelease = ChannelMessage(42000, 0x91, 60, 0);
+            sustainedRelease.Track = 1;
+            sustain.Admit(MidiEventView.FromEvent(sustainedRelease, 3));
+            Equal(1, sustain.EmitBoundary(50000, emissions),
+                "released candidate remains live while its sustain is down");
+            Equal("91-3C-46", BitConverter.ToString(emissions[0].Data.ToArray()),
+                "sustained replacement retains candidate channel");
+            MidiEvent pedalUp = ChannelMessage(60000, 0xB1, 64, 0);
+            sustain.Admit(MidiEventView.FromEvent(pedalUp, 4));
+            Equal(90000L, sustain.NextBoundaryMicroseconds,
+                "pedal release still respects the replacement's minimum D");
+            Equal(1, sustain.EmitBoundary(90000, emissions),
+                "sustain release eventually closes the accepted owner");
+            Equal("91-3C-00", BitConverter.ToString(emissions[0].Data.ToArray()),
+                "velocity-zero NoteOn release encoding is preserved");
+
+            DelayedNoteOffGate routed = new DelayedNoteOffGate(0);
+            MidiEventView routedOn = MidiEventView.FromEvent(root, 0).WithOutputChannel(5);
+            routed.Admit(routedOn);
+            routed.EmitBoundary(0, emissions);
+            Equal("95-3C-5A", BitConverter.ToString(emissions[0].Data.ToArray()),
+                "routed owner attack uses compiled output channel");
+            MidiEvent routedOffSource = ChannelMessage(1, 0x80, 60, 9); routedOffSource.Track = 0;
+            routed.Admit(MidiEventView.FromEvent(routedOffSource, 1).WithOutputChannel(5));
+            Equal(1, routed.EmitBoundary(1, emissions),
+                "routed natural release emits");
+            Equal("85-3C-09", BitConverter.ToString(emissions[0].Data.ToArray()),
+                "routed release uses owner output channel and source velocity");
+
+            DelayedNoteOffGate zero = new DelayedNoteOffGate(0);
+            zero.Admit(MidiEventView.FromEvent(root, 0));
+            zero.EmitBoundary(0, emissions);
+            MidiEvent zeroSecond = ChannelMessage(0, 0x91, 60, 100); zeroSecond.Track = 1;
+            zero.Admit(MidiEventView.FromEvent(zeroSecond, 1));
+            Equal(1, zero.EmitBoundary(0, emissions), "D=0 emits retriggering Off first");
+            Equal("80-3C-00", BitConverter.ToString(emissions[0].Data.ToArray()),
+                "D=0 preserves Off-before-On ordering");
+            Equal(1, zero.EmitBoundary(0, emissions), "R=0 emits replacement at same logical time");
+            Equal("91-3C-64", BitConverter.ToString(emissions[0].Data.ToArray()),
+                "D=0 replacement remains distinct without stacking");
+
+            DelayedNoteOffGate segmented = new DelayedNoteOffGate(1);
+            for (int index = 0; index < 4100; index++)
+            {
+                MidiEvent attack = ChannelMessage(0, (byte)(0x90 | (index & 15)), 64, 80);
+                attack.Track = index;
+                segmented.Admit(MidiEventView.FromEvent(attack, index));
+                if (index == 0) segmented.EmitBoundary(0, emissions);
+            }
+            Equal(2, segmented.OccurrenceSegmentCountForTesting,
+                "dense global-pitch occurrence storage grows in bounded reusable segments");
+            segmented.CompleteSource(1);
+            segmented.EmitBoundary(1, emissions);
+            segmented.EmitBoundary(1, emissions);
+            Equal(0, segmented.LiveOccurrenceCountForTesting,
+                "source completion returns dense occurrence storage to the reusable pool");
+
+            MidiEvent parityOn = ChannelMessage(0, 0x90, 60, 90); parityOn.Track = 0;
+            MidiEvent otherPitchOn = ChannelMessage(1000, 0x93, 61, 80); otherPitchOn.Track = 3;
+            MidiEvent parityOff = ChannelMessage(10000, 0x80, 60, 9); parityOff.Track = 0;
+            MidiEvent otherPitchOff = ChannelMessage(2000, 0x83, 61, 4); otherPitchOff.Track = 3;
+            MidiEvent parityWeak = ChannelMessage(45000, 0x91, 60, 70); parityWeak.Track = 1;
+            MidiEvent parityStrong = ChannelMessage(48000, 0x92, 60, 120); parityStrong.Track = 2;
+            MidiEvent parityWeakOff = ChannelMessage(49000, 0x81, 60, 1); parityWeakOff.Track = 1;
+            MidiEvent parityStrongOff = ChannelMessage(70000, 0x82, 60, 6); parityStrongOff.Track = 2;
+            MidiSong song = NewChannelSong("delayed-global.mid", 70000,
+                parityOn, otherPitchOn, otherPitchOff, parityOff,
+                parityWeak, parityStrong, parityWeakOff, parityStrongOff);
+            song.TrackCount = 4;
+            AnalysisConfiguration configuration = DefaultAnalysisConfiguration();
+            configuration.SimulateSlowdown = false;
+            configuration.PerNoteIntervalGateEnabled = false;
+            configuration.DelayedNoteOffEnabled = true;
+            configuration.ProcessingMicroseconds = 40000;
+            WorkloadAnalysis result = WorkloadAnalyzer.Analyze(song, 10000, configuration);
+            Equal(true, result.HasGateProjection,
+                "global Delayed NoteOff completes an Analysis projection");
+            Equal(2L, result.GateFilteredNoteEvents,
+                "Analysis counts the losing recovery candidate and paired release");
+
+            List<byte[]> projectedPayloads = new List<byte[]>();
+            List<long> projectedTimes = new List<long>();
+            WorkloadAnalysis trace = WorkloadAnalyzer.Analyze(song, 10000,
+                (AnalysisConfiguration)null).CopyWorkload(configuration, CancellationToken.None);
+            WorkloadAnalyzer.ProjectDelayedNoteOff(song, trace, configuration,
+                CancellationToken.None, null, delegate(MidiEventView midiEvent, long time)
+                {
+                    projectedPayloads.Add(midiEvent.Data.ToArray());
+                    projectedTimes.Add(time);
+                });
+            long[] expectedTimes = new long[] { 0, 1000, 40000, 41000, 50000, 90000 };
+            string[] expectedPayloads = new string[]
+            {
+                "90-3C-5A", "93-3D-50", "80-3C-09", "83-3D-04",
+                "92-3C-78", "82-3C-06"
+            };
+            Equal(expectedTimes.Length, projectedTimes.Count,
+                "global ownership projection emits the expected bounded stream");
+            for (int index = 0; index < expectedTimes.Length; index++)
+            {
+                Equal(expectedTimes[index], projectedTimes[index],
+                    "global Delayed NoteOff logical time " + index);
+                Equal(expectedPayloads[index], BitConverter.ToString(projectedPayloads[index]),
+                    "global Delayed NoteOff payload " + index);
+            }
+
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.ProcessingMicroseconds = 40000;
+                engine.Start(song, output, ProcessingMode.DelayedNoteOff);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000,
+                    "live global Delayed NoteOff completion");
+                List<byte[]> actual = output.SentPayloads();
+                Equal(projectedPayloads.Count, actual.Count,
+                    "global Delayed NoteOff Playback and Analysis counts agree");
+                for (int index = 0; index < actual.Count; index++)
+                    Equal(BitConverter.ToString(projectedPayloads[index]), BitConverter.ToString(actual[index]),
+                        "global Delayed NoteOff Playback/Analysis payload parity " + index);
+                Equal(result.GateFilteredNoteEvents, engine.GetSnapshot().GateFilteredEvents,
+                    "global Delayed NoteOff Playback/Analysis coalescing counts agree");
+            }
+
+            MidiSong lifecycleSong = NewChannelSong("delayed-lifecycle.mid", 500000,
+                ChannelMessage(0, 0x90, 67, 100),
+                ChannelMessage(500000, 0x80, 67, 0));
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.ProcessingMicroseconds = 40000;
+                engine.Start(lifecycleSong, output, ProcessingMode.DelayedNoteOff);
+                WaitFor(delegate { return output.SentPayloads().Count >= 1; }, 1000,
+                    "Delayed NoteOff lifecycle attack");
+                engine.Seek(250000);
+                WaitFor(delegate { return output.ResetCount > 0 && output.PanicCount > 0; }, 1000,
+                    "default Seek remains a hard Delayed NoteOff safety boundary");
+                int resets = output.ResetCount;
+                int panics = output.PanicCount;
+                engine.Stop();
+                if (output.ResetCount <= resets || output.PanicCount <= panics)
+                    throw new Exception("Stop did not clear Delayed NoteOff ownership through the hard safety boundary.");
+            }
+
+            using (DiagnosticsForm report = new DiagnosticsForm(song, result))
+            {
+                report.Show(); PumpFor(15);
+                if (report.SummaryText.IndexOf("Recovery (derived)    10,000 µs", StringComparison.Ordinal) < 0)
+                    throw new Exception("Analysis did not report the actual derived recovery interval.");
+                report.Close();
+            }
+
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(20);
+                BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                RateModelComboBox rate = (RateModelComboBox)typeof(MainForm)
+                    .GetField("_serviceModeCombo", flags).GetValue(form);
+                CheckBox queueLimit = (CheckBox)typeof(MainForm)
+                    .GetField("_queueLimitCheck", flags).GetValue(form);
+                rate.SelectedChoice = RateModelChoice.DelayedNoteOff;
+                Application.DoEvents();
+                Equal(true, form.DelayedNoteOffForTesting,
+                    "Delayed NoteOff UI selects the global ownership scheduler");
+                Equal(true, queueLimit.Enabled,
+                    "Delayed NoteOff exposes the separate stopped interval-polyphony control");
+                form.Close();
+            }
+        }
+
+        private static void TestBuild44DelayedMelodyAndZeroInterval()
+        {
+            List<MidiEventView> emissions = new List<MidiEventView>();
+            DelayedNoteOffGate gate = new DelayedNoteOffGate(40000);
+
+            MidiEvent melody = ChannelMessage(0, 0x90, 72, 100); melody.Track = 0;
+            MidiEvent bass = ChannelMessage(10000, 0x91, 48, 92); bass.Track = 1;
+            gate.Admit(MidiEventView.FromEvent(melody, 0));
+            Equal(1, gate.EmitBoundary(0, emissions), "melody owner begins immediately");
+            gate.Admit(MidiEventView.FromEvent(bass, 1));
+            Equal(1, gate.EmitBoundary(10000, emissions), "independent bass role remains audible");
+
+            MidiEvent melodyRepeat = ChannelMessage(40000, 0x92, 72, 105);
+            melodyRepeat.Track = 2;
+            MidiEvent equalCompetitor = ChannelMessage(40000, 0x93, 72, 105);
+            equalCompetitor.Track = 3;
+            gate.Admit(MidiEventView.FromEvent(melodyRepeat, 2));
+            gate.Admit(MidiEventView.FromEvent(equalCompetitor, 3));
+            Equal(1, gate.EmitBoundary(40000, emissions),
+                "eligible repeated melody closes the old owner in its source batch");
+            Equal("80-48-00", BitConverter.ToString(emissions[0].Data.ToArray()),
+                "eligible repeated melody protects the old owner's release");
+            Equal(1, gate.EmitBoundary(50000, emissions),
+                "one bounded melody candidate survives the required recovery");
+            Equal("92-48-69", BitConverter.ToString(emissions[0].Data.ToArray()),
+                "equal-velocity same-batch competition keeps stable earlier source order");
+
+            MidiEvent displacedRelease = ChannelMessage(60000, 0x80, 72, 0);
+            displacedRelease.Track = 0;
+            MidiEvent losingRelease = ChannelMessage(65000, 0x83, 72, 0);
+            losingRelease.Track = 3;
+            MidiEvent bassRelease = ChannelMessage(70000, 0x81, 48, 4);
+            bassRelease.Track = 1;
+            MidiEvent melodyRelease = ChannelMessage(90000, 0x82, 72, 7);
+            melodyRelease.Track = 2;
+            gate.Admit(MidiEventView.FromEvent(displacedRelease, 4));
+            gate.Admit(MidiEventView.FromEvent(losingRelease, 5));
+            gate.Admit(MidiEventView.FromEvent(bassRelease, 6));
+            Equal(1, gate.EmitBoundary(70000, emissions),
+                "independent accompaniment release remains occurrence-safe");
+            Equal("81-30-04", BitConverter.ToString(emissions[0].Data.ToArray()),
+                "accompaniment release retains its output lane");
+            gate.Admit(MidiEventView.FromEvent(melodyRelease, 7));
+            Equal(1, gate.EmitBoundary(90000, emissions),
+                "retained melody candidate receives its paired release");
+            Equal("82-48-07", BitConverter.ToString(emissions[0].Data.ToArray()),
+                "melody release follows the attack that actually sounded");
+            Equal(2L, gate.TakeFilteredEventCount(),
+                "only the losing equal competitor and its paired release are filtered");
+
+            MidiEvent zeroAOn = ChannelMessage(100, 0x90, 60, 90); zeroAOn.Track = 0;
+            MidiEvent zeroAOff = ChannelMessage(100, 0x80, 60, 3); zeroAOff.Track = 0;
+            MidiEvent zeroBOn = ChannelMessage(250, 0x91, 64, 100); zeroBOn.Track = 1;
+            MidiEvent zeroBOff = ChannelMessage(251, 0x81, 64, 4); zeroBOff.Track = 1;
+            MidiSong zeroSong = NewChannelSong("interval-zero-identity.mid", 251,
+                zeroAOn, zeroAOff, zeroBOn, zeroBOff);
+
+            foreach (ProcessingMode mode in new ProcessingMode[] {
+                ProcessingMode.PerNoteIntervalGate, ProcessingMode.DelayedNoteOff })
+            foreach (bool adaptive in new bool[] { false, true })
+            foreach (bool polyphony in new bool[] { false, true })
+            {
+                List<byte[]> projectedPayloads;
+                List<long> projectedTimes;
+                long projectedFiltered;
+                if (mode == ProcessingMode.PerNoteIntervalGate)
+                    ProjectPerNoteTrace(zeroSong, 0, adaptive, out projectedPayloads,
+                        out projectedTimes, out projectedFiltered, polyphony, 2);
+                else
+                    ProjectDelayedTrace(zeroSong, 0, adaptive, out projectedPayloads,
+                        out projectedTimes, out projectedFiltered, polyphony, 2);
+
+                string label = mode + " zero adaptive=" + adaptive + " polyphony=" + polyphony;
+                Sequence(new long[] { 100, 100, 250, 251 }, projectedTimes,
+                    label + " adds no positive logical delay or quantization");
+                Equal(0L, projectedFiltered,
+                    label + " does not filter independent paired occurrences");
+
+                using (PlaybackEngine engine = new PlaybackEngine())
+                {
+                    FakeMidiOutput output = new FakeMidiOutput();
+                    engine.ProcessingMicroseconds = 0;
+                    engine.ScaleNoteIntervalByTraffic = adaptive;
+                    engine.IntervalPolyphonyLimitEnabled = polyphony;
+                    engine.IntervalPolyphonyLimit = 2;
+                    engine.Start(zeroSong, output, mode);
+                    WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1500,
+                        label + " Playback completion");
+                    List<byte[]> live = output.SentPayloads();
+                    Equal(projectedPayloads.Count, live.Count,
+                        label + " Playback/Analysis count parity");
+                    for (int index = 0; index < live.Count; index++)
+                        Equal(BitConverter.ToString(projectedPayloads[index]),
+                            BitConverter.ToString(live[index]),
+                            label + " Playback/Analysis payload parity " + index);
+                    Equal(0L, engine.GetSnapshot().GateFilteredEvents,
+                        label + " Playback retains zero-interval occurrences");
+                }
+            }
+        }
+
+        private static void AssertHalfOpenRateBound(List<long> timestamps,
+            int maximumPerSecond, string name)
+        {
+            int right = 0;
+            for (int left = 0; left < timestamps.Count; left++)
+            {
+                if (right < left) right = left;
+                long end = timestamps[left] > Int64.MaxValue - 1000000L
+                    ? Int64.MaxValue : timestamps[left] + 1000000L;
+                while (right < timestamps.Count && timestamps[right] < end) right++;
+                if (right - left > maximumPerSecond)
+                    throw new Exception(name + " exceeded " + maximumPerSecond.ToString(
+                        CultureInfo.InvariantCulture) + " messages in a half-open second.");
+            }
+        }
+
+        private static void TestBuild44NoteAttackLimit()
+        {
+            List<MidiEventView> emissions = new List<MidiEventView>();
+            MusicalAttackRateLimiter priority = new MusicalAttackRateLimiter(2000000);
+            priority.BeginSourceTick(0);
+            priority.Admit(MidiEventView.FromEvent(ChannelMessage(0, 0x9F, 30, 1), 0));
+            Equal(1, priority.EndSourceTick(emissions), "first demand receives one matured Note-start slot");
+            MidiEvent weak = ChannelMessage(1, 0x90, 60, 70); weak.Track = 0;
+            MidiEvent strong = ChannelMessage(1, 0x91, 61, 120); strong.Track = 1;
+            MidiEvent middle = ChannelMessage(1, 0x92, 62, 100); middle.Track = 2;
+            priority.BeginSourceTick(1);
+            priority.Admit(MidiEventView.FromEvent(weak, 0));
+            priority.Admit(MidiEventView.FromEvent(strong, 1));
+            priority.Admit(MidiEventView.FromEvent(middle, 2));
+            Equal(3, priority.EndSourceTick(emissions), "below-limit simultaneous chord remains transparent");
+            Equal("90-3C-46", BitConverter.ToString(emissions[0].Data.ToArray()),
+                "transparent chord retains source order");
+            Equal("91-3D-78", BitConverter.ToString(emissions[1].Data.ToArray()),
+                "transparent chord retains its inner voice");
+            Equal(0L, priority.TakeRejectedAttacks(),
+                "below-limit chord rejects no attack");
+
+            MidiEvent weakOff = ChannelMessage(100001, 0x80, 60, 0); weakOff.Track = 0;
+            MidiEvent strongOff = ChannelMessage(100001, 0x81, 61, 0); strongOff.Track = 1;
+            MidiEvent middleOff = ChannelMessage(100001, 0x92, 62, 0); middleOff.Track = 2;
+            priority.BeginSourceTick(100000);
+            priority.Admit(MidiEventView.FromEvent(weakOff, 3));
+            priority.Admit(MidiEventView.FromEvent(strongOff, 4));
+            priority.Admit(MidiEventView.FromEvent(middleOff, 5));
+            Equal(3, priority.EndSourceTick(emissions), "releases paired to admitted attacks remain protected");
+            Equal(0L, priority.TakeSuppressedReleases(),
+                "transparent chord suppresses no paired release");
+
+            MusicalAttackRateLimiter paced = new MusicalAttackRateLimiter(2);
+            paced.BeginSourceTick(0);
+            paced.Admit(MidiEventView.FromEvent(ChannelMessage(0, 0x90, 50, 100), 0));
+            paced.Admit(MidiEventView.FromEvent(ChannelMessage(0, 0x90, 51, 100), 1));
+            Equal(1, paced.EndSourceTick(emissions),
+                "first dense passage receives one matured slot, not one second of advance capacity");
+            Equal(0L, paced.AvailableStartsForTesting(499999, 8),
+                "capacity does not mature before its exact paced instant");
+            paced.BeginSourceTick(500000);
+            paced.Admit(MidiEventView.FromEvent(ChannelMessage(500000, 0x90, 52, 100), 2));
+            Equal(1, paced.EndSourceTick(emissions),
+                "continuous pressure admits work at the half-second pacing instant");
+            paced.BeginSourceTick(750000);
+            paced.Admit(MidiEventView.FromEvent(ChannelMessage(750000, 0x90, 53, 100), 3));
+            Equal(0, paced.EndSourceTick(emissions),
+                "rejected work does not wait for a later pacing slot");
+            paced.BeginSourceTick(1000000);
+            paced.Admit(MidiEventView.FromEvent(ChannelMessage(1000000, 0x90, 54, 100), 4));
+            Equal(1, paced.EndSourceTick(emissions),
+                "continuous pressure resumes at the next exact pacing instant without a long blackout");
+            paced.BeginSourceTick(10000000);
+            paced.Admit(MidiEventView.FromEvent(ChannelMessage(10000000, 0x90, 55, 100), 5));
+            paced.Admit(MidiEventView.FromEvent(ChannelMessage(10000000, 0x90, 56, 100), 6));
+            paced.Admit(MidiEventView.FromEvent(ChannelMessage(10000000, 0x90, 57, 100), 7));
+            Equal(1, paced.EndSourceTick(emissions),
+                "quiet time matures only the current slot and cannot save burst credit");
+            Equal(4L, paced.TakeRejectedAttacks(),
+                "progressive pacing counts every rejected dense-passage attack once");
+
+            MusicalAttackRateLimiter fractional = new MusicalAttackRateLimiter(3);
+            long[] fractionalTimes = new long[] { 0, 333333, 333334, 666666, 666667, 1000000 };
+            int fractionalAccepted = 0;
+            for (int index = 0; index < fractionalTimes.Length; index++)
+            {
+                long time = fractionalTimes[index];
+                fractional.BeginSourceTick(time);
+                fractional.Admit(MidiEventView.FromEvent(
+                    ChannelMessage(time, 0x90, (byte)(70 + index), 100), index));
+                fractionalAccepted += fractional.EndSourceTick(emissions);
+            }
+            Equal(4, fractionalAccepted,
+                "fractional three-per-second pacing remains exact without rounded microsecond intervals");
+
+            MusicalAttackRateLimiter sustained = new MusicalAttackRateLimiter(4);
+            List<long> sustainedAdmissions = new List<long>();
+            for (int index = 0; index <= 40; index++)
+            {
+                long time = index * 50000L;
+                sustained.BeginSourceTick(time);
+                sustained.Admit(MidiEventView.FromEvent(
+                    ChannelMessage(time, 0x90, (byte)(30 + index), 100), index));
+                if (sustained.EndSourceTick(emissions) != 0) sustainedAdmissions.Add(time);
+            }
+            Equal(9, sustainedAdmissions.Count,
+                "sustained dense input stays at the configured progressive rate");
+            for (int index = 1; index < sustainedAdmissions.Count; index++)
+                Equal(250000L, sustainedAdmissions[index] - sustainedAdmissions[index - 1],
+                    "sustained admissions remain evenly distributed");
+            for (int start = 0; start < sustainedAdmissions.Count; start++)
+            {
+                int count = 0;
+                long end = sustainedAdmissions[start] + 1000000L;
+                for (int index = start; index < sustainedAdmissions.Count; index++)
+                    if (sustainedAdmissions[index] < end) count++;
+                if (count > 4)
+                    throw new Exception("A half-open rolling second exceeded the paced Note-start target.");
+            }
+
+            MusicalAttackRateLimiter transparent = new MusicalAttackRateLimiter(5000);
+            int transparentAccepted = 0;
+            for (int index = 0; index < 2800; index++)
+            {
+                long time = index * 357L;
+                transparent.BeginSourceTick(time);
+                transparent.Admit(MidiEventView.FromEvent(ChannelMessage(time,
+                    (byte)(0x90 | (index & 15)), (byte)(24 + index % 96), 90), index));
+                transparentAccepted += transparent.EndSourceTick(emissions);
+            }
+            Equal(2800, transparentAccepted,
+                "2,800 starts/sec remains transparent below a 5,000 starts/sec maximum");
+            Equal(0L, transparent.TakeRejectedAttacks(),
+                "below-limit sustained starts lose no notes");
+
+            MusicalAttackRateLimiter dense200 = new MusicalAttackRateLimiter(200);
+            List<long> dense200Admissions = new List<long>();
+            for (int index = 0; index < 2000; index++)
+            {
+                long time = index * 1000L;
+                dense200.BeginSourceTick(time);
+                dense200.Admit(MidiEventView.FromEvent(ChannelMessage(time,
+                    (byte)(0x90 | (index & 15)), (byte)(24 + index % 96), 100), index));
+                if (dense200.EndSourceTick(emissions) != 0) dense200Admissions.Add(time);
+            }
+            if (dense200Admissions.Count < 390 || dense200Admissions.Count > 400)
+                throw new Exception("Sustained dense Note starts did not remain near the configured 200/sec rate: " +
+                    dense200Admissions.Count.ToString(CultureInfo.InvariantCulture));
+            long maximumDenseGap = 0;
+            for (int index = 1; index < dense200Admissions.Count; index++)
+                maximumDenseGap = Math.Max(maximumDenseGap,
+                    dense200Admissions[index] - dense200Admissions[index - 1]);
+            if (maximumDenseGap > 50000)
+                throw new Exception("Sustained Note starts developed a burst-and-silence gap.");
+            AssertHalfOpenRateBound(dense200Admissions, 200,
+                "sustained Note-start rolling bound");
+
+            MusicalAttackRateLimiter fairness = new MusicalAttackRateLimiter(1);
+            MidiEvent fair0 = ChannelMessage(0, 0x90, 64, 100); fair0.Track = 0;
+            MidiEvent fair1 = ChannelMessage(0, 0x91, 65, 100); fair1.Track = 1;
+            fairness.BeginSourceTick(0);
+            fairness.Admit(MidiEventView.FromEvent(fair0, 0));
+            fairness.Admit(MidiEventView.FromEvent(fair1, 1));
+            Equal(1, fairness.EndSourceTick(emissions), "equal velocities consume only available global credit");
+            Equal("91-41-64", BitConverter.ToString(emissions[0].Data.ToArray()),
+                "shared musical fairness deterministically selects one equal candidate");
+            fairness.BeginSourceTick(500000);
+            fairness.Admit(MidiEventView.FromEvent(ChannelMessage(500000, 0x80, 64, 0), 2));
+            MidiEvent fair1Off = ChannelMessage(500000, 0x81, 65, 0); fair1Off.Track = 1;
+            fairness.Admit(MidiEventView.FromEvent(fair1Off, 3));
+            fairness.EndSourceTick(emissions);
+            fairness.TakeSuppressedReleases();
+            MidiEvent fair0Again = ChannelMessage(1000000, 0x90, 66, 100); fair0Again.Track = 0;
+            MidiEvent fair1Again = ChannelMessage(1000000, 0x91, 67, 100); fair1Again.Track = 1;
+            fairness.BeginSourceTick(1000000);
+            fairness.Admit(MidiEventView.FromEvent(fair0Again, 4));
+            fairness.Admit(MidiEventView.FromEvent(fair1Again, 5));
+            Equal(1, fairness.EndSourceTick(emissions), "continuous refill restores one token at one second");
+            Equal("90-42-64", BitConverter.ToString(emissions[0].Data.ToArray()),
+                "equal-velocity fairness rotates to the next track/channel identity");
+
+            MusicalAttackRateLimiter chord = new MusicalAttackRateLimiter(2000000);
+            chord.BeginSourceTick(0);
+            chord.Admit(MidiEventView.FromEvent(ChannelMessage(0, 0x9F, 20, 1), 0));
+            chord.EndSourceTick(emissions);
+            MidiEvent chordLow = ChannelMessage(1, 0x90, 48, 100); chordLow.Track = 0;
+            MidiEvent chordInner = ChannelMessage(1, 0x90, 60, 100); chordInner.Track = 1;
+            MidiEvent chordHigh = ChannelMessage(1, 0x90, 72, 100); chordHigh.Track = 2;
+            chord.BeginSourceTick(1);
+            chord.Admit(MidiEventView.FromEvent(chordLow, 0));
+            chord.Admit(MidiEventView.FromEvent(chordInner, 1));
+            chord.Admit(MidiEventView.FromEvent(chordHigh, 2));
+            Equal(3, chord.EndSourceTick(emissions),
+                "high-capacity chord remains fully transparent");
+            Equal("90-30-64", BitConverter.ToString(emissions[0].Data.ToArray()),
+                "lowest chord boundary survives note-start pressure");
+            Equal("90-3C-64", BitConverter.ToString(emissions[1].Data.ToArray()),
+                "transparent chord retains its inner voice in source order");
+            Equal("90-48-64", BitConverter.ToString(emissions[2].Data.ToArray()),
+                "transparent chord retains its high boundary voice");
+
+            MusicalAttackRateLimiter percussionA = new MusicalAttackRateLimiter(1);
+            MidiEvent drumLowA = ChannelMessage(0, 0x99, 35, 100); drumLowA.Track = 0;
+            MidiEvent drumHighA = ChannelMessage(0, 0x99, 81, 100); drumHighA.Track = 1;
+            percussionA.BeginSourceTick(0);
+            percussionA.Admit(MidiEventView.FromEvent(drumLowA, 0));
+            percussionA.Admit(MidiEventView.FromEvent(drumHighA, 1));
+            percussionA.EndSourceTick(emissions);
+            int selectedPercussionTrack = emissions[0].Track;
+            MusicalAttackRateLimiter percussionB = new MusicalAttackRateLimiter(1);
+            MidiEvent drumHighB = ChannelMessage(0, 0x99, 81, 100); drumHighB.Track = 0;
+            MidiEvent drumLowB = ChannelMessage(0, 0x99, 35, 100); drumLowB.Track = 1;
+            percussionB.BeginSourceTick(0);
+            percussionB.Admit(MidiEventView.FromEvent(drumHighB, 0));
+            percussionB.Admit(MidiEventView.FromEvent(drumLowB, 1));
+            percussionB.EndSourceTick(emissions);
+            Equal(selectedPercussionTrack, emissions[0].Track,
+                "percussion selection is independent of drum-key pitch extremes");
+
+            MusicalAttackRateLimiter stable = new MusicalAttackRateLimiter(1);
+            MidiEvent sameIdentityFirst = ChannelMessage(0, 0x90, 68, 90); sameIdentityFirst.Track = 4;
+            MidiEvent sameIdentitySecond = ChannelMessage(0, 0x90, 69, 90); sameIdentitySecond.Track = 4;
+            stable.BeginSourceTick(0);
+            stable.Admit(MidiEventView.FromEvent(sameIdentityFirst, 0));
+            stable.Admit(MidiEventView.FromEvent(sameIdentitySecond, 1));
+            Equal(1, stable.EndSourceTick(emissions), "one same-identity equal-velocity attack is admitted");
+            Equal("90-44-5A", BitConverter.ToString(emissions[0].Data.ToArray()),
+                "stable source order is the final priority tie-break");
+
+            MusicalAttackRateLimiter unlimited = new MusicalAttackRateLimiter(0);
+            unlimited.BeginSourceTick(0);
+            for (int index = 0; index < 20; index++)
+                unlimited.Admit(MidiEventView.FromEvent(ChannelMessage(0, 0x90, (byte)(40 + index), 80), index));
+            Equal(20, unlimited.EndSourceTick(emissions), "zero value is an unlimited admission model");
+            Equal(0L, unlimited.TakeRejectedAttacks(), "unlimited model rejects no attacks");
+
+            const long logicalClockResolution = 1000000L;
+            Equal(100L, new ProgressiveRatePacer(logicalClockResolution - 1,
+                logicalClockResolution).AvailableSlots(0, 100),
+                "a rate immediately below clock resolution admits a practical same-time batch");
+            Equal(100L, new ProgressiveRatePacer(logicalClockResolution,
+                logicalClockResolution).AvailableSlots(0, 100),
+                "a rate equal to clock resolution admits a practical same-time batch");
+            Equal(100L, new ProgressiveRatePacer(logicalClockResolution + 1,
+                logicalClockResolution).AvailableSlots(0, 100),
+                "a rate immediately above clock resolution admits a practical same-time batch");
+            ProgressiveRatePacer highRate = new ProgressiveRatePacer(
+                9999999, logicalClockResolution);
+            Equal(10L, highRate.AvailableSlots(Int64.MaxValue, 100),
+                "very-high-rate pacing remains bounded at the final representable timestamp");
+            for (int index = 0; index < 10; index++)
+                Equal(true, highRate.TryConsume(Int64.MaxValue),
+                    "very-high-rate final-quantum slot " + index);
+
+            MusicalAttackRateLimiter highChord = new MusicalAttackRateLimiter(9999999);
+            highChord.BeginSourceTick(0);
+            for (int index = 0; index < 4096; index++)
+                highChord.Admit(MidiEventView.FromEvent(
+                    ChannelMessage(0, (byte)(0x90 | (index & 15)),
+                        (byte)(24 + index % 96), 100), index));
+            Equal(4096, highChord.EndSourceTick(emissions),
+                "9,999,999 Note starts/sec leaves a large simultaneous chord unchanged");
+            Equal(0L, highChord.TakeRejectedAttacks(),
+                "practical high-limit chord rejects no voices");
+            highChord.BeginSourceTick(1);
+            highChord.Admit(MidiEventView.FromEvent(
+                ChannelMessage(1, 0x90, 80, 100), 16));
+            Equal(1, highChord.EndSourceTick(emissions),
+                "a newly due attack is admitted without replaying rejected chord work");
+            Equal("90-50-64", BitConverter.ToString(emissions[0].Data.ToArray()),
+                "rejected chord work never catches up in the next clock quantum");
+
+            MidiEvent controller = ChannelMessage(0, 0xB0, 64, 127);
+            MidiSong song = NewChannelSong("note-start-rate-gate.mid", 100000,
+                weak, strong, middle, controller, weakOff, strongOff, middleOff);
+            song.TrackCount = 3;
+            AnalysisConfiguration configuration = DefaultAnalysisConfiguration();
+            configuration.SimulateSlowdown = false;
+            configuration.NoteAttackLimitEnabled = true;
+            configuration.EventsPerSecond = 2;
+            WorkloadAnalysis analysis = WorkloadAnalyzer.Analyze(song, 10000, configuration);
+            Equal(true, analysis.HasGateProjection, "Note start rate gate has a dedicated output projection");
+            Equal(2L, analysis.MusicalLimitRejectedAttacks, "Analysis counts rejected attacks separately");
+            Equal(2L, analysis.MusicalLimitSuppressedReleases, "Analysis counts suppressed releases separately");
+            Equal(3L, analysis.GateOutputEvents, "Analysis retains the admitted release and non-note state traffic");
+            List<byte[]> projected = new List<byte[]>();
+            WorkloadAnalysis trace = WorkloadAnalyzer.Analyze(song, 10000,
+                (AnalysisConfiguration)null).CopyWorkload(configuration, CancellationToken.None);
+            WorkloadAnalyzer.ProjectNoteAttackLimit(song, trace, configuration, CancellationToken.None, null,
+                delegate(MidiEventView midiEvent, long time) { projected.Add(midiEvent.Data.ToArray()); });
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.EventsPerSecond = 2;
+                engine.Start(song, output, ProcessingMode.NoteAttackLimit);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000,
+                    "live Note start rate gate completion");
+                List<byte[]> actual = output.SentPayloads();
+                Equal(projected.Count, actual.Count, "Note start Playback/Analysis output counts agree");
+                for (int index = 0; index < actual.Count; index++)
+                    Equal(BitConverter.ToString(projected[index]), BitConverter.ToString(actual[index]),
+                        "Note start Playback/Analysis payload parity " + index);
+                PlaybackSnapshot snapshot = engine.GetSnapshot();
+                Equal(2L, snapshot.MusicalLimitRejectedAttacks, "Playback reports rejected attacks separately");
+                Equal(2L, snapshot.MusicalLimitSuppressedReleases, "Playback reports suppressed releases separately");
+                Equal(0L, snapshot.DroppedEvents, "musical limit exclusions are not queue drops");
+            }
+
+            List<MidiEvent> highNoteEvents = new List<MidiEvent>();
+            for (int index = 0; index < 12; index++)
+                highNoteEvents.Add(ChannelMessage(0, (byte)(0x90 | (index & 3)),
+                    (byte)(48 + index), 100));
+            for (int index = 0; index < 12; index++)
+                highNoteEvents.Add(ChannelMessage(100000, (byte)(0x80 | (index & 3)),
+                    (byte)(48 + index), 0));
+            MidiSong highNoteSong = NewChannelSong(
+                "note-start-high-chord-parity.mid", 100000, highNoteEvents.ToArray());
+            AnalysisConfiguration highNoteConfiguration = DefaultAnalysisConfiguration();
+            highNoteConfiguration.SimulateSlowdown = false;
+            highNoteConfiguration.NoteAttackLimitEnabled = true;
+            highNoteConfiguration.EventsPerSecond = 9999999;
+            WorkloadAnalysis highNoteAnalysis = WorkloadAnalyzer.Analyze(
+                highNoteSong, 10000, highNoteConfiguration);
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.EventsPerSecond = 9999999;
+                engine.Start(highNoteSong, output, ProcessingMode.NoteAttackLimit);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1500,
+                    "high-limit Note start chord completion");
+                List<byte[]> actual = output.SentPayloads();
+                int noteOns = 0;
+                for (int index = 0; index < actual.Count; index++)
+                    if ((actual[index][0] & 0xF0) == 0x90 && actual[index][2] != 0) noteOns++;
+                Equal(12, noteOns,
+                    "ordinary high-limit Note start Playback preserves every simultaneous voice");
+                Equal(highNoteAnalysis.GateOutputEvents, (long)actual.Count,
+                    "high-limit Note start Playback/Analysis output counts agree");
+                Equal(highNoteAnalysis.MusicalLimitRejectedAttacks,
+                    engine.GetSnapshot().MusicalLimitRejectedAttacks,
+                    "high-limit Note start Playback/Analysis rejection counts agree");
+            }
+
+            MidiSong rollingSong = NewChannelSong("note-start-paced-parity.mid", 1100000,
+                ChannelMessage(0, 0x90, 60, 100),
+                ChannelMessage(0, 0x91, 67, 100),
+                ChannelMessage(100000, 0x80, 60, 0),
+                ChannelMessage(100000, 0x81, 67, 0),
+                ChannelMessage(500000, 0x92, 64, 110),
+                ChannelMessage(600000, 0x82, 64, 0),
+                ChannelMessage(1000000, 0x93, 72, 90),
+                ChannelMessage(1100000, 0x83, 72, 0));
+            WorkloadAnalysis rollingAnalysis = WorkloadAnalyzer.Analyze(
+                rollingSong, 100000, configuration);
+            Equal(1L, rollingAnalysis.MusicalLimitRejectedAttacks,
+                "Analysis progressive pacing rejects one attack from the initial dense batch");
+            Equal(1L, rollingAnalysis.MusicalLimitSuppressedReleases,
+                "Analysis suppresses the release paired to the initial rejection");
+            List<byte[]> rollingProjected = new List<byte[]>();
+            WorkloadAnalysis rollingTrace = WorkloadAnalyzer.Analyze(rollingSong, 100000,
+                (AnalysisConfiguration)null).CopyWorkload(configuration, CancellationToken.None);
+            WorkloadAnalyzer.ProjectNoteAttackLimit(rollingSong, rollingTrace, configuration,
+                CancellationToken.None, null, delegate(MidiEventView midiEvent, long time)
+                { rollingProjected.Add(midiEvent.Data.ToArray()); });
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.EventsPerSecond = 2;
+                engine.Start(rollingSong, output, ProcessingMode.NoteAttackLimit);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2500,
+                    "progressive Note start Playback completion");
+                List<byte[]> actual = output.SentPayloads();
+                Equal(rollingProjected.Count, actual.Count,
+                    "variable-density paced Playback/Analysis count parity");
+                for (int index = 0; index < actual.Count; index++)
+                    Equal(BitConverter.ToString(rollingProjected[index]),
+                        BitConverter.ToString(actual[index]),
+                        "variable-density paced payload parity " + index);
+                PlaybackSnapshot snapshot = engine.GetSnapshot();
+                Equal(rollingAnalysis.MusicalLimitRejectedAttacks,
+                    snapshot.MusicalLimitRejectedAttacks,
+                    "variable-density paced rejected-attack parity");
+                Equal(rollingAnalysis.MusicalLimitSuppressedReleases,
+                    snapshot.MusicalLimitSuppressedReleases,
+                    "variable-density paced paired-release parity");
+            }
+
+            List<MidiEvent> noteSeekEvents = new List<MidiEvent>();
+            for (int index = 0; index < 12; index++)
+                noteSeekEvents.Add(ChannelMessage(500000, (byte)(0x90 | (index & 3)),
+                    (byte)(48 + index), 100));
+            for (int index = 0; index < 12; index++)
+                noteSeekEvents.Add(ChannelMessage(700000, (byte)(0x80 | (index & 3)),
+                    (byte)(48 + index), 0));
+            MidiSong noteSeekSong = NewChannelSong(
+                "note-start-preserving-seek.mid", 700000, noteSeekEvents.ToArray());
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.EventsPerSecond = 9999999;
+                engine.PreservePlaybackQueueOnPauseSeek = true;
+                engine.ChaseMidiStateOnPlaySeek = false;
+                engine.Start(noteSeekSong, output, ProcessingMode.NoteAttackLimit);
+                PumpFor(30);
+                engine.Seek(500000);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2500,
+                    "ordered preserving-Seek Note start completion");
+                Equal(0, output.ResetCount,
+                    "preserving Seek does not reset the Note-start worker");
+                List<byte[]> actual = output.SentPayloads();
+                int noteOns = 0;
+                int noteOffs = 0;
+                for (int index = 0; index < actual.Count; index++)
+                {
+                    if ((actual[index][0] & 0xF0) == 0x90 && actual[index][2] != 0) noteOns++;
+                    if ((actual[index][0] & 0xF0) == 0x80 ||
+                        (actual[index][0] & 0xF0) == 0x90 && actual[index][2] == 0) noteOffs++;
+                }
+                Equal(12, noteOns,
+                    "ordered preserving-Seek Note start worker keeps every simultaneous voice");
+                Equal(12, noteOffs,
+                    "ordered preserving-Seek Note start worker protects every emitted release");
+            }
+
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.EventsPerSecond = 2;
+                engine.Start(NewChannelSong("note-start-output-failure.mid", 0,
+                    ChannelMessage(0, 0x90, 60, 100)), new ThrowingMidiOutput(),
+                    ProcessingMode.NoteAttackLimit);
+                WaitFor(delegate { return engine.State == PlaybackState.Stopped; }, 1000,
+                    "Note start output failure cleanup");
+                FakeMidiOutput recovered = new FakeMidiOutput();
+                engine.Start(NewChannelSong("note-start-after-failure.mid", 0,
+                    ChannelMessage(0, 0x90, 72, 100)), recovered,
+                    ProcessingMode.NoteAttackLimit);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1000,
+                    "Note start restart after output failure");
+                Equal(1, recovered.SentPayloads().Count,
+                    "Note start output failure leaves no stale pacing state");
+            }
+
+            using (DiagnosticsForm report = new DiagnosticsForm(rollingSong, rollingAnalysis))
+            {
+                report.Show(); PumpFor(15);
+                if (report.SummaryText.IndexOf("NOTE START RATE GATE PROJECTION",
+                    StringComparison.Ordinal) < 0 ||
+                    report.SummaryText.IndexOf("2 starts/sec progressively paced",
+                    StringComparison.Ordinal) < 0 ||
+                    report.SummaryText.IndexOf("burst", StringComparison.OrdinalIgnoreCase) >= 0)
+                    throw new Exception("Analysis did not present the progressive Note start contract.");
+                report.Close();
+            }
+            string rateHelp = PlayerHelpForm.TextForTopic(PlayerHelpTopic.RateModel);
+            if (rateHelp.IndexOf("NOTE START RATE GATE", StringComparison.Ordinal) < 0 ||
+                rateHelp.IndexOf("exact rolling second never exceeds the selected maximum", StringComparison.Ordinal) < 0 ||
+                rateHelp.IndexOf("below-limit passages remain intact", StringComparison.Ordinal) < 0)
+                throw new Exception("Rate model Help does not explain the corrected Note start gate.");
+
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(20);
+                BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                RateModelComboBox rate = (RateModelComboBox)typeof(MainForm)
+                    .GetField("_serviceModeCombo", flags).GetValue(form);
+                CheckBox queueLimit = (CheckBox)typeof(MainForm)
+                    .GetField("_queueLimitCheck", flags).GetValue(form);
+                Label rateCaption = (Label)typeof(MainForm)
+                    .GetField("_serviceValueLabel", flags).GetValue(form);
+                rate.SelectedChoice = RateModelChoice.NoteAttackLimit;
+                Application.DoEvents();
+                Equal(true, form.NoteAttackLimitForTesting, "UI selects the standalone Note start rate gate");
+                Equal("Note starts/sec:", rateCaption.Text,
+                    "UI labels the selected value as Note starts per second");
+                Equal(false, queueLimit.Enabled, "queue controls remain unavailable in Note start mode");
+                Equal(ProcessingMode.NoteAttackLimit,
+                    (ProcessingMode)typeof(MainForm).GetMethod("SelectedProcessingMode", flags).Invoke(form, null),
+                    "UI maps to the dedicated Note start processing mode");
+                AnalysisConfiguration selected = (AnalysisConfiguration)typeof(MainForm)
+                    .GetMethod("CurrentAnalysisConfiguration", flags).Invoke(form, null);
+                Equal(true, selected.NoteAttackLimitEnabled, "Analysis receives the selected Note start model");
+                form.Close();
+            }
+        }
+
+        private static void TestBuild44OutputRateLimit()
+        {
+            List<MidiEventView> emissions = new List<MidiEventView>();
+            OutputRateGate gate = new OutputRateGate(2, 1000000);
+            MidiEvent controller = ChannelMessage(0, 0xB0, 7, 100);
+            MidiEvent low = ChannelMessage(0, 0x90, 48, 100); low.Track = 0;
+            MidiEvent inner = ChannelMessage(0, 0x91, 60, 100); inner.Track = 1;
+            MidiEvent high = ChannelMessage(0, 0x92, 72, 100); high.Track = 2;
+            gate.BeginSourceTick(0);
+            gate.Admit(MidiEventView.FromEvent(controller, 0));
+            gate.Admit(MidiEventView.FromEvent(low, 1));
+            gate.Admit(MidiEventView.FromEvent(inner, 2));
+            gate.Admit(MidiEventView.FromEvent(high, 3));
+            Equal(1, gate.EndSourceTick(emissions, 0),
+                "first dense output receives one matured slot and reserves it for state traffic");
+            Equal("B0-07-64", BitConverter.ToString(emissions[0].Data.ToArray()),
+                "state traffic remains first and protected");
+            Equal(3L, gate.TakeRejectedAttacks(),
+                "initial dense batch rejects every attack when state traffic consumes the matured slot");
+            int softExcess = 0;
+            for (int index = 0; index < emissions.Count; index++)
+                if (gate.RecordDispatch(0, OutputRateGate.IsProtectedTraffic(emissions[index])))
+                    softExcess++;
+            Equal(0, softExcess, "capacity-respecting initial output has no soft excess");
+
+            MidiEvent lowOff = ChannelMessage(100000, 0x80, 48, 0); lowOff.Track = 0;
+            MidiEvent innerOff = ChannelMessage(100000, 0x81, 60, 0); innerOff.Track = 1;
+            MidiEvent highOff = ChannelMessage(100000, 0x82, 72, 0); highOff.Track = 2;
+            gate.BeginSourceTick(100000);
+            gate.Admit(MidiEventView.FromEvent(lowOff, 4));
+            gate.Admit(MidiEventView.FromEvent(innerOff, 5));
+            gate.Admit(MidiEventView.FromEvent(highOff, 6));
+            Equal(0, gate.EndSourceTick(emissions, 100000),
+                "no releases remain when every paired attack was rejected");
+            Equal(3L, gate.TakeSuppressedReleases(),
+                "releases paired to rejected attacks remain separately suppressed");
+
+            gate.BeginSourceTick(200000);
+            gate.Admit(MidiEventView.FromEvent(ChannelMessage(200000, 0x93, 65, 110), 7));
+            Equal(0, gate.EndSourceTick(emissions, 200000),
+                "rejected work does not wait in a catch-up queue");
+            Equal(1L, gate.TakeRejectedAttacks(),
+                "no-catch-up rejection is counted exactly once");
+            gate.BeginSourceTick(1000000);
+            gate.Admit(MidiEventView.FromEvent(ChannelMessage(1000000, 0x94, 67, 110), 8));
+            Equal(1, gate.EndSourceTick(emissions, 1000000),
+                "a complete note occurrence is admitted when attack and release capacity can be reserved");
+            Equal(false, gate.RecordDispatch(1000000, false),
+                "the admitted attack consumes reserved ordinary capacity");
+            gate.BeginSourceTick(1100000);
+            gate.Admit(MidiEventView.FromEvent(ChannelMessage(1100000, 0x84, 67, 0), 9));
+            Equal(1, gate.EndSourceTick(emissions, 1100000),
+                "release for an emitted attack uses its reserved capacity");
+            Equal(false, gate.RecordDispatch(1100000, false),
+                "routine protected release stays within the ordinary maximum");
+            gate.BeginSourceTick(10000000);
+            gate.Admit(MidiEventView.FromEvent(ChannelMessage(10000000, 0x95, 50, 100), 10));
+            gate.Admit(MidiEventView.FromEvent(ChannelMessage(10000000, 0x96, 62, 100), 11));
+            gate.Admit(MidiEventView.FromEvent(ChannelMessage(10000000, 0x97, 74, 100), 12));
+            Equal(1, gate.EndSourceTick(emissions, 10000000),
+                "quiet time matures only the current slot and saves no burst credit");
+            Equal(2L, gate.TakeRejectedAttacks(),
+                "quiet-to-dense transition rejects complete excess occurrences");
+
+            OutputRateGate fractional = new OutputRateGate(3, 1000000);
+            Equal(1L, fractional.AvailableEvents(0, 8),
+                "first ordinary output demand has one exact matured slot");
+            Equal(false, fractional.RecordDispatch(0, false),
+                "ordinary dispatch consuming capacity is not protected excess");
+            Equal(1L, fractional.AvailableEvents(333333, 8),
+                "a fractional due instant is available within its representable clock quantum");
+            fractional.RecordDispatch(333333, false);
+            Equal(0L, fractional.AvailableEvents(333334, 8),
+                "fractional pacing exposes no extra ordinary slot in the following quantum");
+            Equal(1L, fractional.AvailableEvents(666666, 8),
+                "the second fractional slot remains exact within its clock quantum");
+            fractional.RecordDispatch(666666, false);
+            Equal(0L, fractional.AvailableEvents(666667, 8),
+                "fractional pacing retains no rounded remainder slot");
+
+            OutputRateGate protectedTraffic = new OutputRateGate(2, 1000000);
+            protectedTraffic.BeginSourceTick(0);
+            protectedTraffic.Admit(MidiEventView.FromEvent(
+                ChannelMessage(0, 0x90, 66, 100), 0));
+            Equal(1, protectedTraffic.EndSourceTick(emissions, 0),
+                "an admitted attack reserves its paired release");
+            Equal(false, protectedTraffic.RecordDispatch(0, false),
+                "reserved attack is ordinary output");
+            protectedTraffic.BeginSourceTick(100000);
+            protectedTraffic.Admit(MidiEventView.FromEvent(
+                ChannelMessage(100000, 0x80, 66, 0), 1));
+            Equal(1, protectedTraffic.EndSourceTick(emissions, 100000),
+                "paired release remains mandatory");
+            Equal(false, protectedTraffic.RecordDispatch(100000, false),
+                "paired release consumes reserved capacity without excess");
+            Equal(true, protectedTraffic.RecordExceptionalDispatch(200000),
+                "an exceptional generated state message is reported when no ordinary capacity remains");
+            Equal(1L, protectedTraffic.AvailableEvents(1000000, 1),
+                "exceptional excess does not rewrite ordinary capacity history");
+
+            OutputRateGate pacedOutput = new OutputRateGate(4, 1000000);
+            List<long> pacedDispatches = new List<long>();
+            for (int index = 0; index <= 40; index++)
+            {
+                long time = index * 50000L;
+                pacedOutput.BeginSourceTick(time);
+                pacedOutput.Admit(MidiEventView.FromEvent(
+                    ChannelMessage(time, 0xB0, (byte)(index & 0x7F), 100), index));
+                if (pacedOutput.EndSourceTick(emissions, time) != 0)
+                {
+                    pacedDispatches.Add(time);
+                    pacedOutput.RecordDispatch(time, false);
+                }
+            }
+            Equal(9, pacedDispatches.Count,
+                "continuous above-limit output stays at the configured progressive rate");
+            long pacedMaximumGap = 0;
+            for (int index = 1; index < pacedDispatches.Count; index++)
+                pacedMaximumGap = Math.Max(pacedMaximumGap,
+                    pacedDispatches[index] - pacedDispatches[index - 1]);
+            if (pacedMaximumGap > 250000L)
+                throw new Exception("Continuous output developed a burst-and-silence gap: " +
+                    pacedMaximumGap.ToString(CultureInfo.InvariantCulture));
+            for (int start = 0; start < pacedDispatches.Count; start++)
+            {
+                int count = 0;
+                long end = pacedDispatches[start] + 1000000L;
+                for (int index = start; index < pacedDispatches.Count; index++)
+                    if (pacedDispatches[index] < end) count++;
+                if (count > 4)
+                    throw new Exception("A half-open rolling second exceeded the paced output target.");
+            }
+
+            OutputRateGate transparentOutput = new OutputRateGate(5000, 1000000);
+            int transparentOutputCount = 0;
+            for (int index = 0; index < 2800; index++)
+            {
+                long time = index * 357L;
+                transparentOutput.BeginSourceTick(time);
+                transparentOutput.Admit(MidiEventView.FromEvent(ChannelMessage(time,
+                    (byte)(0xB0 | (index & 15)), (byte)(index & 0x7F),
+                    (byte)((index * 3) & 0x7F)), index));
+                int count = transparentOutput.EndSourceTick(emissions, time);
+                transparentOutputCount += count;
+                for (int emitted = 0; emitted < count; emitted++)
+                    Equal(false, transparentOutput.RecordDispatch(time, false),
+                        "below-limit ordinary dispatch remains within target");
+            }
+            Equal(2800, transparentOutputCount,
+                "2,800 ordinary messages/sec remains transparent below a 5,000 events/sec maximum");
+            Equal(0L, transparentOutput.TakeRejectedOtherMessages(),
+                "below-limit ordinary output loses no non-note traffic");
+
+            OutputRateGate denseOutput = new OutputRateGate(200, 1000000);
+            List<long> denseOutputDispatches = new List<long>();
+            for (int index = 0; index < 2000; index++)
+            {
+                long time = index * 1000L;
+                denseOutput.BeginSourceTick(time);
+                denseOutput.Admit(MidiEventView.FromEvent(ChannelMessage(time,
+                    (byte)(0xB0 | (index & 15)), 1, (byte)(index & 0x7F)), index));
+                int count = denseOutput.EndSourceTick(emissions, time);
+                for (int emitted = 0; emitted < count; emitted++)
+                {
+                    denseOutputDispatches.Add(time);
+                    Equal(false, denseOutput.RecordDispatch(time, false),
+                        "ordinary dense output never uses protected excess");
+                }
+            }
+            if (denseOutputDispatches.Count < 390 || denseOutputDispatches.Count > 400)
+                throw new Exception("Sustained dense Output traffic did not remain near 200/sec: " +
+                    denseOutputDispatches.Count.ToString(CultureInfo.InvariantCulture));
+            long maximumOutputGap = 0;
+            for (int index = 1; index < denseOutputDispatches.Count; index++)
+                maximumOutputGap = Math.Max(maximumOutputGap,
+                    denseOutputDispatches[index] - denseOutputDispatches[index - 1]);
+            if (maximumOutputGap > 50000)
+                throw new Exception("Sustained Output traffic developed a burst-and-silence gap.");
+            AssertHalfOpenRateBound(denseOutputDispatches, 200,
+                "sustained ordinary Output rolling bound");
+
+            OutputRateGate highBatchOutput = new OutputRateGate(9999999, 1000000);
+            highBatchOutput.BeginSourceTick(0);
+            for (int index = 0; index < 4096; index++)
+                highBatchOutput.Admit(MidiEventView.FromEvent(ChannelMessage(0,
+                    (byte)(0xB0 | (index & 15)), (byte)(index & 0x7F),
+                    (byte)((index * 5) & 0x7F)), index));
+            Equal(4096, highBatchOutput.EndSourceTick(emissions, 0),
+                "9,999,999 output events/sec leaves a large same-time ordinary batch unchanged");
+            for (int index = 0; index < emissions.Count; index++)
+                Equal(false, highBatchOutput.RecordDispatch(0, false),
+                    "high-limit same-time dispatch stays ordinary");
+
+            OutputRateGate outputChord = new OutputRateGate(2000000, 1000000);
+            outputChord.RecordDispatch(0, false);
+            MidiEvent pacedLow = ChannelMessage(1, 0x90, 48, 100); pacedLow.Track = 0;
+            MidiEvent pacedInner = ChannelMessage(1, 0x90, 60, 100); pacedInner.Track = 1;
+            MidiEvent pacedHigh = ChannelMessage(1, 0x90, 72, 100); pacedHigh.Track = 2;
+            outputChord.BeginSourceTick(1);
+            outputChord.Admit(MidiEventView.FromEvent(pacedLow, 0));
+            outputChord.Admit(MidiEventView.FromEvent(pacedInner, 1));
+            outputChord.Admit(MidiEventView.FromEvent(pacedHigh, 2));
+            Equal(3, outputChord.EndSourceTick(emissions, 1),
+                "below-limit simultaneous output chord remains transparent");
+
+            OutputRateGate highOutputChord = new OutputRateGate(9999999, 1000000);
+            highOutputChord.BeginSourceTick(0);
+            for (int index = 0; index < 16; index++)
+                highOutputChord.Admit(MidiEventView.FromEvent(
+                    ChannelMessage(0, 0x90, (byte)(40 + index), 100), index));
+            Equal(16, highOutputChord.EndSourceTick(emissions, 0),
+                "9,999,999 output events/sec leaves a practical simultaneous chord unchanged");
+            Equal(0L, highOutputChord.TakeRejectedAttacks(),
+                "high-limit Output pacing rejects no practical chord voices");
+            for (int index = 0; index < emissions.Count; index++)
+                Equal(false, highOutputChord.RecordDispatch(0, false),
+                    "each admitted high-limit chord voice consumes one exact slot");
+            highOutputChord.BeginSourceTick(1);
+            highOutputChord.Admit(MidiEventView.FromEvent(
+                ChannelMessage(1, 0x90, 80, 100), 16));
+            Equal(1, highOutputChord.EndSourceTick(emissions, 1),
+                "new Output work is admitted without replaying the rejected chord tail");
+            Equal("90-50-64", BitConverter.ToString(emissions[0].Data.ToArray()),
+                "high-limit rejected Output work never catches up later");
+
+            OutputRateGate unlimitedOutput = new OutputRateGate(0, 1000000);
+            unlimitedOutput.BeginSourceTick(0);
+            for (int index = 0; index < 20; index++)
+                unlimitedOutput.Admit(MidiEventView.FromEvent(
+                    ChannelMessage(0, 0x90, (byte)(40 + index), 80), index));
+            Equal(20, unlimitedOutput.EndSourceTick(emissions, 0),
+                "zero Maximum output rate remains unlimited");
+            for (int index = 0; index < emissions.Count; index++)
+                Equal(false, unlimitedOutput.RecordDispatch(0,
+                    OutputRateGate.IsProtectedTraffic(emissions[index])),
+                    "unlimited output reports no required-over-target messages");
+
+            OutputRateGate percussionA = new OutputRateGate(2, 1000000);
+            MidiEvent drumLowA = ChannelMessage(0, 0x99, 35, 100); drumLowA.Track = 0;
+            MidiEvent drumHighA = ChannelMessage(0, 0x99, 81, 100); drumHighA.Track = 1;
+            percussionA.BeginSourceTick(0);
+            percussionA.Admit(MidiEventView.FromEvent(drumLowA, 0));
+            percussionA.Admit(MidiEventView.FromEvent(drumHighA, 1));
+            percussionA.EndSourceTick(emissions, 0);
+            int selectedPercussionTrack = emissions[0].Track;
+            OutputRateGate percussionB = new OutputRateGate(2, 1000000);
+            MidiEvent drumHighB = ChannelMessage(0, 0x99, 81, 100); drumHighB.Track = 0;
+            MidiEvent drumLowB = ChannelMessage(0, 0x99, 35, 100); drumLowB.Track = 1;
+            percussionB.BeginSourceTick(0);
+            percussionB.Admit(MidiEventView.FromEvent(drumHighB, 0));
+            percussionB.Admit(MidiEventView.FromEvent(drumLowB, 1));
+            percussionB.EndSourceTick(emissions, 0);
+            Equal(selectedPercussionTrack, emissions[0].Track,
+                "percussion lane selection is independent of drum-key pitch extremes");
+
+            MidiSong paritySong = NewChannelSong("output-rate-parity.mid", 1500000,
+                ChannelMessage(0, 0xB0, 7, 100),
+                low, inner, high,
+                lowOff, innerOff, highOff,
+                ChannelMessage(1300000, 0xB1, 10, 64),
+                ChannelMessage(1300000, 0x91, 55, 100),
+                ChannelMessage(1300000, 0x92, 67, 100),
+                ChannelMessage(1500000, 0x81, 55, 0),
+                ChannelMessage(1500000, 0x82, 67, 0));
+            paritySong.TrackCount = 3;
+            AnalysisConfiguration configuration = DefaultAnalysisConfiguration();
+            configuration.SimulateSlowdown = false;
+            configuration.OutputRateLimitEnabled = true;
+            configuration.EventsPerSecond = 4;
+            WorkloadAnalysis analysis = WorkloadAnalyzer.Analyze(paritySong, 100000, configuration);
+            Equal(true, analysis.HasGateProjection,
+                "Output rate gate has a dedicated deterministic projection");
+            List<byte[]> projected = new List<byte[]>();
+            WorkloadAnalysis traced = WorkloadAnalyzer.Analyze(paritySong, 100000,
+                (AnalysisConfiguration)null).CopyWorkload(configuration, CancellationToken.None);
+            WorkloadAnalyzer.ProjectOutputRateLimit(paritySong, traced, configuration,
+                CancellationToken.None, null, delegate(MidiEventView midiEvent, long time)
+                { projected.Add(midiEvent.Data.ToArray()); });
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.EventsPerSecond = 4;
+                engine.Start(paritySong, output, ProcessingMode.OutputRateLimit);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 3000,
+                    "nonblocking Output rate Playback completion");
+                List<byte[]> actual = output.SentPayloads();
+                Equal(projected.Count, actual.Count,
+                    "deterministic nonblocking Playback/Analysis output counts agree");
+                for (int index = 0; index < actual.Count; index++)
+                    Equal(BitConverter.ToString(projected[index]),
+                        BitConverter.ToString(actual[index]),
+                        "deterministic nonblocking Output rate payload parity " + index);
+                PlaybackSnapshot snapshot = engine.GetSnapshot();
+                Equal(analysis.OutputRateRejectedAttacks, snapshot.OutputRateRejectedAttacks,
+                    "nonblocking rejected-attack parity");
+                Equal(analysis.OutputRateSuppressedReleases, snapshot.OutputRateSuppressedReleases,
+                    "nonblocking suppressed-release parity");
+                Equal(analysis.OutputRateSafetySoftExcess, snapshot.OutputRateSafetySoftExcess,
+                    "nonblocking required-over-target parity");
+            }
+
+            List<MidiEvent> highOutputEvents = new List<MidiEvent>();
+            for (int index = 0; index < 12; index++)
+                highOutputEvents.Add(ChannelMessage(0, (byte)(0x90 | (index & 3)),
+                    (byte)(48 + index), 100));
+            for (int index = 0; index < 12; index++)
+                highOutputEvents.Add(ChannelMessage(100000, (byte)(0x80 | (index & 3)),
+                    (byte)(48 + index), 0));
+            MidiSong highOutputSong = NewChannelSong(
+                "output-rate-high-chord-parity.mid", 100000, highOutputEvents.ToArray());
+            AnalysisConfiguration highOutputConfiguration = DefaultAnalysisConfiguration();
+            highOutputConfiguration.SimulateSlowdown = false;
+            highOutputConfiguration.OutputRateLimitEnabled = true;
+            highOutputConfiguration.EventsPerSecond = 9999999;
+            WorkloadAnalysis highOutputAnalysis = WorkloadAnalyzer.Analyze(
+                highOutputSong, 10000, highOutputConfiguration);
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.EventsPerSecond = 9999999;
+                engine.Start(highOutputSong, output, ProcessingMode.OutputRateLimit);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1500,
+                    "high-limit Output chord completion");
+                List<byte[]> actual = output.SentPayloads();
+                int noteOns = 0;
+                for (int index = 0; index < actual.Count; index++)
+                    if ((actual[index][0] & 0xF0) == 0x90 && actual[index][2] != 0) noteOns++;
+                Equal(12, noteOns,
+                    "ordinary high-limit Output Playback preserves every simultaneous voice");
+                Equal(highOutputAnalysis.GateOutputEvents, (long)actual.Count,
+                    "high-limit Output Playback/Analysis output counts agree");
+                Equal(highOutputAnalysis.OutputRateRejectedAttacks,
+                    engine.GetSnapshot().OutputRateRejectedAttacks,
+                    "high-limit Output Playback/Analysis rejection counts agree");
+            }
+
+            MidiSong blockingSong = NewChannelSong("output-rate-provider-blocking.mid", 1150000,
+                ChannelMessage(0, 0xB0, 7, 100),
+                ChannelMessage(1050000, 0x90, 64, 100),
+                ChannelMessage(1150000, 0x80, 64, 0));
+            AnalysisConfiguration blockingConfiguration = DefaultAnalysisConfiguration();
+            blockingConfiguration.SimulateSlowdown = false;
+            blockingConfiguration.OutputRateLimitEnabled = true;
+            blockingConfiguration.EventsPerSecond = 2;
+            WorkloadAnalysis ideal = WorkloadAnalyzer.Analyze(
+                blockingSong, 100000, blockingConfiguration);
+            Equal(3L, ideal.GateOutputEvents,
+                "ideal nonblocking Analysis admits the post-boundary occurrence");
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                TimedGateOutput output = new TimedGateOutput(0, 1200);
+                engine.EventsPerSecond = 2;
+                engine.Start(blockingSong, output, ProcessingMode.OutputRateLimit);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 3500,
+                    "provider-blocked Output rate completion");
+                Equal(1, output.Snapshot().Count,
+                    "live actual-completion pacing may reject work Analysis admits after provider blocking");
+                Equal(1L, engine.GetSnapshot().OutputRateRejectedAttacks,
+                    "provider-blocking distinction remains a live gate decision, not a catch-up queue");
+                Equal(1L, engine.GetSnapshot().OutputRateSuppressedReleases,
+                    "provider-blocked rejected attack keeps its release paired and suppressed");
+            }
+
+            List<MidiEvent> outputSeekEvents = new List<MidiEvent>();
+            for (int index = 0; index < 12; index++)
+                outputSeekEvents.Add(ChannelMessage(500000, (byte)(0x90 | (index & 3)),
+                    (byte)(48 + index), 100));
+            for (int index = 0; index < 12; index++)
+                outputSeekEvents.Add(ChannelMessage(700000, (byte)(0x80 | (index & 3)),
+                    (byte)(48 + index), 0));
+            MidiSong seekSong = NewChannelSong(
+                "output-rate-preserving-seek.mid", 700000, outputSeekEvents.ToArray());
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.EventsPerSecond = 9999999;
+                engine.PreservePlaybackQueueOnPauseSeek = true;
+                engine.ChaseMidiStateOnPlaySeek = false;
+                engine.Start(seekSong, output, ProcessingMode.OutputRateLimit);
+                PumpFor(30);
+                engine.Seek(500000);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2500,
+                    "ordered preserving-Seek Output rate completion");
+                Equal(0, output.ResetCount,
+                    "preserving Seek does not reset the output-rate worker");
+                List<byte[]> actual = output.SentPayloads();
+                int noteOns = 0;
+                int noteOffs = 0;
+                for (int index = 0; index < actual.Count; index++)
+                {
+                    if ((actual[index][0] & 0xF0) == 0x90 && actual[index][2] != 0) noteOns++;
+                    if ((actual[index][0] & 0xF0) == 0x80 ||
+                        (actual[index][0] & 0xF0) == 0x90 && actual[index][2] == 0) noteOffs++;
+                }
+                Equal(12, noteOns,
+                    "ordered preserving-Seek Output worker keeps every simultaneous voice");
+                Equal(12, noteOffs,
+                    "ordered preserving-Seek Output worker protects every emitted release");
+            }
+
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput first = new FakeMidiOutput();
+                MidiSong future = NewChannelSong("output-rate-stop.mid", 2000000,
+                    ChannelMessage(2000000, 0x90, 60, 100));
+                engine.EventsPerSecond = 2;
+                engine.Start(future, first, ProcessingMode.OutputRateLimit);
+                PumpFor(20);
+                engine.Stop();
+                Equal(true, first.PanicCount > 0,
+                    "Stop/Panic remains a hard Output rate cleanup boundary");
+                FakeMidiOutput replacement = new FakeMidiOutput();
+                MidiSong immediate = NewChannelSong("output-rate-replacement.mid", 0,
+                    ChannelMessage(0, 0x90, 72, 100));
+                engine.Start(immediate, replacement, ProcessingMode.OutputRateLimit);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1500,
+                    "replacement Output rate session completion");
+                Equal(1, replacement.SentPayloads().Count,
+                    "output replacement starts with no stale pacing state");
+            }
+
+            FakeMidiOutput disposedOutput = new FakeMidiOutput();
+            PlaybackEngine disposedEngine = new PlaybackEngine();
+            disposedEngine.EventsPerSecond = 2;
+            disposedEngine.Start(NewChannelSong("output-rate-disposal.mid", 2000000,
+                ChannelMessage(2000000, 0x90, 76, 100)), disposedOutput,
+                ProcessingMode.OutputRateLimit);
+            PumpFor(20);
+            disposedEngine.Dispose();
+            Equal(true, disposedOutput.PanicCount > 0,
+                "disposal silences and clears an active Output rate session");
+
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.EventsPerSecond = 2;
+                engine.Start(NewChannelSong("output-rate-failure.mid", 0,
+                    ChannelMessage(0, 0x90, 60, 100)), new ThrowingMidiOutput(),
+                    ProcessingMode.OutputRateLimit);
+                WaitFor(delegate { return engine.State == PlaybackState.Stopped; }, 1000,
+                    "Output rate failure cleanup");
+                FakeMidiOutput recovered = new FakeMidiOutput();
+                engine.Start(NewChannelSong("output-rate-after-failure.mid", 0,
+                    ChannelMessage(0, 0x90, 72, 100)), recovered,
+                    ProcessingMode.OutputRateLimit);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1000,
+                    "Output rate restart after failure");
+                Equal(1, recovered.SentPayloads().Count,
+                    "Output rate failure leaves no stale pacing state");
+            }
+
+            using (DiagnosticsForm report = new DiagnosticsForm(paritySong, analysis))
+            {
+                report.Show(); PumpFor(15);
+                if (report.SummaryText.IndexOf("OUTPUT RATE GATE PROJECTION",
+                    StringComparison.Ordinal) < 0 ||
+                    report.SummaryText.IndexOf("Maximum output rate",
+                    StringComparison.Ordinal) < 0 ||
+                    report.SummaryText.IndexOf("Required over target",
+                    StringComparison.Ordinal) < 0 ||
+                    report.SummaryText.IndexOf("actual completed dispatch timing",
+                    StringComparison.Ordinal) < 0)
+                    throw new Exception("Analysis did not present the Output rate gate and provider-blocking distinction.");
+                report.Close();
+            }
+
+            string rateHelp = PlayerHelpForm.TextForTopic(PlayerHelpTopic.RateModel);
+            if (rateHelp.IndexOf("OUTPUT RATE GATE", StringComparison.Ordinal) < 0 ||
+                rateHelp.IndexOf("required messages sent over target", StringComparison.Ordinal) < 0 ||
+                rateHelp.IndexOf("actual time each output call completes", StringComparison.Ordinal) < 0)
+                throw new Exception("Rate model Help does not explain Output rate admission and provider blocking.");
+
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(20);
+                BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                RateModelComboBox rate = (RateModelComboBox)typeof(MainForm)
+                    .GetField("_serviceModeCombo", flags).GetValue(form);
+                CheckBox queueLimit = (CheckBox)typeof(MainForm)
+                    .GetField("_queueLimitCheck", flags).GetValue(form);
+                Label rateCaption = (Label)typeof(MainForm)
+                    .GetField("_serviceValueLabel", flags).GetValue(form);
+                rate.SelectedChoice = RateModelChoice.OutputRateLimit;
+                Application.DoEvents();
+                Equal(true, form.OutputRateLimitForTesting,
+                    "UI selects the standalone Output rate gate");
+                Equal("Maximum output rate:", rateCaption.Text,
+                    "UI names the selected value Maximum output rate");
+                Equal(false, queueLimit.Enabled,
+                    "ordinary slowdown queue controls remain unavailable in Output rate mode");
+                Equal(ProcessingMode.OutputRateLimit,
+                    (ProcessingMode)typeof(MainForm).GetMethod(
+                        "SelectedProcessingMode", flags).Invoke(form, null),
+                    "UI maps to the dedicated Output rate processing mode");
+                AnalysisConfiguration selected = (AnalysisConfiguration)typeof(MainForm)
+                    .GetMethod("CurrentAnalysisConfiguration", flags).Invoke(form, null);
+                Equal(true, selected.OutputRateLimitEnabled,
+                    "Analysis receives the selected Output rate model");
+                form.Close();
+            }
+
+            PlaybackSnapshot presented = new PlaybackSnapshot
+            {
+                ProcessingMode = ProcessingMode.OutputRateLimit,
+                EventsPerSecond = 3,
+                OutputRateSafetySoftExcess = 2
+            };
+            string presentedMaximum = MainForm.FormatMaximumRate(presented, 0, false);
+            if (presentedMaximum.IndexOf("3 maximum events/sec", StringComparison.Ordinal) < 0 ||
+                presentedMaximum.IndexOf("2 required messages sent over target", StringComparison.Ordinal) < 0)
+                throw new Exception("Output-rate presentation obscured the configured target or excess meaning.");
+        }
+
+        private static void TestBuild44OutputRateTimelineInvestigation()
+        {
+            const int rate = 200;
+            const long transition = 500000;
+            const long duration = 2500000;
+            List<MidiEvent> events = new List<MidiEvent>();
+            int eventIndex = 0;
+            for (long time = 0; time < transition; time += 20000)
+                events.Add(ChannelMessage(time, (byte)(0xB0 | (eventIndex++ & 15)),
+                    11, (byte)(eventIndex & 0x7F)));
+            for (long time = transition; time <= duration; time += 1000)
+                events.Add(ChannelMessage(time, (byte)(0xB0 | (eventIndex++ & 15)),
+                    11, (byte)(eventIndex & 0x7F)));
+            MidiSong song = NewChannelSong("output-rate-light-to-dense.mid", duration,
+                events.ToArray());
+
+            AnalysisConfiguration configuration = DefaultAnalysisConfiguration();
+            configuration.SimulateSlowdown = false;
+            configuration.OutputRateLimitEnabled = true;
+            configuration.EventsPerSecond = rate;
+            WorkloadAnalysis analysis = WorkloadAnalyzer.Analyze(song, 100000,
+                configuration);
+            List<long> projectedTimes = new List<long>();
+            WorkloadAnalysis traced = WorkloadAnalyzer.Analyze(song, 100000,
+                (AnalysisConfiguration)null).CopyWorkload(configuration,
+                    CancellationToken.None);
+            WorkloadAnalyzer.ProjectOutputRateLimit(song, traced, configuration,
+                CancellationToken.None, null, delegate(MidiEventView midiEvent, long time)
+                { projectedTimes.Add(time); });
+            AssertHalfOpenRateBound(projectedTimes, rate,
+                "light-to-dense deterministic Output dispatches");
+
+            long maximumBucket = 0;
+            int maximumBucketIndex = -1;
+            for (int index = 0; index < analysis.GateOutputBuckets.Length; index++)
+                if (analysis.GateOutputBuckets[index] > maximumBucket)
+                {
+                    maximumBucket = analysis.GateOutputBuckets[index];
+                    maximumBucketIndex = index;
+                }
+            double bucketRate = maximumBucket * 10.0;
+            Console.WriteLine("      Output transition: rolling peak <= " + rate.ToString(
+                CultureInfo.InvariantCulture) + "/sec; highest 100 ms graph bucket " +
+                bucketRate.ToString("F1", CultureInfo.InvariantCulture) + "/sec at bucket " +
+                maximumBucketIndex.ToString(CultureInfo.InvariantCulture));
+
+            long maximumDenseGap = 0;
+            long previousDense = -1;
+            for (int index = 0; index < projectedTimes.Count; index++)
+            {
+                long time = projectedTimes[index];
+                if (time < transition) continue;
+                if (previousDense >= 0) maximumDenseGap = Math.Max(maximumDenseGap,
+                    time - previousDense);
+                previousDense = time;
+            }
+            if (maximumDenseGap > 50000)
+                throw new Exception("Light-to-dense Output limiting developed a burst-and-silence gap: " +
+                    maximumDenseGap.ToString(CultureInfo.InvariantCulture));
+
+            long[] rejectedBuckets = new long[(int)(duration / 100000) + 1];
+            OutputRateGate direct = new OutputRateGate(rate, 1000000);
+            List<MidiEventView> emissions = new List<MidiEventView>();
+            for (int index = 0; index < events.Count; index++)
+            {
+                MidiEventView view = MidiEventView.FromEvent(events[index], index);
+                direct.BeginSourceTick(view.AbsoluteTick);
+                direct.Admit(view);
+                int count = direct.EndSourceTick(emissions, view.IntendedMicroseconds);
+                long rejected = direct.TakeRejectedOtherMessages();
+                rejectedBuckets[(int)(view.IntendedMicroseconds / 100000)] += rejected;
+                for (int sent = 0; sent < count; sent++)
+                    Equal(false, direct.RecordDispatch(view.IntendedMicroseconds, false),
+                        "ordinary transition output remains inside the exact rate ceiling");
+            }
+            long denseMinimumDrops = Int64.MaxValue;
+            long denseMaximumDrops = 0;
+            for (int index = (int)(transition / 100000) + 2;
+                index < duration / 100000; index++)
+            {
+                denseMinimumDrops = Math.Min(denseMinimumDrops, rejectedBuckets[index]);
+                denseMaximumDrops = Math.Max(denseMaximumDrops, rejectedBuckets[index]);
+            }
+            Console.WriteLine("      Dense rejected/100 ms: " + String.Join(",",
+                Array.ConvertAll(rejectedBuckets, delegate(long value)
+                { return value.ToString(CultureInfo.InvariantCulture); })));
+            Equal(71L, rejectedBuckets[5],
+                "the light-to-dense bucket borrows only the fixed tolerance inside the rolling ceiling");
+            Equal(89L, rejectedBuckets[14],
+                "the bucket before one-second expiry compensates for the earlier tolerated cluster");
+            Equal(71L, rejectedBuckets[15],
+                "exact half-open expiry reproduces the tolerated cluster one second later");
+            Console.WriteLine("      Sustained dense drop buckets: " +
+                denseMinimumDrops.ToString(CultureInfo.InvariantCulture) + ".." +
+                denseMaximumDrops.ToString(CultureInfo.InvariantCulture) +
+                " per 100 ms; maximum admitted gap " +
+                maximumDenseGap.ToString(CultureInfo.InvariantCulture) + " µs");
+
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                TimedGateOutput output = new TimedGateOutput(-1, 0);
+                engine.EventsPerSecond = rate;
+                engine.Start(song, output, ProcessingMode.OutputRateLimit);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 4500,
+                    "live light-to-dense Output-rate completion");
+                List<GateSendTiming> timings = output.Snapshot();
+                List<long> actualCompletionTimes = new List<long>(timings.Count);
+                for (int index = 0; index < timings.Count; index++)
+                    actualCompletionTimes.Add(StopwatchTicksToMicroseconds(
+                        timings[index].EndTicks));
+                AssertHalfOpenRateBound(actualCompletionTimes, rate,
+                    "actual completed light-to-dense Output dispatches");
+                if (actualCompletionTimes.Count == 0)
+                    throw new Exception("Live transition fixture produced no completed Output dispatches.");
+            }
+        }
+
+        private static long StopwatchTicksToMicroseconds(long ticks)
+        {
+            long seconds = ticks / Stopwatch.Frequency;
+            long remainder = ticks % Stopwatch.Frequency;
+            if (seconds > (Int64.MaxValue - 999999L) / 1000000L) return Int64.MaxValue;
+            return seconds * 1000000L + remainder * 1000000L / Stopwatch.Frequency;
+        }
+
+        private static void TestBuild44OutputPacedTimeline()
+        {
+            Application.EnableVisualStyles();
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(20);
+                Equal(false, form.OutputPacedTimelineForTesting,
+                    "Output-paced timeline defaults off for each session");
+                IntPtr menu = GetSystemMenu(form.Handle, false);
+                int menuCount = GetMenuItemCount(menu);
+                Equal(0U, GetMenuState(menu,
+                    (uint)MainForm.OutputPacedTimelineSystemCommandForTesting, 0) & 0x0008U,
+                    "Output-paced timeline menu starts unchecked");
+                SendMessage(form.Handle, 0x0112,
+                    (IntPtr)MainForm.OutputPacedTimelineSystemCommandForTesting, IntPtr.Zero);
+                Application.DoEvents();
+                Equal(true, form.OutputPacedTimelineForTesting,
+                    "system-menu command enables Output-paced timeline");
+                BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                PlaybackEngine formEngine = (PlaybackEngine)typeof(MainForm)
+                    .GetField("_engine", flags).GetValue(form);
+                Equal(true, formEngine.OutputPacedTimeline,
+                    "session option reaches the playback scheduler");
+                AnalysisConfiguration selected = (AnalysisConfiguration)typeof(MainForm)
+                    .GetMethod("CurrentAnalysisConfiguration", flags).Invoke(form, null);
+                Equal(true, selected.OutputPacedTimeline,
+                    "session option reaches deterministic Analysis");
+                typeof(Control).GetMethod("RecreateHandle",
+                    BindingFlags.Instance | BindingFlags.NonPublic).Invoke(form, null);
+                Application.DoEvents();
+                menu = GetSystemMenu(form.Handle, false);
+                Equal(menuCount, GetMenuItemCount(menu),
+                    "handle recreation does not duplicate Output-paced timeline");
+                Equal(0x0008U, GetMenuState(menu,
+                    (uint)MainForm.OutputPacedTimelineSystemCommandForTesting, 0) & 0x0008U,
+                    "handle recreation retains Output-paced timeline state");
+                formEngine.Start(NewChannelSong("output-paced-ui-lock.mid", 500000,
+                    ChannelMessage(500000, 0x90, 60, 100)), new FakeMidiOutput(),
+                    ProcessingMode.Queue);
+                typeof(MainForm).GetMethod("UpdateOutputPacedTimelineMenuState", flags)
+                    .Invoke(form, null);
+                menu = GetSystemMenu(form.Handle, false);
+                Equal(true, (GetMenuState(menu,
+                    (uint)MainForm.OutputPacedTimelineSystemCommandForTesting, 0) & 0x0003U) != 0,
+                    "Output-paced timeline is locked while playback is active");
+                SendMessage(form.Handle, 0x0112,
+                    (IntPtr)MainForm.OutputPacedTimelineSystemCommandForTesting, IntPtr.Zero);
+                Application.DoEvents();
+                Equal(true, form.OutputPacedTimelineForTesting,
+                    "active system-menu input cannot change the structural clock mode");
+                formEngine.Stop();
+                form.Close();
+            }
+            string playbackHelp = PlayerHelpForm.TextForTopic(PlayerHelpTopic.Playback);
+            if (playbackHelp.IndexOf("Output-paced timeline", StringComparison.Ordinal) < 0 ||
+                playbackHelp.IndexOf("catching up in a burst", StringComparison.Ordinal) < 0 ||
+                playbackHelp.IndexOf("cannot predict native-provider blocking", StringComparison.Ordinal) < 0)
+                throw new Exception("Playback Help does not explain Output-paced behavior and its provider limitation.");
+
+            MidiSong blockedSong = NewChannelSong("output-paced-blocked.mid", 240000,
+                ChannelMessage(0, 0x90, 60, 100),
+                ChannelMessage(120000, 0x90, 62, 100),
+                ChannelMessage(240000, 0x90, 64, 100));
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                TimedGateOutput output = new TimedGateOutput(0, 300);
+                engine.SimulateSlowdown = false;
+                engine.Start(blockedSong, output, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2500,
+                    "mode-off blocked-provider baseline");
+                List<GateSendTiming> timings = output.Snapshot();
+                Equal(3, timings.Count, "mode-off baseline sends all source events");
+                Equal(true, ElapsedMilliseconds(timings[0].EndTicks,
+                    timings[1].StartTicks) < 80.0,
+                    "mode-off baseline retains established post-block catch-up");
+            }
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                TimedGateOutput output = new TimedGateOutput(0, 300);
+                engine.SimulateSlowdown = false;
+                engine.OutputPacedTimeline = true;
+                engine.Start(blockedSong, output, ProcessingMode.Queue);
+                Equal(true, output.BlockedEntered.WaitOne(1000),
+                    "Output-paced playback reaches the blocked provider");
+                PumpFor(80);
+                Equal(true, engine.GetSnapshot().PlaybackMicroseconds < 50000,
+                    "logical source time remains stopped inside the native call");
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 3000,
+                    "Output-paced blocked-provider completion");
+                List<GateSendTiming> timings = output.Snapshot();
+                Equal(3, timings.Count, "Output-paced playback loses no accepted event");
+                Equal(true, ElapsedMilliseconds(timings[0].EndTicks,
+                    timings[1].StartTicks) >= 80.0,
+                    "future source time resumes after provider acceptance without catch-up");
+                Equal(true, ElapsedMilliseconds(timings[1].EndTicks,
+                    timings[2].StartTicks) >= 80.0,
+                    "subsequent sparse source spacing remains intact");
+            }
+
+            MidiSong sameTimeSong = NewChannelSong("output-paced-same-time.mid", 100000,
+                ChannelMessage(0, 0x90, 60, 100),
+                ChannelMessage(0, 0x90, 64, 100),
+                ChannelMessage(100000, 0x90, 67, 100));
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                TimedGateOutput output = new TimedGateOutput(0, 180);
+                engine.SimulateSlowdown = false;
+                engine.OutputPacedTimeline = true;
+                engine.Start(sameTimeSong, output, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2500,
+                    "Output-paced same-time batch completion");
+                List<GateSendTiming> timings = output.Snapshot();
+                Equal(3, timings.Count, "same-time batch and future event are retained");
+                Equal(true, ElapsedMilliseconds(timings[0].EndTicks,
+                    timings[1].StartTicks) < 60.0,
+                    "same-time work remains one source batch after a blocked send");
+                Equal(true, ElapsedMilliseconds(timings[1].EndTicks,
+                    timings[2].StartTicks) >= 70.0,
+                    "future timestamp does not accumulate behind the same-time batch");
+            }
+
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                TimedGateOutput output = new TimedGateOutput(-1, 0);
+                engine.SimulateSlowdown = true;
+                engine.ProcessingMicroseconds = 80000;
+                engine.OutputPacedTimeline = true;
+                engine.Start(NewChannelSong("output-paced-service.mid", 100000,
+                    ChannelMessage(0, 0x90, 60, 100),
+                    ChannelMessage(100000, 0x90, 62, 100)), output, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2500,
+                    "Output-paced simulated-service completion");
+                List<GateSendTiming> timings = output.Snapshot();
+                Equal(2, timings.Count, "simulated service emits both sparse events");
+                Equal(true, ElapsedMilliseconds(timings[0].StartTicks,
+                    timings[1].StartTicks) >= 140.0,
+                    "source spacing resumes only after deterministic service acceptance");
+            }
+
+            MidiSong projectedSong = NewChannelSong("output-paced-analysis.mid", 10000,
+                ChannelMessage(0, 0x90, 60, 100),
+                ChannelMessage(10000, 0x90, 62, 100));
+            AnalysisConfiguration ordinary = DefaultAnalysisConfiguration();
+            ordinary.SimulateSlowdown = true;
+            ordinary.ServiceDurationMode = ServiceDurationMode.ProcessingTime;
+            ordinary.ProcessingMicroseconds = 50000;
+            ordinary.QueueLengthLimitEnabled = false;
+            WorkloadAnalysis ordinaryProjection = WorkloadAnalyzer.Analyze(
+                projectedSong, 100000, ordinary);
+            Equal(100000L, ordinaryProjection.PredictedOutputCompletionMicroseconds,
+                "mode-off Analysis retains ordinary queued completion");
+            AnalysisConfiguration paced = DefaultAnalysisConfiguration();
+            paced.SimulateSlowdown = true;
+            paced.ServiceDurationMode = ServiceDurationMode.ProcessingTime;
+            paced.ProcessingMicroseconds = 50000;
+            paced.QueueLengthLimitEnabled = false;
+            paced.OutputPacedTimeline = true;
+            WorkloadAnalysis pacedProjection = WorkloadAnalyzer.Analyze(
+                projectedSong, 100000, paced);
+            Equal(110000L, pacedProjection.PredictedOutputCompletionMicroseconds,
+                "Analysis resumes source spacing after deterministic simulated acceptance");
+            using (DiagnosticsForm report = new DiagnosticsForm(projectedSong, pacedProjection))
+            {
+                report.Show(); PumpFor(15);
+                if (report.SummaryText.IndexOf("Output-paced timeline On",
+                    StringComparison.Ordinal) < 0 ||
+                    report.SummaryText.IndexOf("native-provider blocking is not predicted",
+                    StringComparison.Ordinal) < 0)
+                    throw new Exception("Analysis does not explain deterministic Output-paced projection.");
+                report.Close();
+            }
+
+            MidiSong finiteSong = NewChannelSong("output-paced-finite-batch.mid", 10000,
+                ChannelMessage(0, 0x90, 60, 100),
+                ChannelMessage(0, 0x90, 64, 100),
+                ChannelMessage(0, 0x90, 67, 100),
+                ChannelMessage(10000, 0xB0, 7, 100));
+            AnalysisConfiguration finite = DefaultAnalysisConfiguration();
+            finite.SimulateSlowdown = true;
+            finite.ServiceDurationMode = ServiceDurationMode.ProcessingTime;
+            finite.ProcessingMicroseconds = 10000;
+            finite.QueueLengthLimitEnabled = true;
+            finite.QueueLengthLimit = 2;
+            finite.OverflowPolicy = OverflowPolicy.DropNewest;
+            finite.OutputPacedTimeline = true;
+            WorkloadAnalysis finiteProjection = WorkloadAnalyzer.Analyze(
+                finiteSong, 100000, finite);
+            Equal(1L, finiteProjection.PredictedDroppedEvents,
+                "finite Output-paced Analysis applies capacity to one same-time batch");
+            Equal(40000L, finiteProjection.PredictedOutputCompletionMicroseconds,
+                "finite Output-paced Analysis drains the batch before future source time");
+
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                TimedGateOutput output = new TimedGateOutput(0, 180);
+                engine.EventsPerSecond = 0;
+                engine.OutputPacedTimeline = true;
+                engine.Start(NewChannelSong("output-paced-rate-gate.mid", 120000,
+                    ChannelMessage(0, 0x90, 60, 100),
+                    ChannelMessage(120000, 0x90, 62, 100)), output,
+                    ProcessingMode.OutputRateLimit);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2500,
+                    "Output-paced Output-rate gate completion");
+                List<GateSendTiming> timings = output.Snapshot();
+                Equal(2, timings.Count, "unlimited Output-rate gate remains unchanged");
+                Equal(true, ElapsedMilliseconds(timings[0].EndTicks,
+                    timings[1].StartTicks) >= 80.0,
+                    "rate-gate path also prevents post-block source catch-up");
+            }
+
+            PreservingProbeOutput pauseOutput = new PreservingProbeOutput(true, -1);
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.ProcessingMicroseconds = 20000;
+                engine.SimulateSlowdown = true;
+                engine.OutputPacedTimeline = true;
+                engine.PreservePlaybackQueueOnPauseSeek = true;
+                engine.Start(NewChannelSong("output-paced-pause.mid", 120000,
+                    ChannelMessage(0, 0x90, 60, 100),
+                    ChannelMessage(120000, 0x80, 60, 0)), pauseOutput,
+                    ProcessingMode.Queue);
+                Equal(true, pauseOutput.Entered.WaitOne(1000),
+                    "preserving Pause reaches Output-paced blocked send");
+                Exception pauseFailure = null;
+                Thread pauseThread = new Thread(delegate()
+                {
+                    try { engine.Pause(); }
+                    catch (Exception ex) { pauseFailure = ex; }
+                });
+                pauseThread.Start();
+                PumpFor(40);
+                pauseOutput.Release.Set();
+                Equal(true, pauseThread.Join(1500),
+                    "preserving Pause acknowledges after Output-paced send");
+                if (pauseFailure != null) throw new Exception(
+                    "Output-paced preserving Pause failed", pauseFailure);
+                Equal(PlaybackState.Paused, engine.State,
+                    "Output-paced preserving Pause leaves one parked worker");
+                engine.Resume();
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000,
+                    "Output-paced preserving Resume completion");
+            }
+
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.SimulateSlowdown = false;
+                engine.OutputPacedTimeline = true;
+                engine.PreservePlaybackQueueOnPauseSeek = true;
+                engine.ChaseMidiStateOnPlaySeek = false;
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.Start(NewChannelSong("output-paced-seeks.mid", 300000,
+                    ChannelMessage(300000, 0x90, 72, 100)), output, ProcessingMode.Queue);
+                engine.Seek(100000);
+                engine.Seek(200000);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2500,
+                    "Output-paced repeated preserving Seek completion");
+                Equal(32, CountAllNotesOff(output.SentPayloads()),
+                    "repeated preserving Seeks retain both protected boundaries");
+            }
+
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.OutputPacedTimeline = true;
+                FakeMidiOutput first = new FakeMidiOutput();
+                engine.Start(NewChannelSong("output-paced-stop.mid", 500000,
+                    ChannelMessage(500000, 0x90, 60, 100)), first, ProcessingMode.Queue);
+                PumpFor(20);
+                engine.Stop();
+                FakeMidiOutput replacement = new FakeMidiOutput();
+                engine.Start(NewChannelSong("output-paced-replacement.mid", 0,
+                    ChannelMessage(0, 0x90, 72, 100)), replacement, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1000,
+                    "Output-paced replacement completion");
+                Equal(1, replacement.SentPayloads().Count,
+                    "Stop and output replacement clear every active hold");
+
+                engine.Start(NewChannelSong("output-paced-failure.mid", 0,
+                    ChannelMessage(0, 0x90, 60, 100)), new ThrowingMidiOutput(),
+                    ProcessingMode.Queue);
+                WaitFor(delegate { return engine.State == PlaybackState.Stopped; }, 1000,
+                    "Output-paced output failure cleanup");
+                FakeMidiOutput recovered = new FakeMidiOutput();
+                engine.Start(NewChannelSong("output-paced-recovery.mid", 0,
+                    ChannelMessage(0, 0x90, 76, 100)), recovered, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1000,
+                    "Output-paced restart after failure");
+                Equal(1, recovered.SentPayloads().Count,
+                    "send failure leaves no stale Output-paced hold");
+            }
+
+            FakeMidiOutput disposedOutput = new FakeMidiOutput();
+            PlaybackEngine disposedEngine = new PlaybackEngine();
+            disposedEngine.OutputPacedTimeline = true;
+            disposedEngine.Start(NewChannelSong("output-paced-dispose.mid", 500000,
+                ChannelMessage(500000, 0x90, 60, 100)), disposedOutput, ProcessingMode.Queue);
+            PumpFor(20);
+            disposedEngine.Dispose();
+            Equal(true, disposedOutput.PanicCount > 0,
+                "disposal clears Output-paced state and silences output");
+        }
+
+        private static void TestBuild44OverrideWireCorrectness()
+        {
+            SourceDispatchTrace trace = new SourceDispatchTrace();
+            for (int chaseIndex = 0; chaseIndex < 2; chaseIndex++)
+            {
+                for (int preserveIndex = 0; preserveIndex < 2; preserveIndex++)
+                {
+                    bool chase = chaseIndex != 0;
+                    bool preserve = preserveIndex != 0;
+                    MidiSong song = NewChannelSong("override-wire.mid", 2000000,
+                        ChannelMessage(0, 0xC0, 0),
+                        ChannelMessage(0, 0xB0, 0, 1),
+                        ChannelMessage(0, 0xB0, 7, 20),
+                        ChannelMessage(1500000, 0x90, 60, 100),
+                        ChannelMessage(1900000, 0x80, 60, 0));
+                    using (PlaybackEngine engine = new PlaybackEngine())
+                    {
+                        FakeMidiOutput output = new FakeMidiOutput();
+                        engine.SetSourceDispatchTrace(trace);
+                        engine.SetChannelMonitoring(true);
+                        engine.ChaseMidiStateOnPlaySeek = chase;
+                        engine.PreservePlaybackQueueOnPauseSeek = preserve;
+                        engine.SimulateSlowdown = false;
+                        engine.SetChannelOverride(0, ChannelAttribute.Program, 5);
+                        engine.SetChannelOverride(0, ChannelAttribute.BankMsb, 4);
+                        engine.SetChannelOverride(0, ChannelAttribute.Volume, 90);
+                        engine.Start(song, output, ProcessingMode.Queue);
+                        WaitFor(delegate
+                        {
+                            return engine.GetChannelSnapshot().Channels[0].OverrideSuppressedEvents >= 3;
+                        }, 1000, "initial forced-override source suppression");
+
+                        engine.Seek(0);
+                        WaitFor(delegate
+                        {
+                            return engine.GetChannelSnapshot().Channels[0].OverrideSuppressedEvents >= 6;
+                        }, 1500, "seek-zero forced-override source suppression");
+                        List<byte[]> payloads = output.SentPayloads();
+                        string suffix = " (chase=" + chase + ", preserve=" + preserve + ")";
+                        Equal(false, ContainsMessage(payloads, 0xC0, 0),
+                            "source Program 1 never reaches output" + suffix);
+                        Equal(false, ContainsMessage(payloads, 0xB0, 0, 1),
+                            "source Bank value never reaches output" + suffix);
+                        Equal(false, ContainsMessage(payloads, 0xB0, 7, 20),
+                            "source controller value never reaches output" + suffix);
+                        Equal(true, ContainsMessage(payloads, 0xC0, 5),
+                            "forced Program 6 reaches output" + suffix);
+                        Equal(true, ContainsMessage(payloads, 0xB0, 0, 4),
+                            "forced Bank reaches output" + suffix);
+                        Equal(true, ContainsMessage(payloads, 0xB0, 7, 90),
+                            "forced controller reaches output" + suffix);
+                        Equal(6L, engine.GetChannelSnapshot().Channels[0].OverrideSuppressedEvents,
+                            "each conflicting source event counted exactly once" + suffix);
+                        engine.Stop();
+                    }
+                }
+            }
+
+            MidiSong noneSong = NewChannelSong("none-with-override.mid", 0,
+                ChannelMessage(0, 0xC0, 0),
+                ChannelMessage(0, 0x90, 60, 100),
+                ChannelMessage(0, 0x90, 64, 100),
+                ChannelMessage(0, 0x90, 67, 100));
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.SetSourceDispatchTrace(trace);
+                engine.SetChannelMonitoring(true);
+                engine.ServiceDurationMode = ServiceDurationMode.ProcessingTime;
+                engine.ProcessingMicroseconds = 250000;
+                engine.SimulateSlowdown = false;
+                engine.QueueLengthLimit = 64;
+                engine.OverflowPolicy = OverflowPolicy.DropNewest;
+                engine.SetChannelOverride(0, ChannelAttribute.Program, 5);
+                Stopwatch elapsed = Stopwatch.StartNew();
+                engine.Start(noneSong, output, ProcessingMode.Drop);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000,
+                    "Rate None with active override completion");
+                elapsed.Stop();
+                if (elapsed.ElapsedMilliseconds >= 400)
+                    throw new Exception("Rate None restored remembered slowdown while an override was active: " +
+                        elapsed.ElapsedMilliseconds + " ms");
+                Equal(false, ContainsMessage(output.SentPayloads(), 0xC0, 0),
+                    "None path suppresses the conflicting Program payload");
+                Equal(3L, engine.GetSnapshot().ProcessedEvents,
+                    "None path dispatches all unfiltered notes immediately");
+                Equal(1L, engine.GetChannelSnapshot().Channels[0].OverrideSuppressedEvents,
+                    "None path counts the conflicting Program exactly once");
+            }
+
+            VerifyBuild44OverrideProcessingMatrix(trace);
+            VerifyBuild44OverrideMainFormRoute(trace, false);
+            VerifyBuild44OverrideMainFormRoute(trace, true);
+            string tracePath = Environment.GetEnvironmentVariable("MIDIBOTTLENECK_SOURCE_TRACE_PATH");
+            if (!String.IsNullOrEmpty(tracePath)) trace.SaveJsonLines(tracePath);
+            AssertBuild44SourceTerminalInvariant(trace);
+        }
+
+        private static void VerifyBuild44OverrideProcessingMatrix(SourceDispatchTrace trace)
+        {
+            ServiceDurationMode[] serviceModes = new ServiceDurationMode[]
+            {
+                ServiceDurationMode.ProcessingTime,
+                ServiceDurationMode.MidiBitrate,
+                ServiceDurationMode.EventsPerSecond
+            };
+            OverflowPolicy[] policies = new OverflowPolicy[]
+            {
+                OverflowPolicy.DropNewest,
+                OverflowPolicy.DropOldest,
+                OverflowPolicy.ClearBufferAndCatchUp,
+                OverflowPolicy.DropIncomingCompleteNotes,
+                OverflowPolicy.DropOldestCompleteNote
+            };
+            for (int serviceIndex = 0; serviceIndex < serviceModes.Length; serviceIndex++)
+                for (int policyIndex = 0; policyIndex < policies.Length; policyIndex++)
+                    VerifyBuild44OverrideProcessingPath(trace, ProcessingMode.Drop, true, false,
+                        serviceModes[serviceIndex], policies[policyIndex],
+                        "finite " + serviceModes[serviceIndex] + "/" + policies[policyIndex]);
+
+            VerifyBuild44OverrideProcessingPath(trace, ProcessingMode.Drop, false, true,
+                ServiceDurationMode.ProcessingTime, OverflowPolicy.DropNewest,
+                "virtual forward DropNewest");
+            VerifyBuild44OverrideProcessingPath(trace, ProcessingMode.Drop, false, true,
+                ServiceDurationMode.ProcessingTime, OverflowPolicy.DropIncomingCompleteNotes,
+                "virtual forward DropIncomingCompleteNotes");
+            VerifyBuild44OverrideProcessingPath(trace, ProcessingMode.PerNoteIntervalGate, false, false,
+                ServiceDurationMode.ProcessingTime, OverflowPolicy.DropNewest, "Per-note");
+            VerifyBuild44OverrideProcessingPath(trace, ProcessingMode.DelayedNoteOff, false, false,
+                ServiceDurationMode.ProcessingTime, OverflowPolicy.DropNewest, "Delayed NoteOff");
+            VerifyBuild44OverrideProcessingPath(trace, ProcessingMode.NoteAttackLimit, false, false,
+                ServiceDurationMode.ProcessingTime, OverflowPolicy.DropNewest, "Note attack limit");
+            VerifyBuild44OverridePauseResume(trace);
+            VerifyBuild44OverrideClearCatchUp(trace);
+        }
+
+        private static void TestBuild44DelayedOverrideBranch()
+        {
+            SourceDispatchTrace trace = new SourceDispatchTrace();
+            VerifyBuild44OverrideProcessingPath(trace, ProcessingMode.DelayedNoteOff, false, false,
+                ServiceDurationMode.ProcessingTime, OverflowPolicy.DropNewest,
+                "Delayed NoteOff global ownership/recovery");
+            AssertBuild44SourceTerminalInvariant(trace);
+        }
+
+        private static void VerifyBuild44OverridePauseResume(SourceDispatchTrace trace)
+        {
+            MidiSong song = NewChannelSong("override-pause-resume.mid", 350000,
+                ChannelMessage(200000, 0xC0, 0),
+                ChannelMessage(250000, 0x90, 60, 100),
+                ChannelMessage(300000, 0x80, 60, 0));
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.SetSourceDispatchTrace(trace);
+                engine.SetChannelMonitoring(true);
+                engine.SetChannelOverride(0, ChannelAttribute.Program, 5);
+                engine.Start(song, output, ProcessingMode.Queue);
+                Thread.Sleep(20);
+                engine.Pause();
+                Equal(PlaybackState.Paused, engine.State, "override fixture reaches default Pause boundary");
+                engine.Resume();
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000,
+                    "override Pause/Resume completion");
+                Equal(false, ContainsMessage(output.SentPayloads(), 0xC0, 0),
+                    "Pause/Resume never leaks the competing source Program");
+                Equal(1L, engine.GetChannelSnapshot().Channels[0].OverrideSuppressedEvents,
+                    "Pause/Resume counts the competing Program once");
+            }
+        }
+
+        private static void VerifyBuild44OverrideClearCatchUp(SourceDispatchTrace trace)
+        {
+            MidiSong song = NewChannelSong("override-clear-catchup.mid", 100000,
+                ChannelMessage(0, 0x90, 60, 100),
+                ChannelMessage(10000, 0xC0, 0),
+                ChannelMessage(20000, 0xB0, 1, 1),
+                ChannelMessage(30000, 0xB0, 1, 2),
+                ChannelMessage(40000, 0xB0, 1, 3));
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                RecordingNoteBlockingOutput output = new RecordingNoteBlockingOutput();
+                engine.SetSourceDispatchTrace(trace);
+                engine.SetChannelMonitoring(true);
+                engine.SimulateSlowdown = false;
+                engine.ProcessingMicroseconds = 100000;
+                engine.QueueLengthLimit = 1;
+                engine.OverflowPolicy = OverflowPolicy.ClearBufferAndCatchUp;
+                engine.SetChannelOverride(0, ChannelAttribute.Program, 5);
+                engine.Start(song, output, ProcessingMode.Drop);
+                try
+                {
+                    Equal(true, output.Entered.WaitOne(1000),
+                        "override clear/catch-up reaches blocked output");
+                    Thread.Sleep(80);
+                }
+                finally { output.Release.Set(); }
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000,
+                    "override clear/catch-up completion");
+                Equal(false, ContainsMessage(output.Payloads(), 0xC0, 0),
+                    "clear/catch-up never leaks the competing source Program");
+                Equal(1L, engine.GetChannelSnapshot().Channels[0].OverrideSuppressedEvents,
+                    "clear/catch-up counts the competing Program once");
+            }
+        }
+
+        private static void VerifyBuild44OverrideProcessingPath(SourceDispatchTrace trace,
+            ProcessingMode mode, bool simulateSlowdown, bool virtualForward,
+            ServiceDurationMode serviceMode, OverflowPolicy policy, string name)
+        {
+            MidiSong song = NewChannelSong("override-path-" + name + ".mid", 10000,
+                ChannelMessage(0, 0xC0, 0),
+                ChannelMessage(0, 0xB0, 0, 1),
+                ChannelMessage(0, 0xB0, 7, 20),
+                ChannelMessage(1000, 0x90, 60, 100),
+                ChannelMessage(2000, 0x90, 64, 100),
+                ChannelMessage(3000, 0x80, 60, 0),
+                ChannelMessage(4000, 0x80, 64, 0));
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.SetSourceDispatchTrace(trace);
+                engine.SetChannelMonitoring(true);
+                engine.ServiceDurationMode = serviceMode;
+                engine.ProcessingMicroseconds = mode == ProcessingMode.DelayedNoteOff ? 1000 : 25;
+                engine.MidiBitrate = 1000000;
+                engine.EventsPerSecond = 100000;
+                engine.SimulateSlowdown = simulateSlowdown;
+                engine.ApplyQueueLimitWithoutSlowdown = virtualForward;
+                engine.QueueLengthLimit = 2;
+                engine.OverflowPolicy = policy;
+                engine.SetChannelOverride(0, ChannelAttribute.Program, 5);
+                engine.SetChannelOverride(0, ChannelAttribute.BankMsb, 4);
+                engine.SetChannelOverride(0, ChannelAttribute.Volume, 90);
+                engine.Start(song, output, mode);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000,
+                    name + " override completion");
+                WaitFor(delegate
+                {
+                    return engine.GetChannelSnapshot().Channels[0].OverrideSuppressedEvents == 3;
+                }, 1000, name + " final published override accounting");
+                List<byte[]> payloads = output.SentPayloads();
+                Equal(false, ContainsMessage(payloads, 0xC0, 0),
+                    name + " filters source Program 1 from the wire");
+                Equal(false, ContainsMessage(payloads, 0xB0, 0, 1),
+                    name + " filters source Bank from the wire");
+                Equal(false, ContainsMessage(payloads, 0xB0, 7, 20),
+                    name + " filters source controller from the wire");
+                Equal(3L, engine.GetChannelSnapshot().Channels[0].OverrideSuppressedEvents,
+                    name + " counts each conflicting source event once");
+            }
+        }
+
+        private static void VerifyBuild44OverrideMainFormRoute(SourceDispatchTrace aggregate, bool duringPlayback)
+        {
+            int traceStart = aggregate.Snapshot().Length;
+            string path = Path.Combine(Path.GetTempPath(), "midi-override-mainform-" +
+                Guid.NewGuid().ToString("N") + ".mid");
+            List<byte> track = new List<byte>();
+            Add(track, 0x00, 0x90, 0x30, 0x50);
+            if (duringPlayback)
+            {
+                Add(track, 0x83, 0x60, 0xC0, 0x00); // 480 ticks / 0.5 second.
+                Add(track, 0x00, 0x90, 0x3C, 0x64);
+            }
+            else
+            {
+                Add(track, 0x00, 0xC0, 0x00);
+                Add(track, 0x00, 0x90, 0x3C, 0x64);
+            }
+            Add(track, 0x83, 0x60, 0x80, 0x3C, 0x00);
+            Add(track, 0x00, 0xFF, 0x2F, 0x00);
+            File.WriteAllBytes(path, BuildSingleTrackMidi(track));
+            try
+            {
+                using (MainForm form = new MainForm())
+                {
+                    form.SuppressLoadErrorDialogs = true;
+                    form.Show(); Application.DoEvents();
+                    form.BeginMidiLoad(path);
+                    PumpUntil(delegate { return !form.IsLoadingSong; }, 5000,
+                        "MainForm override fixture load");
+                    List<Control> controls = CollectControlsForTest(form);
+                    ComboBox outputs = FindMidiOutputCombo(controls);
+                    if (outputs == null) throw new Exception("MainForm override fixture cannot find MIDI output selector");
+                    for (int index = 0; index < outputs.Items.Count; index++)
+                        if (MainForm.IsNoOutputSelection(outputs.Items[index]))
+                        {
+                            outputs.SelectedIndex = index;
+                            break;
+                        }
+                    form.EngineForTesting.SetSourceDispatchTrace(aggregate);
+                    form.ShowChannelMonitorForTesting(); PumpFor(20);
+                    ChannelMonitorForm monitor = form.ChannelMonitorForTesting;
+                    if (monitor == null) throw new Exception("MainForm override fixture did not open Channels");
+                    if (!duringPlayback)
+                        monitor.RequestOverrideForTesting(0, ChannelAttribute.Program, 5);
+
+                    typeof(MainForm).GetMethod("PlayClicked", BindingFlags.Instance | BindingFlags.NonPublic)
+                        .Invoke(form, new object[] { form, EventArgs.Empty });
+                    PumpUntil(delegate { return form.EngineForTesting.State == PlaybackState.Playing; }, 1000,
+                        "MainForm override fixture starts playback");
+                    if (duringPlayback)
+                    {
+                        monitor.RequestOverrideForTesting(0, ChannelAttribute.Program, 5);
+                        PumpUntil(delegate
+                        {
+                            ChannelPlaybackSnapshot snapshot = form.EngineForTesting.GetChannelSnapshot();
+                            return snapshot != null && snapshot.Channels[0].ForcedProgram == 5;
+                        }, 1000, "MainForm during-play override becomes active");
+                    }
+                    PumpUntil(delegate { return form.EngineForTesting.State == PlaybackState.Completed; }, 3000,
+                        "MainForm override fixture completes");
+                    Equal(1L, form.EngineForTesting.GetChannelSnapshot().Channels[0].OverrideSuppressedEvents,
+                        "MainForm/Channels route filters its competing Program exactly once");
+                    SourceDispatchTraceEntry[] entries = aggregate.Snapshot();
+                    long forcedProgramSequence = -1;
+                    int forcedProgramGeneration = -1;
+                    bool filteredProgram = false;
+                    bool sentCompetingProgram = false;
+                    bool noteAfterForcedProgram = false;
+                    for (int index = traceStart; index < entries.Length; index++)
+                    {
+                        SourceDispatchTraceEntry entry = entries[index];
+                        if (entry.Payload == "C0-05" && entry.Origin == "ForcedOverride" &&
+                            entry.FinalSendDecision)
+                        {
+                            forcedProgramSequence = entry.Sequence;
+                            forcedProgramGeneration = entry.OverrideGeneration;
+                        }
+                        if (entry.Payload == "C0-00" && entry.Origin == "Source")
+                        {
+                            if (entry.SuppressionDecision) filteredProgram = true;
+                            if (entry.FinalSendDecision) sentCompetingProgram = true;
+                        }
+                        if (forcedProgramSequence >= 0 && entry.Origin == "Source" &&
+                            entry.FinalSendDecision && entry.Payload != null &&
+                            entry.Payload.StartsWith("90-", StringComparison.Ordinal) &&
+                            entry.Sequence > forcedProgramSequence) noteAfterForcedProgram = true;
+                    }
+                    for (int index = traceStart; index < entries.Length; index++)
+                    {
+                        SourceDispatchTraceEntry entry = entries[index];
+                        if (entry.Origin == "Source" && entry.FinalSendDecision &&
+                            entry.OverrideGeneration >= forcedProgramGeneration &&
+                            entry.Payload != null && entry.Payload.StartsWith("90-", StringComparison.Ordinal) &&
+                            entry.Sequence < forcedProgramSequence)
+                            throw new Exception("a post-override NoteOn reached output before forced Program 6");
+                    }
+                    Equal(true, filteredProgram,
+                        "MainForm/Channels trace identifies raw Program 0 as filtered");
+                    Equal(false, sentCompetingProgram,
+                        "MainForm/Channels trace proves raw Program 0 never reached final output");
+                    Equal(true, noteAfterForcedProgram,
+                        "forced raw Program 5 precedes every tested post-boundary NoteOn");
+                    form.Close();
+                }
+            }
+            finally { if (File.Exists(path)) File.Delete(path); }
+        }
+
+        private static void AssertBuild44SourceTerminalInvariant(SourceDispatchTrace trace)
+        {
+            SourceDispatchTraceEntry[] entries = trace.Snapshot();
+            int sourceEntries = 0;
+            for (int index = 0; index < entries.Length; index++)
+            {
+                SourceDispatchTraceEntry entry = entries[index];
+                if (!String.Equals(entry.Origin, "Source", StringComparison.Ordinal)) continue;
+                sourceEntries++;
+                if (entry.SuppressionDecision == entry.FinalSendDecision)
+                    throw new Exception("source trace lacks exactly one terminal outcome at sequence " + entry.Sequence);
+                if (!entry.SuppressionDecision) continue;
+                for (int candidate = 0; candidate < entries.Length; candidate++)
+                {
+                    SourceDispatchTraceEntry sent = entries[candidate];
+                    if (sent.Session == entry.Session &&
+                        sent.SourceEventIndex == entry.SourceEventIndex &&
+                        sent.OverrideGeneration == entry.OverrideGeneration &&
+                        String.Equals(sent.ProcessingPath, entry.ProcessingPath, StringComparison.Ordinal) &&
+                        sent.FinalSendDecision)
+                        throw new Exception("filtered source event also reached final output: event " +
+                            entry.SourceEventIndex + ", path " + entry.ProcessingPath);
+                }
+            }
+            if (sourceEntries == 0) throw new Exception("source terminal trace captured no source decisions");
+        }
+
+        private static void TestBuild44ExternalBacklogAdmission()
+        {
+            VerifyBuild44ExternalBacklogPolicy(OverflowPolicy.DropNewest,
+                new int[] { 1, 2, 3 }, 4, 7);
+            VerifyBuild44ExternalBacklogPolicy(OverflowPolicy.DropOldest,
+                new int[] { 8, 9, 10 }, 4, 7);
+            VerifyBuild44ExternalBacklogPolicy(OverflowPolicy.ClearBufferAndCatchUp,
+                new int[0], 1, 10);
+            VerifyBuild44ExternalBacklogPolicy(OverflowPolicy.DropIncomingCompleteNotes,
+                new int[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 }, 11, 0);
+            VerifyBuild44ExternalBacklogPolicy(OverflowPolicy.DropOldestCompleteNote,
+                new int[] { 1, 2, 3 }, 4, 7);
+        }
+
+        private static void VerifyBuild44ExternalBacklogPolicy(OverflowPolicy policy,
+            int[] expectedControllers, long expectedProcessed, long expectedDropped)
+        {
+            List<MidiEvent> events = new List<MidiEvent>();
+            events.Add(ChannelMessage(0, 0x90, 60, 100));
+            events.Add(ChannelMessage(10000, 0xC0, 0));
+            for (int value = 1; value <= 10; value++)
+                events.Add(ChannelMessage((value + 1) * 10000, 0xB0, 1, (byte)value));
+            MidiSong song = NewChannelSong("blocked-external-backlog-" + policy + ".mid",
+                120000, events.ToArray());
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                RecordingNoteBlockingOutput output = new RecordingNoteBlockingOutput();
+                engine.SetChannelMonitoring(true);
+                engine.ServiceDurationMode = ServiceDurationMode.ProcessingTime;
+                engine.ProcessingMicroseconds = 250000;
+                engine.SimulateSlowdown = false;
+                engine.QueueLengthLimit = 3;
+                engine.OverflowPolicy = policy;
+                engine.SetChannelOverride(0, ChannelAttribute.Program, 5);
+                engine.Start(song, output, ProcessingMode.Drop);
+                try
+                {
+                    Equal(true, output.Entered.WaitOne(1000),
+                        policy + " reaches blocked native send");
+                    Thread.Sleep(160);
+                    PlaybackSnapshot blocked = engine.GetSnapshot();
+                    Equal(11L, blocked.OutstandingEvents,
+                        policy + " display pressure counts ten eligible overdue controllers plus in-service note");
+                }
+                finally { output.Release.Set(); }
+
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000,
+                    policy + " external-backlog completion");
+                List<byte[]> payloads = output.Payloads();
+                Equal(false, ContainsMessage(payloads, 0xC0, 0),
+                    policy + " conflicting Program never leaks from external backlog");
+                Equal(true, ContainsMessage(payloads, 0xC0, 5),
+                    policy + " forced Program remains applied");
+                for (int value = 1; value <= 10; value++)
+                {
+                    bool expected = Array.IndexOf(expectedControllers, value) >= 0;
+                    Equal(expected, ContainsMessage(payloads, 0xB0, 1, (byte)value),
+                        policy + " controller wire decision " + value);
+                }
+                PlaybackSnapshot completed = engine.GetSnapshot();
+                Equal(expectedProcessed, completed.ProcessedEvents,
+                    policy + " processed-event wire count");
+                Equal(expectedDropped, completed.DroppedEvents,
+                    policy + " finite overflow count");
+                Equal(1L, engine.GetChannelSnapshot().Channels[0].OverrideSuppressedEvents,
+                    policy + " conflicting Program is counted once and never dispatched");
+                Equal(11L, completed.MaximumQueueLength,
+                    policy + " maximum pressure retains the eligible external backlog");
+            }
+        }
+
+        private static void TestBuild44SharedLiveBacklogStatistics()
+        {
+            VerifyBuild44SharedLiveBacklogMode(ProcessingMode.Queue, false,
+                "Rate None immediate");
+            VerifyBuild44SharedLiveBacklogMode(ProcessingMode.Queue, true,
+                "ordinary service comparison");
+            VerifyBuild44SharedLiveBacklogMode(ProcessingMode.PerNoteIntervalGate, false,
+                "Per-note");
+            VerifyBuild44SharedLiveBacklogMode(ProcessingMode.DelayedNoteOff, false,
+                "Delayed NoteOff global recovery");
+            VerifyBuild44DelayedStructuralDeadlineBacklog();
+        }
+
+        private static void VerifyBuild44SharedLiveBacklogMode(ProcessingMode mode,
+            bool simulateSlowdown, string name)
+        {
+            MidiEvent rootOn = ChannelMessage(0, 0x90, 60, 90); rootOn.Track = 0;
+            MidiEvent earlyOn = ChannelMessage(0, 0x91, 60, 70); earlyOn.Track = 1;
+            MidiEvent rootOff = ChannelMessage(1000, 0x80, 60, 9); rootOff.Track = 0;
+            MidiEvent earlyOff = ChannelMessage(1000, 0x81, 60, 0); earlyOff.Track = 1;
+            MidiEvent blockedOn = ChannelMessage(20000, 0x92, 62, 100); blockedOn.Track = 2;
+            MidiEvent dueOn = ChannelMessage(30000, 0x93, 64, 100); dueOn.Track = 3;
+            MidiEvent dueOff = ChannelMessage(31000, 0x83, 64, 0); dueOff.Track = 3;
+            MidiEvent future = ChannelMessage(200000, 0xB0, 1, 10);
+            MidiSong song = NewChannelSong("shared-live-backlog-" + name + ".mid", 200000,
+                rootOn, earlyOn, rootOff, earlyOff, blockedOn, dueOn, dueOff, future);
+            song.TrackCount = 4;
+
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                SelectiveNoteBlockingOutput output = new SelectiveNoteBlockingOutput(62);
+                engine.ProcessingMicroseconds = mode == ProcessingMode.Queue && simulateSlowdown
+                    ? 1000 : 10000;
+                engine.SimulateSlowdown = simulateSlowdown;
+                engine.Start(song, output, mode);
+                try
+                {
+                    Equal(true, output.Entered.WaitOne(1000), name + " reaches selected blocked send");
+                    Thread.Sleep(70);
+                    PlaybackSnapshot blocked = engine.GetSnapshot();
+                    Equal(3L, blocked.OutstandingEvents,
+                        name + " counts one blocked send and exactly two due source events");
+                    Equal(2L, blocked.QueueLength,
+                        name + " keeps the in-service item separate from due backlog");
+                    if (blocked.QueueAgeMicroseconds < 50000)
+                        throw new Exception(name + " did not age the oldest blocked/due work: " +
+                            blocked.QueueAgeMicroseconds);
+                    if (blocked.MaximumQueueLength < 3)
+                        throw new Exception(name + " did not retain the real external peak.");
+                    if ((mode == ProcessingMode.PerNoteIntervalGate ||
+                        mode == ProcessingMode.DelayedNoteOff) && blocked.QueueLengthLimitEnabled)
+                        throw new Exception(name + " incorrectly activated ordinary queue limiting.");
+                }
+                finally { output.Release.Set(); }
+
+                WaitFor(delegate
+                {
+                    PlaybackSnapshot current = engine.GetSnapshot();
+                    return current.State == PlaybackState.Playing &&
+                        current.OutstandingEvents == 0;
+                }, 1000, name + " external backlog drains before the future event");
+                PlaybackSnapshot drained = engine.GetSnapshot();
+                Equal(0L, drained.QueueLength, name + " current queue returns to zero");
+                Equal(0L, drained.QueueAgeMicroseconds, name + " current queue age returns to zero");
+                if (drained.MaximumQueueLength < 3 || drained.MaximumQueueAgeMicroseconds < 50000)
+                    throw new Exception(name + " lost maximum backlog statistics after drain.");
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000,
+                    name + " live-backlog fixture completion");
+                Equal(true, ContainsMessage(output.Payloads(), 0xB0, 1, 10),
+                    name + " future event remains outside the earlier blocked snapshot and later dispatches");
+                if (mode == ProcessingMode.DelayedNoteOff)
+                    Equal(2L, engine.GetSnapshot().GateFilteredEvents,
+                        "Delayed coalesced attack/release are not external backlog");
+            }
+        }
+
+        private static void VerifyBuild44DelayedStructuralDeadlineBacklog()
+        {
+            MidiEvent owner = ChannelMessage(0, 0x90, 60, 90); owner.Track = 0;
+            MidiEvent candidate = ChannelMessage(160000, 0x91, 60, 100); candidate.Track = 1;
+            MidiEvent blocker = ChannelMessage(170000, 0x92, 62, 100); blocker.Track = 2;
+            MidiEvent future = ChannelMessage(500000, 0xB0, 1, 11);
+            MidiSong song = NewChannelSong("delayed-structural-deadline.mid", 500000,
+                owner, candidate, blocker, future);
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                SelectiveNoteBlockingOutput output = new SelectiveNoteBlockingOutput(62);
+                engine.ProcessingMicroseconds = 160000; // R is capped at 40 ms.
+                engine.SimulateSlowdown = false;
+                engine.Start(song, output, ProcessingMode.DelayedNoteOff);
+                try
+                {
+                    Equal(true, output.Entered.WaitOne(1000),
+                        "Delayed structural-deadline fixture reaches blocked send");
+                    PlaybackSnapshot beforeDue = engine.GetSnapshot();
+                    Equal(1L, beforeDue.OutstandingEvents,
+                        "future recovery replacement is not external backlog before it is due");
+                    WaitFor(delegate
+                    {
+                        PlaybackSnapshot current = engine.GetSnapshot();
+                        return current.OutstandingEvents == 2 &&
+                            current.QueueAgeMicroseconds >= 25000;
+                    }, 500, "due recovery transition becomes visible while the provider remains blocked");
+                    PlaybackSnapshot afterDue = engine.GetSnapshot();
+                    Equal(2L, afterDue.OutstandingEvents,
+                        "due recovery replacement joins the blocked in-service item");
+                    if (afterDue.QueueAgeMicroseconds < 25000)
+                        throw new Exception("due recovery transition did not contribute truthful queue age.");
+                }
+                finally { output.Release.Set(); }
+                WaitFor(delegate { return engine.GetSnapshot().OutstandingEvents == 0; }, 1000,
+                    "due recovery transition drains after provider release");
+                engine.Stop();
+            }
+        }
+
+        private static void TestBuild44BorderlessMainWindow()
+        {
+            Application.EnableVisualStyles();
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(30);
+                Rectangle nativeBounds = form.Bounds;
+                Equal(FormBorderStyle.Sizable, form.FormBorderStyle,
+                    "borderless mode starts with the ordinary native frame");
+                Equal(true, form.ShowInTaskbar,
+                    "ordinary taskbar identity is present before borderless mode");
+
+                IntPtr menu = GetSystemMenu(form.Handle, false);
+                int originalMenuCount = GetMenuItemCount(menu);
+                Equal(0U, GetMenuState(menu,
+                    (uint)MainForm.BorderlessSystemCommandForTesting, 0) & 0x0008U,
+                    "borderless system-menu option defaults off");
+
+                SendMessage(form.Handle, 0x0112,
+                    (IntPtr)MainForm.BorderlessSystemCommandForTesting, IntPtr.Zero);
+                PumpFor(40);
+                Equal(true, form.BorderlessModeForTesting,
+                    "system-menu command enters borderless mode");
+                Equal(FormBorderStyle.None, form.FormBorderStyle,
+                    "borderless mode removes the native frame");
+                Equal(true, form.ShowInTaskbar,
+                    "borderless mode preserves taskbar and Alt-Tab identity");
+                Panel chrome = form.BorderlessChromeForTesting;
+                Equal(true, chrome.Visible,
+                    "borderless mode exposes its complete compact window controls");
+                Equal(true, chrome.Height > 0 && chrome.Bottom <= form.ClientSize.Height,
+                    "borderless chrome remains inside the client area");
+                Equal(chrome.Bottom, form.BorderlessContentTopForTesting,
+                    "borderless chrome and player content occupy distinct docked regions");
+                AssertBorderlessControl(chrome, "Window menu");
+                AssertBorderlessControl(chrome, "Minimize window");
+                Button maximize = AssertBorderlessControl(chrome, "Maximize window");
+                AssertBorderlessControl(chrome, "Close window");
+                menu = GetSystemMenu(form.Handle, false);
+                Equal(0x0008U, GetMenuState(menu,
+                    (uint)MainForm.BorderlessSystemCommandForTesting, 0) & 0x0008U,
+                    "borderless native menu check survives handle recreation");
+
+                Point leftEdge = form.PointToScreen(new Point(1, form.ClientSize.Height / 2));
+                IntPtr hit = SendMessage(form.Handle, 0x0084, IntPtr.Zero,
+                    MouseCoordinates(leftEdge.X, leftEdge.Y));
+                Equal((IntPtr)10, hit,
+                    "borderless non-client hit testing retains native left-edge resizing");
+
+                Control resizeSurface = form.BorderlessResizeSurfaceForTesting;
+                Equal(10, form.BorderlessResizeHitForTesting(resizeSurface,
+                    new Point(1, resizeSurface.ClientSize.Height / 2)),
+                    "child-control input maps the invisible left edge to native resizing");
+                Equal(13, form.BorderlessResizeHitForTesting(chrome,
+                    new Point(1, 1)),
+                    "child-control input maps an invisible corner to native resizing");
+                Equal(0, form.BorderlessResizeHitForTesting(resizeSurface,
+                    new Point(resizeSurface.ClientSize.Width / 2,
+                        resizeSurface.ClientSize.Height / 2)),
+                    "ordinary child-control clicks stay outside the resize path");
+
+                SendMessage(form.Handle, 0x0112,
+                    (IntPtr)MainForm.BorderlessIntegratedSystemCommandForTesting, IntPtr.Zero);
+                PumpFor(30);
+                Equal(MainForm.BorderlessPresentationStyle.IntegratedHeader,
+                    form.BorderlessStyleForTesting,
+                    "borderless style command selects the integrated header");
+                Equal(false, chrome.Visible,
+                    "integrated header removes the separate compact strip");
+                Panel integrated = form.BorderlessIntegratedChromeForTesting;
+                Equal(true, integrated.Visible,
+                    "integrated header places controls in the File and output heading");
+                Equal(0, form.BorderlessContentTopForTesting,
+                    "integrated header adds no separate title-strip row");
+                if (integrated.Bottom > form.BorderlessFileContentForTesting.Top)
+                    throw new Exception("integrated header overlaps the File and output content rows");
+                AssertBorderlessControl(integrated, "Window menu");
+                AssertBorderlessControl(integrated, "Minimize window");
+                AssertBorderlessControl(integrated, "Maximize window");
+                AssertBorderlessControl(integrated, "Close window");
+                Equal(0x0008U, GetMenuState(form.BorderlessStyleMenuForTesting,
+                    (uint)MainForm.BorderlessIntegratedSystemCommandForTesting, 0) & 0x0008U,
+                    "integrated style is truthfully checked in its submenu");
+
+                SendMessage(form.Handle, 0x0112,
+                    (IntPtr)MainForm.BorderlessAutoHideSystemCommandForTesting, IntPtr.Zero);
+                PumpFor(30);
+                Equal(MainForm.BorderlessPresentationStyle.AutoHideOverlay,
+                    form.BorderlessStyleForTesting,
+                    "borderless style command selects the auto-hide overlay");
+                Panel overlay = form.BorderlessOverlayChromeForTesting;
+                form.SetBorderlessOverlayPointerForTesting(false);
+                Equal(false, overlay.Visible,
+                    "auto-hide window controls disappear when the pointer is outside");
+                Rectangle contentBeforeOverlay = resizeSurface.Bounds;
+                form.SetBorderlessOverlayPointerForTesting(true);
+                Equal(true, overlay.Visible,
+                    "auto-hide window controls appear while the pointer is inside");
+                Equal(contentBeforeOverlay, resizeSurface.Bounds,
+                    "showing the overlay does not move or resize player content");
+                AssertBorderlessControl(overlay, "Window menu");
+                AssertBorderlessControl(overlay, "Minimize window");
+                AssertBorderlessControl(overlay, "Maximize window");
+                AssertBorderlessControl(overlay, "Close window");
+                form.SetBorderlessOverlayPointerForTesting(false);
+
+                SendMessage(form.Handle, 0x0112,
+                    (IntPtr)MainForm.BorderlessClassicSystemCommandForTesting, IntPtr.Zero);
+                PumpFor(30);
+                Equal(MainForm.BorderlessPresentationStyle.ClassicStrip,
+                    form.BorderlessStyleForTesting,
+                    "classic strip remains available after trying both alternate styles");
+                Equal(true, chrome.Visible,
+                    "classic style restores the separate compact strip");
+
+                form.ClientSize = new Size(600, form.ClientSize.Height);
+                PumpFor(40);
+                Equal(true, form.CompactLayoutForTesting,
+                    "borderless presentations preserve the compact layout breakpoint");
+                SendMessage(form.Handle, 0x0112,
+                    (IntPtr)MainForm.BorderlessIntegratedSystemCommandForTesting, IntPtr.Zero);
+                PumpFor(25);
+                Equal(true, integrated.Visible && integrated.Right <= integrated.Parent.ClientSize.Width,
+                    "integrated header remains inside the compact File and output group");
+                SendMessage(form.Handle, 0x0112,
+                    (IntPtr)MainForm.BorderlessAutoHideSystemCommandForTesting, IntPtr.Zero);
+                form.SetBorderlessOverlayPointerForTesting(true);
+                Equal(true, overlay.Visible && overlay.Right <= form.ClientSize.Width,
+                    "auto-hide overlay remains inside the compact main window");
+                SendMessage(form.Handle, 0x0112,
+                    (IntPtr)MainForm.BorderlessClassicSystemCommandForTesting, IntPtr.Zero);
+                form.ClientSize = new Size(790, form.ClientSize.Height);
+                PumpFor(40);
+                Equal(false, form.CompactLayoutForTesting,
+                    "borderless presentations restore the standard layout breakpoint");
+
+                maximize.PerformClick(); PumpFor(30);
+                Equal(FormWindowState.Maximized, form.WindowState,
+                    "keyboard-accessible custom control maximizes the window");
+                Equal("Restore window", maximize.AccessibleName,
+                    "maximize control exposes its restored accessibility action");
+                maximize.PerformClick(); PumpFor(30);
+                Equal(FormWindowState.Normal, form.WindowState,
+                    "custom restore returns to the resizable normal state");
+
+                SendMessage(form.Handle, 0x0112,
+                    (IntPtr)MainForm.BorderlessSystemCommandForTesting, IntPtr.Zero);
+                PumpFor(40);
+                Equal(false, form.BorderlessModeForTesting,
+                    "second system-menu command restores the native frame");
+                Equal(FormBorderStyle.Sizable, form.FormBorderStyle,
+                    "native sizable frame is restored exactly");
+                Equal(nativeBounds, form.Bounds,
+                    "native-frame bounds are restored exactly after the alternate mode");
+                Equal(false, chrome.Visible,
+                    "custom chrome is hidden on native-frame restoration");
+
+                SendMessage(form.Handle, 0x0112,
+                    (IntPtr)MainForm.BorderlessSystemCommandForTesting, IntPtr.Zero);
+                form.ApplyUiScaleForTesting(50); PumpFor(20);
+                Equal(15, chrome.Height,
+                    "50% application scaling applies non-cumulatively to custom chrome");
+                SendMessage(form.Handle, 0x0112,
+                    (IntPtr)MainForm.BorderlessIntegratedSystemCommandForTesting, IntPtr.Zero);
+                PumpFor(20);
+                Equal(12, integrated.Height,
+                    "50% application scaling applies to the integrated header");
+                SendMessage(form.Handle, 0x0112,
+                    (IntPtr)MainForm.BorderlessClassicSystemCommandForTesting, IntPtr.Zero);
+                form.ApplyUiScaleForTesting(200); PumpFor(20);
+                Equal(60, chrome.Height,
+                    "200% application scaling applies non-cumulatively to custom chrome");
+                SendMessage(form.Handle, 0x0112,
+                    (IntPtr)MainForm.BorderlessAutoHideSystemCommandForTesting, IntPtr.Zero);
+                PumpFor(20);
+                Equal(60, overlay.Height,
+                    "200% application scaling applies to the auto-hide overlay");
+                form.ApplyUiScaleForTesting(100); PumpFor(20);
+                SendMessage(form.Handle, 0x0112,
+                    (IntPtr)MainForm.BorderlessSystemCommandForTesting, IntPtr.Zero);
+                PumpFor(30);
+
+                menu = GetSystemMenu(form.Handle, false);
+                Equal(originalMenuCount, GetMenuItemCount(menu),
+                    "repeated frame recreation does not duplicate system-menu entries");
+                int borderlessCommands = 0;
+                for (int position = 0; position < GetMenuItemCount(menu); position++)
+                    if (GetMenuItemID(menu, position) ==
+                        (uint)MainForm.BorderlessSystemCommandForTesting) borderlessCommands++;
+                Equal(1, borderlessCommands,
+                    "exactly one borderless command remains after repeated transitions");
+                Equal(3, GetMenuItemCount(form.BorderlessStyleMenuForTesting),
+                    "exactly three borderless presentations remain after handle recreation");
+                Equal(0U, GetMenuState(menu,
+                    (uint)MainForm.BorderlessSystemCommandForTesting, 0) & 0x0008U,
+                    "native system-menu check is clear after restoration");
+                form.Close();
+            }
+        }
+
+        private static Button AssertBorderlessControl(Panel chrome, string accessibleName)
+        {
+            for (int index = 0; index < chrome.Controls.Count; index++)
+            {
+                Button button = chrome.Controls[index] as Button;
+                if (button != null && button.AccessibleName == accessibleName)
+                {
+                    Equal(true, button.TabStop, accessibleName + " remains keyboard accessible");
+                    return button;
+                }
+            }
+            throw new Exception("Missing borderless control: " + accessibleName);
+        }
+
+        private static void TestBuild44TrackRoutingCore()
+        {
+            string metadataPath = Path.Combine(Path.GetTempPath(),
+                "midi-bottleneck-routing-metadata-" + Guid.NewGuid().ToString("N") + ".mid");
+            try
+            {
+                File.WriteAllBytes(metadataPath, BuildTrackRoutingMetadataMidi());
+                MidiSong compact = MidiFileParser.Load(metadataPath);
+                MidiSong reference = MidiFileParser.LoadLegacyForTests(metadataPath,
+                    CancellationToken.None, null);
+                AssertRoutingMetadata(compact, "compact parser");
+                AssertRoutingMetadata(reference, "reference parser");
+                Equal(compact.TrackMetadata[0].TrackName, reference.TrackMetadata[0].TrackName,
+                    "parser track-name parity");
+                Equal(compact.TrackMetadata[1].TrackName, reference.TrackMetadata[1].TrackName,
+                    "parser truncated-name parity");
+            }
+            finally { DeleteFileWhenAvailable(metadataPath); }
+
+            MidiSong exactSong = BuildRoutingPlannerSong(false, false);
+            exactSong.TrackMetadata = new MidiTrackMetadata[]
+            {
+                new MidiTrackMetadata("Lead", false, "Strings", false),
+                new MidiTrackMetadata("Support", false, "Strings", false)
+            };
+            TrackRoutingSettings exactSettings = RoutingSettings(1, TrackRoutingTier.ExactSafe, 3);
+            CompiledTrackRoute exact = TrackRoutePlanner.Compile(exactSong, exactSettings);
+            Equal(true, exact.IsValid, "exact-safe compatible lanes fit one destination");
+            Equal(2, exact.Assignments.Count, "exact-safe plan includes every lane");
+            Equal(1, exact.Destinations.Count, "exact-safe plan reports one used destination");
+            Equal(false, exact.RequiresExplicitApply, "exact-safe plan needs no lossy confirmation");
+            Equal(2, exact.Statistics.RoutedLaneCount,
+                "routing statistics count assigned MIDI track/channel entries");
+            Equal(1, exact.Statistics.DestinationCount,
+                "routing statistics count used destinations");
+            Equal(1, exact.Statistics.MergedLaneCount,
+                "routing statistics define a merge as an additional entry sharing a destination");
+            Equal(0, exact.Statistics.OmittedLaneCount,
+                "exact-safe routing statistics report no omissions");
+            Equal("Lead", exact.Assignments[0].Profile.DisplayName,
+                "lane preview retains bounded track metadata");
+
+            MidiEventView source = exactSong.GetEventReader()[2];
+            MidiEventView routed;
+            Equal(true, exact.TryTransform(source, out routed), "compiled route transforms channel voice event");
+            Equal(3, routed.Channel, "compiled route destination channel");
+            Equal((byte)0x93, routed.Status, "compiled route rewrites status nibble");
+            Equal((byte)0x93, routed.GetDataByte(0), "routed value view rewrites payload status");
+            Equal((uint)0x00643C93, routed.PackedShortMessage,
+                "routed value view rewrites packed short message");
+            Equal(source.Track, routed.Track, "route retains source track identity");
+            Equal(source.EventIndex, routed.EventIndex, "route retains source event identity");
+            Equal((byte)0x90, source.Status, "route does not mutate immutable source view");
+            MidiEvent system = SysExEvent(0xF0, new byte[] { 0xF0, 0x7D, 0xF7 });
+            system.Track = 0;
+            Equal(true, exact.TryTransform(MidiEventView.FromEvent(system, 99), out routed),
+                "channel-less traffic bypasses lane remapping");
+            Equal((byte)0xF0, routed.Status, "channel-less payload remains unchanged");
+
+            MidiSong routedSong = TrackRouteApplication.CreateRoutedSong(exactSong, exact);
+            Equal(false, Object.ReferenceEquals(exactSong, routedSong),
+                "route application creates a distinct derived song");
+            Equal(false, Object.ReferenceEquals(exactSong.TrackMetadata, routedSong.TrackMetadata),
+                "route application does not share its mutable metadata array");
+            Equal(exactSong.FilePath, routedSong.FilePath, "routed song retains file identity");
+            Equal(exactSong.DurationMicroseconds, routedSong.DurationMicroseconds,
+                "routed song retains duration");
+            MidiSong wrongSource = BuildRoutingPlannerSong(false, false);
+            bool wrongSourceRejected = false;
+            try { TrackRouteApplication.CreateRoutedSong(wrongSource, exact); }
+            catch (InvalidOperationException) { wrongSourceRejected = true; }
+            Equal(true, wrongSourceRejected,
+                "compiled route cannot be applied to a different source store");
+            MidiEventReader sourceReader = exactSong.GetEventReader();
+            MidiEventReader routedReader = routedSong.GetEventReader();
+            Equal(routedReader.Count, exact.Statistics.RoutedOutputEventCount,
+                "compiled routing statistics match the immutable routed event view");
+            Equal(1, exact.Statistics.GeneratedDestinationStateCount,
+                "routing statistics count the generated canonical Program message");
+            Equal(routedReader.Count - 1, exact.Statistics.IncludedSourceEventCount,
+                "routing statistics separate surviving source and generated messages");
+            Equal(sourceReader.Count - 1, routedReader.Count,
+                "routed store deduplicates the nonrepresentative Program state");
+            Equal(0, routedReader.LowerBoundByTime(10),
+                "routed time lookup follows the filtered canonical event view");
+            List<byte[]> expectedPlayback = new List<byte[]>();
+            long routedBytes = 0;
+            for (int index = 0; index < routedReader.Count; index++)
+            {
+                MidiEventView routedEvent = routedReader[index];
+                Equal(index, routedEvent.EventIndex,
+                    "routed store exposes contiguous logical identity " + index);
+                Equal(3, routedEvent.Channel, "routed store applies destination " + index);
+                if (routedEvent.SourceEventIndex >= 0)
+                {
+                    MidiEventView originalEvent = sourceReader[routedEvent.SourceEventIndex];
+                    Equal(originalEvent.IntendedMicroseconds, routedEvent.IntendedMicroseconds,
+                        "routed store retains timestamp " + index);
+                    Equal(originalEvent.Track, routedEvent.Track,
+                        "routed store retains track " + index);
+                    Equal(originalEvent.EventIndex, routedEvent.SourceEventIndex,
+                        "routed store retains original source identity " + index);
+                    Equal((byte)((originalEvent.Status & 0xF0) | 3), routedEvent.Status,
+                        "routed store rewrites only channel status " + index);
+                }
+                else
+                {
+                    Equal((byte)0xC3, routedEvent.Status,
+                        "generated canonical state precedes the first routed attack");
+                    Equal((byte)40, routedEvent.GetDataByte(1),
+                        "generated canonical state uses the representative Program");
+                }
+                expectedPlayback.Add(routedEvent.Data.ToArray());
+                routedBytes += routedEvent.DataLength;
+            }
+            Equal(0, sourceReader[0].Channel, "routed store leaves first source lane unchanged");
+            Equal(1, sourceReader[1].Channel, "routed store leaves second source lane unchanged");
+
+            WorkloadAnalysis routedAnalysis = WorkloadAnalyzer.Analyze(routedSong, 1000);
+            Equal((long)routedReader.Count, routedAnalysis.TotalEvents,
+                "Analysis consumes the routed event-store view");
+            Equal(routedBytes, routedAnalysis.TotalBytes,
+                "Analysis retains routed payload byte accounting");
+            int sourceProgram;
+            Equal(false, exactSong.GetChannelSourceValueIndex().TryGetLatest(3,
+                ChannelAttribute.Program, exactSong.DurationMicroseconds, out sourceProgram),
+                "source state index remains on original channels");
+            int routedProgram;
+            Equal(true, routedSong.GetChannelSourceValueIndex().TryGetLatest(3,
+                ChannelAttribute.Program, routedSong.DurationMicroseconds, out routedProgram),
+                "routed state index follows the destination channel");
+            Equal(40, routedProgram, "routed state index retains program value");
+            IList<MidiEvent> routedChase = routedSong.GetMidiStateChaseIndex().CreateMessages(
+                routedReader.Count, new ChannelRoutingState(), new ChannelOverrideState());
+            List<byte[]> routedChasePayloads = new List<byte[]>();
+            for (int index = 0; index < routedChase.Count; index++)
+                routedChasePayloads.Add(routedChase[index].Data.ToArray());
+            Equal(true, ContainsMessage(routedChasePayloads, 0xC3, 40),
+                "routed chase emits destination-channel state");
+            Equal(false, ContainsMessage(routedChasePayloads, 0xC0, 40),
+                "routed chase does not leak the first source channel");
+            Equal(false, ContainsMessage(routedChasePayloads, 0xC1, 40),
+                "routed chase does not leak the second source channel");
+
+            FakeMidiOutput routedOutput = new FakeMidiOutput();
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.SimulateSlowdown = false;
+                engine.Start(routedSong, routedOutput, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000,
+                    "routed Playback completion");
+                SequencePayloads(expectedPlayback, routedOutput.SentPayloads(),
+                    "Playback consumes the same routed event-store view");
+                Equal(0L, engine.GetSnapshot().DroppedEvents,
+                    "routed Playback introduces no filtering or drops");
+            }
+
+            MidiSong familySong = BuildRoutingPlannerSong(true, false);
+            TrackRoutingSettings exactOnly = RoutingSettings(1, TrackRoutingTier.ExactSafe, 2);
+            CompiledTrackRoute insufficient = TrackRoutePlanner.Compile(familySong, exactOnly);
+            Equal(false, insufficient.IsValid, "exact tier reports unresolved family lane at target capacity");
+            if (insufficient.Errors.Count == 0) throw new Exception("unresolved exact plan has no explicit error");
+            bool invalidApplyRejected = false;
+            try { TrackRouteApplication.CreateRoutedSong(familySong, insufficient); }
+            catch (InvalidOperationException) { invalidApplyRejected = true; }
+            Equal(true, invalidApplyRejected,
+                "unresolved route cannot silently create a partially routed song");
+
+            TrackRoutingSettings familySettings = RoutingSettings(1, TrackRoutingTier.GmFamily, 2);
+            CompiledTrackRoute family = TrackRoutePlanner.Compile(familySong, familySettings);
+            Equal(true, family.IsValid, "GM-family tier resolves only the exact-tier remainder");
+            Equal(TrackRoutingTier.GmFamily, family.HighestTier, "family plan reports applied tier");
+            Equal(true, family.RequiresExplicitApply, "family plan requires explicit Apply");
+            Equal(0, family.Destinations[0].RepresentativeLane.Track,
+                "musically dominant lane supplies representative patch");
+            Equal(40, family.Destinations[0].RepresentativePatch.Program,
+                "dominant representative patch is deterministic");
+            Equal(true, FindRouteAssignment(family, 1, 1).Retimbred,
+                "family preview identifies retimbred lane");
+
+            CompiledTrackRoute repeated = TrackRoutePlanner.Compile(familySong, familySettings);
+            for (int index = 0; index < family.Assignments.Count; index++)
+            {
+                Equal(family.Assignments[index].Profile.Lane, repeated.Assignments[index].Profile.Lane,
+                    "repeated plan stable lane order " + index);
+                Equal(family.Assignments[index].DestinationChannel,
+                    repeated.Assignments[index].DestinationChannel,
+                    "repeated plan stable destination " + index);
+            }
+
+            MidiSong aggressiveSong = BuildRoutingPlannerSong(true, true);
+            TrackRoutingSettings familyOnly = RoutingSettings(1, TrackRoutingTier.GmFamily, 4);
+            Equal(false, TrackRoutePlanner.Compile(aggressiveSong, familyOnly).IsValid,
+                "family tier refuses unrelated unresolved lane");
+            TrackRoutingSettings aggressiveSettings = RoutingSettings(1, TrackRoutingTier.Aggressive, 4);
+            CompiledTrackRoute aggressive = TrackRoutePlanner.Compile(aggressiveSong, aggressiveSettings);
+            Equal(true, aggressive.IsValid, "aggressive tier meets selected one-channel capacity");
+            Equal(true, aggressive.RequiresExplicitApply, "aggressive plan requires explicit Apply");
+            TrackRouteAssignment collided = FindRouteAssignment(aggressive, 2, 2);
+            Equal(true, collided.SameKeyOverlap, "aggressive preview exposes same-key overlap");
+            Equal(true, collided.Retimbred, "aggressive preview exposes retimbring");
+            if (collided.Warnings.Count < 2) throw new Exception("aggressive conflict preview is incomplete");
+
+            List<MidiEvent> asynchronous = new List<MidiEvent>
+            {
+                RoutingEvent(0, 0, 0xC0, 0), RoutingEvent(1, 0, 0xC1, 0),
+                RoutingEvent(0, 10, 0x90, 60, 100), RoutingEvent(1, 10, 0x91, 61, 100),
+                RoutingEvent(0, 20, 0xC0, 1), RoutingEvent(1, 40, 0xC1, 1),
+                RoutingEvent(0, 50, 0x90, 62, 80), RoutingEvent(1, 50, 0x91, 63, 80),
+                RoutingEvent(0, 100, 0x80, 60, 0), RoutingEvent(1, 100, 0x81, 61, 0),
+                RoutingEvent(0, 100, 0x80, 62, 0), RoutingEvent(1, 100, 0x81, 63, 0)
+            };
+            MidiSong asynchronousSong = RoutingSong("routing-asynchronous-patches.mid", 2,
+                100, asynchronous);
+            CompiledTrackRoute asynchronousExact = TrackRoutePlanner.Compile(asynchronousSong,
+                RoutingSettings(1, TrackRoutingTier.ExactSafe, 0));
+            Equal(false, asynchronousExact.IsValid,
+                "exact-safe rejects equal patch sets with asynchronous effective changes while sounding");
+
+            List<MidiEvent> sustained = new List<MidiEvent>
+            {
+                RoutingEvent(0, 0, 0xC0, 0), RoutingEvent(1, 0, 0xC1, 0),
+                RoutingEvent(0, 5, 0xB0, 64, 127),
+                RoutingEvent(0, 10, 0x90, 60, 100), RoutingEvent(0, 20, 0x80, 60, 0),
+                RoutingEvent(1, 50, 0x91, 60, 100), RoutingEvent(1, 60, 0x81, 60, 0),
+                RoutingEvent(0, 100, 0xB0, 64, 0)
+            };
+            MidiSong sustainedSong = RoutingSong("routing-sustained-overlap.mid", 2, 100, sustained);
+            CompiledTrackRoute sustainedExact = TrackRoutePlanner.Compile(sustainedSong,
+                RoutingSettings(1, TrackRoutingTier.ExactSafe, 0));
+            Equal(false, sustainedExact.IsValid,
+                "exact-safe treats CC64-held ownership as a same-key overlap");
+            CompiledTrackRoute sustainedAggressive = TrackRoutePlanner.Compile(sustainedSong,
+                RoutingSettings(1, TrackRoutingTier.Aggressive, 0));
+            Equal(true, sustainedAggressive.IsValid,
+                "aggressive tier may expose and accept the sustained overlap");
+            Equal(true, FindRouteAssignment(sustainedAggressive, 1, 1).SameKeyOverlap,
+                "preview explicitly reports the sustained same-key overlap");
+
+            MidiSong percussionSong = BuildRoutingPercussionSong();
+            TrackRoutingSettings percussionSettings = RoutingSettings(1, TrackRoutingTier.ExactSafe, 0);
+            percussionSettings.UsableDestinationChannels[9] = true;
+            CompiledTrackRoute percussion = TrackRoutePlanner.Compile(percussionSong, percussionSettings);
+            Equal(true, percussion.IsValid, "reserved percussion plan remains valid");
+            Equal(9, FindRouteAssignment(percussion, 1, 9).DestinationChannel,
+                "source channel-10 lane reserves destination channel 10");
+            Equal(2, percussion.Destinations.Count,
+                "preview reports melodic plus reserved percussion destinations");
+
+            MidiSong percussionOnlySong = NewChannelSong("routing-percussion-only.mid", 100,
+                ChannelMessage(0, 0x99, 36, 100), ChannelMessage(100, 0x89, 36, 0));
+            TrackRoutingSettings percussionOnlySettings =
+                RoutingSettings(1, TrackRoutingTier.ExactSafe, 9);
+            CompiledTrackRoute percussionOnly =
+                TrackRoutePlanner.Compile(percussionOnlySong, percussionOnlySettings);
+            Equal(true, percussionOnly.IsValid,
+                "reserved channel 10 alone satisfies a percussion-only plan");
+            Equal(1, percussionOnly.Destinations.Count,
+                "percussion-only preview reports one reserved destination");
+
+            TrackRoutingSettings manualSettings = RoutingSettings(1, TrackRoutingTier.ExactSafe, 0);
+            manualSettings.PercussionPolicy = PercussionRoutingPolicy.AllowAnyDestination;
+            manualSettings.ManualDestinations[new TrackLaneKey(1, 9)] = 0;
+            CompiledTrackRoute manual = TrackRoutePlanner.Compile(percussionSong, manualSettings);
+            Equal(true, manual.IsValid, "explicit percussion override compiles");
+            TrackRouteAssignment manualPercussion = FindRouteAssignment(manual, 1, 9);
+            Equal(true, manualPercussion.Manual, "manual correction remains explicit in preview");
+            Equal(true, manualPercussion.PercussionException,
+                "manual percussion override carries a convention warning");
+
+            TrackRoutingSettings replacementSettings = RoutingSettings(1,
+                TrackRoutingTier.ExactSafe, 0, 1, 2, 3, 4);
+            replacementSettings.ManualDestinations[new TrackLaneKey(1, 1)] = 4;
+            CompiledTrackRoute replacement = TrackRoutePlanner.Compile(
+                exactSong, replacementSettings);
+            Equal(true, replacement.IsValid,
+                "manual destination outside the ascending suggestion remains valid");
+            Equal(1, replacement.Destinations.Count,
+                "manual correction replaces rather than adds beyond melodic capacity");
+            Equal(4, replacement.Destinations[0].DestinationChannel,
+                "preview reports the actual replacement destination");
+
+            List<MidiEvent> splitStateEvents = new List<MidiEvent>();
+            for (int channel = 0; channel < 5; channel++)
+                splitStateEvents.Add(RoutingEvent(0, 0,
+                    (byte)(0xC0 | channel), (byte)(10 + channel * 10)));
+            for (int channel = 5; channel < 16; channel++)
+                splitStateEvents.Add(RoutingEvent(0, 1,
+                    (byte)(0xC0 | channel), 0));
+            for (int channel = 0; channel < 5; channel++)
+            {
+                splitStateEvents.Add(RoutingEvent(channel + 1, 10,
+                    (byte)(0x90 | channel), (byte)(60 + channel), 100));
+                splitStateEvents.Add(RoutingEvent(0, 50,
+                    (byte)(0xC0 | channel), (byte)(11 + channel * 10)));
+                splitStateEvents.Add(RoutingEvent(channel + 1, 100,
+                    (byte)(0x80 | channel), (byte)(60 + channel), 0));
+            }
+            MidiSong splitStateSong = RoutingSong(
+                "routing-split-state-track.mid", 6, 100, splitStateEvents);
+            CompiledTrackRoute splitStateRoute = TrackRoutePlanner.Compile(
+                splitStateSong, RoutingSettings(4, TrackRoutingTier.Aggressive, 0, 1, 2, 3));
+            Equal(true, splitStateRoute.IsValid,
+                "separate format-1 state track compiles with five note-bearing lanes");
+            Equal(5, splitStateRoute.Lanes.Count,
+                "state-only initialized channels are excluded from musical lane selection");
+            MidiSong splitStateRouted = TrackRouteApplication.CreateRoutedSong(
+                splitStateSong, splitStateRoute);
+            MidiEventReader splitStateReader = splitStateRouted.GetEventReader();
+            int splitPrograms = 0;
+            int splitAttacks = 0;
+            for (int index = 0; index < splitStateReader.Count; index++)
+            {
+                MidiEventView routedEvent = splitStateReader[index];
+                if ((routedEvent.Status & 0xF0) == 0xC0)
+                {
+                    splitPrograms++;
+                    if (routedEvent.GetDataByte(1) == 0)
+                        throw new Exception("unused-channel Piano initialization reached a routed destination");
+                }
+                if ((routedEvent.Status & 0xF0) == 0x90 &&
+                    routedEvent.DataLength >= 3 && routedEvent.GetDataByte(2) != 0)
+                    splitAttacks++;
+            }
+            Equal(8, splitPrograms,
+                "each destination receives only its canonical owner's intentional Program timeline");
+            Equal(5, splitAttacks,
+                "canonical state filtering retains every aggressively merged note lane");
+            IList<MidiEvent> splitChase = splitStateRouted.GetMidiStateChaseIndex().CreateMessages(
+                splitStateReader.Count, new ChannelRoutingState(), new ChannelOverrideState());
+            int chasedPrograms = 0;
+            for (int index = 0; index < splitChase.Count; index++)
+                if ((splitChase[index].Status & 0xF0) == 0xC0)
+                {
+                    chasedPrograms++;
+                    if (splitChase[index].GetDataByte(1) == 0)
+                        throw new Exception("canonical routed chase restored unused Piano state");
+                }
+            Equal(4, chasedPrograms,
+                "routed chase observes the same four canonical destination Programs");
+
+            List<MidiEvent> handoffEvents = new List<MidiEvent>
+            {
+                RoutingEvent(0, 0, 0xC0, 10),
+                RoutingEvent(0, 10, 0x90, 60, 100),
+                RoutingEvent(0, 100, 0x80, 60, 0),
+                RoutingEvent(1, 110, 0xC1, 20),
+                RoutingEvent(1, 120, 0x91, 64, 100),
+                RoutingEvent(1, 200, 0x81, 64, 0),
+                RoutingEvent(0, 210, 0xC0, 11),
+                RoutingEvent(0, 220, 0x90, 62, 120),
+                RoutingEvent(1, 250, 0xC1, 21),
+                RoutingEvent(1, 260, 0x91, 65, 70),
+                RoutingEvent(1, 300, 0x81, 65, 0),
+                RoutingEvent(0, 400, 0x80, 62, 0),
+                RoutingEvent(1, 410, 0xB1, 0, 1),
+                RoutingEvent(1, 411, 0xB1, 32, 2),
+                RoutingEvent(1, 412, 0xC1, 22),
+                RoutingEvent(1, 420, 0x91, 67, 100),
+                RoutingEvent(1, 500, 0x81, 67, 0)
+            };
+            MidiSong handoffSong = RoutingSong(
+                "routing-destination-patch-handoffs.mid", 2, 500, handoffEvents);
+            TrackRoutingSettings handoffSettings = RoutingSettings(
+                1, TrackRoutingTier.Aggressive, 4);
+            handoffSettings.ManualDestinations[new TrackLaneKey(0, 0)] = 4;
+            handoffSettings.ManualDestinations[new TrackLaneKey(1, 1)] = 4;
+            CompiledTrackRoute handoffRoute = TrackRoutePlanner.Compile(
+                handoffSong, handoffSettings);
+            Equal(true, handoffRoute.IsValid,
+                "manual shared destination compiles a complete canonical state timeline");
+            MidiSong handoffRouted = TrackRouteApplication.CreateRoutedSong(
+                handoffSong, handoffRoute);
+            MidiEventReader handoffReader = handoffRouted.GetEventReader();
+            List<int> handoffPrograms = new List<int>();
+            int bankMsb = -1;
+            int bankLsb = -1;
+            int generatedState = 0;
+            for (int index = 0; index < handoffReader.Count; index++)
+            {
+                MidiEventView routedEvent = handoffReader[index];
+                int command = routedEvent.Status & 0xF0;
+                if (command == 0xC0)
+                    handoffPrograms.Add(routedEvent.GetDataByte(1));
+                else if (command == 0xB0 && routedEvent.GetDataByte(1) == 0)
+                    bankMsb = routedEvent.GetDataByte(2);
+                else if (command == 0xB0 && routedEvent.GetDataByte(1) == 32)
+                    bankLsb = routedEvent.GetDataByte(2);
+                if ((command == 0xB0 || command == 0xC0) &&
+                    routedEvent.SourceEventIndex < 0) generatedState++;
+                Equal(4, routedEvent.Channel,
+                    "canonical handoff state and notes share destination channel");
+            }
+            Equal("10,20,11,22", String.Join(",", handoffPrograms.ToArray()),
+                "clean handoffs preserve later roles while overlap retains the representative patch");
+            Equal(1, bankMsb,
+                "later clean handoff restores its destination-specific Bank MSB");
+            Equal(2, bankLsb,
+                "later clean handoff restores its destination-specific Bank LSB");
+            Equal(6, generatedState,
+                "canonical destination state is synthesized only for effective transitions");
+            Equal((long)handoffReader.Count,
+                WorkloadAnalyzer.Analyze(handoffRouted, 1000).TotalEvents,
+                "Analysis observes the same generated destination state timeline");
+            IList<MidiEvent> handoffChase = handoffRouted.GetMidiStateChaseIndex().CreateMessages(
+                handoffReader.Count, new ChannelRoutingState(), new ChannelOverrideState());
+            List<byte[]> handoffChasePayloads = new List<byte[]>();
+            for (int index = 0; index < handoffChase.Count; index++)
+                handoffChasePayloads.Add(handoffChase[index].Data.ToArray());
+            Equal(true, ContainsMessage(handoffChasePayloads, 0xB4, 0, 1),
+                "routed chase uses the canonical destination Bank MSB");
+            Equal(true, ContainsMessage(handoffChasePayloads, 0xB4, 32, 2),
+                "routed chase uses the canonical destination Bank LSB");
+            Equal(true, ContainsMessage(handoffChasePayloads, 0xC4, 22),
+                "routed chase uses the canonical destination Program");
+
+            MidiSong globalSelectionSong = BuildAggressiveGlobalSelectionSong();
+            TrackRoutingSettings globalSelectionSettings = RoutingSettings(
+                4, TrackRoutingTier.Aggressive, 0, 1, 2, 3);
+            CompiledTrackRoute globalSelection = TrackRoutePlanner.Compile(
+                globalSelectionSong, globalSelectionSettings);
+            Equal(true, globalSelection.IsValid,
+                "global Aggressive selection produces a complete four-destination plan");
+            Equal(4, globalSelection.Destinations.Count,
+                "global Aggressive selection uses the selected destination capacity");
+            Equal(5, globalSelection.Assignments.Count,
+                "global Aggressive selection accounts for every musical lane");
+            Equal(false, FindRouteAssignment(globalSelection, 0, 0).Omitted,
+                "first important overlapping organ role is retained");
+            Equal(false, FindRouteAssignment(globalSelection, 1, 1).Omitted,
+                "second important overlapping organ role is retained independently");
+            Equal(false, FindRouteAssignment(globalSelection, 2, 2).Omitted,
+                "distinct flute role is retained");
+            Equal(false, FindRouteAssignment(globalSelection, 3, 3).Omitted,
+                "distinct brass role is retained");
+            Equal(false, FindRouteAssignment(globalSelection, 4, 4).Omitted,
+                "lower-value bass role is retimbred instead of unnecessarily omitted");
+            CompiledTrackRoute globalRepeated = TrackRoutePlanner.Compile(
+                globalSelectionSong, globalSelectionSettings);
+            for (int index = 0; index < globalSelection.Assignments.Count; index++)
+            {
+                Equal(globalSelection.Assignments[index].Profile.Lane,
+                    globalRepeated.Assignments[index].Profile.Lane,
+                    "global Aggressive repeated lane " + index);
+                Equal(globalSelection.Assignments[index].DestinationChannel,
+                    globalRepeated.Assignments[index].DestinationChannel,
+                    "global Aggressive repeated destination " + index);
+                Equal(globalSelection.Assignments[index].Omitted,
+                    globalRepeated.Assignments[index].Omitted,
+                    "global Aggressive repeated omission " + index);
+            }
+
+            MidiSong omissionSong = BuildAggressiveOmissionSong();
+            TrackRoutingSettings omissionSettings = RoutingSettings(
+                1, TrackRoutingTier.Aggressive, 0);
+            CompiledTrackRoute omission = TrackRoutePlanner.Compile(
+                omissionSong, omissionSettings);
+            Equal(true, omission.IsValid,
+                "confirmed-loss Aggressive omission is a complete valid plan");
+            Equal(true, omission.RequiresExplicitApply,
+                "Aggressive omission requires explicit lossy confirmation");
+            TrackRouteAssignment omitted = FindRouteAssignment(omission, 1, 1);
+            Equal(true, omitted.Omitted,
+                "lower-value destructively conflicting lane is deterministically omitted");
+            Equal(-1, omitted.DestinationChannel,
+                "omitted lane has no hidden output destination");
+            Equal(1L, omitted.Profile.AttackCount,
+                "omission reports the exact source note-start count");
+            Equal(1, omission.Statistics.OmittedLaneCount,
+                "routing statistics report the omitted MIDI track/channel entry");
+            Equal(1L, omission.Statistics.OmittedNoteStartCount,
+                "routing statistics report omitted note starts without calling the plan unresolved");
+            MidiSong omissionRouted = TrackRouteApplication.CreateRoutedSong(
+                omissionSong, omission);
+            int omissionAttacks = 0;
+            MidiEventReader omissionReader = omissionRouted.GetEventReader();
+            for (int index = 0; index < omissionReader.Count; index++)
+            {
+                MidiEventView routedEvent = omissionReader[index];
+                if ((routedEvent.Status & 0xF0) == 0x90 && routedEvent.DataLength >= 3 &&
+                    routedEvent.GetDataByte(2) != 0) omissionAttacks++;
+            }
+            Equal(1, omissionAttacks,
+                "routed output suppresses the omitted attack and its paired release");
+            using (TrackRoutingForm omissionDialog = new TrackRoutingForm(
+                omissionSong, omissionSettings, false, 100))
+            {
+                omissionDialog.Show(); PumpFor(25);
+                Equal("Omitted", omissionDialog.LaneDestinationForTesting(
+                    new TrackLaneKey(1, 1)),
+                    "omitted lane is explicit in the routing table");
+                if (omissionDialog.LaneStatusForTesting(new TrackLaneKey(1, 1))
+                    .IndexOf("1 note start", StringComparison.Ordinal) < 0)
+                    throw new Exception("omitted lane status does not report its note count");
+                Equal(true, omissionDialog.LaneIsOmissionProminentForTesting(
+                    new TrackLaneKey(1, 1)),
+                    "omitted lane is visually prominent");
+                if (omissionDialog.PreviewTextForTesting.IndexOf(
+                    "OMITTED MIDI TRACKS / CHANNELS", StringComparison.Ordinal) < 0 ||
+                    omissionDialog.PreviewTextForTesting.IndexOf(
+                    "1 note start omitted", StringComparison.Ordinal) < 0 ||
+                    omissionDialog.PreviewTextForTesting.IndexOf(
+                    "Omitted: 1 entries / 1 note starts", StringComparison.Ordinal) < 0 ||
+                    omissionDialog.PreviewTextForTesting.IndexOf(
+                    "Destination Bank/Program messages generated:", StringComparison.Ordinal) < 0)
+                    throw new Exception("complete preview does not report useful routing results");
+                Equal(false, omissionDialog.ApplyEnabledForTesting,
+                    "omission cannot Apply before explicit lossy confirmation");
+                omissionDialog.SetLossyConfirmationForTesting(true);
+                Equal(true, omissionDialog.ApplyEnabledForTesting,
+                    "confirmed omission is applicable rather than an unresolved hard error");
+                omissionDialog.Close();
+            }
+
+            TestBuild44TrackRoutingWorkflow(exactSong, exactSettings,
+                familySong, familySettings);
+            TestBuild44TrackRoutingLiveIntegration(exactSong, exact, routedSong,
+                familySong, insufficient, family, aggressiveSong, aggressive);
+            TestBuild44TrackRoutingLargeCompactFixture();
+        }
+
+        private static void TestBuild44TrackRoutingLargeCompactFixture()
+        {
+            const int noteCount = 100000;
+            CompactMidiEventStore.Builder builder = new CompactMidiEventStore.Builder();
+            builder.AddRaw(0, 0, 0, MidiEventKind.ProgramChange, 0, 0xC0, 2,
+                (uint)(0xC0 | 40 << 8), -1);
+            for (int index = 0; index < noteCount; index++)
+            {
+                long start = index * 2L;
+                int key = 48 + index % 24;
+                builder.AddRaw(start, start, 0, MidiEventKind.NoteOn, 0, 0x90, 3,
+                    (uint)(0x90 | key << 8 | 80 << 16), -1);
+                builder.AddRaw(start + 1, start + 1, 0, MidiEventKind.NoteOff, 0, 0x80, 3,
+                    (uint)(0x80 | key << 8), -1);
+            }
+            MidiSong song = new MidiSong
+            {
+                FilePath = "routing-large-compact.mid",
+                Format = 0,
+                TrackCount = 1,
+                TicksPerQuarterNote = 480,
+                NoteCount = noteCount,
+                DurationMicroseconds = noteCount * 2L,
+                TrackMetadata = new MidiTrackMetadata[]
+                {
+                    new MidiTrackMetadata("Large compact lane", false, String.Empty, false)
+                }
+            };
+            song.SetEventStore(builder.Complete());
+            if (!(song.EventStore is CompactMidiEventStore))
+                throw new Exception("large routing fixture did not use the compact event store");
+
+            Stopwatch timer = Stopwatch.StartNew();
+            CompiledTrackRoute route = TrackRoutePlanner.Compile(song,
+                RoutingSettings(1, TrackRoutingTier.ExactSafe, 0));
+            MidiSong routed = TrackRouteApplication.CreateRoutedSong(song, route);
+            timer.Stop();
+            Equal(1, route.Statistics.RoutedLaneCount,
+                "large compact route retains one bounded lane profile");
+            Equal(1, route.Statistics.GeneratedDestinationStateCount,
+                "large compact route generates one canonical Program message");
+            Equal(song.EventStore.Count, routed.EventStore.Count,
+                "large compact route suppresses one source Program and generates one replacement");
+            Equal(route.Statistics.RoutedOutputEventCount, routed.EventStore.Count,
+                "large compact benchmark statistics match the shared routed view");
+            if (timer.ElapsedMilliseconds > 30000)
+                throw new Exception("large compact routing benchmark exceeded 30 seconds");
+            Console.WriteLine("      Track-routing compact benchmark: architecture={0}, events={1:N0}, notes={2:N0}, elapsed={3:N1} ms",
+                IntPtr.Size == 8 ? "x64" : "x86", song.EventStore.Count,
+                noteCount, timer.Elapsed.TotalMilliseconds);
+        }
+
+        private static void TestBuild44TrackRoutingWorkflow(MidiSong exactSong,
+            TrackRoutingSettings exactSettings, MidiSong familySong,
+            TrackRoutingSettings familySettings)
+        {
+            TrackRoutingSettings clone = exactSettings.Clone();
+            clone.TargetCapacity = 2;
+            clone.UsableDestinationChannels[3] = false;
+            Equal(1, exactSettings.TargetCapacity,
+                "routing settings clone does not mutate target capacity");
+            Equal(true, exactSettings.UsableDestinationChannels[3],
+                "routing settings clone does not share destination availability");
+
+            using (TrackRoutingForm dialog = new TrackRoutingForm(
+                exactSong, exactSettings, false, 100))
+            {
+                dialog.Show(); PumpFor(25);
+                Equal(true, dialog.CompiledRouteForTesting.IsValid,
+                    "planner dialog opens with a complete exact-safe preview");
+                Equal(2, dialog.CompiledRouteForTesting.Lanes.Count,
+                    "planner preview includes every MIDI track/channel entry");
+                if (dialog.PreviewTextForTesting.IndexOf("VALID COMPLETE PLAN",
+                    StringComparison.Ordinal) < 0 ||
+                    dialog.PreviewTextForTesting.IndexOf("OUTPUT CHANNEL 4",
+                    StringComparison.Ordinal) < 0)
+                    throw new Exception("planner dialog omits its complete destination preview");
+                Equal(true, dialog.ApplyEnabledForTesting,
+                    "exact-safe plan is immediately applicable");
+                Equal("Selected MIDI track/channel output:",
+                    dialog.SelectedLaneCaptionForTesting,
+                    "manual destination editor uses plain MIDI track/channel wording");
+                Equal(true, dialog.ChannelCaptionBoldForTesting(3),
+                    "compiled destination channel caption is bold");
+                Equal(false, dialog.ChannelCaptionBoldForTesting(2),
+                    "unused usable channel caption remains ordinary");
+                string patchHelp = dialog.PatchToolTipForTesting(new TrackLaneKey(0, 0));
+                if (patchHelp.IndexOf("Program 41", StringComparison.Ordinal) < 0 ||
+                    patchHelp.IndexOf("Violin", StringComparison.Ordinal) < 0 ||
+                    patchHelp.IndexOf("General MIDI reference only", StringComparison.Ordinal) < 0)
+                    throw new Exception("Patch cell tooltip does not reuse the canonical GM reference name.");
+
+                dialog.SelectLaneForTesting(new TrackLaneKey(1, 1));
+                dialog.SetSelectedLaneDestinationForTesting(3);
+                Equal(true, dialog.LossyConfirmationRequiredForTesting,
+                    "manual lane correction requires explicit confirmation");
+                Equal(false, dialog.ApplyEnabledForTesting,
+                    "manual correction cannot Apply before warning confirmation");
+                if (dialog.PreviewTextForTesting.IndexOf("manual",
+                    StringComparison.OrdinalIgnoreCase) < 0)
+                    throw new Exception("manual lane correction is not visible in the preview");
+                dialog.SetLossyConfirmationForTesting(true);
+                Equal(true, dialog.ApplyEnabledForTesting,
+                    "confirmed complete manual plan becomes applicable");
+
+                dialog.SetUsableChannelForTesting(3, false);
+                Equal(false, dialog.CompiledRouteForTesting.IsValid,
+                    "unavailable manual destination produces a hard validation error");
+                Equal(false, dialog.ChannelCaptionBoldForTesting(3),
+                    "invalidated unused destination caption returns to ordinary font");
+                Equal(false, dialog.ApplyEnabledForTesting,
+                    "unresolved plan can never be applied from the dialog");
+                if (dialog.PreviewTextForTesting.IndexOf("HARD ERRORS",
+                    StringComparison.Ordinal) < 0)
+                    throw new Exception("unresolved plan does not present its hard errors");
+                dialog.Close();
+            }
+
+            using (TrackRoutingForm familyDialog = new TrackRoutingForm(
+                familySong, familySettings, false, 100))
+            {
+                familyDialog.Show(); PumpFor(25);
+                Equal(true, familyDialog.CompiledRouteForTesting.IsValid,
+                    "GM-family dialog plan is complete");
+                Equal(true, familyDialog.LossyConfirmationRequiredForTesting,
+                    "GM-family plan exposes the explicit confirmation boundary");
+                Equal(false, familyDialog.ApplyEnabledForTesting,
+                    "GM-family Apply remains disabled before confirmation");
+                if (familyDialog.PreviewTextForTesting.IndexOf("WARNING:",
+                    StringComparison.Ordinal) < 0)
+                    throw new Exception("GM-family preview does not expose its warnings");
+                familyDialog.SetLossyConfirmationForTesting(true);
+                Equal(true, familyDialog.ApplyEnabledForTesting,
+                    "GM-family plan applies only after explicit warning confirmation");
+                familyDialog.Close();
+            }
+
+            foreach (int scale in new int[] { 50, 200 })
+                using (TrackRoutingForm scaled = new TrackRoutingForm(
+                    exactSong, exactSettings, false, scale))
+                {
+                    scaled.Show(); PumpFor(25);
+                    Equal(2, scaled.LaneRowCountForTesting,
+                        scale + "% planner keeps every lane visible");
+                    Equal(true, scaled.CoreControlsFitForTesting,
+                        scale + "% planner keeps its lane and preview surfaces inside their panels");
+                    scaled.Close();
+                }
+
+            BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(25);
+                typeof(MainForm).GetField("_song", flags).SetValue(form, exactSong);
+                typeof(MainForm).GetMethod("UpdateTransportControls", flags)
+                    .Invoke(form, null);
+                IntPtr menu = GetSystemMenu(form.Handle, false);
+                Equal(0U, GetMenuState(menu,
+                    (uint)MainForm.TrackRoutingSystemCommandForTesting, 0) & 0x0003U,
+                    "Track routing command is enabled only with a stopped loaded song");
+
+                int dialogRuns = 0;
+                form.TrackRoutingDialogRunnerForTesting = delegate(TrackRoutingForm routeDialog)
+                {
+                    dialogRuns++;
+                    routeDialog.Show(form); PumpFor(25);
+                    routeDialog.SetTargetCapacityForTesting(1);
+                    Equal(true, routeDialog.CompiledRouteForTesting.IsValid,
+                        "system-menu workflow compiles a complete one-destination plan");
+                    routeDialog.ConfirmApplyForTesting();
+                    return routeDialog.DialogResult;
+                };
+                SendMessage(form.Handle, 0x0112,
+                    (IntPtr)MainForm.TrackRoutingSystemCommandForTesting, IntPtr.Zero);
+                PumpFor(25);
+                Equal(1, dialogRuns, "system-menu command opens one planner workflow");
+                Equal(exactSong, form.CurrentSong,
+                    "planner workflow retains the original source song");
+                Equal(false, Object.ReferenceEquals(exactSong, form.EffectiveSongForTesting),
+                    "Apply publishes one immutable routed view");
+                Equal(1, form.ActiveTrackRoutingSettingsForTesting.TargetCapacity,
+                    "accepted session settings remain available when the planner reopens");
+                menu = GetSystemMenu(form.Handle, false);
+                Equal(0x0008U, GetMenuState(menu,
+                    (uint)MainForm.TrackRoutingSystemCommandForTesting, 0) & 0x0008U,
+                    "system menu truthfully checks the active route");
+
+                FakeMidiOutput output = new FakeMidiOutput();
+                form.EngineForTesting.Start(form.EffectiveSongForTesting, output,
+                    ProcessingMode.Queue, 0, true);
+                typeof(MainForm).GetMethod("UpdateTransportControls", flags)
+                    .Invoke(form, null);
+                menu = GetSystemMenu(form.Handle, false);
+                Equal(0x0001U, GetMenuState(menu,
+                    (uint)MainForm.TrackRoutingSystemCommandForTesting, 0) & 0x0001U,
+                    "Track routing command is disabled while playback is Paused");
+                SendMessage(form.Handle, 0x0112,
+                    (IntPtr)MainForm.TrackRoutingSystemCommandForTesting, IntPtr.Zero);
+                Equal(1, dialogRuns,
+                    "an active transport cannot open or partially change the route");
+                form.EngineForTesting.Stop();
+                typeof(MainForm).GetMethod("UpdateTransportControls", flags)
+                    .Invoke(form, null);
+
+                form.TrackRoutingDialogRunnerForTesting = delegate(TrackRoutingForm routeDialog)
+                {
+                    dialogRuns++;
+                    routeDialog.Show(form); PumpFor(20);
+                    routeDialog.UseOriginalRoutingForTesting();
+                    return routeDialog.DialogResult;
+                };
+                SendMessage(form.Handle, 0x0112,
+                    (IntPtr)MainForm.TrackRoutingSystemCommandForTesting, IntPtr.Zero);
+                Equal(2, dialogRuns, "active route reopens as one complete workflow");
+                Equal(null, form.ActiveTrackRouteForTesting,
+                    "Use original routing clears the stopped session route");
+                Equal(exactSong, form.EffectiveSongForTesting,
+                    "Use original routing restores the original source view");
+
+                int menuCount = GetMenuItemCount(GetSystemMenu(form.Handle, false));
+                typeof(Control).GetMethod("RecreateHandle", flags).Invoke(form, null);
+                PumpFor(20);
+                Equal(menuCount, GetMenuItemCount(GetSystemMenu(form.Handle, false)),
+                    "handle recreation does not duplicate the Track routing command");
+                if (GetMenuState(GetSystemMenu(form.Handle, false),
+                    (uint)MainForm.TrackRoutingSystemCommandForTesting, 0) == UInt32.MaxValue)
+                    throw new Exception("Track routing command disappeared after handle recreation.");
+                form.Close();
+            }
+        }
+
+        private static void TestBuild44TrackRoutingLiveIntegration(MidiSong source,
+            CompiledTrackRoute exact, MidiSong routedSong, MidiSong familySong,
+            CompiledTrackRoute invalidFamily, CompiledTrackRoute family,
+            MidiSong aggressiveSong, CompiledTrackRoute aggressive)
+        {
+            TestBuild44RoutedChannelIdentity(routedSong);
+            Application.EnableVisualStyles();
+            BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(20);
+                typeof(MainForm).GetField("_song", flags).SetValue(form, source);
+                typeof(MainForm).GetField("_selectedPositionMicroseconds", flags)
+                    .SetValue(form, 1000L);
+                form.ApplyTrackRoute(exact, false);
+                MidiSong effective = form.EffectiveSongForTesting;
+                Equal(source, form.CurrentSong,
+                    "MainForm retains the immutable original source song");
+                Equal(false, Object.ReferenceEquals(source, effective),
+                    "MainForm publishes a distinct effective routed view");
+                Equal(exact, form.ActiveTrackRouteForTesting,
+                    "MainForm retains the selected compiled route");
+
+                form.ShowAnalysisForTesting(); PumpFor(30);
+                DiagnosticsForm[] analyses = form.AnalysisWindowsForTesting;
+                Equal(1, analyses.Length, "routing fixture opens one Analysis window");
+                Equal(effective, analyses[0].SourceSong,
+                    "Playback and Analysis select the exact same routed song instance");
+
+                form.ShowChannelMonitorForTesting(); PumpFor(30);
+                ChannelMonitorForm monitor = form.ChannelMonitorForTesting;
+                if (monitor.CellText(3, "Program").StartsWith("—", StringComparison.Ordinal))
+                    throw new Exception("routed destination state is missing from Channels source readout");
+                Equal(true, monitor.CellText(0, "Program").StartsWith("—", StringComparison.Ordinal),
+                    "Channels source readout does not retain the first source identity");
+                Equal(true, monitor.CellText(1, "Program").StartsWith("—", StringComparison.Ordinal),
+                    "Channels source readout does not retain the second source identity");
+
+                ComboBox outputs = FindMidiOutputCombo(CollectControlsForTest(form));
+                if (outputs == null) throw new Exception("routing fixture cannot find the MIDI output selector");
+                for (int index = 0; index < outputs.Items.Count; index++)
+                    if (MainForm.IsNoOutputSelection(outputs.Items[index]))
+                    {
+                        outputs.SelectedIndex = index;
+                        break;
+                    }
+                SourceDispatchTrace trace = new SourceDispatchTrace();
+                form.EngineForTesting.SetSourceDispatchTrace(trace);
+                typeof(MainForm).GetMethod("PlayClicked", flags)
+                    .Invoke(form, new object[] { form, EventArgs.Empty });
+                PumpUntil(delegate { return form.EngineForTesting.State == PlaybackState.Completed; },
+                    2000, "MainForm routed playback completion");
+                Equal(effective, typeof(MainForm).GetField("_engineSong", flags).GetValue(form),
+                    "public Play path attaches the effective routed view");
+                bool sawDestination = false;
+                bool leakedSource = false;
+                SourceDispatchTraceEntry[] entries = trace.Snapshot();
+                for (int index = 0; index < entries.Length; index++)
+                {
+                    SourceDispatchTraceEntry entry = entries[index];
+                    if (entry.Origin != "Source" || !entry.FinalSendDecision ||
+                        String.IsNullOrEmpty(entry.Payload)) continue;
+                    if (entry.Payload.StartsWith("93-", StringComparison.Ordinal) ||
+                        entry.Payload.StartsWith("83-", StringComparison.Ordinal) ||
+                        entry.Payload.StartsWith("C3-", StringComparison.Ordinal))
+                        sawDestination = true;
+                    if (entry.Payload.StartsWith("90-", StringComparison.Ordinal) ||
+                        entry.Payload.StartsWith("80-", StringComparison.Ordinal) ||
+                        entry.Payload.StartsWith("C0-", StringComparison.Ordinal) ||
+                        entry.Payload.StartsWith("91-", StringComparison.Ordinal) ||
+                        entry.Payload.StartsWith("81-", StringComparison.Ordinal) ||
+                        entry.Payload.StartsWith("C1-", StringComparison.Ordinal))
+                        leakedSource = true;
+                }
+                Equal(true, sawDestination, "public Play path dispatches routed destination payloads");
+                Equal(false, leakedSource, "public Play path leaks no original channel payload");
+
+                FakeMidiOutput replacementSource = new FakeMidiOutput();
+                form.EngineForTesting.Start(effective, replacementSource, ProcessingMode.Queue, 0, true);
+                typeof(MainForm).GetField("_activeOutput", flags).SetValue(form, replacementSource);
+                typeof(MainForm).GetField("_engineSong", flags).SetValue(form, effective);
+                typeof(MainForm).GetMethod("OutputSettingChanged", flags)
+                    .Invoke(form, new object[] { outputs, EventArgs.Empty });
+                Equal(PlaybackState.Paused, form.EngineForTesting.State,
+                    "output replacement preserves paused transport");
+                Equal(effective, typeof(MainForm).GetField("_engineSong", flags).GetValue(form),
+                    "output replacement keeps the routed effective view");
+                bool activeChangeRejected = false;
+                try { form.ApplyTrackRoute(null, false); }
+                catch (InvalidOperationException) { activeChangeRejected = true; }
+                Equal(true, activeChangeRejected,
+                    "route changes are rejected while playback is Playing or Paused");
+                Equal(exact, form.ActiveTrackRouteForTesting,
+                    "rejected active change leaves the route intact");
+                form.EngineForTesting.Stop();
+
+                form.ApplyTrackRoute(null, false);
+                Equal(source, form.EffectiveSongForTesting,
+                    "clearing a stopped route restores the original view");
+                Equal(source, analyses[0].SourceSong,
+                    "open Analysis reattaches to the restored original view");
+
+                form.ApplyTrackRoute(exact, false);
+                form.UnloadCurrentSong();
+                Equal(null, form.CurrentSong, "song replacement boundary clears source song");
+                Equal(null, form.EffectiveSongForTesting,
+                    "song replacement boundary cannot retain a stale routed view");
+                Equal(null, form.ActiveTrackRouteForTesting,
+                    "song replacement boundary clears the compiled route");
+                Equal(false, form.EngineHasAttachedSong,
+                    "song replacement boundary clears the routed engine attachment");
+                form.Close();
+            }
+
+            AssertMainFormLossyRouteContract(familySong, invalidFamily, family,
+                "GM-family route");
+            AssertMainFormLossyRouteContract(aggressiveSong, null, aggressive,
+                "aggressive route");
+        }
+
+        private static void AssertMainFormLossyRouteContract(MidiSong source,
+            CompiledTrackRoute invalid, CompiledTrackRoute route, string name)
+        {
+            BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            using (MainForm form = new MainForm())
+            {
+                typeof(MainForm).GetField("_song", flags).SetValue(form, source);
+                if (invalid != null)
+                {
+                    bool invalidRejected = false;
+                    try { form.ApplyTrackRoute(invalid, true); }
+                    catch (InvalidOperationException) { invalidRejected = true; }
+                    Equal(true, invalidRejected, name + " rejects unresolved partial plan");
+                    Equal(source, form.EffectiveSongForTesting,
+                        name + " invalid plan leaves the source selected");
+                }
+                bool confirmationRequired = false;
+                try { form.ApplyTrackRoute(route, false); }
+                catch (InvalidOperationException) { confirmationRequired = true; }
+                Equal(true, confirmationRequired, name + " requires explicit confirmation");
+                Equal(source, form.EffectiveSongForTesting,
+                    name + " unconfirmed plan changes no configuration");
+                form.ApplyTrackRoute(route, true);
+                Equal(route, form.ActiveTrackRouteForTesting,
+                    name + " confirmed plan becomes active");
+                Equal(false, Object.ReferenceEquals(source, form.EffectiveSongForTesting),
+                    name + " confirmed plan creates a derived routed view");
+                form.UnloadCurrentSong();
+            }
+        }
+
+        private static void TestBuild44RoutedChannelIdentity(MidiSong routedSong)
+        {
+            FakeMidiOutput filteredOutput = new FakeMidiOutput();
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.SetChannelMonitoring(true);
+                engine.SetChannelEnabled(3, false);
+                engine.Start(routedSong, filteredOutput, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000,
+                    "routed destination filtering completion");
+                ChannelPlaybackSnapshot channels = engine.GetChannelSnapshot();
+                if (channels.Channels[3].MutedFilteredEvents <= 0)
+                    throw new Exception("routed destination filtering recorded no destination drops");
+                Equal(0L, channels.Channels[0].MutedFilteredEvents,
+                    "routed filtering does not charge the first source channel");
+                Equal(0L, channels.Channels[1].MutedFilteredEvents,
+                    "routed filtering does not charge the second source channel");
+                Equal(0, filteredOutput.SentPayloads().Count,
+                    "disabled routed destination emits no source payload");
+            }
+
+            FakeMidiOutput overrideOutput = new FakeMidiOutput();
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.SetChannelMonitoring(true);
+                engine.Start(routedSong, overrideOutput, ProcessingMode.Queue, 0, true);
+                engine.SetChannelOverride(3, ChannelAttribute.Program, 5);
+                engine.Resume();
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000,
+                    "routed destination override completion");
+                Equal(true, ContainsMessage(overrideOutput.SentPayloads(), 0xC3, 5),
+                    "Forced Override emits on the routed destination channel");
+                Equal(false, ContainsMessage(overrideOutput.SentPayloads(), 0xC3, 40),
+                    "Forced Override suppresses routed source Program traffic");
+                ChannelPlaybackSnapshot channels = engine.GetChannelSnapshot();
+                Equal(1L, channels.Channels[3].OverrideSuppressedEvents,
+                    "override suppression statistics count only canonical routed Program state");
+                Equal(0L, channels.Channels[0].OverrideSuppressedEvents,
+                    "override statistics do not charge the first source channel");
+                Equal(0L, channels.Channels[1].OverrideSuppressedEvents,
+                    "override statistics do not charge the second source channel");
+            }
+        }
+
+        private static TrackRoutingSettings RoutingSettings(int capacity, TrackRoutingTier tier,
+            params int[] usableChannels)
+        {
+            TrackRoutingSettings settings = new TrackRoutingSettings();
+            for (int channel = 0; channel < 16; channel++)
+                settings.UsableDestinationChannels[channel] = false;
+            for (int index = 0; index < usableChannels.Length; index++)
+                settings.UsableDestinationChannels[usableChannels[index]] = true;
+            settings.TargetCapacity = capacity;
+            settings.MaximumAutomaticTier = tier;
+            return settings;
+        }
+
+        private static TrackRouteAssignment FindRouteAssignment(CompiledTrackRoute route,
+            int track, int channel)
+        {
+            TrackLaneKey lane = new TrackLaneKey(track, channel);
+            for (int index = 0; index < route.Assignments.Count; index++)
+                if (route.Assignments[index].Profile.Lane.Equals(lane)) return route.Assignments[index];
+            throw new Exception("Route assignment not found for " + lane);
+        }
+
+        private static void AssertRoutingMetadata(MidiSong song, string source)
+        {
+            Equal(2, song.TrackMetadata.Length, source + " metadata count");
+            Equal("Lead Name", song.TrackMetadata[0].TrackName,
+                source + " sanitizes whitespace/control characters");
+            Equal("ÿX", song.TrackMetadata[0].InstrumentName,
+                source + " uses deterministic single-byte fallback");
+            Equal(new string('A', MidiTrackMetadata.MaximumDisplayCharacters),
+                song.TrackMetadata[1].TrackName, source + " bounds long display name");
+            Equal(true, song.TrackMetadata[1].TrackNameTruncated,
+                source + " exposes name truncation");
+            Equal("Bass", song.TrackMetadata[1].InstrumentName,
+                source + " retains instrument name");
+        }
+
+        private static byte[] BuildTrackRoutingMetadataMidi()
+        {
+            List<byte> bytes = new List<byte>();
+            AddAscii(bytes, "MThd"); AddUInt32(bytes, 6); AddUInt16(bytes, 1);
+            AddUInt16(bytes, 2); AddUInt16(bytes, 480);
+            List<byte> first = new List<byte>();
+            byte[] utf8Name = System.Text.Encoding.UTF8.GetBytes("  Lead\tName  ");
+            Add(first, 0x00, 0xFF, 0x03); AddVariableLength(first, utf8Name.Length);
+            first.AddRange(utf8Name);
+            Add(first, 0x00, 0xFF, 0x04, 0x02, 0xFF, (byte)'X');
+            Add(first, 0x00, 0x90, 60, 100, 0x10, 0x80, 60, 0);
+            Add(first, 0x00, 0xFF, 0x2F, 0x00); AddTrack(bytes, first);
+            List<byte> second = new List<byte>();
+            Add(second, 0x00, 0xFF, 0x03); AddVariableLength(second, 600);
+            for (int index = 0; index < 600; index++) second.Add((byte)'A');
+            Add(second, 0x00, 0xFF, 0x04, 0x04, (byte)'B', (byte)'a', (byte)'s', (byte)'s');
+            Add(second, 0x00, 0x91, 61, 90, 0x10, 0x81, 61, 0);
+            Add(second, 0x00, 0xFF, 0x2F, 0x00); AddTrack(bytes, second);
+            return bytes.ToArray();
+        }
+
+        private static MidiSong BuildRoutingPlannerSong(bool familyDifference, bool aggressiveLane)
+        {
+            List<MidiEvent> events = new List<MidiEvent>();
+            events.Add(RoutingEvent(0, 0, 0xC0, 40));
+            events.Add(RoutingEvent(1, 0, 0xC1, (byte)(familyDifference ? 41 : 40)));
+            if (aggressiveLane) events.Add(RoutingEvent(2, 0, 0xC2, 1));
+            events.Add(RoutingEvent(0, 10, 0x90, 60, 100));
+            events.Add(RoutingEvent(1, 10, 0x91, 61, 127));
+            if (aggressiveLane) events.Add(RoutingEvent(2, 20, 0x92, 60, 90));
+            events.Add(RoutingEvent(1, 110, 0x81, 61, 0));
+            if (aggressiveLane) events.Add(RoutingEvent(2, 500, 0x82, 60, 0));
+            events.Add(RoutingEvent(0, 1010, 0x80, 60, 0));
+            for (int index = 0; index < events.Count; index++)
+            { events[index].Order = index; events[index].EventIndex = index; }
+            return new MidiSong
+            {
+                FilePath = "routing-planner.mid", Format = 1,
+                TrackCount = aggressiveLane ? 3 : 2, TicksPerQuarterNote = 480,
+                Events = events, DurationMicroseconds = 1010
+            };
+        }
+
+        private static MidiSong BuildRoutingPercussionSong()
+        {
+            List<MidiEvent> events = new List<MidiEvent>
+            {
+                RoutingEvent(0, 0, 0xC0, 10), RoutingEvent(1, 0, 0xC9, 0),
+                RoutingEvent(0, 10, 0x90, 60, 100), RoutingEvent(1, 10, 0x99, 36, 100),
+                RoutingEvent(0, 100, 0x80, 60, 0), RoutingEvent(1, 100, 0x89, 36, 0)
+            };
+            for (int index = 0; index < events.Count; index++)
+            { events[index].Order = index; events[index].EventIndex = index; }
+            return new MidiSong { FilePath = "routing-percussion.mid", Format = 1,
+                TrackCount = 2, TicksPerQuarterNote = 480, Events = events,
+                DurationMicroseconds = 100 };
+        }
+
+        private static MidiSong BuildAggressiveGlobalSelectionSong()
+        {
+            List<MidiEvent> events = new List<MidiEvent>
+            {
+                RoutingEvent(0, 0, 0xC0, 16),
+                RoutingEvent(1, 0, 0xC1, 16),
+                RoutingEvent(2, 0, 0xC2, 75),
+                RoutingEvent(3, 0, 0xC3, 57),
+                RoutingEvent(4, 0, 0xC4, 33),
+                RoutingEvent(0, 10, 0x90, 60, 127),
+                RoutingEvent(1, 20, 0x91, 60, 120),
+                RoutingEvent(2, 30, 0x92, 72, 112),
+                RoutingEvent(3, 40, 0x93, 65, 108),
+                RoutingEvent(4, 50, 0x94, 40, 80),
+                RoutingEvent(4, 250, 0x84, 40, 0),
+                RoutingEvent(3, 740, 0x83, 65, 0),
+                RoutingEvent(2, 830, 0x82, 72, 0),
+                RoutingEvent(1, 920, 0x81, 60, 0),
+                RoutingEvent(0, 1010, 0x80, 60, 0)
+            };
+            return RoutingSong("routing-global-aggressive.mid", 5, 1010, events);
+        }
+
+        private static MidiSong BuildAggressiveOmissionSong()
+        {
+            List<MidiEvent> events = new List<MidiEvent>
+            {
+                RoutingEvent(0, 0, 0xC0, 10),
+                RoutingEvent(1, 0, 0xC1, 20),
+                RoutingEvent(0, 1, 0xB0, 7, 100),
+                RoutingEvent(1, 1, 0xB1, 7, 20),
+                RoutingEvent(0, 10, 0x90, 60, 127),
+                RoutingEvent(1, 20, 0x91, 60, 1),
+                RoutingEvent(1, 30, 0x81, 60, 0),
+                RoutingEvent(0, 1010, 0x80, 60, 0)
+            };
+            return RoutingSong("routing-aggressive-omission.mid", 2, 1010, events);
+        }
+
+        private static MidiSong RoutingSong(string path, int trackCount, long duration,
+            List<MidiEvent> events)
+        {
+            for (int index = 0; index < events.Count; index++)
+            { events[index].Order = index; events[index].EventIndex = index; }
+            return new MidiSong { FilePath = path, Format = 1, TrackCount = trackCount,
+                TicksPerQuarterNote = 480, Events = events, DurationMicroseconds = duration };
+        }
+
+        private static MidiEvent RoutingEvent(int track, long time, params byte[] data)
+        {
+            MidiEvent result = ChannelMessage(time, data);
+            result.Track = track;
+            result.AbsoluteTick = time;
+            return result;
+        }
+
+        private static void TestBuild44PreservePauseSeek()
+        {
+            Application.EnableVisualStyles();
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(30);
+                Equal(false, form.PreservePlaybackQueueOnPauseSeekForTesting,
+                    "preserving Pause/Seek defaults off");
+                IntPtr menu = GetSystemMenu(form.Handle, false);
+                int menuCount = GetMenuItemCount(menu);
+                int chasePosition = -1;
+                int preservePosition = -1;
+                int outputPacedPosition = -1;
+                for (int position = 0; position < menuCount; position++)
+                {
+                    uint item = GetMenuItemID(menu, position);
+                    if (item == (uint)MainForm.ChaseMidiStateSystemCommandForTesting)
+                        chasePosition = position;
+                    if (item == (uint)MainForm.PreservePauseSeekSystemCommandForTesting)
+                        preservePosition = position;
+                    if (item == (uint)MainForm.OutputPacedTimelineSystemCommandForTesting)
+                        outputPacedPosition = position;
+                }
+                if (chasePosition <= 0 || preservePosition != chasePosition + 1 ||
+                    outputPacedPosition != preservePosition + 1 ||
+                    outputPacedPosition + 1 >= menuCount)
+                    throw new Exception("state-chase, preserving-Seek, and Output-paced commands are not one ordered section");
+                Equal(0x0800U, GetMenuState(menu, (uint)(chasePosition - 1), 0x0400) & 0x0800U,
+                    "native separator precedes the state-chase/preserving section");
+                Equal(0x0800U, GetMenuState(menu, (uint)(outputPacedPosition + 1), 0x0400) & 0x0800U,
+                    "native separator follows the structural playback section");
+                Equal(0U, GetMenuState(menu,
+                    (uint)MainForm.PreservePauseSeekSystemCommandForTesting, 0) & 0x0008U,
+                    "preserving Pause/Seek menu starts unchecked");
+                SendMessage(form.Handle, 0x0112,
+                    (IntPtr)MainForm.PreservePauseSeekSystemCommandForTesting, IntPtr.Zero);
+                Application.DoEvents();
+                Equal(true, form.PreservePlaybackQueueOnPauseSeekForTesting,
+                    "system-menu command enables the session-only option");
+                BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                PlaybackEngine formEngine = (PlaybackEngine)typeof(MainForm)
+                    .GetField("_engine", flags).GetValue(form);
+                Equal(true, formEngine.PreservePlaybackQueueOnPauseSeek,
+                    "system-menu state reaches the playback engine");
+                typeof(Control).GetMethod("RecreateHandle", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .Invoke(form, null);
+                Application.DoEvents();
+                menu = GetSystemMenu(form.Handle, false);
+                Equal(menuCount, GetMenuItemCount(menu),
+                    "handle recreation does not duplicate the preserving command");
+                Equal(0x0008U, GetMenuState(menu,
+                    (uint)MainForm.PreservePauseSeekSystemCommandForTesting, 0) & 0x0008U,
+                    "handle recreation retains preserving command state");
+                form.Close();
+            }
+
+            MidiSong pauseSong = NewChannelSong("preserve-pause.mid", 200000,
+                ChannelMessage(0, 0x90, 60, 100),
+                ChannelMessage(100000, 0x90, 61, 100),
+                ChannelMessage(200000, 0x80, 60, 0));
+            PreservingProbeOutput pauseOutput = new PreservingProbeOutput(true, -1);
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.PreservePlaybackQueueOnPauseSeek = true;
+                engine.WorkerStopTimeoutMilliseconds = 1000;
+                engine.SimulateSlowdown = false;
+                engine.Start(pauseSong, pauseOutput, ProcessingMode.Queue);
+                Equal(true, pauseOutput.Entered.WaitOne(1000), "preserving Pause reaches blocked native send");
+                Exception pauseFailure = null;
+                Thread pauseThread = new Thread(delegate()
+                {
+                    try { engine.Pause(); }
+                    catch (Exception ex) { pauseFailure = ex; }
+                });
+                pauseThread.Start();
+                Thread.Sleep(35);
+                Equal(true, pauseThread.IsAlive, "preserving Pause waits for the in-service event");
+                Equal(0, pauseOutput.ResetCount, "preserving Pause does not reset output while blocked");
+                Equal(0, pauseOutput.PanicCount, "preserving Pause does not panic output while blocked");
+                pauseOutput.Release.Set();
+                Equal(true, pauseThread.Join(1500), "preserving Pause acknowledges the parked worker");
+                if (pauseFailure != null) throw new Exception("preserving Pause failed", pauseFailure);
+                Equal(PlaybackState.Paused, engine.State, "preserving Pause leaves playback paused");
+                Equal(true, engine.HasLiveWorker, "preserving Pause parks the same live worker");
+                long processed = engine.GetSnapshot().ProcessedEvents;
+                int payloads = pauseOutput.Payloads().Count;
+                Thread.Sleep(50);
+                Equal(processed, engine.GetSnapshot().ProcessedEvents,
+                    "paused preserved worker performs no queue service");
+                Equal(payloads, pauseOutput.Payloads().Count,
+                    "paused preserved worker emits no MIDI");
+                Equal(0, pauseOutput.ResetCount, "preserving Pause retains output state");
+                Equal(0, pauseOutput.PanicCount, "preserving Pause retains sounding notes");
+                engine.Resume();
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1500,
+                    "preserved worker completion after Resume");
+                Equal(3, pauseOutput.SourcePayloadCount,
+                    "Resume continues all source output on the parked worker");
+                Equal(3L, engine.GetSnapshot().ProcessedEvents,
+                    "Pause/Resume preserves source statistics");
+            }
+
+            MidiSong orderedSong = NewChannelSong("preserve-seek-order.mid", 800000,
+                ChannelMessage(0, 0x90, 40, 100),
+                ChannelMessage(0, 0x90, 41, 100),
+                ChannelMessage(0, 0x90, 42, 100),
+                ChannelMessage(400000, 0xC0, 7),
+                ChannelMessage(500000, 0x90, 70, 100),
+                ChannelMessage(800000, 0x90, 71, 100));
+            PreservingProbeOutput orderedOutput = new PreservingProbeOutput(false, -1);
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.PreservePlaybackQueueOnPauseSeek = true;
+                engine.ChaseMidiStateOnPlaySeek = true;
+                engine.SimulateSlowdown = true;
+                engine.ProcessingMicroseconds = 35000;
+                engine.Start(orderedSong, orderedOutput, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.GetSnapshot().OutstandingEvents >= 3; }, 1000,
+                    "old source events admitted before preserving Seek");
+                engine.Seek(500000);
+                PlaybackSnapshot separated = engine.GetSnapshot();
+                Equal(500000L, separated.IntendedTimelineMicroseconds,
+                    "preserving Seek moves intended timeline immediately");
+                if (separated.LastDispatchedTimelineMicroseconds >= 500000)
+                    throw new Exception("output timeline jumped ahead of the retained queue");
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2500,
+                    "large retained queue and target complete");
+                Equal(0, orderedOutput.ResetCount, "preserving Seek performs no Reset");
+                Equal(0, orderedOutput.PanicCount, "preserving Seek performs no Panic");
+                AssertPreservedSeekOrder(orderedOutput.Payloads(), new int[] { 40, 41, 42 }, 7, 70,
+                    "large retained queue");
+                Equal(5L, engine.GetSnapshot().ProcessedEvents,
+                    "statistics retain three old source events plus both post-target source events without counting the protected boundary or chase");
+            }
+
+            PreservingProbeOutput repeatedOutput = new PreservingProbeOutput(false, -1);
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.PreservePlaybackQueueOnPauseSeek = true;
+                engine.ChaseMidiStateOnPlaySeek = false;
+                engine.SimulateSlowdown = true;
+                engine.ProcessingMicroseconds = 30000;
+                engine.Start(orderedSong, repeatedOutput, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.GetSnapshot().OutstandingEvents >= 3; }, 1000,
+                    "repeated-Seek retained work admitted");
+                engine.Seek(500000);
+                engine.Seek(800000);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2500,
+                    "repeated preserving Seeks complete");
+                List<byte[]> repeated = repeatedOutput.Payloads();
+                Equal(32, CountAllNotesOff(repeated), "each preserving Seek retains one protected marker");
+                Equal(true, ContainsMessage(repeated, 0x90, 70, 100),
+                    "later Seek retains earlier-target output admitted before that generation closes");
+                Equal(true, ContainsMessage(repeated, 0x90, 71, 100),
+                    "later Seek target is generated after both retained markers");
+                int firstMarker = IndexOfAllNotesOffAfter(repeated, -1);
+                int earlierTarget = IndexOfPayloadAfter(repeated, firstMarker, 0x90, 70, 100);
+                int secondMarker = IndexOfAllNotesOffAfter(repeated, earlierTarget);
+                if (firstMarker < 0 || earlierTarget <= firstMarker || secondMarker <= earlierTarget)
+                    throw new Exception("earlier target generation did not remain between its two ordered markers");
+                int lastMarker = LastAllNotesOffIndex(repeated);
+                if (IndexOfPayload(repeated, 0x90, 71, 100) <= lastMarker)
+                    throw new Exception("later target output bypassed a retained Seek marker");
+            }
+
+            foreach (ProcessingMode gateMode in new ProcessingMode[] {
+                ProcessingMode.PerNoteIntervalGate, ProcessingMode.DelayedNoteOff })
+            foreach (bool adaptive in new bool[] { false, true })
+            {
+                PreservingProbeOutput gateOutput = new PreservingProbeOutput(false, -1);
+                using (PlaybackEngine engine = new PlaybackEngine())
+                {
+                    engine.PreservePlaybackQueueOnPauseSeek = true;
+                    engine.ChaseMidiStateOnPlaySeek = false;
+                    engine.ScaleNoteIntervalByTraffic = adaptive;
+                    engine.ProcessingMicroseconds = 10000;
+                    engine.Start(orderedSong, gateOutput, gateMode, 0, true);
+                    engine.Seek(500000);
+                    engine.Seek(800000);
+                    engine.Resume();
+                    WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2500,
+                        gateMode + " adaptive=" + adaptive + " repeated preserving Seeks");
+                    List<byte[]> payloads = gateOutput.Payloads();
+                    Equal(32, CountAllNotesOff(payloads), gateMode + " adaptive=" + adaptive +
+                        " retains both protected markers");
+                    int markerOne = IndexOfAllNotesOffAfter(payloads, -1);
+                    int targetOne = IndexOfPayloadAfter(payloads, markerOne, 0x90, 70, 100);
+                    int markerTwo = IndexOfAllNotesOffAfter(payloads, targetOne);
+                    int targetTwo = IndexOfPayloadAfter(payloads, markerTwo, 0x90, 71, 100);
+                    if (markerOne < 0 || targetOne <= markerOne ||
+                        markerTwo <= targetOne || targetTwo <= markerTwo)
+                        throw new Exception(gateMode + " adaptive=" + adaptive +
+                            " did not retain marker/target/marker/target generation order");
+                }
+            }
+
+            foreach (OverflowPolicy policy in new OverflowPolicy[] { OverflowPolicy.DropNewest,
+                OverflowPolicy.DropOldest, OverflowPolicy.ClearBufferAndCatchUp,
+                OverflowPolicy.DropIncomingCompleteNotes, OverflowPolicy.DropOldestCompleteNote,
+                OverflowPolicy.DropBackgroundNotes })
+            {
+                PreservingProbeOutput finiteOutput = new PreservingProbeOutput(false, -1);
+                using (PlaybackEngine engine = new PlaybackEngine())
+                {
+                    engine.PreservePlaybackQueueOnPauseSeek = true;
+                    engine.ChaseMidiStateOnPlaySeek = false;
+                    engine.SimulateSlowdown = true;
+                    engine.ProcessingMicroseconds = 25000;
+                    engine.QueueLengthLimit = 3;
+                    engine.OverflowPolicy = policy;
+                    engine.Start(orderedSong, finiteOutput, ProcessingMode.Drop);
+                    WaitFor(delegate { return engine.GetSnapshot().OutstandingEvents >= 3; }, 1000,
+                        policy + " retained finite backlog");
+                    long drops = engine.GetSnapshot().DroppedEvents;
+                    engine.Seek(800000);
+                    WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2500,
+                        policy + " preserving Seek completion");
+                    if (engine.GetSnapshot().DroppedEvents < drops)
+                        throw new Exception(policy + " cumulative drop count moved backward");
+                    List<byte[]> finitePayloads = finiteOutput.Payloads();
+                    Equal(true, ContainsMessage(finitePayloads, 0x90, 40, 100),
+                        policy + " preserves first pre-marker admitted event");
+                    Equal(true, ContainsMessage(finitePayloads, 0x90, 41, 100),
+                        policy + " preserves second pre-marker admitted event");
+                    Equal(true, ContainsMessage(finitePayloads, 0x90, 42, 100),
+                        policy + " preserves third pre-marker admitted event");
+                    Equal(16, CountAllNotesOff(finitePayloads),
+                        policy + " cannot discard the protected marker");
+                }
+            }
+
+            foreach (ProcessingMode mode in new ProcessingMode[] { ProcessingMode.Queue, ProcessingMode.Drop,
+                ProcessingMode.PerNoteIntervalGate, ProcessingMode.DelayedNoteOff,
+                ProcessingMode.NoteAttackLimit })
+                AssertPreservingSeekStructuralMode(mode, false);
+            AssertPreservingSeekStructuralMode(ProcessingMode.Drop, true);
+
+            PreservingProbeOutput stopOutput = new PreservingProbeOutput(true, -1);
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.PreservePlaybackQueueOnPauseSeek = true;
+                engine.Start(pauseSong, stopOutput, ProcessingMode.Queue);
+                Equal(true, stopOutput.Entered.WaitOne(1000), "hard Stop fixture blocks in service");
+                engine.Seek(100000);
+                Exception stopFailure = null;
+                Thread stopThread = new Thread(delegate()
+                {
+                    try { engine.Stop(); }
+                    catch (Exception ex) { stopFailure = ex; }
+                });
+                stopThread.Start(); Thread.Sleep(30);
+                stopOutput.Release.Set();
+                Equal(true, stopThread.Join(1500), "hard Stop completes after blocked send");
+                if (stopFailure != null) throw new Exception("hard Stop after preserving Seek failed", stopFailure);
+                Equal(PlaybackState.Stopped, engine.State, "Stop remains a hard boundary");
+                if (stopOutput.ResetCount == 0 || stopOutput.PanicCount == 0)
+                    throw new Exception("Stop failed to retain Reset/Panic cleanup");
+            }
+
+            PreservingProbeOutput failureOutput = new PreservingProbeOutput(false, 2);
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.PreservePlaybackQueueOnPauseSeek = true;
+                engine.ChaseMidiStateOnPlaySeek = false;
+                engine.Start(orderedSong, failureOutput, ProcessingMode.Queue, 0, true);
+                engine.Seek(800000);
+                engine.Resume();
+                WaitFor(delegate { return engine.State == PlaybackState.Stopped; }, 1500,
+                    "provider failure at protected marker becomes a hard boundary");
+                Equal(false, engine.HasLiveWorker, "failed worker identity is retired");
+                if (failureOutput.PanicCount == 0)
+                    throw new Exception("provider failure did not invoke existing Panic cleanup");
+                engine.Start(pauseSong, new FakeMidiOutput(), ProcessingMode.Queue, 0, true);
+                Equal(0L, engine.GetSnapshot().IntendedTimelineMicroseconds,
+                    "provider failure clears stale intended-time override");
+                engine.Stop();
+            }
+
+            VerifyOrderedPreservingSeekWaitingTimePolicies();
+            VerifyOrderedPreservingSeekServiceClocks();
+            VerifyOrderedPreservingSeekBlockedBacklog();
+            VerifyOrderedPreservingSeekLiveChannelControls();
+            VerifyOrderedPreservingSeekStatisticsAndLifecycle();
+        }
+
+        private static void VerifyOrderedPreservingSeekWaitingTimePolicies()
+        {
+            MidiSong song = NewChannelSong("preserve-waiting-time.mid", 250000,
+                ChannelMessage(0, 0x90, 40, 100),
+                ChannelMessage(1000, 0x80, 40, 0),
+                ChannelMessage(10000, 0x90, 41, 100),
+                ChannelMessage(11000, 0x80, 41, 0),
+                ChannelMessage(250000, 0x90, 70, 100));
+            foreach (OverflowPolicy policy in new OverflowPolicy[] {
+                OverflowPolicy.DropOldest, OverflowPolicy.DropOldestCompleteNote,
+                OverflowPolicy.ClearBufferAndCatchUp })
+            {
+                PreservingProbeOutput output = new PreservingProbeOutput(false, -1);
+                using (PlaybackEngine engine = new PlaybackEngine())
+                {
+                    engine.PreservePlaybackQueueOnPauseSeek = true;
+                    engine.ChaseMidiStateOnPlaySeek = false;
+                    engine.SimulateSlowdown = true;
+                    engine.ProcessingMicroseconds = 80000;
+                    engine.QueueAgeLimitEnabled = true;
+                    engine.QueueAgeLimitMicroseconds = 15000;
+                    engine.OverflowPolicy = policy;
+                    engine.Start(song, output, ProcessingMode.Drop);
+                    WaitFor(delegate { return engine.GetSnapshot().OutstandingEvents >= 2; }, 1000,
+                        policy + " waiting-time backlog");
+                    WaitFor(delegate { return engine.GetSnapshot().DroppedEvents > 0; }, 1500,
+                        policy + " waiting-time repair decision");
+                    engine.QueueAgeLimitMicroseconds = 1000000;
+                    engine.Seek(250000);
+                    WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2500,
+                        policy + " waiting-time preserving completion");
+                    PlaybackSnapshot snapshot = engine.GetSnapshot();
+                    if (snapshot.DroppedEvents <= 0)
+                        throw new Exception(policy + " waiting-time repair reported no dropped work");
+                    List<byte[]> payloads = output.Payloads();
+                    Equal(16, CountAllNotesOff(payloads),
+                        policy + " waiting-time marker remains protected");
+                    if (IndexOfPayload(payloads, 0x90, 70, 100) <= LastAllNotesOffIndex(payloads))
+                        throw new Exception(policy + " waiting-time target bypassed its marker");
+                    Equal(0L, snapshot.OutstandingEvents,
+                        policy + " waiting-time pressure drains at completion");
+                }
+            }
+        }
+
+        private static void VerifyOrderedPreservingSeekServiceClocks()
+        {
+            MidiSong song = NewChannelSong("preserve-service-clocks.mid", 100000,
+                ChannelMessage(0, 0x90, 40, 100),
+                ChannelMessage(0, 0x90, 41, 100),
+                ChannelMessage(0, 0x90, 42, 100),
+                ChannelMessage(100000, 0x90, 70, 100));
+            ServiceDurationMode[] modes = new ServiceDurationMode[] {
+                ServiceDurationMode.ProcessingTime, ServiceDurationMode.MidiBitrate,
+                ServiceDurationMode.EventsPerSecond };
+            foreach (ProcessingMode processingMode in new ProcessingMode[] {
+                ProcessingMode.Queue, ProcessingMode.Drop })
+            for (int pass = -1; pass < modes.Length; pass++)
+            {
+                string label = processingMode + "/" +
+                    (pass < 0 ? "Rate None" : modes[pass].ToString());
+                PreservingProbeOutput output = new PreservingProbeOutput(false, -1);
+                using (PlaybackEngine engine = new PlaybackEngine())
+                {
+                    engine.PreservePlaybackQueueOnPauseSeek = true;
+                    engine.ChaseMidiStateOnPlaySeek = false;
+                    engine.QueueLengthLimit = 64;
+                    engine.OverflowPolicy = OverflowPolicy.DropNewest;
+                    engine.SimulateSlowdown = pass >= 0;
+                    if (pass >= 0)
+                    {
+                        engine.ServiceDurationMode = modes[pass];
+                        engine.ProcessingMicroseconds = 5000;
+                        engine.MidiBitrate = ServiceDurationCalculator.FivePinDinBitrate;
+                        engine.EventsPerSecond = 200;
+                    }
+                    engine.Start(song, output, processingMode, 0, true);
+                    engine.Seek(100000);
+                    engine.Resume();
+                    WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1800,
+                        label + " preserving completion");
+                    List<byte[]> payloads = output.Payloads();
+                    int cursor = -1;
+                    foreach (int note in new int[] { 40, 41, 42 })
+                    {
+                        cursor = IndexOfPayloadAfter(payloads, cursor, 0x90, (byte)note, 100);
+                        if (cursor < 0) throw new Exception(label + " lost retained note " + note);
+                    }
+                    int marker = IndexOfAllNotesOffAfter(payloads, cursor);
+                    int target = IndexOfPayloadAfter(payloads, marker, 0x90, 70, 100);
+                    if (marker < 0 || target <= marker)
+                        throw new Exception(label + " did not preserve retained/marker/target order");
+                    Equal(16, CountAllNotesOff(payloads), label + " marker count");
+                    long processed = engine.GetSnapshot().ProcessedEvents;
+                    if (processed != 4)
+                    {
+                        List<string> wire = payloads.ConvertAll(delegate(byte[] payload)
+                        {
+                            return BitConverter.ToString(payload);
+                        });
+                        throw new Exception(label + " preserves worker-wide processed count: expected 4, got " +
+                            processed + "; wire=" + String.Join(",", wire.ToArray()));
+                    }
+                }
+            }
+        }
+
+        private static void VerifyOrderedPreservingSeekBlockedBacklog()
+        {
+            MidiSong finiteSong = NewChannelSong("preserve-blocked-finite.mid", 200000,
+                ChannelMessage(0, 0x90, 40, 100),
+                ChannelMessage(5000, 0x90, 41, 100),
+                ChannelMessage(10000, 0x90, 42, 100),
+                ChannelMessage(200000, 0x90, 70, 100));
+            PreservingProbeOutput finiteOutput = new PreservingProbeOutput(true, -1);
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.PreservePlaybackQueueOnPauseSeek = true;
+                engine.ChaseMidiStateOnPlaySeek = false;
+                engine.SimulateSlowdown = false;
+                engine.QueueLengthLimit = 32;
+                engine.OverflowPolicy = OverflowPolicy.DropNewest;
+                engine.Start(finiteSong, finiteOutput, ProcessingMode.Drop);
+                Equal(true, finiteOutput.Entered.WaitOne(1000),
+                    "finite provider block reached the first source event");
+                Thread.Sleep(80);
+                engine.Seek(200000);
+                finiteOutput.Release.Set();
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000,
+                    "finite externally overdue preserving completion");
+                List<byte[]> payloads = finiteOutput.Payloads();
+                int cursor = -1;
+                foreach (int note in new int[] { 40, 41, 42 })
+                {
+                    cursor = IndexOfPayloadAfter(payloads, cursor, 0x90, (byte)note, 100);
+                    if (cursor < 0) throw new Exception("finite external delay lost note " + note);
+                }
+                int marker = IndexOfAllNotesOffAfter(payloads, cursor);
+                int target = IndexOfPayloadAfter(payloads, marker, 0x90, 70, 100);
+                if (marker < 0 || target <= marker)
+                    throw new Exception("finite external delay did not preserve marker/target order");
+                Equal(16, CountAllNotesOff(payloads), "finite externally overdue marker count");
+                Equal(0L, engine.GetSnapshot().DroppedEvents,
+                    "finite provider blocking does not manufacture overflow");
+            }
+
+            MidiSong gateSong = NewChannelSong("preserve-blocked-gate.mid", 220000,
+                ChannelMessage(0, 0x90, 40, 100),
+                ChannelMessage(20000, 0x80, 40, 0),
+                ChannelMessage(40000, 0x90, 41, 100),
+                ChannelMessage(60000, 0x80, 41, 0),
+                ChannelMessage(200000, 0x90, 70, 100),
+                ChannelMessage(220000, 0x80, 70, 0));
+            foreach (ProcessingMode mode in new ProcessingMode[] {
+                ProcessingMode.PerNoteIntervalGate, ProcessingMode.DelayedNoteOff })
+            foreach (bool adaptive in new bool[] { false, true })
+            foreach (bool polyphony in new bool[] { false, true })
+            {
+                string label = mode + " adaptive=" + adaptive + " polyphony=" + polyphony;
+                PreservingProbeOutput output = new PreservingProbeOutput(true, -1);
+                using (PlaybackEngine engine = new PlaybackEngine())
+                {
+                    engine.PreservePlaybackQueueOnPauseSeek = true;
+                    engine.ChaseMidiStateOnPlaySeek = false;
+                    engine.ProcessingMicroseconds = 10000;
+                    engine.ScaleNoteIntervalByTraffic = adaptive;
+                    engine.IntervalPolyphonyLimitEnabled = polyphony;
+                    engine.IntervalPolyphonyLimit = 2;
+                    engine.Start(gateSong, output, mode);
+                    Equal(true, output.Entered.WaitOne(1000), label + " provider block");
+                    Thread.Sleep(90);
+                    engine.Seek(200000);
+                    output.Release.Set();
+                    WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2200,
+                        label + " externally overdue preserving completion");
+                    List<byte[]> payloads = output.Payloads();
+                    Equal(16, CountAllNotesOff(payloads), label + " marker count");
+                    if (IndexOfPayload(payloads, 0x90, 70, 100) <= LastAllNotesOffIndex(payloads))
+                        throw new Exception(label + " target bypassed its marker");
+                    Equal(0, output.PanicCount, label + " provider delay is not a hard boundary");
+                }
+            }
+        }
+
+        private static void VerifyOrderedPreservingSeekLiveChannelControls()
+        {
+            MidiSong routingSong = NewChannelSong("preserve-live-routing.mid", 500000,
+                ChannelMessage(0, 0x90, 60, 100),
+                ChannelMessage(0, 0x91, 61, 100),
+                ChannelMessage(20000, 0x91, 62, 100),
+                ChannelMessage(500000, 0x90, 70, 100));
+            PreservingProbeOutput routingOutput = new PreservingProbeOutput(true, -1);
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.PreservePlaybackQueueOnPauseSeek = true;
+                engine.ChaseMidiStateOnPlaySeek = false;
+                engine.SetChannelMonitoring(true);
+                engine.Start(routingSong, routingOutput, ProcessingMode.Queue);
+                Equal(true, routingOutput.Entered.WaitOne(1000), "live routing provider block");
+                engine.SetChannelEnabled(1, false);
+                routingOutput.Release.Set();
+                WaitFor(delegate { return !engine.IsChannelEnabled(1); }, 1000,
+                    "live channel disable acknowledgement");
+                Thread.Sleep(45);
+                engine.Seek(500000);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1800,
+                    "live-routing preserving completion");
+                List<byte[]> payloads = routingOutput.Payloads();
+                int admitted = IndexOfPayload(payloads, 0x91, 61, 100);
+                int disable = IndexOfPayload(payloads, 0xB1, 120, 0);
+                if (admitted < 0 || disable <= admitted)
+                    throw new Exception("live channel disable bypassed already admitted ordered work");
+                Equal(false, ContainsMessage(payloads, 0x91, 62, 100),
+                    "live channel disable filters only later admission");
+                Equal(1L, engine.GetChannelSnapshot().Channels[1].MutedFilteredEvents,
+                    "live channel filtering is counted once");
+                if (IndexOfPayload(payloads, 0x90, 70, 100) <= LastAllNotesOffIndex(payloads))
+                    throw new Exception("live-routing target bypassed its marker");
+            }
+
+            MidiSong overrideSong = NewChannelSong("preserve-live-override.mid", 500000,
+                ChannelMessage(0, 0x90, 60, 100),
+                ChannelMessage(20000, 0xC0, 0),
+                ChannelMessage(30000, 0x90, 61, 100),
+                ChannelMessage(500000, 0x90, 70, 100));
+            PreservingProbeOutput overrideOutput = new PreservingProbeOutput(true, -1);
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.PreservePlaybackQueueOnPauseSeek = true;
+                engine.ChaseMidiStateOnPlaySeek = false;
+                engine.SetChannelMonitoring(true);
+                engine.Start(overrideSong, overrideOutput, ProcessingMode.Queue);
+                Equal(true, overrideOutput.Entered.WaitOne(1000), "live override provider block");
+                engine.SetChannelOverride(0, ChannelAttribute.Program, 5);
+                overrideOutput.Release.Set();
+                WaitFor(delegate { return ContainsMessage(overrideOutput.Payloads(), 0xC0, 5); }, 1200,
+                    "live forced Program output");
+                WaitFor(delegate {
+                    ChannelPlaybackSnapshot snapshot = engine.GetChannelSnapshot();
+                    return snapshot != null && snapshot.Channels[0].OverrideSuppressedEvents >= 1;
+                }, 1200, "live forced Program suppression");
+                engine.Seek(500000);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1800,
+                    "live-override preserving completion");
+                List<byte[]> payloads = overrideOutput.Payloads();
+                Equal(false, ContainsMessage(payloads, 0xC0, 0),
+                    "live forced Program suppresses the later conflicting source value");
+                Equal(1L, engine.GetChannelSnapshot().Channels[0].OverrideSuppressedEvents,
+                    "live forced Program source conflict is counted once");
+            }
+
+            MidiSong explicitSong = NewChannelSong("preserve-explicit-control.mid", 100000,
+                ChannelMessage(0, 0x90, 60, 100),
+                ChannelMessage(0, 0x90, 61, 100),
+                ChannelMessage(100000, 0x90, 70, 100));
+            PreservingProbeOutput explicitOutput = new PreservingProbeOutput(true, -1);
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.PreservePlaybackQueueOnPauseSeek = true;
+                engine.ChaseMidiStateOnPlaySeek = false;
+                engine.Start(explicitSong, explicitOutput, ProcessingMode.Queue);
+                Equal(true, explicitOutput.Entered.WaitOne(1000), "explicit-control provider block");
+                ManualResetEvent acknowledged = new ManualResetEvent(false);
+                Exception controlFailure = null;
+                engine.SendExplicitChannelAttribute(0, ChannelAttribute.Program, 9,
+                    delegate(Exception ex) { controlFailure = ex; acknowledged.Set(); });
+                explicitOutput.Release.Set();
+                Equal(true, acknowledged.WaitOne(1200), "explicit-control acknowledgement");
+                if (controlFailure != null) throw new Exception("explicit-control failure", controlFailure);
+                List<byte[]> beforeSeek = explicitOutput.Payloads();
+                int retained = IndexOfPayload(beforeSeek, 0x90, 61, 100);
+                int control = IndexOfPayload(beforeSeek, 0xC0, 9);
+                if (retained < 0 || control <= retained)
+                    throw new Exception("explicit channel message bypassed already admitted ordered work");
+                engine.Seek(100000);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1800,
+                    "explicit-control preserving completion");
+                if (IndexOfPayload(explicitOutput.Payloads(), 0x90, 70, 100) <=
+                    LastAllNotesOffIndex(explicitOutput.Payloads()))
+                    throw new Exception("explicit-control target bypassed its marker");
+                acknowledged.Dispose();
+            }
+
+            foreach (ProcessingMode mode in new ProcessingMode[] { ProcessingMode.Queue,
+                ProcessingMode.Drop, ProcessingMode.PerNoteIntervalGate,
+                ProcessingMode.DelayedNoteOff, ProcessingMode.NoteAttackLimit })
+            {
+                VerifyOrderedLiveFilterMode(mode, false);
+                VerifyOrderedLiveOverrideMode(mode, false);
+            }
+            VerifyOrderedLiveFilterMode(ProcessingMode.Drop, true);
+            VerifyOrderedLiveOverrideMode(ProcessingMode.Drop, true);
+        }
+
+        private static void VerifyOrderedLiveFilterMode(ProcessingMode mode,
+            bool virtualForward)
+        {
+            string label = mode + (virtualForward ? " virtual" : String.Empty);
+            MidiSong song = NewChannelSong("preserve-live-filter-matrix.mid", 400000,
+                ChannelMessage(0, 0x90, 60, 100),
+                ChannelMessage(20000, 0x80, 60, 0),
+                ChannelMessage(100000, 0xC1, 0),
+                ChannelMessage(110000, 0x91, 61, 100),
+                ChannelMessage(120000, 0x81, 61, 0),
+                ChannelMessage(400000, 0x90, 70, 100));
+            PreservingProbeOutput output = new PreservingProbeOutput(false, -1);
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.PreservePlaybackQueueOnPauseSeek = true;
+                engine.ChaseMidiStateOnPlaySeek = false;
+                engine.SetChannelMonitoring(true);
+                engine.SimulateSlowdown = !virtualForward;
+                engine.ApplyQueueLimitWithoutSlowdown = virtualForward;
+                engine.ProcessingMicroseconds = 10000;
+                engine.EventsPerSecond = 100;
+                engine.QueueLengthLimit = 32;
+                engine.OverflowPolicy = OverflowPolicy.DropNewest;
+                engine.Start(song, output, mode);
+                WaitFor(delegate { return ContainsMessage(output.Payloads(), 0x90, 60, 100); },
+                    1000, label + " live-filter first source");
+                engine.SetChannelEnabled(1, false);
+                WaitFor(delegate { return !engine.IsChannelEnabled(1); }, 1000,
+                    label + " live-filter control boundary");
+                Thread.Sleep(145);
+                engine.Seek(400000);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1800,
+                    label + " live-filter preserving completion");
+                List<byte[]> payloads = output.Payloads();
+                Equal(false, ContainsMessage(payloads, 0x91, 61, 100),
+                    label + " filters later NoteOn");
+                Equal(false, ContainsMessage(payloads, 0x81, 61, 0),
+                    label + " suppresses the paired later release");
+                if (engine.GetChannelSnapshot().Channels[1].MutedFilteredEvents < 3)
+                    throw new Exception(label + " live filtering did not count every later source message");
+                if (IndexOfPayload(payloads, 0x90, 70, 100) <= LastAllNotesOffIndex(payloads))
+                    throw new Exception(label + " live-filter target bypassed its marker");
+            }
+        }
+
+        private static void VerifyOrderedLiveOverrideMode(ProcessingMode mode,
+            bool virtualForward)
+        {
+            string label = mode + (virtualForward ? " virtual" : String.Empty);
+            MidiSong song = NewChannelSong("preserve-live-override-matrix.mid", 400000,
+                ChannelMessage(0, 0x90, 60, 100),
+                ChannelMessage(20000, 0x80, 60, 0),
+                ChannelMessage(100000, 0xC1, 0),
+                ChannelMessage(110000, 0x91, 61, 100),
+                ChannelMessage(120000, 0x81, 61, 0),
+                ChannelMessage(400000, 0x90, 70, 100));
+            PreservingProbeOutput output = new PreservingProbeOutput(false, -1);
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.PreservePlaybackQueueOnPauseSeek = true;
+                engine.ChaseMidiStateOnPlaySeek = false;
+                engine.SetChannelMonitoring(true);
+                engine.SimulateSlowdown = !virtualForward;
+                engine.ApplyQueueLimitWithoutSlowdown = virtualForward;
+                engine.ProcessingMicroseconds = 10000;
+                engine.EventsPerSecond = 100;
+                engine.QueueLengthLimit = 32;
+                engine.OverflowPolicy = OverflowPolicy.DropNewest;
+                engine.Start(song, output, mode);
+                WaitFor(delegate { return ContainsMessage(output.Payloads(), 0x90, 60, 100); },
+                    1000, label + " live-override first source");
+                engine.SetChannelOverride(1, ChannelAttribute.Program, 5);
+                WaitFor(delegate { return ContainsMessage(output.Payloads(), 0xC1, 5); }, 1000,
+                    label + " live forced Program");
+                Thread.Sleep(145);
+                engine.Seek(400000);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1800,
+                    label + " live-override preserving completion");
+                List<byte[]> payloads = output.Payloads();
+                Equal(false, ContainsMessage(payloads, 0xC1, 0),
+                    label + " suppresses the conflicting Program");
+                Equal(true, ContainsMessage(payloads, 0x91, 61, 100),
+                    label + " retains unrelated channel notes");
+                Equal(1L, engine.GetChannelSnapshot().Channels[1].OverrideSuppressedEvents,
+                    label + " counts the conflicting Program once");
+                if (IndexOfPayload(payloads, 0x90, 70, 100) <= LastAllNotesOffIndex(payloads))
+                    throw new Exception(label + " live-override target bypassed its marker");
+            }
+        }
+
+        private static void VerifyOrderedPreservingSeekStatisticsAndLifecycle()
+        {
+            MidiSong pressureSong = NewChannelSong("preserve-statistics.mid", 500000,
+                ChannelMessage(0, 0x90, 40, 100), ChannelMessage(0, 0x90, 41, 100),
+                ChannelMessage(0, 0x90, 42, 100), ChannelMessage(0, 0x90, 43, 100),
+                ChannelMessage(0, 0x90, 44, 100), ChannelMessage(500000, 0x90, 70, 100));
+            PreservingProbeOutput pressureOutput = new PreservingProbeOutput(false, -1);
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.PreservePlaybackQueueOnPauseSeek = true;
+                engine.ChaseMidiStateOnPlaySeek = false;
+                engine.SimulateSlowdown = true;
+                engine.ProcessingMicroseconds = 30000;
+                engine.QueueLengthLimit = 2;
+                engine.OverflowPolicy = OverflowPolicy.DropNewest;
+                engine.Start(pressureSong, pressureOutput, ProcessingMode.Drop);
+                WaitFor(delegate { return engine.GetSnapshot().DroppedEvents > 0; }, 1000,
+                    "statistics expose finite queue drops");
+                WaitFor(delegate { return engine.GetSnapshot().OutstandingEvents >= 2; }, 1000,
+                    "statistics expose ordered queue pressure");
+                engine.QueueLengthLimit = 64;
+                engine.Seek(500000);
+                Equal(500000L, engine.GetSnapshot().IntendedTimelineMicroseconds,
+                    "statistics expose the newest intended target");
+                PlaybackSnapshot active = engine.GetSnapshot();
+                if (active.MaximumQueueLength < active.OutstandingEvents)
+                    throw new Exception("maximum pressure fell below current ordered pressure");
+                if (active.LastDispatchedTimelineMicroseconds >= active.IntendedTimelineMicroseconds)
+                    throw new Exception("output timeline jumped to the intended target before dispatch");
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2200,
+                    "statistics preserving completion");
+                PlaybackSnapshot completed = engine.GetSnapshot();
+                if (completed.DroppedEvents <= 0)
+                    throw new Exception("finite ordered statistics reported no drops");
+                Equal((long)pressureOutput.SourcePayloadCount, completed.ProcessedEvents,
+                    "processed statistics count only dispatched source events");
+                Equal(0L, completed.OutstandingEvents,
+                    "ordered queue pressure drains at completion");
+                Equal(500000L, completed.LastDispatchedTimelineMicroseconds,
+                    "output timeline reaches the target only after dispatch");
+                if (completed.MaximumLagMicroseconds < completed.CurrentLagMicroseconds)
+                    throw new Exception("maximum lag fell below current lag");
+            }
+
+            MidiSong oldSong = NewChannelSong("preserve-replaced-old.mid", 100000,
+                ChannelMessage(0, 0x90, 40, 100), ChannelMessage(100000, 0x90, 41, 100));
+            MidiSong replacementSong = NewChannelSong("preserve-replacement.mid", 0,
+                ChannelMessage(0, 0x90, 72, 100));
+            PreservingProbeOutput oldOutput = new PreservingProbeOutput(false, -1);
+            PreservingProbeOutput replacementOutput = new PreservingProbeOutput(false, -1);
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.PreservePlaybackQueueOnPauseSeek = true;
+                engine.Start(oldSong, oldOutput, ProcessingMode.Queue, 0, true);
+                engine.Seek(100000);
+                engine.Start(replacementSong, replacementOutput, ProcessingMode.Queue);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1200,
+                    "file/output replacement completion");
+                if (oldOutput.ResetCount == 0 || oldOutput.PanicCount == 0)
+                    throw new Exception("file/output replacement did not retire ordered generations safely");
+                Equal(true, ContainsMessage(replacementOutput.Payloads(), 0x90, 72, 100),
+                    "replacement output receives only the replacement song");
+                Equal(0, CountAllNotesOff(replacementOutput.Payloads()),
+                    "replacement output receives no stale preserving marker");
+
+                engine.Start(oldSong, oldOutput, ProcessingMode.Queue, 0, true);
+                engine.Seek(100000);
+                engine.Unload();
+                Equal(false, engine.HasAttachedSong, "Unload clears the ordered song");
+                Equal(false, engine.HasAttachedOutput, "Unload clears the ordered output");
+            }
+
+            PreservingProbeOutput disposedOutput = new PreservingProbeOutput(false, -1);
+            PlaybackEngine disposedEngine = new PlaybackEngine();
+            disposedEngine.PreservePlaybackQueueOnPauseSeek = true;
+            disposedEngine.Start(oldSong, disposedOutput, ProcessingMode.Queue, 0, true);
+            disposedEngine.Seek(100000);
+            disposedEngine.Dispose();
+            if (disposedOutput.ResetCount == 0 || disposedOutput.PanicCount == 0)
+                throw new Exception("Dispose did not retire ordered generations safely");
+
+            PreservingProbeOutput timeoutOutput = new PreservingProbeOutput(true, -1);
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.PreservePlaybackQueueOnPauseSeek = true;
+                engine.WorkerStopTimeoutMilliseconds = 75;
+                engine.Start(oldSong, timeoutOutput, ProcessingMode.Queue);
+                Equal(true, timeoutOutput.Entered.WaitOne(1000), "ordered timeout enters provider");
+                engine.Seek(100000);
+                bool timedOut = false;
+                try { engine.Stop(); }
+                catch (PlaybackWorkerTimeoutException) { timedOut = true; }
+                Equal(true, timedOut, "ordered Stop timeout is explicit");
+                Equal(PlaybackState.Stopped, engine.State, "ordered timeout remains stopped");
+                Equal(true, engine.HasLiveWorker, "ordered timeout retains blocked worker identity");
+                timeoutOutput.Release.Set();
+                WaitFor(delegate { return !engine.HasLiveWorker; }, 1200,
+                    "ordered timeout post-return cleanup");
+                if (timeoutOutput.ResetCount == 0 || timeoutOutput.PanicCount == 0)
+                    throw new Exception("ordered timeout did not silence after provider return");
+            }
+        }
+
+        private static void AssertPreservingSeekStructuralMode(ProcessingMode mode, bool virtualForward)
+        {
+            MidiSong song = NewChannelSong("preserve-structural.mid", 200000,
+                ChannelMessage(0, 0x90, 60, 100),
+                ChannelMessage(100000, 0x80, 60, 0),
+                ChannelMessage(200000, 0x90, 72, 100));
+            PreservingProbeOutput output = new PreservingProbeOutput(false, -1);
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.PreservePlaybackQueueOnPauseSeek = true;
+                engine.ChaseMidiStateOnPlaySeek = false;
+                engine.ProcessingMicroseconds = 20000;
+                engine.EventsPerSecond = 100;
+                engine.QueueLengthLimit = 8;
+                engine.OverflowPolicy = OverflowPolicy.DropNewest;
+                engine.SimulateSlowdown = !virtualForward;
+                engine.ApplyQueueLimitWithoutSlowdown = virtualForward;
+                engine.Start(song, output, mode, 0, true);
+                engine.Seek(200000);
+                Equal(200000L, engine.GetSnapshot().IntendedTimelineMicroseconds,
+                    mode + (virtualForward ? " virtual" : String.Empty) + " intended target while parked");
+                engine.Resume();
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1500,
+                    mode + (virtualForward ? " virtual" : String.Empty) + " preserving boundary completion");
+                List<byte[]> payloads = output.Payloads();
+                Equal(16, CountAllNotesOff(payloads),
+                    mode + (virtualForward ? " virtual" : String.Empty) + " protected marker count");
+                int target = IndexOfPayload(payloads, 0x90, 72, 100);
+                if (target <= LastAllNotesOffIndex(payloads))
+                    throw new Exception(mode + " target output did not follow its protected marker");
+                Equal(0, output.ResetCount, mode + " preserving Seek avoids Reset");
+                Equal(0, output.PanicCount, mode + " preserving Seek avoids Panic");
+            }
+        }
+
+        private static void AssertPreservedSeekOrder(List<byte[]> payloads, int[] retainedNotes,
+            int chasedProgram, int targetNote, string name)
+        {
+            int cursor = -1;
+            for (int index = 0; index < retainedNotes.Length; index++)
+            {
+                cursor = IndexOfPayloadAfter(payloads, cursor, 0x90, (byte)retainedNotes[index], 100);
+                if (cursor < 0) throw new Exception(name + " lost retained note " + retainedNotes[index]);
+            }
+            int firstMarker = IndexOfAllNotesOffAfter(payloads, cursor);
+            if (firstMarker < 0) throw new Exception(name + " has no protected All Notes Off boundary");
+            Equal(16, CountAllNotesOff(payloads), name + " emits one channel-complete marker");
+            int program = IndexOfPayloadAfter(payloads, LastAllNotesOffIndex(payloads), 0xC0, (byte)chasedProgram);
+            if (program < 0) throw new Exception(name + " state chase did not follow the marker");
+            int target = IndexOfPayloadAfter(payloads, program, 0x90, (byte)targetNote, 100);
+            if (target < 0) throw new Exception(name + " target event did not follow state chase");
+        }
+
+        private static int CountAllNotesOff(List<byte[]> payloads)
+        {
+            int count = 0;
+            for (int i = 0; i < payloads.Count; i++)
+                if (payloads[i].Length == 3 && (payloads[i][0] & 0xF0) == 0xB0 &&
+                    payloads[i][1] == 123 && payloads[i][2] == 0) count++;
+            return count;
+        }
+
+        private static int LastAllNotesOffIndex(List<byte[]> payloads)
+        {
+            for (int i = payloads.Count - 1; i >= 0; i--)
+                if (payloads[i].Length == 3 && (payloads[i][0] & 0xF0) == 0xB0 &&
+                    payloads[i][1] == 123 && payloads[i][2] == 0) return i;
+            return -1;
+        }
+
+        private static int IndexOfAllNotesOffAfter(List<byte[]> payloads, int after)
+        {
+            for (int i = after + 1; i < payloads.Count; i++)
+                if (payloads[i].Length == 3 && (payloads[i][0] & 0xF0) == 0xB0 &&
+                    payloads[i][1] == 123 && payloads[i][2] == 0) return i;
+            return -1;
+        }
+
+        private static int IndexOfPayload(List<byte[]> payloads, params byte[] expected)
+        { return IndexOfPayloadAfter(payloads, -1, expected); }
+
+        private static int IndexOfPayloadAfter(List<byte[]> payloads, int after, params byte[] expected)
+        {
+            for (int i = after + 1; i < payloads.Count; i++)
+            {
+                if (payloads[i].Length != expected.Length) continue;
+                bool same = true;
+                for (int b = 0; b < expected.Length; b++)
+                    if (payloads[i][b] != expected[b]) { same = false; break; }
+                if (same) return i;
+            }
+            return -1;
         }
 
         private static void TestBuild37MonitorOpeningChase()
@@ -10600,13 +16785,14 @@ namespace MidiBottleneck.Tests
                 queueLimit.Checked = true;
                 processingValue.Value = 321;
                 queueValue.Value = 777;
-                policy.SelectedIndex = (int)OverflowPolicy.DropOldestCompleteNote;
+                int oldestCompleteIndex = FindComboItemIndex(policy, "Drop oldest complete note");
+                policy.SelectedIndex = oldestCompleteIndex;
                 Application.DoEvents();
                 Equal(true, view.QueuePressureVisible, "Build 35 queue pressure is visible");
                 ToggleBuild36Section(form, false);
                 ToggleBuild36Section(form, true);
                 Equal(true, view.QueuePressureVisible, "queue pressure is current after Statistics restoration");
-                Equal((int)OverflowPolicy.DropOldestCompleteNote, policy.SelectedIndex,
+                Equal(oldestCompleteIndex, policy.SelectedIndex,
                     "view toggle preserves Build 35 overflow selection");
                 Equal(RateModelChoice.ProcessingTime, rateChoice.SelectedChoice, "view toggle preserves rate model");
                 Equal(true, queueLimit.Checked, "view toggle preserves queue limit");
@@ -10734,6 +16920,39 @@ namespace MidiBottleneck.Tests
             }
         }
 
+        private static void RenderBuild44RealRatePopup(string directory)
+        {
+            Directory.CreateDirectory(directory);
+            Application.EnableVisualStyles();
+            BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(50);
+                RateModelComboBox rate = (RateModelComboBox)typeof(MainForm)
+                    .GetField("_serviceModeCombo", flags).GetValue(form);
+
+                form.ApplyUiScaleForTesting(100); PumpFor(40);
+                form.ClientSize = new Size(800, form.ClientSize.Height); PumpFor(35);
+                form.Activate(); rate.Focus(); PumpFor(15);
+                OpenRatePopupByMouse(rate);
+                AssertRealRatePopupVisible(form, rate, "visual 100% standard");
+                using (Bitmap popup = CaptureVisibleRatePopup(rate))
+                    popup.Save(Path.Combine(directory, "rate-popup-real-100.png"));
+                NativeKey(rate.Handle, 0x1B); PumpFor(20);
+
+                form.ApplyUiScaleForTesting(75); PumpFor(45);
+                form.ClientSize = new Size((620 * 75 + 50) / 100,
+                    form.ClientSize.Height); PumpFor(40);
+                form.Activate(); rate.Focus(); PumpFor(15);
+                OpenRatePopupByMouse(rate);
+                AssertRealRatePopupVisible(form, rate, "visual 75% compact");
+                using (Bitmap popup = CaptureVisibleRatePopup(rate))
+                    popup.Save(Path.Combine(directory, "rate-popup-real-75-compact.png"));
+                NativeKey(rate.Handle, 0x1B); PumpFor(20);
+                form.Close();
+            }
+        }
+
         private static void RenderBuild43ChangedViews(string directory)
         {
             Directory.CreateDirectory(directory);
@@ -10744,7 +16963,16 @@ namespace MidiBottleneck.Tests
                 form.Show(); PumpFor(50);
                 RateModelComboBox rate = (RateModelComboBox)typeof(MainForm)
                     .GetField("_serviceModeCombo", flags).GetValue(form);
+                PlaybackTimelineView timeline = (PlaybackTimelineView)typeof(MainForm)
+                    .GetField("_timelineView", flags).GetValue(form);
+                StatisticsView statistics = (StatisticsView)typeof(MainForm)
+                    .GetField("_statisticsView", flags).GetValue(form);
                 rate.SelectedChoice = RateModelChoice.ProcessingTime;
+                timeline.SetTimeline(123L * 60L * 1000000L + 45678000L,
+                    987L * 60L * 1000000L + 54321000L);
+                statistics.SetValues(new string[] { "123:45.678\u2009/\u2009987:54.321",
+                    "1,097,842\u2009/\u20091,500,000", "9,500,000 events/s", "8,750,000 events/s",
+                    "10,385,604\u2009/\u200938", "100.2%", "12,345.678 ms", "1,234.567 ms" });
                 SendMessage(rate.Handle, 0x014F, (IntPtr)1, IntPtr.Zero);
                 PumpFor(30);
                 CaptureCorrectiveState(form, directory, "standard-100-popup-anchor");
@@ -10758,6 +16986,11 @@ namespace MidiBottleneck.Tests
                 form.ApplyUiScaleForTesting(75); PumpFor(50);
                 form.Size = form.MinimumSize; PumpFor(30);
                 CaptureCorrectiveState(form, directory, "standard-75-hinted-font");
+                form.Activate(); rate.Focus(); PumpFor(20);
+                SendMessage(rate.Handle, 0x014F, (IntPtr)1, IntPtr.Zero); PumpFor(30);
+                using (Bitmap popup = rate.CapturePopupForTesting())
+                    popup.Save(Path.Combine(directory, "rate-popup-75.png"));
+                SendMessage(rate.Handle, 0x014F, IntPtr.Zero, IntPtr.Zero);
                 form.Close();
             }
 
@@ -10806,6 +17039,389 @@ namespace MidiBottleneck.Tests
                 Equal(false, form.AlwaysOnTopForTesting, "second system-menu command disables TopMost");
                 form.Close();
             }
+        }
+
+        private static void TestBuild44SubwindowAlwaysOnTop()
+        {
+            Application.EnableVisualStyles();
+            MidiSong song = BuildSong(new long[] { 0, 100000 });
+            using (MainForm main = new MainForm())
+            using (ChannelMonitorForm channels = new ChannelMonitorForm("topmost.mid"))
+            using (DiagnosticsForm first = new DiagnosticsForm(song))
+            using (DiagnosticsForm second = new DiagnosticsForm(song))
+            {
+                main.Show(); channels.Show(); first.Show(); second.Show(); PumpFor(40);
+                Equal(false, main.AlwaysOnTopForTesting, "main Always on top starts off");
+                Equal(false, channels.AlwaysOnTopForTesting, "Channels Always on top starts off");
+                Equal(false, first.AlwaysOnTopForTesting, "first Analysis Always on top starts off");
+                Equal(false, second.AlwaysOnTopForTesting, "second Analysis Always on top starts off");
+
+                Rectangle mainBounds = main.Bounds;
+                Rectangle channelBounds = channels.Bounds;
+                Rectangle secondBounds = second.Bounds;
+                FormWindowState mainState = main.WindowState;
+                FormWindowState channelState = channels.WindowState;
+                FormWindowState secondState = second.WindowState;
+                Form mainOwner = main.Owner;
+                Form channelOwner = channels.Owner;
+                Form secondOwner = second.Owner;
+
+                SendMessage(main.Handle, 0x0112,
+                    (IntPtr)MainForm.AlwaysOnTopSystemCommandForTesting, IntPtr.Zero);
+                SendMessage(channels.Handle, 0x0112,
+                    (IntPtr)ChannelMonitorForm.AlwaysOnTopSystemCommandForTesting, IntPtr.Zero);
+                SendMessage(first.Handle, 0x0112,
+                    (IntPtr)DiagnosticsForm.AlwaysOnTopSystemCommandForTesting, IntPtr.Zero);
+                Application.DoEvents();
+                Equal(true, main.AlwaysOnTopForTesting, "main toggles independently");
+                Equal(true, channels.AlwaysOnTopForTesting, "Channels toggles independently");
+                Equal(true, first.AlwaysOnTopForTesting, "first Analysis toggles independently");
+                Equal(false, second.AlwaysOnTopForTesting, "second Analysis remains independently off");
+                Equal(mainBounds, main.Bounds, "sub-window toggle does not resize main");
+                Equal(channelBounds, channels.Bounds, "Analysis toggle does not resize Channels");
+                Equal(secondBounds, second.Bounds, "first Analysis toggle does not resize second Analysis");
+                Equal(mainState, main.WindowState, "sub-window toggle preserves main state");
+                Equal(channelState, channels.WindowState, "Analysis toggle preserves Channels state");
+                Equal(secondState, second.WindowState, "first Analysis toggle preserves second Analysis state");
+                Equal(mainOwner, main.Owner, "sub-window toggle preserves main ownership");
+                Equal(channelOwner, channels.Owner, "Analysis toggle preserves Channels ownership");
+                Equal(secondOwner, second.Owner, "first Analysis toggle preserves second Analysis ownership");
+
+                IntPtr channelMenu = GetSystemMenu(channels.Handle, false);
+                IntPtr analysisMenu = GetSystemMenu(first.Handle, false);
+                int channelMenuCount = GetMenuItemCount(channelMenu);
+                int analysisMenuCount = GetMenuItemCount(analysisMenu);
+                Equal(0x0008U, GetMenuState(channelMenu,
+                    (uint)ChannelMonitorForm.AlwaysOnTopSystemCommandForTesting, 0) & 0x0008U,
+                    "Channels native menu check follows TopMost");
+                Equal(0x0008U, GetMenuState(analysisMenu,
+                    (uint)DiagnosticsForm.AlwaysOnTopSystemCommandForTesting, 0) & 0x0008U,
+                    "Analysis native menu check follows TopMost");
+
+                typeof(Control).GetMethod("RecreateHandle", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .Invoke(channels, null);
+                typeof(Control).GetMethod("RecreateHandle", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .Invoke(first, null);
+                Application.DoEvents();
+                channelMenu = GetSystemMenu(channels.Handle, false);
+                analysisMenu = GetSystemMenu(first.Handle, false);
+                Equal(channelMenuCount, GetMenuItemCount(channelMenu),
+                    "Channels handle recreation does not duplicate menu entries");
+                Equal(analysisMenuCount, GetMenuItemCount(analysisMenu),
+                    "Analysis handle recreation does not duplicate menu entries");
+                Equal(0x0008U, GetMenuState(channelMenu,
+                    (uint)ChannelMonitorForm.AlwaysOnTopSystemCommandForTesting, 0) & 0x0008U,
+                    "Channels handle recreation retains its native check");
+                Equal(0x0008U, GetMenuState(analysisMenu,
+                    (uint)DiagnosticsForm.AlwaysOnTopSystemCommandForTesting, 0) & 0x0008U,
+                    "Analysis handle recreation retains its native check");
+
+                SendMessage(first.Handle, 0x0112,
+                    (IntPtr)DiagnosticsForm.AlwaysOnTopSystemCommandForTesting, IntPtr.Zero);
+                Application.DoEvents();
+                Equal(false, first.AlwaysOnTopForTesting, "first Analysis turns off independently");
+                Equal(true, channels.AlwaysOnTopForTesting, "Channels remains on when Analysis turns off");
+                Equal(true, main.AlwaysOnTopForTesting, "main remains on when Analysis turns off");
+                second.Close();
+                using (DiagnosticsForm reopened = new DiagnosticsForm(song))
+                {
+                    reopened.Show(); Application.DoEvents();
+                    Equal(false, reopened.AlwaysOnTopForTesting,
+                        "new Analysis instance does not inherit a closed instance's choice");
+                    reopened.Close();
+                }
+                channels.Close();
+                using (ChannelMonitorForm reopenedChannels = new ChannelMonitorForm("topmost.mid"))
+                {
+                    reopenedChannels.Show(); Application.DoEvents();
+                    Equal(false, reopenedChannels.AlwaysOnTopForTesting,
+                        "reopened Channels does not retain the old instance's choice");
+                    reopenedChannels.Close();
+                }
+                first.Close(); main.Close();
+            }
+        }
+
+        private static void TestBuild44AnalysisEventCounts()
+        {
+            Application.EnableVisualStyles();
+            MidiSong song = BuildSong(new long[] { 0, 100000, 249999 });
+            int analyzerInvocations = 0;
+            WorkloadAnalysisRunner analyzer = delegate(MidiSong source, long bucket,
+                AnalysisConfiguration configuration, CancellationToken token,
+                Action<WorkloadAnalysisProgress> progress, Action<WorkloadBaseAnalysis> workloadReady)
+            {
+                analyzerInvocations++;
+                return WorkloadAnalyzer.Analyze(source, bucket, configuration, token, progress, workloadReady);
+            };
+            WorkloadAnalysis completed = BuildEventCountAnalysis(100000, AnalysisProjectionState.Complete);
+            using (DiagnosticsForm first = new DiagnosticsForm(song, completed, analyzer))
+            using (DiagnosticsForm second = new DiagnosticsForm(song, completed, analyzer))
+            {
+                IntPtr firstHandle = first.Handle;
+                IntPtr secondHandle = second.Handle;
+                Equal(false, first.ShowEventCountsForTesting, "Analysis event counts default off");
+                Equal(false, second.ShowEventCountsForTesting, "Analysis event-count choice is per window");
+                Equal("Events/sec", first.Graph.EventPanelTitleForTesting,
+                    "default Analysis graph retains event-rate title");
+                string summary = first.SummaryText;
+                WorkloadAnalysis accepted = first.CurrentAnalysis;
+                int menuCount = GetMenuItemCount(GetSystemMenu(first.Handle, false));
+                Equal(0U, GetMenuState(GetSystemMenu(first.Handle, false),
+                    (uint)DiagnosticsForm.ShowEventCountsSystemCommandForTesting, 0) & 0x0008U,
+                    "event-count native menu starts unchecked");
+
+                SendMessage(first.Handle, 0x0112,
+                    (IntPtr)DiagnosticsForm.ShowEventCountsSystemCommandForTesting, IntPtr.Zero);
+                Application.DoEvents();
+                Equal(true, first.ShowEventCountsForTesting, "native command enables event counts");
+                Equal(false, second.ShowEventCountsForTesting, "first Analysis toggle leaves peer unchanged");
+                Equal("Events per interval — 100 ms", first.Graph.EventPanelTitleForTesting,
+                    "event-count title uses accepted graph resolution");
+                Equal(7.0, first.Graph.EventPanelPeakForTesting,
+                    "event-count scale includes modeled gate output counts");
+                Equal(accepted, first.CurrentAnalysis, "presentation toggle retains accepted Analysis object");
+                Equal(summary, first.SummaryText, "presentation toggle leaves whole-file rate summary unchanged");
+                Equal(0, analyzerInvocations, "presentation toggle does not invoke analyzer");
+                Equal(0x0008U, GetMenuState(GetSystemMenu(first.Handle, false),
+                    (uint)DiagnosticsForm.ShowEventCountsSystemCommandForTesting, 0) & 0x0008U,
+                    "event-count native menu check follows state");
+
+                WorkloadGraph graph = first.Graph;
+                int finalX = graph.GraphArea.Left + (int)Math.Round(graph.GraphArea.Width * 0.96);
+                graph.InspectAtClientX(finalX, false);
+                if (first.InspectionTextForTesting.IndexOf("Interval: 00:00.200000–00:00.250000",
+                    StringComparison.Ordinal) < 0) throw new Exception("hover inspection did not report exact final partial interval");
+                if (first.InspectionTextForTesting.IndexOf("Source events in interval: 3",
+                    StringComparison.Ordinal) < 0) throw new Exception("hover inspection did not report integer source count");
+                if (first.InspectionTextForTesting.IndexOf("Gate output in interval: 7",
+                    StringComparison.Ordinal) < 0) throw new Exception("hover inspection did not report integer modeled-output count");
+                graph.InspectAtClientX(finalX, true);
+                if (first.InspectionTextForTesting.IndexOf("Pinned:", StringComparison.Ordinal) < 0)
+                    throw new Exception("pinned inspection did not retain event-count interval wording");
+
+                using (Bitmap bitmap = new Bitmap(graph.Width, graph.Height))
+                {
+                    int builds = graph.StaticLayerBuildCount;
+                    graph.DrawToBitmap(bitmap, graph.ClientRectangle);
+                    if (graph.StaticLayerBuildCount <= builds)
+                        throw new Exception("event-count switch did not redraw the accepted graph");
+                }
+
+                first.UpdateAnalysis(BuildEventCountAnalysis(25000, AnalysisProjectionState.Pending));
+                Equal(true, first.ShowEventCountsForTesting, "event-count state survives workload preview");
+                Equal("Events per interval — 25 ms", first.Graph.EventPanelTitleForTesting,
+                    "workload preview uses its accepted resolution");
+                first.UpdateAnalysis(BuildEventCountAnalysis(25000, AnalysisProjectionState.Complete));
+                Equal(true, first.ShowEventCountsForTesting, "event-count state survives completed projection");
+                Equal(0, analyzerInvocations, "preview/completed redraw does not invoke analyzer");
+
+                typeof(Control).GetMethod("RecreateHandle", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .Invoke(first, null);
+                Application.DoEvents();
+                Equal(menuCount, GetMenuItemCount(GetSystemMenu(first.Handle, false)),
+                    "Analysis handle recreation does not duplicate event-count menu entry");
+                Equal(true, first.ShowEventCountsForTesting,
+                    "Analysis handle recreation retains event-count state");
+                Equal(0x0008U, GetMenuState(GetSystemMenu(first.Handle, false),
+                    (uint)DiagnosticsForm.ShowEventCountsSystemCommandForTesting, 0) & 0x0008U,
+                    "Analysis handle recreation restores event-count check");
+
+                AnalysisConfiguration bitrate = DefaultAnalysisConfiguration();
+                bitrate.ServiceDurationMode = ServiceDurationMode.MidiBitrate;
+                WorkloadAnalysis byteAnalysis = BuildEventCountAnalysis(100000, AnalysisProjectionState.Complete);
+                byteAnalysis.Configuration = bitrate;
+                first.UpdateAnalysis(byteAnalysis);
+                Equal(true, first.Graph.UsesByteRate, "bitrate model retains its byte-rate panel");
+                Equal("MIDI bytes/sec", first.Graph.EventPanelTitleForTesting,
+                    "event-count mode does not replace byte-rate data");
+                second.Close(); first.Close();
+            }
+
+            using (DiagnosticsForm reopened = new DiagnosticsForm(song, completed, analyzer))
+            {
+                IntPtr reopenedHandle = reopened.Handle;
+                Equal(false, reopened.ShowEventCountsForTesting,
+                    "new Analysis window discards the closed instance's event-count choice");
+                reopened.Close();
+            }
+        }
+
+        private static void TestBuild44AnalysisOverrideProjection()
+        {
+            int[] values = new int[16 * ChannelOverrideState.AttributeCount];
+            for (int index = 0; index < values.Length; index++)
+                values[index] = ChannelOverrideState.AutoValue;
+            values[3 * ChannelOverrideState.AttributeCount + (int)ChannelAttribute.Program] = 20;
+            values[3 * ChannelOverrideState.AttributeCount + (int)ChannelAttribute.Volume] = 80;
+            AnalysisOverrideSnapshot snapshot = new AnalysisOverrideSnapshot(values);
+
+            MidiEvent program10 = ChannelMessage(0, 0xC3, 10); program10.Track = 0;
+            MidiEvent program20 = ChannelMessage(10, 0xC3, 20); program20.Track = 0;
+            MidiEvent volume50 = ChannelMessage(20, 0xB3, 7, 50); volume50.Track = 0;
+            MidiEvent attack = ChannelMessage(30, 0x93, 64, 100); attack.Track = 0;
+            MidiEvent release = ChannelMessage(100, 0x83, 64, 0); release.Track = 0;
+            MidiSong routed = NewChannelSong("analysis-overrides-routed.mid", 100,
+                program10, program20, volume50, attack, release);
+            AnalysisConfiguration configuration = DefaultAnalysisConfiguration();
+            configuration.OverrideProjection = snapshot;
+            WorkloadAnalysis projected = WorkloadAnalyzer.Analyze(routed, 10000, configuration);
+            Equal(5L, projected.TotalEvents,
+                "forced-override projection retains truthful routed source workload");
+            Equal(2L, projected.OverrideFilteredSourceMessages,
+                "projection filters only competing routed source state");
+            Equal(2L, projected.OverrideProjectedForcedMessages,
+                "projection reports each snapshotted forced message separately");
+
+            AnalysisConfiguration gateConfiguration = DefaultAnalysisConfiguration();
+            gateConfiguration.NoteAttackLimitEnabled = true;
+            gateConfiguration.EventsPerSecond = 0;
+            gateConfiguration.OverrideProjection = snapshot;
+            WorkloadAnalysis gate = WorkloadAnalyzer.Analyze(routed, 10000, gateConfiguration);
+            Equal(5L, gate.GateOutputEvents,
+                "unlimited gate projection combines surviving routed source and forced messages");
+            Equal(3L, gate.GateOutputNonNoteEvents,
+                "forced messages remain outside the Note-start count");
+            Equal(2L, gate.GateOutputNoteTransitions,
+                "forced projection preserves the routed note occurrence");
+
+            Application.EnableVisualStyles();
+            MidiSong original = NewChannelSong("analysis-overrides-source.mid", 100,
+                ChannelMessage(0, 0xC0, 10), ChannelMessage(30, 0x90, 64, 100),
+                ChannelMessage(100, 0x80, 64, 0));
+            using (MainForm main = new MainForm())
+            {
+                BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                typeof(MainForm).GetField("_song", flags).SetValue(main, original);
+                typeof(MainForm).GetField("_routedSong", flags).SetValue(main, routed);
+                PlaybackEngine engine = (PlaybackEngine)typeof(MainForm)
+                    .GetField("_engine", flags).GetValue(main);
+                main.Show(); PumpFor(20);
+                main.ShowChannelMonitorForTesting(); PumpFor(20);
+                ChannelMonitorForm monitor = main.ChannelMonitorForTesting;
+                monitor.RequestOverrideForTesting(3, ChannelAttribute.Program, 20);
+                monitor.RequestOverrideForTesting(3, ChannelAttribute.Volume, 80);
+                main.ShowAnalysisForTesting();
+                main.ShowAnalysisForTesting();
+                DiagnosticsForm[] windows = main.AnalysisWindowsForTesting;
+                DiagnosticsForm first = windows[0];
+                DiagnosticsForm second = windows[1];
+                PumpUntil(delegate { return first.HasCompletedAnalysis && second.HasCompletedAnalysis; },
+                    5000, "initial independent Analysis projections");
+                Equal(routed, first.SourceSong,
+                    "Analysis receives the routed song before applying forced overrides");
+                Equal(false, first.ProjectForcedOverridesForTesting,
+                    "forced-override projection defaults off per Analysis window");
+                Equal(false, second.ProjectForcedOverridesForTesting,
+                    "peer Analysis also starts independently off");
+                long processedBefore = engine.GetSnapshot().ProcessedEvents;
+
+                SendMessage(first.Handle, 0x0112,
+                    (IntPtr)DiagnosticsForm.ProjectForcedOverridesSystemCommandForTesting,
+                    IntPtr.Zero);
+                PumpUntil(delegate
+                {
+                    return first.HasCompletedAnalysis && first.CurrentAnalysis.Configuration != null &&
+                        first.CurrentAnalysis.Configuration.OverrideProjection != null;
+                }, 5000, "per-window forced-override projection completion");
+                Equal(true, first.ProjectForcedOverridesForTesting,
+                    "first Analysis independently enables forced-override projection");
+                Equal(false, second.ProjectForcedOverridesForTesting,
+                    "first Analysis projection leaves its peer off");
+                Equal(null, second.CurrentAnalysis.Configuration.OverrideProjection,
+                    "peer cache identity remains free of the first window's snapshot");
+                Equal(2L, first.CurrentAnalysis.OverrideProjectedForcedMessages,
+                    "Analysis window reports projected forced messages");
+                Equal(2L, first.CurrentAnalysis.OverrideFilteredSourceMessages,
+                    "Analysis window reports filtered competing source messages");
+                if (!first.SummaryText.Contains("Track routing, then this forced-override snapshot") ||
+                    !first.SummaryText.Contains("Playback              Unchanged"))
+                    throw new Exception("Analysis summary does not explain projection order and isolation.");
+                Equal(0x0008U, GetMenuState(GetSystemMenu(first.Handle, false),
+                    (uint)DiagnosticsForm.ProjectForcedOverridesSystemCommandForTesting, 0) & 0x0008U,
+                    "per-window forced-override menu check is truthful");
+
+                int menuCount = GetMenuItemCount(GetSystemMenu(first.Handle, false));
+                typeof(Control).GetMethod("RecreateHandle", flags).Invoke(first, null);
+                PumpFor(20);
+                Equal(menuCount, GetMenuItemCount(GetSystemMenu(first.Handle, false)),
+                    "handle recreation does not duplicate projection commands");
+                Equal(0x0008U, GetMenuState(GetSystemMenu(first.Handle, false),
+                    (uint)DiagnosticsForm.ProjectForcedOverridesSystemCommandForTesting, 0) & 0x0008U,
+                    "handle recreation restores the per-window projection check");
+
+                WorkloadAnalysis beforeRefresh = first.CurrentAnalysis;
+                monitor.RequestOverrideForTesting(3, ChannelAttribute.Program, 21);
+                PumpUntil(delegate
+                {
+                    WorkloadAnalysis current = first.CurrentAnalysis;
+                    return current != null && !Object.ReferenceEquals(current, beforeRefresh) &&
+                        current.Configuration.OverrideProjection != null &&
+                        current.Configuration.OverrideProjection.Signature.Contains("3.2=21");
+                }, 5000, "override change refreshes only enabled Analysis projection");
+                Equal(null, second.CurrentAnalysis.Configuration.OverrideProjection,
+                    "override refresh leaves disabled peer Analysis unchanged");
+                Equal(PlaybackState.Stopped, engine.State,
+                    "Analysis projection never starts or changes Playback");
+                Equal(processedBefore, engine.GetSnapshot().ProcessedEvents,
+                    "Analysis projection sends no playback events");
+                Equal(21, engine.GetChannelOverride(3, ChannelAttribute.Program),
+                    "Analysis reads but never changes the live forced value");
+
+                first.Close(); PumpFor(10);
+                monitor.RequestOverrideForTesting(3, ChannelAttribute.Volume, 81);
+                PumpFor(300);
+                Equal(1, main.AnalysisWindowsForTesting.Length,
+                    "closing one projected Analysis releases only that window");
+                Equal(false, second.ProjectForcedOverridesForTesting,
+                    "surviving Analysis retains its independent off state");
+                second.Close(); main.Close();
+            }
+
+            using (DiagnosticsForm reopened = new DiagnosticsForm(routed))
+            {
+                IntPtr handle = reopened.Handle;
+                Equal(false, reopened.ProjectForcedOverridesForTesting,
+                    "a new Analysis window does not inherit a closed window's projection choice");
+                reopened.Close();
+            }
+        }
+
+        private static WorkloadAnalysis BuildEventCountAnalysis(long resolution,
+            AnalysisProjectionState state)
+        {
+            int bucketCount = resolution == 100000 ? 3 : 10;
+            WorkloadBucket[] buckets = new WorkloadBucket[bucketCount];
+            long[] gate = new long[bucketCount];
+            for (int i = 0; i < bucketCount; i++)
+            {
+                buckets[i] = new WorkloadBucket
+                {
+                    EventCount = i == bucketCount - 1 ? 3 : i == 0 ? 4 : 2,
+                    ByteCount = (i + 1) * 10,
+                    LargestCluster = i + 1
+                };
+                gate[i] = i == bucketCount - 1 ? 7 : i == 0 ? 2 : 1;
+            }
+            AnalysisConfiguration configuration = DefaultAnalysisConfiguration();
+            configuration.PerNoteIntervalGateEnabled = true;
+            return new WorkloadAnalysis
+            {
+                TotalEvents = 9,
+                TotalBytes = 60,
+                AverageEventsPerSecond = 36,
+                PeakEventsPerSecond = resolution == 0 ? 0 : 4000000.0 / resolution,
+                PeakBytesPerSecond = 1200,
+                GatePeakEventsPerSecond = resolution == 0 ? 0 : 7000000.0 / resolution,
+                BucketMicroseconds = resolution,
+                DurationMicroseconds = 250000,
+                Buckets = buckets,
+                GateOutputBuckets = gate,
+                GateOutputEvents = 9,
+                Configuration = configuration,
+                ProjectionState = state,
+                MessageTypes = new List<MessageTypeWorkload>()
+            };
         }
 
         private static void TestAnalysisWindowConstruction()
@@ -11041,6 +17657,98 @@ namespace MidiBottleneck.Tests
         private static extern IntPtr SendMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
 
         [DllImport("user32.dll")]
+        private static extern bool PostMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        private static extern bool ScreenToClient(IntPtr window, ref Point point);
+
+        [DllImport("user32.dll")]
+        private static extern bool IsWindowVisible(IntPtr window);
+
+        [DllImport("user32.dll")]
+        private static extern bool GetComboBoxInfo(IntPtr comboBox, ref ComboBoxInfo info);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct NativeRectangle
+        {
+            internal int Left, Top, Right, Bottom;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct ComboBoxInfo
+        {
+            internal int Size;
+            internal NativeRectangle Item;
+            internal NativeRectangle Button;
+            internal int ButtonState;
+            internal IntPtr ComboHandle;
+            internal IntPtr ItemHandle;
+            internal IntPtr ListHandle;
+        }
+
+        private static void NativeClick(IntPtr window, Point screenPoint)
+        {
+            Point clientPoint = screenPoint;
+            if (!ScreenToClient(window, ref clientPoint))
+                throw new Exception("Could not map the native mouse input to its window.");
+            IntPtr coordinates = new IntPtr((clientPoint.Y << 16) |
+                (clientPoint.X & 0xFFFF));
+            if (!PostMessage(window, 0x0201, (IntPtr)1, coordinates) ||
+                !PostMessage(window, 0x0202, IntPtr.Zero, coordinates))
+                throw new Exception("Could not post the native mouse input.");
+        }
+
+        private static void NativeDoubleClick(IntPtr window, Point screenPoint)
+        {
+            Point clientPoint = screenPoint;
+            if (!ScreenToClient(window, ref clientPoint))
+                throw new Exception("Could not map the native double-click input to its window.");
+            IntPtr coordinates = new IntPtr((clientPoint.Y << 16) |
+                (clientPoint.X & 0xFFFF));
+            if (!PostMessage(window, 0x0201, (IntPtr)1, coordinates) ||
+                !PostMessage(window, 0x0202, IntPtr.Zero, coordinates) ||
+                !PostMessage(window, 0x0203, (IntPtr)1, coordinates) ||
+                !PostMessage(window, 0x0202, IntPtr.Zero, coordinates))
+                throw new Exception("Could not post the native double-click input.");
+        }
+
+        private static void NativeTripleClick(IntPtr window, Point screenPoint)
+        {
+            NativeDoubleClick(window, screenPoint);
+            NativeClick(window, screenPoint);
+        }
+
+        private static void NativeKeyNoPump(IntPtr window, byte virtualKey)
+        {
+            if (!PostMessage(window, 0x0100, (IntPtr)virtualKey, IntPtr.Zero) ||
+                !PostMessage(window, 0x0101, (IntPtr)virtualKey,
+                    new IntPtr(unchecked((int)0xC0000000))))
+                throw new Exception("Could not post the native keyboard input.");
+        }
+
+        private static void NativeAltDownNoPump(IntPtr window)
+        {
+            if (!PostMessage(window, 0x0104, (IntPtr)0x28,
+                    new IntPtr(unchecked((int)0x20000000))) ||
+                !PostMessage(window, 0x0105, (IntPtr)0x28,
+                    new IntPtr(unchecked((int)0xE0000000))))
+                throw new Exception("Could not post the native Alt+Down input.");
+        }
+
+        private static void NativeKey(IntPtr window, byte virtualKey)
+        {
+            if (!PostMessage(window, 0x0100, (IntPtr)virtualKey, IntPtr.Zero) ||
+                !PostMessage(window, 0x0101, (IntPtr)virtualKey,
+                    new IntPtr(unchecked((int)0xC0000000))))
+                throw new Exception("Could not post the native keyboard input.");
+        }
+
+        private static void NativeCharacter(IntPtr window, char character)
+        {
+            SendMessage(window, 0x0102, (IntPtr)character, IntPtr.Zero);
+        }
+
+        [DllImport("user32.dll")]
         private static extern bool PrintWindow(IntPtr window, IntPtr targetDeviceContext, uint flags);
 
         private static void CaptureForm(Form form, Bitmap bitmap)
@@ -11205,6 +17913,2054 @@ namespace MidiBottleneck.Tests
                 Equal((long)count, output.Count, "immediate burst sends every event");
                 if (elapsed.ElapsedMilliseconds > 2000) throw new Exception("immediate burst took " + elapsed.ElapsedMilliseconds + " ms");
             }
+        }
+
+        private static void TestBuild44OrderedGenerationCore()
+        {
+            MidiEventView chaseMessage = MidiEventView.FromEvent(
+                ChannelMessage(1000, 0xC0, 7), -1);
+            List<OutputWorkItem> mutableChase = new List<OutputWorkItem>();
+            mutableChase.Add(OutputWorkItem.ForcedOrChase(2, 1000,
+                OutputWorkProtection.SafetyTraffic, chaseMessage));
+            PlaybackGeneration first = new PlaybackGeneration(1, 0, 0, 10, 0,
+                null, "queue", 16);
+            PlaybackGeneration second = new PlaybackGeneration(2, 1000, 20, 20, 0,
+                mutableChase, "queue", 16);
+            mutableChase.Clear();
+            Equal(1, second.ChasePrefixCount,
+                "generation captures an immutable chase prefix");
+            Equal(OutputWorkItemKind.ForcedOrChaseMidi,
+                second.ChasePrefixAt(0).Kind, "captured chase kind");
+
+            OrderedPlaybackGenerationQueue generations =
+                new OrderedPlaybackGenerationQueue(4);
+            generations.Start(first);
+            Equal(true, generations.TryAdmitToTail(OutputWorkItem.Source(1, 10, 100,
+                OutputWorkProtection.Ordinary, 1000)), "first admitted source item");
+            Equal(true, generations.TryAdmitToTail(OutputWorkItem.Source(1, 11, 200,
+                OutputWorkProtection.ProtectedRelease, 1001)), "protected release item");
+            Equal(true, generations.TryAppendSeek(OutputWorkItem.SeekMarker(1, 250), second),
+                "first Seek closes the tail and appends a generation");
+            Equal(true, first.IsAdmissionClosed, "first generation is closed once");
+            Equal(false, first.TryAdmit(OutputWorkItem.Source(1, 12, 300,
+                OutputWorkProtection.Ordinary, 1002)),
+                "closed generation rejects later admission");
+            Equal(true, generations.TryAdmitToTail(OutputWorkItem.Source(2, 20, 1100,
+                OutputWorkProtection.Ordinary, 2000)),
+                "new target work is admitted before the old head drains");
+
+            PlaybackGeneration third = new PlaybackGeneration(3, 2000, 30, 30, 0,
+                null, "queue", 16);
+            Equal(true, generations.TryAppendSeek(OutputWorkItem.SeekMarker(2, 1250), third),
+                "repeated Seek preserves the prior target generation");
+            Equal(true, generations.TryAdmitToTail(OutputWorkItem.Source(3, 30, 2100,
+                OutputWorkProtection.Ordinary, 3000)), "third generation target admission");
+            Equal(3, generations.LiveGenerationCount,
+                "three live generations coexist before head dispatch");
+
+            List<OutputWorkItem> drained = new List<OutputWorkItem>();
+            OutputWorkItem work;
+            while (generations.TryDequeueDispatch(out work)) drained.Add(work);
+            Equal(7, drained.Count, "strict drain item count");
+            OutputWorkItemKind[] expectedKinds = {
+                OutputWorkItemKind.SourceMidi, OutputWorkItemKind.SourceMidi,
+                OutputWorkItemKind.ProtectedSeekMarker,
+                OutputWorkItemKind.ForcedOrChaseMidi, OutputWorkItemKind.SourceMidi,
+                OutputWorkItemKind.ProtectedSeekMarker, OutputWorkItemKind.SourceMidi
+            };
+            int[] expectedGenerations = { 1, 1, 1, 2, 2, 2, 3 };
+            for (int i = 0; i < drained.Count; i++)
+            {
+                Equal(expectedKinds[i], drained[i].Kind, "ordered work kind " + i);
+                Equal(expectedGenerations[i], drained[i].GenerationId,
+                    "ordered generation id " + i);
+            }
+            Equal(1, generations.LiveGenerationCount,
+                "closed drained generations retire promptly");
+            Equal(3, generations.Head.Id, "open tail becomes the dispatch head");
+            Equal(1001L, drained[1].OccurrenceId,
+                "work retains occurrence identity");
+            Equal(OutputWorkProtection.ProtectedRelease, drained[1].Protection,
+                "work retains protection class");
+            Equal(11, drained[1].SourceEventIndex,
+                "work retains nonnegative source identity");
+            Equal(false, drained[2].HasMidiEvent,
+                "marker is explicit rather than a fabricated source event");
+            Equal(OutputWorkProtection.PreservationBarrier, drained[2].Protection,
+                "marker carries preservation-barrier protection");
+
+            OrderedPlaybackGenerationQueue bounded =
+                new OrderedPlaybackGenerationQueue(2);
+            PlaybackGeneration boundedFirst = new PlaybackGeneration(10, 0, 0, 0, 0,
+                null, null, 2);
+            PlaybackGeneration boundedSecond = new PlaybackGeneration(11, 10, 1, 0, 0,
+                null, null, 2);
+            PlaybackGeneration rejectedThird = new PlaybackGeneration(12, 20, 2, 0, 0,
+                null, null, 2);
+            bounded.Start(boundedFirst);
+            Equal(true, bounded.TryAppendSeek(OutputWorkItem.SeekMarker(10, 0), boundedSecond),
+                "bounded queue accepts its last live generation");
+            Equal(false, bounded.TryAppendSeek(OutputWorkItem.SeekMarker(11, 10), rejectedThird),
+                "generation cap rejects materialization before mutating the tail");
+            Equal(false, boundedSecond.IsAdmissionClosed,
+                "failed append leaves current tail open");
+            Equal(true, bounded.TryDequeueDispatch(out work),
+                "bounded queue dispatches the older marker");
+            Equal(OutputWorkItemKind.ProtectedSeekMarker, work.Kind,
+                "bounded queue does not bypass the marker");
+            Equal(1, bounded.LiveGenerationCount,
+                "dispatching a marker frees the closed generation");
+            Equal(true, bounded.TryAppendSeek(OutputWorkItem.SeekMarker(11, 10), rejectedThird),
+                "retirement releases one generation slot");
+
+            PlaybackGeneration oneSlot = new PlaybackGeneration(30, 0, 0, 0, 0,
+                null, null, 1);
+            Equal(true, oneSlot.TryAdmit(OutputWorkItem.Source(30, 1, 0,
+                OutputWorkProtection.Ordinary, 1)), "bounded work container accepts capacity");
+            Equal(false, oneSlot.TryAdmit(OutputWorkItem.Source(30, 2, 0,
+                OutputWorkProtection.Ordinary, 2)), "bounded work container rejects excess");
+            Equal(false, oneSlot.CanAppendMarker,
+                "marker cannot silently exceed the explicit work bound");
+        }
+
+        private static void TestBuild44OrderedUnlimitedAdapter()
+        {
+            MidiSong song = NewChannelSong("ordered-unlimited.mid", 2000,
+                ChannelMessage(0, 0x90, 60, 100),
+                ChannelMessage(100, 0x80, 60, 0),
+                ChannelMessage(1000, 0x90, 70, 100),
+                ChannelMessage(2000, 0x90, 71, 100));
+            MidiEventReader source = song.GetEventReader();
+            OrderedUnlimitedQueueAdapter adapter =
+                new OrderedUnlimitedQueueAdapter(source, 4);
+            adapter.Start(0, 0, null, 10, 0);
+            Equal(true, adapter.TryAdmitThrough(2),
+                "unlimited adapter admits the old-position prefix");
+
+            List<MidiEventView> firstChase = new List<MidiEventView>();
+            firstChase.Add(MidiEventView.FromEvent(
+                ChannelOverrideState.CreateControllerMessage(0, 7, 80), -1));
+            Equal(true, adapter.TryAppendSeek(1000, 2, firstChase, 20, 0),
+                "unlimited adapter appends first marker and target");
+            firstChase.Clear();
+            Equal(true, adapter.TryAdmitThrough(3),
+                "first target source is admitted before dispatch drains the old prefix");
+
+            List<MidiEventView> secondChase = new List<MidiEventView>();
+            secondChase.Add(MidiEventView.FromEvent(
+                ChannelOverrideState.CreateControllerMessage(0, 7, 90), -1));
+            Equal(true, adapter.TryAppendSeek(2000, 3, secondChase, 30, 0),
+                "unlimited adapter appends a repeated Seek without losing target work");
+            Equal(true, adapter.TryAdmitThrough(4),
+                "second target source admission");
+            Equal(3, adapter.LiveGenerationCount,
+                "unlimited adapter retains every materialized generation");
+
+            List<MidiEventView> payloads = new List<MidiEventView>();
+            OutputWorkItem item;
+            while (adapter.TryDequeue(out item))
+                OrderedGenerationOutputMaterializer.Append(item, source, payloads);
+            Equal(38, payloads.Count, "expanded unlimited ordered payload count");
+            Equal(60, (int)payloads[0].GetDataByte(1), "old attack precedes first marker");
+            Equal(0x80, payloads[1].Status & 0xF0, "old release precedes first marker");
+            for (int channel = 0; channel < 16; channel++)
+            {
+                MidiEventView marker = payloads[2 + channel];
+                Equal(0xB0 | channel, (int)marker.Status,
+                    "first marker channel " + channel);
+                Equal(123, (int)marker.GetDataByte(1),
+                    "first marker is All Notes Off " + channel);
+                Equal(0, (int)marker.GetDataByte(2),
+                    "first marker value " + channel);
+                Equal(1000L, marker.IntendedMicroseconds,
+                    "first marker logical target " + channel);
+            }
+            Equal(7, (int)payloads[18].GetDataByte(1),
+                "captured first chase follows its marker");
+            Equal(80, (int)payloads[18].GetDataByte(2),
+                "captured first chase retains its value");
+            Equal(70, (int)payloads[19].GetDataByte(1),
+                "first target work remains ahead of the repeated-Seek marker");
+            for (int channel = 0; channel < 16; channel++)
+            {
+                MidiEventView marker = payloads[20 + channel];
+                Equal(0xB0 | channel, (int)marker.Status,
+                    "second marker channel " + channel);
+                Equal(123, (int)marker.GetDataByte(1),
+                    "second marker is All Notes Off " + channel);
+                Equal(0, (int)marker.GetDataByte(2),
+                    "second marker value " + channel);
+                Equal(2000L, marker.IntendedMicroseconds,
+                    "second marker logical target " + channel);
+            }
+            Equal(90, (int)payloads[36].GetDataByte(2),
+                "captured second chase follows the repeated marker");
+            Equal(71, (int)payloads[37].GetDataByte(1),
+                "newest target source follows every retained predecessor");
+
+            for (int i = 0; i < payloads.Count; i++)
+            {
+                if ((payloads[i].Status & 0xF0) != 0xB0) continue;
+                int controller = payloads[i].GetDataByte(1);
+                Equal(false, controller == 64 || controller == 120,
+                    "marker expansion adds no Sustain Off or All Sound Off at payload " + i);
+            }
+            Equal(1, adapter.LiveGenerationCount,
+                "unlimited adapter retires closed generations after dispatch");
+        }
+
+        private static void TestBuild44OrderedFiniteAdmissionCore()
+        {
+            MidiSong capacitySong = NewChannelSong("ordered-finite-capacity.mid", 300,
+                ChannelMessage(0, 0xB0, 10, 1),
+                ChannelMessage(100, 0xB0, 10, 2),
+                ChannelMessage(200, 0xB0, 10, 3),
+                ChannelMessage(300, 0xB0, 10, 4));
+            OrderedFiniteAdmissionCore capacity = new OrderedFiniteAdmissionCore(
+                capacitySong.GetEventReader(), 4);
+            capacity.Start(0, 0, null, 0, 0);
+            Equal(OrderedFiniteAdmissionDisposition.Accepted,
+                capacity.AdmitNextSource(3, OverflowPolicy.DropOldest).Disposition,
+                "finite core admits first ordinary event");
+            capacity.AdmitNextSource(3, OverflowPolicy.DropOldest);
+            capacity.AdmitNextSource(3, OverflowPolicy.DropOldest);
+            OrderedFiniteAdmissionResult contracted =
+                capacity.AdmitNextSource(1, OverflowPolicy.DropOldest);
+            Equal(OrderedFiniteAdmissionDisposition.Accepted, contracted.Disposition,
+                "capacity decrease admits after repairing the current tail");
+            Equal(3, contracted.Evicted.Length,
+                "capacity decrease evicts enough eligible tail work to return within the new limit");
+            Equal(1, capacity.OutstandingCount,
+                "finite core applies the selected live capacity at each admission");
+
+            MidiSong blockedSong = NewChannelSong("ordered-finite-in-service.mid", 200,
+                ChannelMessage(0, 0xB0, 10, 1),
+                ChannelMessage(100, 0xB0, 10, 2),
+                ChannelMessage(200, 0x80, 60, 0));
+            OrderedFiniteAdmissionCore blocked = new OrderedFiniteAdmissionCore(
+                blockedSong.GetEventReader(), 4);
+            blocked.Start(0, 0, null, 0, 0);
+            blocked.AdmitNextSource(2, OverflowPolicy.DropNewest);
+            OutputWorkItem inService;
+            Equal(true, blocked.TryBeginDispatch(out inService),
+                "finite core begins one ordered in-service event");
+            Equal(1, blocked.OutstandingCount,
+                "in-service work remains part of finite occupancy");
+            blocked.AdmitNextSource(2, OverflowPolicy.DropNewest);
+            OrderedFiniteAdmissionResult protectedExcess =
+                blocked.AdmitNextSource(2, OverflowPolicy.DropNewest);
+            Equal(OrderedFiniteAdmissionDisposition.AcceptedSoftLimit,
+                protectedExcess.Disposition,
+                "protected release may create explicit soft-limit excess");
+            Equal(3, blocked.OutstandingCount,
+                "soft excess includes in-service and already accepted work");
+            blocked.CompleteDispatch();
+            Equal(2, blocked.OutstandingCount,
+                "provider completion retires only the in-service occupancy");
+
+            MidiSong completeSong = NewChannelSong("ordered-finite-complete-note.mid", 300,
+                ChannelMessage(0, 0x90, 60, 100),
+                ChannelMessage(100, 0x80, 60, 0),
+                ChannelMessage(200, 0x90, 61, 100),
+                ChannelMessage(300, 0x80, 61, 0));
+            OrderedFiniteAdmissionCore complete = new OrderedFiniteAdmissionCore(
+                completeSong.GetEventReader(), 4);
+            complete.Start(0, 0, null, 0, 0);
+            complete.AdmitNextSource(2, OverflowPolicy.DropOldestCompleteNote);
+            complete.AdmitNextSource(2, OverflowPolicy.DropOldestCompleteNote);
+            OrderedFiniteAdmissionResult replacement =
+                complete.AdmitNextSource(2, OverflowPolicy.DropOldestCompleteNote);
+            Equal(2, replacement.Evicted.Length,
+                "complete-note eviction removes an unsent attack and its paired pending release");
+            Equal(OutputWorkProtection.OrdinaryNoteAttack,
+                replacement.Evicted[0].Protection,
+                "complete-note index identifies an evictable attack");
+            Equal(OutputWorkProtection.ProtectedRelease,
+                replacement.Evicted[1].Protection,
+                "complete-note eviction removes only its own pending release");
+            OrderedFiniteAdmissionResult ownRelease =
+                complete.AdmitNextSource(1, OverflowPolicy.DropOldestCompleteNote);
+            Equal(1, ownRelease.Evicted.Length,
+                "complete-note capacity repair can evict an attack before its release arrives");
+            Equal(OrderedFiniteAdmissionDisposition.Rejected, ownRelease.Disposition,
+                "release is not admitted after its own unsent attack is evicted");
+            Equal(true, ownRelease.PairedReleaseSuppressed,
+                "own evicted attack produces an explicit paired-release suppression");
+            Equal(0, complete.OutstandingCount,
+                "complete-note eviction leaves no unmatched queued output");
+
+            MidiSong incomingSong = NewChannelSong("ordered-finite-incoming-note.mid", 300,
+                ChannelMessage(0, 0xB0, 10, 1),
+                ChannelMessage(100, 0x90, 62, 100),
+                ChannelMessage(200, 0x80, 62, 0),
+                ChannelMessage(300, 0x80, 63, 0));
+            OrderedFiniteAdmissionCore incoming = new OrderedFiniteAdmissionCore(
+                incomingSong.GetEventReader(), 4);
+            incoming.Start(0, 0, null, 0, 0);
+            incoming.AdmitNextSource(1, OverflowPolicy.DropIncomingCompleteNotes);
+            Equal(true, incoming.TryBeginDispatch(out inService),
+                "incoming-note policy fixture holds one event in service");
+            OrderedFiniteAdmissionResult rejectedAttack =
+                incoming.AdmitNextSource(1, OverflowPolicy.DropIncomingCompleteNotes);
+            Equal(OrderedFiniteAdmissionDisposition.Rejected, rejectedAttack.Disposition,
+                "incoming complete-note policy rejects a full-capacity attack");
+            OrderedFiniteAdmissionResult suppressedRelease =
+                incoming.AdmitNextSource(1, OverflowPolicy.DropIncomingCompleteNotes);
+            Equal(true, suppressedRelease.PairedReleaseSuppressed,
+                "release paired with a rejected complete-note attack is suppressed");
+            Equal(1, incoming.OutstandingCount,
+                "suppressed release consumes no finite capacity");
+            OrderedFiniteAdmissionResult unmatchedRelease =
+                incoming.AdmitNextSource(1, OverflowPolicy.DropIncomingCompleteNotes);
+            Equal(OrderedFiniteAdmissionDisposition.AcceptedSoftLimit,
+                unmatchedRelease.Disposition,
+                "unmatched release remains protected soft-limit traffic");
+
+            MidiSong captureSong = NewChannelSong("ordered-finite-capture.mid", 100,
+                ChannelMessage(0, 0x90, 64, 100),
+                ChannelMessage(100, 0x80, 64, 7));
+            MidiEventReader captureSource = captureSong.GetEventReader();
+            OrderedFiniteAdmissionCore captured = new OrderedFiniteAdmissionCore(captureSource, 4);
+            captured.Start(0, 0, null, 0, 0);
+            captured.AdmitNextSource(captureSource[0].WithOutputChannel(5), false, 4,
+                OverflowPolicy.DropNewest);
+            captured.AdmitNextSource(captureSource[1].WithOutputChannel(5), false, 4,
+                OverflowPolicy.DropNewest);
+            List<MidiEventView> capturedPayloads = new List<MidiEventView>();
+            OutputWorkItem capturedItem;
+            while (captured.TryBeginDispatch(out capturedItem))
+            {
+                OrderedGenerationOutputMaterializer.Append(capturedItem, captureSource,
+                    capturedPayloads);
+                captured.CompleteDispatch();
+            }
+            Equal(0x95, (int)capturedPayloads[0].Status,
+                "finite work retains its admitted routed attack payload");
+            Equal(0x85, (int)capturedPayloads[1].Status,
+                "finite work retains its admitted routed release payload");
+
+            OrderedFiniteAdmissionCore filtered = new OrderedFiniteAdmissionCore(captureSource, 4);
+            filtered.Start(0, 0, null, 0, 0);
+            OrderedFiniteAdmissionResult filteredAttack = filtered.AdmitNextSource(
+                captureSource[0].WithOutputChannel(6), true, 4, OverflowPolicy.DropNewest);
+            Equal(OrderedFiniteAdmissionDisposition.Filtered, filteredAttack.Disposition,
+                "source-filtered attack is captured once without consuming capacity");
+            OrderedFiniteAdmissionResult filteredRelease = filtered.AdmitNextSource(
+                captureSource[1].WithOutputChannel(6), false, 4, OverflowPolicy.DropNewest);
+            Equal(OrderedFiniteAdmissionDisposition.Filtered, filteredRelease.Disposition,
+                "paired release inherits the captured filtered occurrence decision");
+            Equal(true, filteredRelease.PairedReleaseSuppressed,
+                "filtered occurrence pairing never leaks a later release to output");
+            Equal(0, filtered.OutstandingCount,
+                "filtered source decisions never enter the admitted finite queue");
+
+            MidiSong barrierSong = NewChannelSong("ordered-finite-barrier.mid", 2100,
+                ChannelMessage(0, 0xB0, 10, 1),
+                ChannelMessage(100, 0xB0, 11, 2),
+                ChannelMessage(1000, 0x90, 70, 100),
+                ChannelMessage(1100, 0x80, 70, 0),
+                ChannelMessage(2000, 0xB0, 12, 3),
+                ChannelMessage(2100, 0x80, 71, 0));
+            MidiEventReader barrierSource = barrierSong.GetEventReader();
+            OrderedFiniteAdmissionCore barrier = new OrderedFiniteAdmissionCore(barrierSource, 4);
+            barrier.Start(0, 0, null, 0, 0);
+            barrier.AdmitNextSource(8, OverflowPolicy.DropOldest);
+            barrier.AdmitNextSource(8, OverflowPolicy.DropOldest);
+            List<MidiEventView> chase = new List<MidiEventView>();
+            chase.Add(MidiEventView.FromEvent(
+                ChannelOverrideState.CreateControllerMessage(0, 7, 99), -1));
+            Equal(true, barrier.TryAppendSeek(1000, 2, chase, 10, 0),
+                "finite core closes old work behind a protected marker");
+            barrier.AdmitNextSource(5, OverflowPolicy.DropOldest);
+            OrderedFiniteAdmissionResult pairedRelease =
+                barrier.AdmitNextSource(5, OverflowPolicy.DropOldest);
+            Equal(1, pairedRelease.Evicted.Length,
+                "Drop oldest evicts eligible work only from the current tail");
+            Equal(2, pairedRelease.Evicted[0].GenerationId,
+                "tail eviction cannot cross the previous preservation marker");
+            Equal(OrderedFiniteAdmissionDisposition.Accepted, pairedRelease.Disposition,
+                "protected release fits after a removable tail event is evicted");
+            Equal(true, barrier.TryAppendSeek(2000, 4, null, 20, 0),
+                "repeated finite Seek preserves the first target segment");
+            OrderedFiniteAdmissionResult rejected =
+                barrier.AdmitNextSource(1, OverflowPolicy.DropOldest);
+            Equal(OrderedFiniteAdmissionDisposition.Rejected, rejected.Disposition,
+                "ordinary new work is rejected when only pre-barrier work remains");
+            Equal(0, rejected.Evicted.Length,
+                "overflow search does not cross backward through a marker");
+            OrderedFiniteAdmissionResult laterRelease =
+                barrier.AdmitNextSource(1, OverflowPolicy.DropOldest);
+            Equal(OrderedFiniteAdmissionDisposition.AcceptedSoftLimit,
+                laterRelease.Disposition,
+                "protected traffic remains a soft-limit exception after a barrier");
+
+            List<MidiEventView> payloads = new List<MidiEventView>();
+            OutputWorkItem item;
+            while (barrier.TryBeginDispatch(out item))
+            {
+                OrderedGenerationOutputMaterializer.Append(item, barrierSource, payloads);
+                barrier.CompleteDispatch();
+            }
+            Equal(37, payloads.Count,
+                "finite core materializes old work, two markers, retained chase, and protected releases");
+            Equal(10, (int)payloads[0].GetDataByte(1), "first retained old payload");
+            Equal(11, (int)payloads[1].GetDataByte(1), "second retained old payload");
+            Equal(123, (int)payloads[2].GetDataByte(1), "first marker precedes target chase");
+            Equal(7, (int)payloads[18].GetDataByte(1), "captured target chase follows first marker");
+            Equal(0x80, payloads[19].Status & 0xF0,
+                "protected target release survives its tail overflow decision");
+            Equal(123, (int)payloads[20].GetDataByte(1),
+                "second marker follows every retained first-target item");
+            Equal(71, (int)payloads[36].GetDataByte(1),
+                "newest protected release follows the repeated marker");
+            Equal(1, barrier.LiveGenerationCount,
+                "finite core retires drained closed generations");
+
+            MidiSong clearSong = NewChannelSong("ordered-finite-clear-tail.mid", 2000,
+                ChannelMessage(0, 0xB0, 10, 1),
+                ChannelMessage(100, 0xB0, 11, 2),
+                ChannelMessage(1000, 0xB0, 12, 3),
+                ChannelMessage(1100, 0xB0, 13, 4),
+                ChannelMessage(2000, 0xB0, 14, 5));
+            MidiEventReader clearSource = clearSong.GetEventReader();
+            OrderedFiniteAdmissionCore clear = new OrderedFiniteAdmissionCore(clearSource, 4);
+            clear.Start(0, 0, null, 0, 0);
+            clear.AdmitNextSource(8, OverflowPolicy.DropNewest);
+            clear.AdmitNextSource(8, OverflowPolicy.DropNewest);
+            Equal(true, clear.TryBeginDispatch(out inService),
+                "clear/catch-up leaves the already in-service head intact");
+            List<MidiEventView> clearChase = new List<MidiEventView>();
+            clearChase.Add(MidiEventView.FromEvent(
+                ChannelOverrideState.CreateControllerMessage(0, 7, 88), -1));
+            Equal(true, clear.TryAppendSeek(1000, 2, clearChase, 10, 0),
+                "clear/catch-up fixture creates a preservation barrier");
+            clear.AdmitNextSource(8, OverflowPolicy.DropNewest);
+            OrderedFiniteClearResult cleared = clear.ClearOpenTailAndCatchUp(1500, null);
+            Equal(2, cleared.ClearedWork.Length,
+                "clear/catch-up removes only chase and admitted work in the open tail");
+            Equal(1, cleared.DroppedSkippedSourceEvents,
+                "clear/catch-up skips the later due source suffix in the same tail");
+            Equal(3, cleared.DroppedEvents,
+                "clear/catch-up reports cleared and skipped drops exactly once");
+            Equal(true, cleared.RequiresSafetyReset,
+                "clear/catch-up explicitly requests its ordered safety reset");
+            Equal(4, clear.Tail.SourceEventCursor,
+                "clear/catch-up advances the tail cursor through the due range");
+            Equal(3, clear.OutstandingCount,
+                "clear/catch-up preserves the in-service event, old pending work, and marker");
+            clear.CompleteDispatch();
+            clear.AdmitNextSource(8, OverflowPolicy.DropNewest);
+            List<MidiEventView> clearPayloads = new List<MidiEventView>();
+            while (clear.TryBeginDispatch(out item))
+            {
+                OrderedGenerationOutputMaterializer.Append(item, clearSource, clearPayloads);
+                clear.CompleteDispatch();
+            }
+            Equal(18, clearPayloads.Count,
+                "clear/catch-up retains old work, its marker, and the future target event");
+            Equal(11, (int)clearPayloads[0].GetDataByte(1),
+                "clear/catch-up cannot remove pre-barrier admitted work");
+            Equal(123, (int)clearPayloads[1].GetDataByte(1),
+                "clear/catch-up cannot remove the preservation marker");
+            Equal(14, (int)clearPayloads[17].GetDataByte(1),
+                "clear/catch-up resumes admission after its due source range");
+
+            MidiSong clearFilterSong = NewChannelSong("ordered-finite-clear-filter.mid", 200,
+                ChannelMessage(0, 0x90, 65, 100),
+                ChannelMessage(100, 0x80, 65, 7),
+                ChannelMessage(200, 0xB0, 10, 9));
+            MidiEventReader clearFilterSource = clearFilterSong.GetEventReader();
+            OrderedFiniteAdmissionCore clearFiltered = new OrderedFiniteAdmissionCore(
+                clearFilterSource, 2);
+            clearFiltered.Start(0, 0, null, 0, 0);
+            OrderedFiniteClearResult filteredClear = clearFiltered.ClearOpenTailAndCatchUp(
+                100, delegate(MidiEventView sourceEvent)
+                {
+                    return new OrderedFiniteCapturedDecision(
+                        sourceEvent.WithOutputChannel(5), true);
+                });
+            Equal(0, filteredClear.DroppedEvents,
+                "filtered catch-up source work is not double-counted as a queue drop");
+            Equal(2, filteredClear.FilteredSkippedSourceEvents,
+                "filtered catch-up records the routed attack and paired release once");
+            Equal(2, clearFiltered.Tail.SourceEventCursor,
+                "filtered catch-up advances through the immutable captured decisions");
+
+            MidiSong pressureSong = NewChannelSong("ordered-finite-pressure.mid", 1000,
+                ChannelMessage(0, 0xB0, 10, 1),
+                ChannelMessage(100, 0xB0, 11, 2),
+                ChannelMessage(200, 0xB0, 12, 3),
+                ChannelMessage(300, 0xB0, 13, 4),
+                ChannelMessage(1000, 0xB0, 14, 5));
+            MidiEventReader pressureSource = pressureSong.GetEventReader();
+            OrderedFiniteAdmissionCore pressure = new OrderedFiniteAdmissionCore(
+                pressureSource, 4);
+            pressure.Start(0, 0, null, 0, 0);
+            pressure.AdmitNextSource(8, OverflowPolicy.DropNewest);
+            Equal(true, pressure.TryBeginDispatch(out inService),
+                "pressure fixture holds one synchronous provider item in service");
+            OrderedFinitePressureSnapshot blockedPressure = pressure.MeasureDuePressure(
+                300, delegate(MidiEventView sourceEvent)
+                {
+                    bool filteredDecision = sourceEvent.GetDataByte(1) == 12;
+                    return new OrderedFiniteCapturedDecision(
+                        sourceEvent.WithOutputChannel(5), filteredDecision);
+                });
+            Equal(1, blockedPressure.AdmittedOutstandingCount,
+                "pressure publishes the in-service admitted work once");
+            Equal(2, blockedPressure.ExternalDueCount,
+                "pressure separately publishes eligible due tail work behind provider blocking");
+            Equal(3, blockedPressure.TotalDueCount,
+                "pressure combines admitted and external-due work without double counting");
+            Equal(300L, blockedPressure.CurrentAgeMicroseconds,
+                "pressure age starts at the oldest in-service logical time");
+            Equal(1, pressure.Tail.SourceEventCursor,
+                "pressure publication does not mutate tail admission");
+            pressure.CompleteDispatch();
+
+            OrderedFiniteAdmissionCore age = new OrderedFiniteAdmissionCore(
+                pressureSource, 4);
+            age.Start(0, 0, null, 0, 0);
+            age.AdmitNextSource(8, OverflowPolicy.DropNewest);
+            age.AdmitNextSource(8, OverflowPolicy.DropNewest);
+            age.AdmitNextSource(8, OverflowPolicy.DropNewest);
+            OrderedFiniteAgeRepairResult ageRepair = age.RepairWaitingTimePressure(
+                250, 100, OverflowPolicy.DropOldest, null);
+            Equal(2, ageRepair.Evicted.Length,
+                "strict waiting-time repair removes overdue ordinary heads only");
+            Equal(50L, ageRepair.AgeAfterMicroseconds,
+                "waiting-time repair stops when the oldest retained head is within the limit");
+            Equal(false, ageRepair.StalledByInServiceOrPreservationBarrier,
+                "repairable open-tail age pressure does not report a stall");
+
+            OrderedFiniteAdmissionCore ageBarrier = new OrderedFiniteAdmissionCore(
+                pressureSource, 4);
+            ageBarrier.Start(0, 0, null, 0, 0);
+            ageBarrier.AdmitNextSource(8, OverflowPolicy.DropNewest);
+            Equal(true, ageBarrier.TryAppendSeek(200, 2, null, 0, 0),
+                "waiting-time fixture closes overdue work behind a marker");
+            ageBarrier.AdmitNextSource(8, OverflowPolicy.DropNewest);
+            OrderedFiniteAgeRepairResult barrierRepair =
+                ageBarrier.RepairWaitingTimePressure(500, 100,
+                    OverflowPolicy.DropOldest, null);
+            Equal(true, barrierRepair.StalledByInServiceOrPreservationBarrier,
+                "waiting-time repair cannot cross an older preservation barrier");
+            Equal(0, barrierRepair.Evicted.Length,
+                "barrier-stalled age repair does not discard unrelated target work");
+
+            MidiSong protectedAgeSong = NewChannelSong("ordered-finite-protected-age.mid", 0,
+                ChannelMessage(0, 0x80, 60, 0));
+            OrderedFiniteAdmissionCore protectedAge = new OrderedFiniteAdmissionCore(
+                protectedAgeSong.GetEventReader(), 2);
+            protectedAge.Start(0, 0, null, 0, 0);
+            protectedAge.AdmitNextSource(2, OverflowPolicy.DropNewest);
+            OrderedFiniteAgeRepairResult protectedRepair =
+                protectedAge.RepairWaitingTimePressure(500, 100,
+                    OverflowPolicy.DropOldest, null);
+            Equal(true, protectedRepair.StalledByInServiceOrPreservationBarrier,
+                "protected overdue release creates truthful soft waiting-time excess");
+            Equal(0, protectedRepair.Evicted.Length,
+                "protected overdue head does not cause later unrelated eviction");
+
+            List<MidiEvent> musicalEvents = new List<MidiEvent>();
+            MidiEvent bass = ChannelMessage(0, 0x90, 48, 90); bass.Track = 0;
+            MidiEvent inner = ChannelMessage(0, 0x91, 60, 60); inner.Track = 1;
+            MidiEvent melody = ChannelMessage(0, 0x92, 72, 80); melody.Track = 2;
+            musicalEvents.Add(bass); musicalEvents.Add(inner); musicalEvents.Add(melody);
+            MidiEvent bassOff = ChannelMessage(100, 0x80, 48, 0); bassOff.Track = 0;
+            MidiEvent innerOff = ChannelMessage(100, 0x81, 60, 0); innerOff.Track = 1;
+            MidiEvent melodyOff = ChannelMessage(100, 0x82, 72, 0); melodyOff.Track = 2;
+            musicalEvents.Add(bassOff); musicalEvents.Add(innerOff); musicalEvents.Add(melodyOff);
+            musicalEvents.Add(ChannelMessage(200, 0xB0, 7, 100));
+            MidiSong musicalSong = NewChannelSong("ordered-finite-musical-policy.mid",
+                200, musicalEvents.ToArray());
+            OrderedFiniteAdmissionCore musical = new OrderedFiniteAdmissionCore(
+                musicalSong.GetEventReader(), 4);
+            musical.Start(0, 0, null, 0, 0);
+            for (int index = 0; index < 6; index++)
+                musical.AdmitNextSource(8,
+                    OverflowPolicy.DropBackgroundNotes);
+            OrderedFiniteAdmissionResult musicalPressure = musical.AdmitNextSource(6,
+                OverflowPolicy.DropBackgroundNotes);
+            Equal(2, musicalPressure.Evicted.Length,
+                "musical policy atomically evicts one complete unsent occurrence");
+            Equal(60, (int)musicalPressure.Evicted[0].MidiEvent.GetDataByte(1),
+                "musical policy retains chord bass and melody boundary voices over an inner note");
+            Equal(OutputWorkProtection.ProtectedRelease,
+                musicalPressure.Evicted[1].Protection,
+                "musical policy removes the victim's paired unsent release");
+            Equal(5, musical.OutstandingCount,
+                "musical policy repairs capacity without reordering survivors");
+
+            MidiSong musicalSoftSong = NewChannelSong("ordered-finite-musical-soft.mid", 100,
+                ChannelMessage(0, 0x90, 65, 100),
+                ChannelMessage(100, 0x80, 65, 9));
+            OrderedFiniteAdmissionCore musicalSoft = new OrderedFiniteAdmissionCore(
+                musicalSoftSong.GetEventReader(), 2);
+            musicalSoft.Start(0, 0, null, 0, 0);
+            musicalSoft.AdmitNextSource(1,
+                OverflowPolicy.DropBackgroundNotes);
+            Equal(true, musicalSoft.TryBeginDispatch(out inService),
+                "musical soft-limit fixture begins the emitted attack");
+            OrderedFiniteAdmissionResult protectedMusicalRelease =
+                musicalSoft.AdmitNextSource(1,
+                    OverflowPolicy.DropBackgroundNotes);
+            Equal(OrderedFiniteAdmissionDisposition.AcceptedSoftLimit,
+                protectedMusicalRelease.Disposition,
+                "musical policy never drops a release for an emitted attack");
+            Equal(2, musicalSoft.OutstandingCount,
+                "protected emitted-owner release creates documented soft excess");
+        }
+
+        private static void TestBuild44OrderedVirtualForwardAdapter()
+        {
+            MidiSong song = NewChannelSong("ordered-virtual-forward.mid", 2200,
+                ChannelMessage(0, 0x90, 60, 100),
+                ChannelMessage(100, 0x80, 60, 0),
+                ChannelMessage(1000, 0x90, 61, 110),
+                ChannelMessage(1100, 0x80, 61, 0),
+                ChannelMessage(2000, 0x90, 62, 120),
+                ChannelMessage(2100, 0x80, 62, 0),
+                ChannelMessage(2200, 0xB0, 10, 9));
+            MidiEventReader source = song.GetEventReader();
+            OrderedVirtualForwardAdapter adapter = new OrderedVirtualForwardAdapter(source, 4);
+            adapter.Start(0, 0, null, 0, 0, 2);
+
+            List<MidiEventView> payloads = new List<MidiEventView>();
+            OrderedVirtualAdmissionResult first = adapter.AdmitNextSource(
+                source[0].WithOutputChannel(4), false, 1000,
+                OverflowPolicy.DropIncomingCompleteNotes);
+            Equal(true, first.Accepted,
+                "virtual adapter returns accepted source for immediate dispatch");
+            payloads.Add(first.WorkItem.MidiEvent);
+            OrderedVirtualAdmissionResult firstRelease = adapter.AdmitNextSource(
+                source[1].WithOutputChannel(4), false, 1000,
+                OverflowPolicy.DropIncomingCompleteNotes);
+            Equal(true, firstRelease.Accepted,
+                "virtual adapter soft-admits a protected release");
+            payloads.Add(firstRelease.WorkItem.MidiEvent);
+            Equal(2, adapter.VirtualOccupancy,
+                "first virtual generation retains only service pressure");
+
+            List<MidiEventView> chaseOne = new List<MidiEventView>();
+            chaseOne.Add(MidiEventView.FromEvent(
+                ChannelOverrideState.CreateControllerMessage(0, 7, 88), -1));
+            Equal(true, adapter.TryAppendSeek(1000, 2, chaseOne, 10, 0, 1),
+                "virtual adapter appends marker and first target chase");
+            List<MidiEventView> chaseTwo = new List<MidiEventView>();
+            chaseTwo.Add(MidiEventView.FromEvent(
+                ChannelMessage(0, 0xC1, 12), -1));
+            Equal(true, adapter.TryAppendSeek(2000, 4, chaseTwo, 20, 0, 1),
+                "virtual adapter preserves a repeated marker and target chase");
+            bool boundaryBlockedSource = false;
+            try
+            {
+                adapter.AdmitNextSource(100, OverflowPolicy.DropNewest);
+            }
+            catch (InvalidOperationException) { boundaryBlockedSource = true; }
+            Equal(true, boundaryBlockedSource,
+                "target source cannot pass queued marker/chase boundaries");
+
+            OutputWorkItem boundary;
+            int markerCount = 0;
+            while (adapter.TryBeginBoundaryDispatch(out boundary))
+            {
+                if (boundary.Kind == OutputWorkItemKind.ProtectedSeekMarker)
+                    markerCount++;
+                OrderedGenerationOutputMaterializer.Append(boundary, source, payloads);
+                adapter.CompleteBoundaryDispatch();
+                if (markerCount == 1)
+                {
+                    Equal(2, adapter.ActivePressureGenerationId,
+                        "virtual pressure resets only after the prior marker dispatches");
+                    Equal(0, adapter.VirtualOccupancy,
+                        "first target generation starts with empty virtual pressure");
+                }
+            }
+            Equal(2, markerCount,
+                "repeated virtual seeks retain both protected markers");
+            Equal(3, adapter.ActivePressureGenerationId,
+                "newest virtual pressure becomes active after the second marker");
+            Equal(0, adapter.VirtualOccupancy,
+                "newest target pressure is freshly reset");
+
+            OrderedVirtualAdmissionResult newestAttack = adapter.AdmitNextSource(
+                source[4].WithOutputChannel(6), false, 1000,
+                OverflowPolicy.DropIncomingCompleteNotes);
+            Equal(true, newestAttack.Accepted,
+                "newest virtual target admits only after ordered boundaries drain");
+            payloads.Add(newestAttack.WorkItem.MidiEvent);
+            OrderedVirtualAdmissionResult rejectedController = adapter.AdmitNextSource(
+                source[5].WithOutputChannel(6), false, 1000,
+                OverflowPolicy.DropNewest);
+            Equal(false, rejectedController.Accepted,
+                "virtual Drop newest applies the newest generation's capacity");
+            OrderedVirtualAdmissionResult later = adapter.AdmitNextSource(
+                source[6].WithOutputChannel(6), false, 1000,
+                OverflowPolicy.DropNewest);
+            Equal(false, later.Accepted,
+                "virtual pressure remains bounded within the newest generation");
+
+            Equal(37, payloads.Count,
+                "virtual payload trace contains immediate old source, two markers, two chases, and newest source");
+            Equal(0x94, (int)payloads[0].Status,
+                "virtual source payload retains its admitted route");
+            Equal(123, (int)payloads[2].GetDataByte(1),
+                "first virtual marker follows already dispatched source");
+            Equal(7, (int)payloads[18].GetDataByte(1),
+                "first virtual chase follows its marker");
+            Equal(123, (int)payloads[19].GetDataByte(1),
+                "repeated virtual marker follows the first target chase");
+            Equal(0xC1, (int)payloads[35].Status,
+                "second target chase remains ahead of newest source output");
+            Equal(0x96, (int)payloads[36].Status,
+                "newest routed source output follows every preserved boundary");
+            Equal(3L, adapter.AcceptedEvents,
+                "virtual accepted statistics remain cumulative across pressure resets");
+            Equal(2L, adapter.DroppedEvents,
+                "virtual drop statistics remain cumulative across pressure resets");
+            Equal(2, adapter.MaximumOccupancy,
+                "virtual maximum pressure remains cumulative across generations");
+        }
+
+        private static void TestBuild44OrderedMusicalGateAdapter()
+        {
+            ProcessingMode[] modes = new ProcessingMode[]
+            {
+                ProcessingMode.PerNoteIntervalGate,
+                ProcessingMode.DelayedNoteOff
+            };
+            for (int modeIndex = 0; modeIndex < modes.Length; modeIndex++)
+            {
+                for (int adaptiveIndex = 0; adaptiveIndex < 2; adaptiveIndex++)
+                {
+                    ProcessingMode mode = modes[modeIndex];
+                    bool adaptive = adaptiveIndex != 0;
+                    string label = (mode == ProcessingMode.PerNoteIntervalGate
+                        ? "Per-note" : "Delayed") + (adaptive ? " adaptive" : " fixed");
+                    MidiEvent oldAttack = ChannelMessage(0, 0x90, 60, 100);
+                    oldAttack.Track = 0;
+                    MidiEvent skippedOldRelease = ChannelMessage(500, 0x80, 60, 5);
+                    skippedOldRelease.Track = 0;
+                    MidiEvent targetAttack = ChannelMessage(1000, 0x91, 60, 110);
+                    targetAttack.Track = 1;
+                    MidiEvent targetRelease = ChannelMessage(1100, 0x81, 60, 7);
+                    targetRelease.Track = 1;
+                    MidiSong song = NewChannelSong("ordered-gate-" + label + ".mid", 1100,
+                        oldAttack, skippedOldRelease, targetAttack, targetRelease);
+                    MidiEventReader source = song.GetEventReader();
+                    OrderedMusicalGateAdapter adapter = new OrderedMusicalGateAdapter(
+                        source, 4, mode, 100, adaptive);
+                    adapter.Start(0, 0, null, 0, 0);
+                    Equal(1, adapter.AdmitNextSourceUnit(null),
+                        label + " admits the old source occurrence");
+                    List<MidiEventView> chase = new List<MidiEventView>();
+                    chase.Add(MidiEventView.FromEvent(
+                        ChannelOverrideState.CreateControllerMessage(1, 7, 77), -1));
+                    Equal(true, adapter.TryAppendSeek(200, 1000, 2, chase, 10, 0),
+                        label + " closes old gate decisions before its marker");
+                    Equal(1, adapter.AdmitNextSourceUnit(null),
+                        label + " admits the target attack in a fresh gate");
+                    Equal(1, adapter.AdmitNextSourceUnit(null),
+                        label + " admits the target release in the same generation");
+                    adapter.CompleteTailSource(1100);
+
+                    List<OutputWorkItem> work = new List<OutputWorkItem>();
+                    List<MidiEventView> payloads = new List<MidiEventView>();
+                    OutputWorkItem item;
+                    while (adapter.TryBeginDispatch(out item))
+                    {
+                        work.Add(item);
+                        OrderedGenerationOutputMaterializer.Append(item, source, payloads);
+                        adapter.CompleteDispatch();
+                    }
+                    Equal(21, payloads.Count,
+                        label + " materializes old On/Off, marker, chase, and target On/Off");
+                    Equal(0x90, (int)payloads[0].Status,
+                        label + " old owner attack precedes the preservation boundary");
+                    Equal(0x80, (int)payloads[1].Status,
+                        label + " source completion protects the old owner's release");
+                    Equal(123, (int)payloads[2].GetDataByte(1),
+                        label + " marker follows every accepted old gate decision");
+                    Equal(7, (int)payloads[18].GetDataByte(1),
+                        label + " target chase follows exactly sixteen marker messages");
+                    Equal(0x91, (int)payloads[19].Status,
+                        label + " same-pitch target owner starts in a fresh generation");
+                    Equal(0x81, (int)payloads[20].Status,
+                        label + " target release cannot terminate the earlier owner");
+
+                    List<OutputWorkItem> gateWork = new List<OutputWorkItem>();
+                    for (int index = 0; index < work.Count; index++)
+                        if (work[index].Kind == OutputWorkItemKind.ProjectedGateMidi)
+                            gateWork.Add(work[index]);
+                    Equal(4, gateWork.Count,
+                        label + " records every gate emission as explicit generation work");
+                    List<byte[]> oldProjectedPayloads;
+                    List<long> oldProjectedTimes;
+                    long oldProjectedFiltered;
+                    MidiEvent projectedOldAttack = ChannelMessage(0, 0x90, 60, 100);
+                    projectedOldAttack.Track = 0;
+                    MidiSong projectedOld = NewChannelSong("ordered-gate-old-projection.mid",
+                        200, projectedOldAttack);
+                    List<byte[]> targetProjectedPayloads;
+                    List<long> targetProjectedTimes;
+                    long targetProjectedFiltered;
+                    MidiEvent projectedTargetAttack = ChannelMessage(1000, 0x91, 60, 110);
+                    projectedTargetAttack.Track = 1;
+                    MidiEvent projectedTargetRelease = ChannelMessage(1100, 0x81, 60, 7);
+                    projectedTargetRelease.Track = 1;
+                    MidiSong projectedTarget = NewChannelSong("ordered-gate-target-projection.mid",
+                        1100, projectedTargetAttack, projectedTargetRelease);
+                    if (mode == ProcessingMode.PerNoteIntervalGate)
+                    {
+                        ProjectPerNoteTrace(projectedOld, 100, adaptive,
+                            out oldProjectedPayloads, out oldProjectedTimes,
+                            out oldProjectedFiltered);
+                        ProjectPerNoteTrace(projectedTarget, 100, adaptive,
+                            out targetProjectedPayloads, out targetProjectedTimes,
+                            out targetProjectedFiltered);
+                    }
+                    else
+                    {
+                        ProjectDelayedTrace(projectedOld, 100, adaptive,
+                            out oldProjectedPayloads, out oldProjectedTimes,
+                            out oldProjectedFiltered);
+                        ProjectDelayedTrace(projectedTarget, 100, adaptive,
+                            out targetProjectedPayloads, out targetProjectedTimes,
+                            out targetProjectedFiltered);
+                    }
+                    List<byte[]> expectedGatePayloads = new List<byte[]>();
+                    expectedGatePayloads.AddRange(oldProjectedPayloads);
+                    expectedGatePayloads.AddRange(targetProjectedPayloads);
+                    List<long> expectedGateTimes = new List<long>();
+                    expectedGateTimes.AddRange(oldProjectedTimes);
+                    expectedGateTimes.AddRange(targetProjectedTimes);
+                    Equal(gateWork.Count, expectedGatePayloads.Count,
+                        label + " generation adapter and Analysis emit the same gate count");
+                    for (int gateIndex = 0; gateIndex < gateWork.Count; gateIndex++)
+                    {
+                        Equal(BitConverter.ToString(expectedGatePayloads[gateIndex]),
+                            BitConverter.ToString(gateWork[gateIndex].MidiEvent.Data.ToArray()),
+                            label + " generation adapter/Analysis payload parity " + gateIndex);
+                        Equal(expectedGateTimes[gateIndex],
+                            gateWork[gateIndex].LogicalOutputMicroseconds,
+                            label + " generation adapter/Analysis timestamp parity " + gateIndex);
+                    }
+                    Equal(oldProjectedFiltered + targetProjectedFiltered,
+                        adapter.FilteredEvents,
+                        label + " generation adapter/Analysis filtering parity");
+                    Equal(1, gateWork[0].GenerationId,
+                        label + " old attack retains its source generation");
+                    Equal(1, gateWork[1].GenerationId,
+                        label + " synthesized old release remains before the marker");
+                    Equal(2, gateWork[2].GenerationId,
+                        label + " target attack belongs only to the new gate");
+                    Equal(2, gateWork[3].GenerationId,
+                        label + " target release belongs only to the new gate");
+                    Equal(true, gateWork[1].LogicalOutputMicroseconds <= 200,
+                        label + " old source completion resolves before the requested marker");
+                    Equal(true, gateWork[2].LogicalOutputMicroseconds >= 1000,
+                        label + " target gate never emits before local eligibility");
+                    Equal(1, adapter.LiveGenerationCount,
+                        label + " retires the drained closed gate generation");
+                }
+            }
+        }
+
+        private static void TestBuild44DropBackgroundNotes()
+        {
+            MidiEvent blocker = ChannelMessage(0, 0xB0, 1, 10);
+            MidiEvent bass = ChannelMessage(0, 0x90, 48, 90); bass.Track = 0;
+            MidiEvent inner = ChannelMessage(0, 0x91, 60, 90); inner.Track = 1;
+            MidiEvent melody = ChannelMessage(0, 0x92, 72, 90); melody.Track = 2;
+            MidiEvent bassOff = ChannelMessage(0, 0x80, 48, 0); bassOff.Track = 0;
+            MidiEvent innerOff = ChannelMessage(0, 0x81, 60, 0); innerOff.Track = 1;
+            MidiEvent melodyOff = ChannelMessage(0, 0x82, 72, 0); melodyOff.Track = 2;
+            MidiEvent state = ChannelMessage(0, 0xB0, 7, 100);
+            MidiSong song = NewChannelSong("drop-background-notes.mid", 0,
+                blocker, bass, inner, melody, bassOff, innerOff, melodyOff, state);
+
+            AnalysisConfiguration configuration = DefaultAnalysisConfiguration();
+            configuration.SimulateSlowdown = true;
+            configuration.ServiceDurationMode = ServiceDurationMode.ProcessingTime;
+            configuration.ProcessingMicroseconds = 10000;
+            configuration.QueueLengthLimitEnabled = true;
+            configuration.QueueLengthLimit = 7;
+            configuration.OverflowPolicy = OverflowPolicy.DropBackgroundNotes;
+            WorkloadAnalysis analysis = WorkloadAnalyzer.Analyze(song, 1000, configuration);
+            Equal(2L, analysis.PredictedDroppedEvents,
+                "Analysis removes one complete inner-note occurrence under pressure");
+
+            FakeMidiOutput output = new FakeMidiOutput();
+            PlaybackSnapshot snapshot;
+            List<byte[]> sent;
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.SimulateSlowdown = true;
+                engine.ServiceDurationMode = ServiceDurationMode.ProcessingTime;
+                engine.ProcessingMicroseconds = 10000;
+                engine.QueueLengthLimit = 7;
+                engine.OverflowPolicy = OverflowPolicy.DropBackgroundNotes;
+                engine.Start(song, output, ProcessingMode.Drop);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000,
+                    "Drop background notes completion");
+                snapshot = engine.GetSnapshot();
+                sent = output.SentPayloads();
+            }
+            Equal(analysis.PredictedDroppedEvents, snapshot.DroppedEvents,
+                "musical overflow Playback/Analysis drop parity");
+            Equal(6, sent.Count,
+                "musical overflow retains state plus bass/melody complete notes");
+            bool foundInner = false;
+            bool foundBassOn = false;
+            bool foundBassOff = false;
+            bool foundMelodyOn = false;
+            bool foundMelodyOff = false;
+            for (int index = 0; index < sent.Count; index++)
+            {
+                if (sent[index].Length < 3) continue;
+                int pitch = sent[index][1] & 0x7F;
+                if (pitch == 60) foundInner = true;
+                if (pitch == 48 && (sent[index][0] & 0xF0) == 0x90) foundBassOn = true;
+                if (pitch == 48 && (sent[index][0] & 0xF0) == 0x80) foundBassOff = true;
+                if (pitch == 72 && (sent[index][0] & 0xF0) == 0x90) foundMelodyOn = true;
+                if (pitch == 72 && (sent[index][0] & 0xF0) == 0x80) foundMelodyOff = true;
+            }
+            Equal(false, foundInner,
+                "musical overflow suppresses both attack and release of the inner-note victim");
+            Equal(true, foundBassOn && foundBassOff && foundMelodyOn && foundMelodyOff,
+                "musical overflow preserves complete bass and melody boundary voices");
+
+            MusicalNotePrioritySelector selector = new MusicalNotePrioritySelector();
+            MusicalNotePriorityCandidate[] equal = new MusicalNotePriorityCandidate[]
+            {
+                MusicalPriorityCandidate(60, 90, 0, 0, 0),
+                MusicalPriorityCandidate(60, 90, 1, 1, 1),
+                MusicalPriorityCandidate(60, 90, 2, 2, 2)
+            };
+            int firstEqual = selector.SelectLeastImportant(equal, equal.Length, 0);
+            int equalCursor = selector.NextFairnessCursor(equal[firstEqual]);
+            int secondEqual = selector.SelectLeastImportant(equal, equal.Length, equalCursor);
+            Equal(0, firstEqual, "equal musical candidates start at the deterministic fairness cursor");
+            Equal(1, secondEqual, "equal musical candidates rotate deterministically across lanes");
+
+            MusicalNotePriorityCandidate[] represented = new MusicalNotePriorityCandidate[]
+            {
+                MusicalPriorityCandidate(60, 90, 0, 0, 0),
+                MusicalPriorityCandidate(60, 90, 5, 5, 1),
+                MusicalPriorityCandidate(60, 90, 5, 5, 2)
+            };
+            int representedVictim = selector.SelectLeastImportant(represented,
+                represented.Length, 0);
+            Equal(true, representedVictim != 0,
+                "an overrepresented lane yields before the only voice in another lane");
+
+            MusicalNotePriorityCandidate[] percussion = new MusicalNotePriorityCandidate[]
+            {
+                MusicalPriorityCandidate(36, 40, 0, 9, 0),
+                MusicalPriorityCandidate(38, 110, 1, 9, 1),
+                MusicalPriorityCandidate(42, 40, 2, 9, 2)
+            };
+            int percussionVictim = selector.SelectLeastImportant(percussion,
+                percussion.Length, 0);
+            Equal(true, percussionVictim != 1,
+                "percussion strength wins without treating drum-key extremes as bass and melody");
+
+            RecordingNoteBlockingOutput blockedOutput = new RecordingNoteBlockingOutput();
+            PlaybackSnapshot blockedSnapshot;
+            List<byte[]> blockedPayloads;
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.SimulateSlowdown = true;
+                engine.ServiceDurationMode = ServiceDurationMode.ProcessingTime;
+                engine.ProcessingMicroseconds = 10000;
+                engine.QueueLengthLimit = 7;
+                engine.OverflowPolicy = OverflowPolicy.DropBackgroundNotes;
+                engine.Start(song, blockedOutput, ProcessingMode.Drop);
+                Equal(true, blockedOutput.Entered.WaitOne(1000),
+                    "external-backlog fixture reaches the blocking provider");
+                Thread.Sleep(50);
+                blockedOutput.Release.Set();
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000,
+                    "Drop background notes external-backlog completion");
+                blockedSnapshot = engine.GetSnapshot();
+                blockedPayloads = blockedOutput.Payloads();
+            }
+            Equal(analysis.PredictedDroppedEvents, blockedSnapshot.DroppedEvents,
+                "external provider blocking does not alter musical overflow decisions");
+            Equal(sent.Count, blockedPayloads.Count,
+                "external provider blocking retains every admitted survivor");
+
+            using (MainForm form = new MainForm())
+            {
+                BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                ComboBox overflow = (ComboBox)typeof(MainForm)
+                    .GetField("_overflowPolicyCombo", flags).GetValue(form);
+                bool foundPolicy = false;
+                string[] expectedOrder = new string[] { "Drop newest", "Drop oldest",
+                    "Drop incoming complete notes", "Drop oldest complete note",
+                    "Clear buffer and jump to realtime", "Drop background notes" };
+                Equal(expectedOrder.Length, overflow.Items.Count,
+                    "event-count overflow menu has the complete ordered policy set");
+                for (int index = 0; index < overflow.Items.Count; index++)
+                {
+                    Equal(expectedOrder[index], overflow.Items[index].ToString(),
+                        "event-count overflow menu order " + index);
+                    if (overflow.Items[index].ToString() == "Drop background notes")
+                        foundPolicy = true;
+                }
+                Equal(true, foundPolicy,
+                    "musical overflow is exposed as an ordinary queue policy");
+
+                MethodInfo populate = typeof(MainForm).GetMethod("PopulateOverflowPolicies",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                populate.Invoke(form, new object[] { true, OverflowPolicy.ClearBufferAndCatchUp });
+                string[] waitingOrder = new string[] { "Drop oldest",
+                    "Drop oldest complete note (soft limit)",
+                    "Clear buffer and jump to realtime" };
+                Equal(waitingOrder.Length, overflow.Items.Count,
+                    "waiting-time overflow menu count");
+                for (int index = 0; index < waitingOrder.Length; index++)
+                    Equal(waitingOrder[index], overflow.Items[index].ToString(),
+                        "waiting-time overflow menu order " + index);
+            }
+        }
+
+        private static MusicalNotePriorityCandidate MusicalPriorityCandidate(int pitch,
+            int velocity, int track, int channel, int sourceOrder)
+        {
+            return new MusicalNotePriorityCandidate
+            {
+                Pitch = pitch,
+                Velocity = velocity,
+                Track = track,
+                Channel = channel,
+                SourceOrder = sourceOrder,
+                IntendedMicroseconds = 0,
+                DurationMicroseconds = 1000
+            };
+        }
+
+        private static void TestBuild44IntervalPolyphonyLimit()
+        {
+            VerifyIntervalPolyphonyMode(ProcessingMode.PerNoteIntervalGate, false, "Per-note fixed");
+            VerifyIntervalPolyphonyMode(ProcessingMode.PerNoteIntervalGate, true, "Per-note adaptive");
+            VerifyIntervalPolyphonyMode(ProcessingMode.DelayedNoteOff, false, "Delayed fixed");
+            VerifyIntervalPolyphonyMode(ProcessingMode.DelayedNoteOff, true, "Delayed adaptive");
+
+            using (MainForm form = new MainForm())
+            {
+                BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                RateModelComboBox rate = (RateModelComboBox)typeof(MainForm)
+                    .GetField("_serviceModeCombo", flags).GetValue(form);
+                CheckBox limit = (CheckBox)typeof(MainForm)
+                    .GetField("_queueLimitCheck", flags).GetValue(form);
+                ScrubOrTypeTextBox value = (ScrubOrTypeTextBox)typeof(MainForm)
+                    .GetField("_queueLimitValue", flags).GetValue(form);
+                ComboBox overflow = (ComboBox)typeof(MainForm)
+                    .GetField("_overflowPolicyCombo", flags).GetValue(form);
+
+                Equal(false, limit.Checked, "Interval polyphony defaults off");
+                rate.SelectedChoice = RateModelChoice.PerNoteIntervalGate;
+                Equal(false, limit.Checked, "Per-note retains the default-off interval limit");
+                Equal(128m, value.Value, "Interval polyphony defaults to 128");
+                Equal(128m, value.Maximum, "Interval polyphony maximum is 128");
+                Equal(false, overflow.Enabled, "ordinary Overflow policy is unavailable for Per-note");
+                limit.Checked = true;
+                value.Value = 7;
+                rate.SelectedChoice = RateModelChoice.None;
+                Equal(false, limit.Checked,
+                    "ordinary queue enabled state is remembered separately");
+                Equal((decimal)PlaybackEngine.DefaultQueueLengthLimit, value.Value,
+                    "ordinary queue capacity is remembered separately");
+                rate.SelectedChoice = RateModelChoice.DelayedNoteOff;
+                Equal(true, limit.Checked,
+                    "Delayed NoteOff shares the retained interval-limit enabled state");
+                Equal(7m, value.Value,
+                    "Delayed NoteOff shares the retained interval-limit value");
+                Equal(false, overflow.Enabled,
+                    "ordinary Overflow policy is unavailable for Delayed NoteOff");
+            }
+        }
+
+        private static void VerifyIntervalPolyphonyMode(ProcessingMode mode,
+            bool adaptive, string label)
+        {
+            MidiSong chord = BuildIntervalPolyphonyChordSong(label + "-chord.mid");
+            List<byte[]> projected;
+            List<long> times;
+            long filtered;
+            ProjectGateTrace(mode, chord, 100, adaptive, true, 2,
+                out projected, out times, out filtered);
+            Equal(4, projected.Count, label + " limit two emits two attacks and two releases");
+            Equal(2L, filtered, label + " rejects the inner attack and paired release");
+            Equal(true, ContainsMessage(projected, 0x90, 48, 90),
+                label + " retains the bass boundary");
+            Equal(true, ContainsMessage(projected, 0x92, 72, 90),
+                label + " retains the melody boundary");
+            Equal(false, ContainsPitch(projected, 60),
+                label + " drops the equal-velocity inner voice");
+            AssertMaximumBatch(times, 2, label + " hard limit two");
+            if (adaptive)
+            {
+                Equal(200L, times[2],
+                    label + " adaptive spacing uses the two transitions actually emitted");
+                Equal(200L, times[3],
+                    label + " carried count is not charged before emission");
+            }
+
+            List<byte[]> onePayloads;
+            List<long> oneTimes;
+            long oneFiltered;
+            ProjectGateTrace(mode, chord, 100, adaptive, true, 1,
+                out onePayloads, out oneTimes, out oneFiltered);
+            Equal(2, onePayloads.Count, label + " limit one emits one complete owner");
+            Equal(4L, oneFiltered, label + " limit one rejects two complete occurrences");
+            AssertMaximumBatch(oneTimes, 1, label + " hard limit one");
+
+            List<byte[]> unlimitedPayloads;
+            List<long> unlimitedTimes;
+            long unlimitedFiltered;
+            ProjectGateTrace(mode, chord, 100, adaptive, false, 128,
+                out unlimitedPayloads, out unlimitedTimes, out unlimitedFiltered);
+            List<byte[]> maximumPayloads;
+            List<long> maximumTimes;
+            long maximumFiltered;
+            ProjectGateTrace(mode, chord, 100, adaptive, true, 128,
+                out maximumPayloads, out maximumTimes, out maximumFiltered);
+            SequencePayloads(unlimitedPayloads, maximumPayloads,
+                label + " value 128 preserves payloads");
+            Sequence(unlimitedTimes.ToArray(), maximumTimes,
+                label + " value 128 preserves logical timestamps");
+            Equal(unlimitedFiltered, maximumFiltered,
+                label + " value 128 preserves filtering");
+
+            MidiSong carry = BuildIntervalPolyphonyCarrySong(label + "-carry.mid");
+            List<byte[]> carryPayloads;
+            List<long> carryTimes;
+            long carryFiltered;
+            ProjectGateTrace(mode, carry, 100, adaptive, true, 1,
+                out carryPayloads, out carryTimes, out carryFiltered);
+            AssertMaximumBatch(carryTimes, 1, label + " carried-release hard limit");
+            Equal(6, carryPayloads.Count,
+                label + " emits three owners and their three protected releases only");
+            Equal(4L, carryFiltered,
+                label + " carried releases displace two attacks and their paired releases");
+            Equal(false, HasAttackAfterFirst(carryPayloads, 61),
+                label + " replacement never passes its carried release");
+            Equal(false, HasAttackAfterFirst(carryPayloads, 62),
+                label + " later replacement never passes its carried release");
+            Sequence(new long[] { 0, 100, 200, 300, 400, 500 }, carryTimes,
+                label + " protected releases carry one per earliest following interval");
+
+            FakeMidiOutput output = new FakeMidiOutput();
+            List<byte[]> livePayloads;
+            List<long> liveLogical = new List<long>();
+            PlaybackSnapshot snapshot;
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.ProcessingMicroseconds = 100;
+                engine.ScaleNoteIntervalByTraffic = adaptive;
+                engine.IntervalPolyphonyLimitEnabled = true;
+                engine.IntervalPolyphonyLimit = 1;
+                engine.SetGateLogicalOutputTraceForTesting(delegate(long time,
+                    IList<MidiEventView> batch, int count)
+                {
+                    for (int index = 0; index < count; index++) liveLogical.Add(time);
+                });
+                engine.Start(carry, output, mode);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2000,
+                    label + " Playback completion");
+                snapshot = engine.GetSnapshot();
+                livePayloads = output.SentPayloads();
+            }
+            SequencePayloads(carryPayloads, livePayloads,
+                label + " Playback/Analysis payload parity");
+            Sequence(carryTimes.ToArray(), liveLogical,
+                label + " Playback/Analysis timestamp parity");
+            Equal(carryFiltered, snapshot.GateFilteredEvents,
+                label + " Playback/Analysis filtering parity");
+        }
+
+        private static MidiSong BuildIntervalPolyphonyChordSong(string path)
+        {
+            MidiEvent bass = ChannelMessage(0, 0x90, 48, 90); bass.Track = 0;
+            MidiEvent inner = ChannelMessage(0, 0x91, 60, 90); inner.Track = 1;
+            MidiEvent melody = ChannelMessage(0, 0x92, 72, 90); melody.Track = 2;
+            MidiEvent bassOff = ChannelMessage(100, 0x80, 48, 0); bassOff.Track = 0;
+            MidiEvent innerOff = ChannelMessage(100, 0x81, 60, 0); innerOff.Track = 1;
+            MidiEvent melodyOff = ChannelMessage(100, 0x82, 72, 0); melodyOff.Track = 2;
+            return NewChannelSong(path, 100, bass, inner, melody,
+                bassOff, innerOff, melodyOff);
+        }
+
+        private static MidiSong BuildIntervalPolyphonyCarrySong(string path)
+        {
+            MidiEvent on60 = ChannelMessage(0, 0x90, 60, 100); on60.Track = 0;
+            MidiEvent on61 = ChannelMessage(100, 0x91, 61, 100); on61.Track = 1;
+            MidiEvent on62 = ChannelMessage(200, 0x92, 62, 100); on62.Track = 2;
+            MidiEvent off60 = ChannelMessage(300, 0x80, 60, 0); off60.Track = 0;
+            MidiEvent off61 = ChannelMessage(300, 0x81, 61, 0); off61.Track = 1;
+            MidiEvent off62 = ChannelMessage(300, 0x82, 62, 0); off62.Track = 2;
+            MidiEvent replace61 = ChannelMessage(400, 0x93, 61, 110); replace61.Track = 3;
+            MidiEvent replace61Off = ChannelMessage(450, 0x83, 61, 0); replace61Off.Track = 3;
+            MidiEvent replace62 = ChannelMessage(500, 0x94, 62, 110); replace62.Track = 4;
+            MidiEvent replace62Off = ChannelMessage(550, 0x84, 62, 0); replace62Off.Track = 4;
+            return NewChannelSong(path, 550, on60, on61, on62, off60, off61, off62,
+                replace61, replace61Off, replace62, replace62Off);
+        }
+
+        private static void ProjectGateTrace(ProcessingMode mode, MidiSong song,
+            long interval, bool adaptive, bool limitEnabled, int limit,
+            out List<byte[]> payloads, out List<long> times, out long filtered)
+        {
+            if (mode == ProcessingMode.PerNoteIntervalGate)
+                ProjectPerNoteTrace(song, interval, adaptive, out payloads, out times,
+                    out filtered, limitEnabled, limit);
+            else
+                ProjectDelayedTrace(song, interval, adaptive, out payloads, out times,
+                    out filtered, limitEnabled, limit);
+        }
+
+        private static void AssertMaximumBatch(List<long> times, int limit, string label)
+        {
+            Dictionary<long, int> counts = new Dictionary<long, int>();
+            for (int index = 0; index < times.Count; index++)
+            {
+                int count;
+                counts.TryGetValue(times[index], out count);
+                count++;
+                counts[times[index]] = count;
+                if (count > limit) throw new Exception(label + " exceeded at " + times[index]);
+            }
+        }
+
+        private static bool ContainsPitch(List<byte[]> payloads, int pitch)
+        {
+            for (int index = 0; index < payloads.Count; index++)
+                if (payloads[index].Length >= 3 && payloads[index][1] == pitch) return true;
+            return false;
+        }
+
+        private static bool HasAttackAfterFirst(List<byte[]> payloads, int pitch)
+        {
+            int attacks = 0;
+            for (int index = 0; index < payloads.Count; index++)
+                if (payloads[index].Length >= 3 && payloads[index][1] == pitch &&
+                    (payloads[index][0] & 0xF0) == 0x90 && payloads[index][2] != 0)
+                    attacks++;
+            return attacks > 1;
+        }
+
+        private static void SequencePayloads(List<byte[]> expected, List<byte[]> actual,
+            string label)
+        {
+            Equal(expected.Count, actual.Count, label + " count");
+            for (int index = 0; index < expected.Count; index++)
+                Equal(BitConverter.ToString(expected[index]), BitConverter.ToString(actual[index]),
+                    label + " " + index);
+        }
+
+        private static void TestBuild44AdaptiveNoteTrafficAndLiveQueueCapacity()
+        {
+            AdaptiveNoteIntervalClock disabled = new AdaptiveNoteIntervalClock(100, false);
+            Equal(37L, disabled.EffectiveBoundary(37),
+                "adaptive note traffic defaults to the legacy local boundary");
+            disabled.RecordBoundaryPass(37, 128);
+            disabled.CompleteIfClosed(38, Int64.MaxValue);
+            Equal(38L, disabled.EffectiveBoundary(38),
+                "disabled adaptive clock leaves legacy output unchanged");
+
+            AdaptiveNoteIntervalClock one = new AdaptiveNoteIntervalClock(100, true);
+            one.RecordBoundaryPass(0, 1);
+            Equal(true, one.CompleteIfClosed(1, Int64.MaxValue),
+                "one-message batch closes deterministically");
+            Equal(100L, one.EffectiveBoundary(1), "one transmitted note message imposes one interval");
+            AdaptiveNoteIntervalClock eight = new AdaptiveNoteIntervalClock(100, true);
+            eight.RecordBoundaryPass(0, 8);
+            eight.CompleteIfClosed(1, Int64.MaxValue);
+            Equal(800L, eight.EffectiveBoundary(1), "eight-message batch imposes eight intervals");
+            AdaptiveNoteIntervalClock oneTwentyEight = new AdaptiveNoteIntervalClock(100, true);
+            oneTwentyEight.RecordBoundaryPass(0, 128);
+            oneTwentyEight.CompleteIfClosed(1, Int64.MaxValue);
+            Equal(12800L, oneTwentyEight.EffectiveBoundary(1),
+                "128-message batch imposes 128 intervals");
+            AdaptiveNoteIntervalClock zeroOutput = new AdaptiveNoteIntervalClock(100, true);
+            zeroOutput.RecordBoundaryPass(10, 0);
+            zeroOutput.CompleteIfClosed(11, Int64.MaxValue);
+            Equal(110L, zeroOutput.EffectiveBoundary(11),
+                "zero-output boundary uses multiplier one");
+            Equal(Int64.MaxValue, AdaptiveNoteIntervalClock.SaturatingMultiply(Int64.MaxValue / 2 + 1, 3),
+                "adaptive multiplication saturates");
+            Equal(Int64.MaxValue, AdaptiveNoteIntervalClock.SaturatingAdd(Int64.MaxValue - 5, 6),
+                "adaptive addition saturates");
+
+            List<MidiEvent> eightEvents = new List<MidiEvent>();
+            for (int pitch = 0; pitch < 8; pitch++)
+                eightEvents.Add(ChannelMessage(0, (byte)(0x90 | (pitch & 3)), (byte)(60 + pitch),
+                    (byte)(80 + pitch)));
+            eightEvents.Add(ChannelMessage(50, 0xB0, 7, 99));
+            for (int pitch = 0; pitch < 8; pitch++)
+                eightEvents.Add(ChannelMessage(100, (byte)(0x80 | (pitch & 3)), (byte)(60 + pitch), 0));
+            MidiSong eightSong = NewChannelSong("adaptive-eight.mid", 100,
+                eightEvents.ToArray());
+            List<byte[]> adaptivePayloads;
+            List<long> adaptiveTimes;
+            long adaptiveFiltered;
+            ProjectPerNoteTrace(eightSong, 100, true, out adaptivePayloads,
+                out adaptiveTimes, out adaptiveFiltered);
+            Equal(17, adaptiveTimes.Count, "eight-note adaptive trace retains note and non-note traffic");
+            for (int index = 0; index < 8; index++)
+                Equal(0L, adaptiveTimes[index], "eight-note attack batch time " + index);
+            Equal(50L, adaptiveTimes[8], "ordinary non-note traffic is not delayed by adaptive waiting");
+            for (int index = 9; index < adaptiveTimes.Count; index++)
+                Equal(800L, adaptiveTimes[index], "eight-note release batch time " + index);
+            Equal(0L, adaptiveFiltered, "distinct eight-note batch has no gate filtering");
+
+            List<byte[]> legacyPayloads;
+            List<long> legacyTimes;
+            long legacyFiltered;
+            ProjectPerNoteTrace(eightSong, 100, false, out legacyPayloads,
+                out legacyTimes, out legacyFiltered);
+            Equal(100L, legacyTimes[9], "default-off projection preserves the legacy release boundary");
+            Equal(adaptivePayloads.Count, legacyPayloads.Count,
+                "adaptive timing does not alter the default-off payload count");
+            for (int index = 0; index < legacyPayloads.Count; index++)
+                Equal(BitConverter.ToString(legacyPayloads[index]), BitConverter.ToString(adaptivePayloads[index]),
+                    "adaptive timing preserves payload decision " + index);
+
+            List<MidiEvent> mixedEvents = new List<MidiEvent>();
+            for (int pitch = 0; pitch < 4; pitch++)
+                mixedEvents.Add(ChannelMessage(0, 0x90, (byte)(40 + pitch), 100));
+            for (int pitch = 0; pitch < 4; pitch++)
+                mixedEvents.Add(ChannelMessage(100, 0x80, (byte)(40 + pitch), 0));
+            for (int pitch = 0; pitch < 4; pitch++)
+                mixedEvents.Add(ChannelMessage(100, 0x91, (byte)(80 + pitch), 90));
+            for (int pitch = 0; pitch < 4; pitch++)
+                mixedEvents.Add(ChannelMessage(900, 0x81, (byte)(80 + pitch), 0));
+            List<byte[]> mixedPayloads;
+            List<long> mixedTimes;
+            long mixedFiltered;
+            ProjectPerNoteTrace(NewChannelSong("adaptive-mixed.mid", 900, mixedEvents.ToArray()),
+                100, true, out mixedPayloads, out mixedTimes, out mixedFiltered);
+            int mixedAtFourHundred = 0;
+            int mixedOn = 0;
+            int mixedOff = 0;
+            for (int index = 0; index < mixedTimes.Count; index++)
+                if (mixedTimes[index] == 400)
+                {
+                    mixedAtFourHundred++;
+                    if ((mixedPayloads[index][0] & 0xF0) == 0x90 && mixedPayloads[index][2] != 0) mixedOn++;
+                    else mixedOff++;
+                }
+            Equal(8, mixedAtFourHundred, "mixed adaptive boundary contains all eight due transitions");
+            Equal(4, mixedOn, "mixed boundary counts NoteOns");
+            Equal(4, mixedOff, "mixed boundary counts NoteOffs");
+
+            List<MidiEvent> densePitchEvents = new List<MidiEvent>();
+            for (int pitch = 0; pitch < 128; pitch++)
+                densePitchEvents.Add(ChannelMessage(0, (byte)(0x90 | (pitch & 15)), (byte)pitch, 100));
+            for (int pitch = 0; pitch < 128; pitch++)
+                densePitchEvents.Add(ChannelMessage(1, (byte)(0x80 | (pitch & 15)), (byte)pitch, 0));
+            List<byte[]> densePayloads;
+            List<long> denseTimes;
+            long denseFiltered;
+            ProjectPerNoteTrace(NewChannelSong("adaptive-128.mid", 1, densePitchEvents.ToArray()),
+                100, true, out densePayloads, out denseTimes, out denseFiltered);
+            Equal(256, denseTimes.Count, "128-transition attack and release batches remain bounded");
+            Equal(12800L, denseTimes[128], "128 transmitted attacks postpone the release batch by 128 intervals");
+
+            List<MidiEvent> coalescedEvents = new List<MidiEvent>();
+            for (int layer = 0; layer < 8; layer++)
+            {
+                MidiEvent attack = ChannelMessage(0, (byte)(0x90 | layer), 60, 100);
+                attack.Track = layer;
+                coalescedEvents.Add(attack);
+            }
+            for (int layer = 0; layer < 8; layer++)
+            {
+                MidiEvent release = ChannelMessage(1, (byte)(0x80 | layer), 60, 0);
+                release.Track = layer;
+                coalescedEvents.Add(release);
+            }
+            List<byte[]> coalescedPayloads;
+            List<long> coalescedTimes;
+            long coalescedFiltered;
+            ProjectPerNoteTrace(NewChannelSong("adaptive-coalesced.mid", 1, coalescedEvents.ToArray()),
+                100, true, out coalescedPayloads, out coalescedTimes, out coalescedFiltered);
+            Equal(2, coalescedTimes.Count, "coalesced source layers do not inflate transmitted N");
+            Equal(100L, coalescedTimes[1], "one transmitted attack imposes one interval, not eight");
+            Equal(14L, coalescedFiltered, "filtered attacks and non-final releases remain excluded traffic");
+            Equal(0x90, (int)coalescedPayloads[0][0],
+                "equal-velocity candidates retain stable earliest source order");
+
+            MidiEvent delayedRoot = ChannelMessage(0, 0x90, 60, 90); delayedRoot.Track = 0;
+            MidiEvent delayedReplacement = ChannelMessage(100, 0x91, 60, 120); delayedReplacement.Track = 1;
+            MidiEvent delayedOldOff = ChannelMessage(150, 0x80, 60, 0); delayedOldOff.Track = 0;
+            MidiEvent delayedReplacementOff = ChannelMessage(250, 0x81, 60, 7); delayedReplacementOff.Track = 1;
+            MidiSong delayedSong = NewChannelSong("adaptive-delayed.mid", 250,
+                delayedRoot, delayedReplacement, delayedOldOff, delayedReplacementOff);
+            List<byte[]> delayedPayloads;
+            List<long> delayedTimes;
+            long delayedFiltered;
+            ProjectDelayedTrace(delayedSong, 100, true, out delayedPayloads,
+                out delayedTimes, out delayedFiltered);
+            Sequence(new long[] { 0, 100, 200, 300 }, delayedTimes,
+                "Delayed bounded eligible-retrigger timing under adaptive scaling");
+            Equal("80-3C-00", BitConverter.ToString(delayedPayloads[1]),
+                "the transmitted owner receives a protected retrigger release");
+            Equal("91-3C-78", BitConverter.ToString(delayedPayloads[2]),
+                "one eligible replacement survives the bounded recovery slot");
+            Equal("81-3C-07", BitConverter.ToString(delayedPayloads[3]),
+                "the retained replacement keeps its paired source release");
+            Equal(0L, delayedFiltered,
+                "the bounded eligible replacement is not reported as filtered");
+
+            AnalysisConfiguration delayedConfiguration = DefaultAnalysisConfiguration();
+            delayedConfiguration.SimulateSlowdown = false;
+            delayedConfiguration.DelayedNoteOffEnabled = true;
+            delayedConfiguration.ProcessingMicroseconds = 100;
+            delayedConfiguration.ScaleNoteIntervalByTraffic = true;
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.ProcessingMicroseconds = 100;
+                engine.ScaleNoteIntervalByTraffic = true;
+                engine.Start(delayedSong, output, ProcessingMode.DelayedNoteOff);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1500,
+                    "adaptive Delayed Playback completion");
+                List<byte[]> livePayloads = output.SentPayloads();
+                Equal(delayedPayloads.Count, livePayloads.Count,
+                    "adaptive Delayed Playback and Analysis counts agree");
+                for (int index = 0; index < livePayloads.Count; index++)
+                    Equal(BitConverter.ToString(delayedPayloads[index]), BitConverter.ToString(livePayloads[index]),
+                        "adaptive Delayed Playback/Analysis payload parity " + index);
+                Equal(delayedFiltered, engine.GetSnapshot().GateFilteredEvents,
+                    "adaptive Delayed Playback/Analysis filtering parity");
+            }
+
+            MethodInfo cacheKey = typeof(DiagnosticsForm).GetMethod("AnalysisCacheKey",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            AnalysisConfiguration cacheOff = DefaultAnalysisConfiguration();
+            cacheOff.PerNoteIntervalGateEnabled = true;
+            cacheOff.ProcessingMicroseconds = 100;
+            AnalysisConfiguration cacheOn = DefaultAnalysisConfiguration();
+            cacheOn.PerNoteIntervalGateEnabled = true;
+            cacheOn.ProcessingMicroseconds = 100;
+            cacheOn.ScaleNoteIntervalByTraffic = true;
+            string offKey = (string)cacheKey.Invoke(null, new object[] { cacheOff, 100L });
+            string onKey = (string)cacheKey.Invoke(null, new object[] { cacheOn, 100L });
+            Equal(false, String.Equals(offKey, onKey, StringComparison.Ordinal),
+                "Analysis cache key includes adaptive note traffic");
+
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(20);
+                BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                RateModelComboBox rate = (RateModelComboBox)typeof(MainForm)
+                    .GetField("_serviceModeCombo", flags).GetValue(form);
+                IntPtr menu = GetSystemMenu(form.Handle, false);
+                uint command = (uint)MainForm.ScaleNoteIntervalByTrafficSystemCommandForTesting;
+                Equal(0U, GetMenuState(menu, command, 0) & 0x0008U,
+                    "adaptive note traffic native check defaults off");
+                Equal(0U, GetMenuState(menu, command, 0) & 0x0003U,
+                    "adaptive note traffic is available for None while stopped");
+                SendMessage(form.Handle, 0x0112,
+                    (IntPtr)MainForm.ScaleNoteIntervalByTrafficSystemCommandForTesting, IntPtr.Zero);
+                Equal(true, form.ScaleNoteIntervalByTrafficForTesting,
+                    "native command retains adaptive note traffic under None");
+                Equal(0x0008U, GetMenuState(menu, command, 0) & 0x0008U,
+                    "adaptive native check follows retained session state under None");
+                rate.SelectedChoice = RateModelChoice.ProcessingTime;
+                Application.DoEvents();
+                Equal(0U, GetMenuState(menu, command, 0) & 0x0003U,
+                    "adaptive note traffic remains available for an ordinary stopped model");
+                Equal(0x0008U, GetMenuState(menu, command, 0) & 0x0008U,
+                    "ordinary stopped model preserves the retained adaptive check");
+                rate.SelectedChoice = RateModelChoice.PerNoteIntervalGate;
+                Application.DoEvents();
+                Equal(0U, GetMenuState(menu, command, 0) & 0x0003U,
+                    "adaptive note traffic is enabled for Per-note while stopped");
+                Equal(true, form.ScaleNoteIntervalByTrafficForTesting,
+                    "selecting Per-note applies the retained adaptive setting");
+                Equal(0x0008U, GetMenuState(menu, command, 0) & 0x0008U,
+                    "adaptive native check follows session state");
+                int menuCount = GetMenuItemCount(menu);
+                typeof(Control).GetMethod("RecreateHandle", flags).Invoke(form, null);
+                Application.DoEvents();
+                menu = GetSystemMenu(form.Handle, false);
+                Equal(menuCount, GetMenuItemCount(menu),
+                    "handle recreation does not duplicate adaptive menu entries");
+                Equal(0x0008U, GetMenuState(menu, command, 0) & 0x0008U,
+                    "adaptive native check survives handle recreation");
+
+                PlaybackEngine formEngine = (PlaybackEngine)typeof(MainForm)
+                    .GetField("_engine", flags).GetValue(form);
+                formEngine.ProcessingMicroseconds = 500000;
+                formEngine.Start(NewChannelSong("adaptive-ui-active.mid", 500000,
+                    ChannelMessage(0, 0x90, 60, 100), ChannelMessage(500000, 0x80, 60, 0)),
+                    new FakeMidiOutput(), ProcessingMode.PerNoteIntervalGate);
+                typeof(MainForm).GetMethod("UpdateTransportControls", flags).Invoke(form, null);
+                Equal(true, (GetMenuState(menu, command, 0) & 0x0003U) != 0,
+                    "adaptive native command is disabled during playback");
+                SendMessage(form.Handle, 0x0112,
+                    (IntPtr)MainForm.ScaleNoteIntervalByTrafficSystemCommandForTesting, IntPtr.Zero);
+                Equal(true, form.ScaleNoteIntervalByTrafficForTesting,
+                    "disabled adaptive command cannot change active playback");
+                formEngine.Stop();
+                form.Close();
+            }
+
+            TestLiveQueueCapacityEdits();
+        }
+
+        private static void ProjectPerNoteTrace(MidiSong song, long interval, bool adaptive,
+            out List<byte[]> payloads, out List<long> times, out long filtered,
+            bool intervalPolyphonyEnabled = false,
+            int intervalPolyphonyLimit = PlaybackEngine.DefaultIntervalPolyphonyLimit)
+        {
+            AnalysisConfiguration configuration = DefaultAnalysisConfiguration();
+            configuration.SimulateSlowdown = false;
+            configuration.PerNoteIntervalGateEnabled = true;
+            configuration.ProcessingMicroseconds = interval;
+            configuration.ScaleNoteIntervalByTraffic = adaptive;
+            configuration.IntervalPolyphonyLimitEnabled = intervalPolyphonyEnabled;
+            configuration.IntervalPolyphonyLimit = intervalPolyphonyLimit;
+            WorkloadAnalysis workload = WorkloadAnalyzer.Analyze(song, 100,
+                (AnalysisConfiguration)null).CopyWorkload(configuration, CancellationToken.None);
+            payloads = new List<byte[]>();
+            times = new List<long>();
+            List<byte[]> payloadTarget = payloads;
+            List<long> timeTarget = times;
+            WorkloadAnalyzer.ProjectPerNoteGate(song, workload, configuration,
+                CancellationToken.None, null, delegate(MidiEventView midiEvent, long time)
+                {
+                    payloadTarget.Add(midiEvent.Data.ToArray());
+                    timeTarget.Add(time);
+                });
+            filtered = workload.GateFilteredNoteEvents;
+        }
+
+        private static void ProjectDelayedTrace(MidiSong song, long interval, bool adaptive,
+            out List<byte[]> payloads, out List<long> times, out long filtered,
+            bool intervalPolyphonyEnabled = false,
+            int intervalPolyphonyLimit = PlaybackEngine.DefaultIntervalPolyphonyLimit)
+        {
+            AnalysisConfiguration configuration = DefaultAnalysisConfiguration();
+            configuration.SimulateSlowdown = false;
+            configuration.DelayedNoteOffEnabled = true;
+            configuration.ProcessingMicroseconds = interval;
+            configuration.ScaleNoteIntervalByTraffic = adaptive;
+            configuration.IntervalPolyphonyLimitEnabled = intervalPolyphonyEnabled;
+            configuration.IntervalPolyphonyLimit = intervalPolyphonyLimit;
+            WorkloadAnalysis workload = WorkloadAnalyzer.Analyze(song, 100,
+                (AnalysisConfiguration)null).CopyWorkload(configuration, CancellationToken.None);
+            payloads = new List<byte[]>();
+            times = new List<long>();
+            List<byte[]> payloadTarget = payloads;
+            List<long> timeTarget = times;
+            WorkloadAnalyzer.ProjectDelayedNoteOff(song, workload, configuration,
+                CancellationToken.None, null, delegate(MidiEventView midiEvent, long time)
+                {
+                    payloadTarget.Add(midiEvent.Data.ToArray());
+                    timeTarget.Add(time);
+                });
+            filtered = workload.GateFilteredNoteEvents;
+        }
+
+        private static void TestBuild44AdaptiveTimingAudit()
+        {
+            VerifyAdaptiveTimingAuditMode(ProcessingMode.PerNoteIntervalGate, "Per-note");
+            VerifyAdaptiveTimingAuditMode(ProcessingMode.DelayedNoteOff, "Delayed NoteOff");
+        }
+
+        private static void TestBuild44InternalGateBacklogRule()
+        {
+            VerifyInternalGateBacklogMode(ProcessingMode.PerNoteIntervalGate, "Per-note");
+            VerifyInternalGateBacklogMode(ProcessingMode.DelayedNoteOff, "Delayed NoteOff");
+        }
+
+        private static void VerifyInternalGateBacklogMode(ProcessingMode mode, string label)
+        {
+            for (int adaptiveIndex = 0; adaptiveIndex < 2; adaptiveIndex++)
+            {
+                bool adaptive = adaptiveIndex != 0;
+                MidiSong projectedSong = BuildInternalGateBacklogSong(mode,
+                    label + (adaptive ? "-adaptive" : "-fixed") + "-projected.mid");
+                List<byte[]> projectedPayloads;
+                List<long> projectedTimes;
+                long projectedFiltered;
+                if (mode == ProcessingMode.PerNoteIntervalGate)
+                    ProjectPerNoteTrace(projectedSong, 20000, adaptive,
+                        out projectedPayloads, out projectedTimes, out projectedFiltered);
+                else
+                    ProjectDelayedTrace(projectedSong, 20000, adaptive,
+                        out projectedPayloads, out projectedTimes, out projectedFiltered);
+
+                long[] expectedTimes;
+                if (mode == ProcessingMode.PerNoteIntervalGate)
+                    expectedTimes = adaptive
+                        ? new long[] { 0, 0, 0, 0, 80000, 80000, 80000, 80000 }
+                        : new long[] { 0, 0, 0, 0, 20000, 20000, 20000, 20000 };
+                else
+                    expectedTimes = adaptive
+                        ? new long[] { 0, 0, 0, 0, 80000, 80000, 80000, 80000,
+                            160000, 170000, 190000, 190000 }
+                        : new long[] { 0, 0, 0, 0, 20000, 20000, 20000, 20000,
+                            25000, 170000, 190000, 190000 };
+                Sequence(expectedTimes, projectedTimes,
+                    label + " " + (adaptive ? "adaptive" : "fixed") +
+                    " bounded internal-backlog logical timestamps");
+                Equal(mode == ProcessingMode.DelayedNoteOff ? 4L : 6L, projectedFiltered,
+                    label + " filters losing attacks and paired releases exactly once");
+
+                int pitch60Attacks = 0;
+                int pitch60Releases = 0;
+                for (int index = 0; index < projectedPayloads.Count; index++)
+                {
+                    byte[] payload = projectedPayloads[index];
+                    if (payload.Length < 3 || payload[1] != 60) continue;
+                    if ((payload[0] & 0xF0) == 0x90 && payload[2] != 0) pitch60Attacks++;
+                    else if ((payload[0] & 0xF0) == 0x80 ||
+                        (payload[0] & 0xF0) == 0x90 && payload[2] == 0) pitch60Releases++;
+                }
+                int expectedPitch60Occurrences = mode == ProcessingMode.DelayedNoteOff ? 2 : 1;
+                Equal(expectedPitch60Occurrences, pitch60Attacks,
+                    label + " retains only the bounded same-batch recovery winner");
+                Equal(expectedPitch60Occurrences, pitch60Releases,
+                    label + " protects every transmitted owner's paired release");
+
+                string modeLabel = label + " " + (adaptive ? "adaptive" : "fixed");
+                VerifyInternalGateBacklogLive(mode,
+                    BuildInternalGateBacklogSong(mode, modeLabel + "-provider.mid"), adaptive,
+                    projectedPayloads, projectedTimes, projectedFiltered, true,
+                    modeLabel + " provider blocking");
+                VerifyInternalGateBacklogLive(mode,
+                    BuildInternalGateBacklogSong(mode, modeLabel + "-scheduler.mid"), adaptive,
+                    projectedPayloads, projectedTimes, projectedFiltered, false,
+                    modeLabel + " scheduler lateness");
+            }
+        }
+
+        private static MidiSong BuildInternalGateBacklogSong(ProcessingMode mode, string path)
+        {
+            List<MidiEvent> events = new List<MidiEvent>();
+            for (int pitch = 60; pitch <= 63; pitch++)
+            {
+                MidiEvent attack = ChannelMessage(0, (byte)(0x90 | (pitch - 60)),
+                    (byte)pitch, (byte)(70 + pitch - 60));
+                attack.Track = pitch - 60;
+                events.Add(attack);
+            }
+
+            if (mode == ProcessingMode.PerNoteIntervalGate)
+            {
+                MidiEvent first = ChannelMessage(1000, 0x91, 60, 80); first.Track = 10;
+                MidiEvent winner = ChannelMessage(2000, 0x92, 60, 110); winner.Track = 11;
+                MidiEvent third = ChannelMessage(3000, 0x93, 60, 90); third.Track = 12;
+                events.Add(first); events.Add(winner); events.Add(third);
+                MidiEvent firstOff = ChannelMessage(4000, 0x81, 60, 0); firstOff.Track = 10;
+                MidiEvent thirdOff = ChannelMessage(5000, 0x83, 60, 0); thirdOff.Track = 12;
+                events.Add(firstOff); events.Add(thirdOff);
+                for (int pitch = 60; pitch <= 63; pitch++)
+                {
+                    MidiEvent release = ChannelMessage(10000,
+                        (byte)(0x80 | (pitch - 60)), (byte)pitch, 0);
+                    release.Track = pitch - 60;
+                    events.Add(release);
+                }
+                MidiEvent winnerOff = ChannelMessage(65000, 0x82, 60, 7);
+                winnerOff.Track = 11;
+                events.Add(winnerOff);
+                return NewChannelSong(path, 65000, events.ToArray());
+            }
+
+            for (int pitch = 60; pitch <= 63; pitch++)
+            {
+                MidiEvent release = ChannelMessage(10000,
+                    (byte)(0x80 | (pitch - 60)), (byte)pitch, 0);
+                release.Track = pitch - 60;
+                events.Add(release);
+            }
+            MidiEvent delayedFirst = ChannelMessage(20000, 0x91, 60, 80); delayedFirst.Track = 10;
+            MidiEvent delayedWinner = ChannelMessage(20000, 0x92, 60, 110); delayedWinner.Track = 11;
+            MidiEvent delayedThird = ChannelMessage(20000, 0x93, 60, 90); delayedThird.Track = 12;
+            events.Add(delayedFirst); events.Add(delayedWinner); events.Add(delayedThird);
+            MidiEvent delayedFirstOff = ChannelMessage(21000, 0x81, 60, 0); delayedFirstOff.Track = 10;
+            MidiEvent delayedThirdOff = ChannelMessage(22000, 0x83, 60, 0); delayedThirdOff.Track = 12;
+            events.Add(delayedFirstOff); events.Add(delayedThirdOff);
+            events.Add(ChannelMessage(170000, 0xB2, 64, 127));
+            MidiEvent delayedWinnerOff = ChannelMessage(175000, 0x82, 60, 9);
+            delayedWinnerOff.Track = 11;
+            events.Add(delayedWinnerOff);
+            events.Add(ChannelMessage(190000, 0xB2, 64, 0));
+            return NewChannelSong(path, 190000, events.ToArray());
+        }
+
+        private static void VerifyInternalGateBacklogLive(ProcessingMode mode, MidiSong song,
+            bool adaptive, List<byte[]> projectedPayloads, List<long> projectedTimes,
+            long projectedFiltered, bool blockProvider, string label)
+        {
+            TimedGateOutput output = new TimedGateOutput(blockProvider ? 0 : -1, 240);
+            List<byte[]> logicalPayloads = new List<byte[]>();
+            List<long> logicalTimes = new List<long>();
+            long playbackStart;
+            PlaybackSnapshot snapshot;
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.ProcessingMicroseconds = 20000;
+                engine.ScaleNoteIntervalByTraffic = adaptive;
+                engine.SetGateLogicalOutputTraceForTesting(delegate(long time,
+                    IList<MidiEventView> batch, int count)
+                {
+                    for (int index = 0; index < count; index++)
+                    {
+                        logicalPayloads.Add(batch[index].Data.ToArray());
+                        logicalTimes.Add(time);
+                    }
+                });
+                if (!blockProvider)
+                {
+                    int delayed = 0;
+                    engine.SetGateBoundaryDispatchHookForTesting(delegate(long boundary)
+                    {
+                        if (Interlocked.CompareExchange(ref delayed, 1, 0) == 0)
+                            Thread.Sleep(240);
+                    });
+                }
+                playbackStart = Stopwatch.GetTimestamp();
+                engine.Start(song, output, mode);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 3500,
+                    label + " completion");
+                snapshot = engine.GetSnapshot();
+            }
+
+            List<GateSendTiming> timings = output.Snapshot();
+            Equal(projectedPayloads.Count, timings.Count,
+                label + " retains every projected payload despite external lateness");
+            Equal(projectedPayloads.Count, logicalPayloads.Count,
+                label + " records every live logical payload");
+            for (int index = 0; index < projectedPayloads.Count; index++)
+            {
+                string expected = BitConverter.ToString(projectedPayloads[index]);
+                Equal(expected, BitConverter.ToString(timings[index].Payload),
+                    label + " physical payload parity " + index);
+                Equal(expected, BitConverter.ToString(logicalPayloads[index]),
+                    label + " logical payload parity " + index);
+                Equal(projectedTimes[index], logicalTimes[index],
+                    label + " logical timestamp parity " + index);
+            }
+            Equal(projectedFiltered, snapshot.GateFilteredEvents,
+                label + " internal filtering is unchanged by external lateness");
+            Equal(0L, snapshot.DroppedEvents,
+                label + " gate filtering is not double-counted as queue overflow");
+
+            double firstStart = ElapsedMilliseconds(playbackStart, timings[0].StartTicks);
+            double firstSend = ElapsedMilliseconds(timings[0].StartTicks, timings[0].EndTicks);
+            double overdueDrain = ElapsedMilliseconds(timings[3].EndTicks, timings[4].StartTicks);
+            if (blockProvider)
+                Equal(true, firstSend >= 180.0,
+                    label + " records the external provider delay inside Send");
+            else
+            {
+                Equal(true, firstStart >= 180.0,
+                    label + " records external scheduler lateness before Send");
+                Equal(true, firstSend < 75.0,
+                    label + " does not misclassify scheduler lateness as provider blocking");
+            }
+            Equal(true, overdueDrain < 75.0,
+                label + " permits several externally overdue accepted boundaries to catch up");
+        }
+
+        private static void VerifyAdaptiveTimingAuditMode(ProcessingMode mode, string label)
+        {
+            MidiSong projectedSong = BuildAdaptiveTimingAuditSong(label + "-projected.mid");
+            List<byte[]> projectedPayloads;
+            List<long> projectedTimes;
+            long filtered;
+            if (mode == ProcessingMode.PerNoteIntervalGate)
+                ProjectPerNoteTrace(projectedSong, 20000, true, out projectedPayloads,
+                    out projectedTimes, out filtered);
+            else
+                ProjectDelayedTrace(projectedSong, 20000, true, out projectedPayloads,
+                    out projectedTimes, out filtered);
+
+            long finalSparseBoundary = mode == ProcessingMode.PerNoteIntervalGate ? 200000L : 181000L;
+            Sequence(new long[] { 0, 0, 0, 0, 80000, 80000, 80000, 80000, 160000,
+                finalSparseBoundary },
+                projectedTimes, label + " dense-to-sparse projected logical times");
+            Equal(10, projectedPayloads.Count,
+                label + " dense-to-sparse projection transmits ten note messages");
+            Equal(true, filtered >= 2,
+                label + " pitch-local losing/coalesced source work is excluded from N");
+            Equal(80000L, projectedTimes[4] - projectedTimes[0],
+                label + " four-message dense batch postpones the next logical batch by four intervals");
+            Equal(true, projectedTimes[9] - projectedTimes[8] < 80000L,
+                label + " sparse one-message batch permits a shorter locally eligible interval");
+
+            VerifyAdaptiveLateLiveDispatch(mode, BuildAdaptiveTimingAuditSong(label + "-provider.mid"),
+                projectedPayloads, projectedTimes, true, label + " provider blocking");
+            VerifyAdaptiveLateLiveDispatch(mode, BuildAdaptiveTimingAuditSong(label + "-scheduler.mid"),
+                projectedPayloads, projectedTimes, false, label + " scheduler lateness");
+        }
+
+        private static MidiSong BuildAdaptiveTimingAuditSong(string path)
+        {
+            List<MidiEvent> events = new List<MidiEvent>();
+            for (int pitch = 60; pitch <= 63; pitch++)
+            {
+                MidiEvent attack = ChannelMessage(0, 0x90, (byte)pitch, 100);
+                attack.Track = pitch - 60;
+                events.Add(attack);
+            }
+            MidiEvent losingAttack = ChannelMessage(0, 0x94, 60, 40);
+            losingAttack.Track = 4;
+            events.Add(losingAttack);
+            for (int pitch = 60; pitch <= 63; pitch++)
+            {
+                MidiEvent release = ChannelMessage(1000, 0x80, (byte)pitch, 0);
+                release.Track = pitch - 60;
+                events.Add(release);
+            }
+            MidiEvent losingRelease = ChannelMessage(1000, 0x84, 60, 0);
+            losingRelease.Track = 4;
+            events.Add(losingRelease);
+            MidiEvent sparseAttack = ChannelMessage(100000, 0x95, 60, 110);
+            sparseAttack.Track = 5;
+            events.Add(sparseAttack);
+            MidiEvent sparseRelease = ChannelMessage(181000, 0x85, 60, 9);
+            sparseRelease.Track = 5;
+            events.Add(sparseRelease);
+            return NewChannelSong(path, 181000, events.ToArray());
+        }
+
+        private static void VerifyAdaptiveLateLiveDispatch(ProcessingMode mode, MidiSong song,
+            List<byte[]> projectedPayloads, List<long> projectedTimes, bool blockProvider, string label)
+        {
+            TimedGateOutput output = new TimedGateOutput(blockProvider ? 0 : -1, 140);
+            long playbackStart;
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                engine.ProcessingMicroseconds = 20000;
+                engine.ScaleNoteIntervalByTraffic = true;
+                if (!blockProvider)
+                {
+                    int delayed = 0;
+                    engine.SetGateBoundaryDispatchHookForTesting(delegate(long boundary)
+                    {
+                        if (Interlocked.CompareExchange(ref delayed, 1, 0) == 0)
+                            Thread.Sleep(140);
+                    });
+                }
+                playbackStart = Stopwatch.GetTimestamp();
+                engine.Start(song, output, mode);
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2500,
+                    label + " completion");
+                Equal(true, engine.GetSnapshot().GateFilteredEvents >= 2,
+                    label + " preserves pitch-local filtering accounting");
+            }
+
+            List<GateSendTiming> timings = output.Snapshot();
+            Equal(projectedPayloads.Count, timings.Count,
+                label + " live and projected message counts agree");
+            for (int index = 0; index < timings.Count; index++)
+                Equal(BitConverter.ToString(projectedPayloads[index]),
+                    BitConverter.ToString(timings[index].Payload),
+                    label + " live/projected payload parity " + index);
+
+            double firstStartMilliseconds = ElapsedMilliseconds(playbackStart, timings[0].StartTicks);
+            double firstSendMilliseconds = ElapsedMilliseconds(timings[0].StartTicks, timings[0].EndTicks);
+            double denseDrainGapMilliseconds = ElapsedMilliseconds(timings[3].EndTicks, timings[4].StartTicks);
+            if (blockProvider)
+            {
+                Equal(true, firstSendMilliseconds >= 100.0,
+                    label + " records synchronous provider blocking inside Send");
+            }
+            else
+            {
+                Equal(true, firstStartMilliseconds >= 100.0,
+                    label + " records scheduler lateness before provider Send");
+                Equal(true, firstSendMilliseconds < 75.0,
+                    label + " distinguishes scheduler lateness from provider blocking");
+            }
+            Equal(true, denseDrainGapMilliseconds < 60.0,
+                label + " records already-due logical work draining without a new wall-clock interval");
+            Equal(80000L, projectedTimes[4] - projectedTimes[0],
+                label + " retains the four-interval logical boundary despite physical catch-up");
+
+            Console.WriteLine("      {0}: logical 0/80/160/{1:F0} ms; actual first {2:F1} ms; " +
+                "first Send {3:F1} ms; dense-drain gap {4:F1} ms",
+                label, projectedTimes[9] / 1000.0, firstStartMilliseconds,
+                firstSendMilliseconds, denseDrainGapMilliseconds);
+        }
+
+        private static double ElapsedMilliseconds(long startTicks, long endTicks)
+        {
+            return (endTicks - startTicks) * 1000.0 / Stopwatch.Frequency;
+        }
+
+        private static void TestLiveQueueCapacityEdits()
+        {
+            List<MidiEvent> increasedEvents = new List<MidiEvent>();
+            increasedEvents.Add(ChannelMessage(0, 0x90, 60, 100));
+            increasedEvents.Add(ChannelMessage(0, 0xB0, 10, 1));
+            for (int value = 2; value <= 7; value++)
+                increasedEvents.Add(ChannelMessage(150000, 0xB0, 10, (byte)value));
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                RecordingNoteBlockingOutput output = new RecordingNoteBlockingOutput();
+                try
+                {
+                    engine.SimulateSlowdown = true;
+                    engine.ProcessingMicroseconds = 100000;
+                    engine.QueueLengthLimit = 2;
+                    engine.OverflowPolicy = OverflowPolicy.DropNewest;
+                    engine.Start(NewChannelSong("live-capacity-increase.mid", 150000,
+                        increasedEvents.ToArray()), output, ProcessingMode.Drop);
+                    WaitFor(delegate { return output.Entered.WaitOne(0); }, 1000,
+                        "live capacity increase blocked in-service event");
+                    engine.QueueLengthLimit = 8;
+                    Thread.Sleep(80);
+                    output.Release.Set();
+                    WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2500,
+                        "live capacity increase completion");
+                    Equal(0L, engine.GetSnapshot().DroppedEvents,
+                        "increased capacity applies to the next overdue admission decisions");
+                    Equal(8, output.Payloads().Count,
+                        "increased capacity retains every newly admitted event");
+                }
+                finally { output.Release.Set(); }
+            }
+
+            List<MidiEvent> decreasedEvents = new List<MidiEvent>();
+            decreasedEvents.Add(ChannelMessage(0, 0x90, 60, 100));
+            for (int value = 1; value <= 5; value++)
+                decreasedEvents.Add(ChannelMessage(0, 0xB0, 10, (byte)value));
+            for (int value = 6; value <= 8; value++)
+                decreasedEvents.Add(ChannelMessage(150000, 0xB0, 10, (byte)value));
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                RecordingNoteBlockingOutput output = new RecordingNoteBlockingOutput();
+                try
+                {
+                    engine.SimulateSlowdown = true;
+                    engine.ProcessingMicroseconds = 100000;
+                    engine.QueueLengthLimit = 8;
+                    engine.OverflowPolicy = OverflowPolicy.DropNewest;
+                    engine.Start(NewChannelSong("live-capacity-decrease.mid", 150000,
+                        decreasedEvents.ToArray()), output, ProcessingMode.Drop);
+                    WaitFor(delegate { return output.Entered.WaitOne(0); }, 1000,
+                        "live capacity decrease blocked in-service event");
+                    WaitFor(delegate { return engine.GetSnapshot().OutstandingEvents >= 6; }, 1000,
+                        "accepted work exists before live capacity decrease");
+                    long before = engine.GetSnapshot().OutstandingEvents;
+                    engine.QueueLengthLimit = 2;
+                    Equal(before, engine.GetSnapshot().OutstandingEvents,
+                        "decrease does not retract in-service or pending accepted work");
+                    Thread.Sleep(80);
+                    output.Release.Set();
+                    WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 2500,
+                        "live capacity decrease completion");
+                    PlaybackSnapshot snapshot = engine.GetSnapshot();
+                    Equal(3L, snapshot.DroppedEvents,
+                        "new arrivals apply Drop newest against the reduced capacity");
+                    Equal(6, output.Payloads().Count,
+                        "accepted work remains ordered after a capacity decrease");
+                    Equal(true, snapshot.MaximumQueueLength >= 6,
+                        "maximum pressure retains the pre-decrease accepted peak");
+                    Equal(0L, snapshot.OutstandingEvents,
+                        "current pressure drains to zero after retained work completes");
+                    Equal(2, snapshot.QueueLengthLimit,
+                        "snapshot reports the live numeric capacity");
+                }
+                finally { output.Release.Set(); }
+            }
+
+            List<MidiEvent> clearEvents = new List<MidiEvent>();
+            clearEvents.Add(ChannelMessage(0, 0x90, 60, 100));
+            for (int value = 1; value <= 5; value++)
+                clearEvents.Add(ChannelMessage(0, 0xB0, 10, (byte)value));
+            clearEvents.Add(ChannelMessage(200000, 0xB0, 10, 99));
+            using (PlaybackEngine engine = new PlaybackEngine())
+            {
+                FakeMidiOutput output = new FakeMidiOutput();
+                engine.SimulateSlowdown = true;
+                engine.ProcessingMicroseconds = 500000;
+                engine.QueueLengthLimit = 8;
+                engine.OverflowPolicy = OverflowPolicy.DropNewest;
+                engine.Start(NewChannelSong("live-capacity-clear.mid", 200000,
+                    clearEvents.ToArray()), output, ProcessingMode.Drop);
+                WaitFor(delegate { return engine.GetSnapshot().OutstandingEvents >= 6; }, 1000,
+                    "clear-buffer live decrease initial occupancy");
+                engine.QueueLengthLimit = 2;
+                engine.OverflowPolicy = OverflowPolicy.ClearBufferAndCatchUp;
+                WaitFor(delegate { return engine.State == PlaybackState.Completed; }, 1800,
+                    "clear-buffer live decrease completion");
+                Equal(true, ContainsMessage(output.SentPayloads(), 0x90, 60, 100),
+                    "Clear buffer does not retract the event already in service");
+                Equal(true, engine.GetSnapshot().DroppedEvents >= 6,
+                    "Clear buffer reports discarded pending/new work after the decrease");
+            }
+
+            using (MainForm form = new MainForm())
+            {
+                form.Show(); PumpFor(20);
+                BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                CheckBox queueCheck = (CheckBox)typeof(MainForm)
+                    .GetField("_queueLimitCheck", flags).GetValue(form);
+                ScrubOrTypeTextBox queueValue = (ScrubOrTypeTextBox)typeof(MainForm)
+                    .GetField("_queueLimitValue", flags).GetValue(form);
+                ComboBox overflow = (ComboBox)typeof(MainForm)
+                    .GetField("_overflowPolicyCombo", flags).GetValue(form);
+                RateModelComboBox rate = (RateModelComboBox)typeof(MainForm)
+                    .GetField("_serviceModeCombo", flags).GetValue(form);
+                PlaybackEngine engine = (PlaybackEngine)typeof(MainForm)
+                    .GetField("_engine", flags).GetValue(form);
+                MethodInfo update = typeof(MainForm).GetMethod("UpdateTransportControls", flags);
+
+                queueCheck.Checked = true;
+                rate.SelectedChoice = RateModelChoice.ProcessingTime;
+                Application.DoEvents();
+                engine.ProcessingMicroseconds = 500000;
+                engine.Start(NewChannelSong("live-capacity-ui.mid", 500000,
+                    ChannelMessage(0, 0x90, 60, 100), ChannelMessage(500000, 0x80, 60, 0)),
+                    new FakeMidiOutput(), ProcessingMode.Drop);
+                update.Invoke(form, null);
+                Equal(false, queueCheck.Enabled,
+                    "Queue limit checkbox remains structurally locked while playing");
+                Equal(true, queueValue.Enabled,
+                    "numeric event-count capacity is live during finite-queue playback");
+                Equal(true, overflow.Enabled,
+                    "overflow policy retains its established live behavior");
+                queueValue.Value = 3;
+                Application.DoEvents();
+                Equal(3, engine.QueueLengthLimit,
+                    "live numeric editor updates the engine atomically");
+                AnalysisConfiguration current = (AnalysisConfiguration)typeof(MainForm)
+                    .GetMethod("CurrentAnalysisConfiguration", flags).Invoke(form, null);
+                Equal(3, current.QueueLengthLimit,
+                    "live Analysis refresh configuration sees the selected capacity");
+                engine.Pause();
+                update.Invoke(form, null);
+                Equal(true, queueValue.Enabled,
+                    "numeric event-count capacity remains editable while paused");
+                Equal(false, queueCheck.Enabled,
+                    "structural Queue limit checkbox remains locked while paused");
+                engine.Stop();
+
+                rate.SelectedChoice = RateModelChoice.PerNoteIntervalGate;
+                Application.DoEvents();
+                Equal(false, queueValue.Enabled,
+                    "musical gate models do not expose a statistics-only queue capacity");
+                form.Close();
+            }
+        }
+
+        private static void Sequence(long[] expected, List<long> actual, string message)
+        {
+            Equal(expected.Length, actual.Count, message + " count");
+            for (int index = 0; index < expected.Length; index++)
+                Equal(expected[index], actual[index], message + " item " + index);
         }
 
         private static void TestSlowdownBurstUiResponsiveness()
@@ -12096,7 +20852,7 @@ namespace MidiBottleneck.Tests
                 Equal(true, queueLimitValue.Enabled, "queue limit value enabled");
                 queueLimitValue.Value = 1234;
                 Equal(1234m, queueLimitValue.Value, "custom queue limit");
-                overflow.SelectedIndex = 2;
+                overflow.SelectedIndex = FindComboItemIndex(overflow, "Clear buffer and jump to realtime");
                 Equal("Clear buffer and jump to realtime", overflow.SelectedItem.ToString(), "overflow UI selection");
 
                 Equal("Timeline / output:", StatisticsView.CaptionAt(0), "statistics first caption");
@@ -12294,6 +21050,14 @@ namespace MidiBottleneck.Tests
                 }
             }
             return null;
+        }
+
+        private static int FindComboItemIndex(ComboBox combo, string itemText)
+        {
+            for (int index = 0; index < combo.Items.Count; index++)
+                if (String.Equals(combo.Items[index].ToString(), itemText, StringComparison.Ordinal))
+                    return index;
+            throw new Exception("Combo item was not found: " + itemText);
         }
 
         private static ComboBox FindMidiOutputCombo(List<Control> controls)
@@ -12621,6 +21385,40 @@ namespace MidiBottleneck.Tests
             return bytes.ToArray();
         }
 
+        private static byte[] BuildRmid(byte[] smf, bool prefixOddJunk, bool trailingChunk)
+        {
+            List<byte> body = new List<byte>();
+            AddAscii(body, "RMID");
+            if (prefixOddJunk) AddRiffChunk(body, "JUNK", new byte[] { 0x11, 0x22, 0x33 }, true);
+            AddRiffChunk(body, "data", smf, true);
+            if (trailingChunk) AddRiffChunk(body, "INFO", new byte[] { 0x4D, 0x54, 0x68, 0x64 }, true);
+            List<byte> result = new List<byte>(body.Count + 8);
+            AddAscii(result, "RIFF");
+            AddUInt32LittleEndian(result, (uint)body.Count);
+            result.AddRange(body);
+            return result.ToArray();
+        }
+
+        private static byte[] BuildRiff(string form, byte[] payload, string chunkId, bool includePad)
+        {
+            List<byte> body = new List<byte>();
+            AddAscii(body, form);
+            AddRiffChunk(body, chunkId, payload, includePad);
+            List<byte> result = new List<byte>(body.Count + 8);
+            AddAscii(result, "RIFF");
+            AddUInt32LittleEndian(result, (uint)body.Count);
+            result.AddRange(body);
+            return result.ToArray();
+        }
+
+        private static void AddRiffChunk(List<byte> target, string id, byte[] payload, bool includePad)
+        {
+            AddAscii(target, id);
+            AddUInt32LittleEndian(target, (uint)payload.Length);
+            target.AddRange(payload);
+            if (includePad && (payload.Length & 1) != 0) target.Add(0);
+        }
+
         private static void AddVariableLength(List<byte> target, int value)
         {
             if (value < 0 || value > 0x0FFFFFFF) throw new ArgumentOutOfRangeException("value");
@@ -12656,6 +21454,14 @@ namespace MidiBottleneck.Tests
             target.Add((byte)(value >> 16));
             target.Add((byte)(value >> 8));
             target.Add((byte)value);
+        }
+
+        private static void AddUInt32LittleEndian(List<byte> target, uint value)
+        {
+            target.Add((byte)value);
+            target.Add((byte)(value >> 8));
+            target.Add((byte)(value >> 16));
+            target.Add((byte)(value >> 24));
         }
 
         private static void Sequence<T>(IList<T> expected, IList<T> actual, string name)
@@ -12776,6 +21582,68 @@ namespace MidiBottleneck.Tests
                 foreach (byte[] payload in _inner.SentPayloads())
                     if (payload.Length >= 2 && payload[0] == status && payload[1] == first) count++;
                 return count;
+            }
+        }
+
+        private sealed class PreservingProbeOutput : IMidiOutput
+        {
+            internal readonly ManualResetEvent Entered = new ManualResetEvent(false);
+            internal readonly ManualResetEvent Release = new ManualResetEvent(false);
+            private readonly object _sync = new object();
+            private readonly List<byte[]> _payloads = new List<byte[]>();
+            private readonly bool _blockFirst;
+            private readonly int _failSendNumber;
+            private int _sendNumber;
+            internal int ResetCount;
+            internal int PanicCount;
+
+            internal PreservingProbeOutput(bool blockFirst, int failSendNumber)
+            {
+                _blockFirst = blockFirst;
+                _failSendNumber = failSendNumber;
+            }
+
+            internal int SourcePayloadCount
+            {
+                get
+                {
+                    lock (_sync)
+                    {
+                        int count = 0;
+                        for (int i = 0; i < _payloads.Count; i++)
+                            if (!(_payloads[i].Length == 3 && (_payloads[i][0] & 0xF0) == 0xB0 &&
+                                _payloads[i][1] == 123 && _payloads[i][2] == 0)) count++;
+                        return count;
+                    }
+                }
+            }
+
+            public void Send(MidiEventView midiEvent)
+            {
+                int number = Interlocked.Increment(ref _sendNumber);
+                if (_blockFirst && number == 1)
+                {
+                    Entered.Set();
+                    Release.WaitOne();
+                }
+                if (number == _failSendNumber)
+                    throw new InvalidOperationException("Synthetic preserving-output failure.");
+                byte[] payload = midiEvent.Data.ToArray();
+                lock (_sync) _payloads.Add((byte[])payload.Clone());
+            }
+
+            public void Reset() { Interlocked.Increment(ref ResetCount); }
+            public void Panic() { Interlocked.Increment(ref PanicCount); }
+
+            internal List<byte[]> Payloads()
+            {
+                lock (_sync)
+                {
+                    List<byte[]> copy = new List<byte[]>(_payloads.Count);
+                    for (int i = 0; i < _payloads.Count; i++)
+                        copy.Add((byte[])_payloads[i].Clone());
+                    return copy;
+                }
             }
         }
 
@@ -12921,6 +21789,52 @@ namespace MidiBottleneck.Tests
             public void Reset() { _inner.Reset(); }
         }
 
+        private sealed class GateSendTiming
+        {
+            internal byte[] Payload;
+            internal long StartTicks;
+            internal long EndTicks;
+        }
+
+        private sealed class TimedGateOutput : IMidiOutput
+        {
+            private readonly object _sync = new object();
+            private readonly List<GateSendTiming> _timings = new List<GateSendTiming>();
+            private readonly int _blockedSendIndex;
+            private readonly int _blockingMilliseconds;
+            private int _sendIndex;
+            internal readonly ManualResetEvent BlockedEntered = new ManualResetEvent(false);
+
+            internal TimedGateOutput(int blockedSendIndex, int blockingMilliseconds)
+            {
+                _blockedSendIndex = blockedSendIndex;
+                _blockingMilliseconds = blockingMilliseconds;
+            }
+
+            public void Send(MidiEventView midiEvent)
+            {
+                int index = _sendIndex++;
+                GateSendTiming timing = new GateSendTiming();
+                timing.Payload = midiEvent.Data.ToArray();
+                timing.StartTicks = Stopwatch.GetTimestamp();
+                if (index == _blockedSendIndex)
+                {
+                    BlockedEntered.Set();
+                    Thread.Sleep(_blockingMilliseconds);
+                }
+                timing.EndTicks = Stopwatch.GetTimestamp();
+                lock (_sync) _timings.Add(timing);
+            }
+
+            internal List<GateSendTiming> Snapshot()
+            {
+                lock (_sync) return new List<GateSendTiming>(_timings);
+            }
+
+            public void Panic() { }
+            public void Reset() { }
+        }
+
         private sealed class ArrayMidiEventStore : IMidiEventStore
         {
             private readonly MidiEvent[] _events;
@@ -12945,7 +21859,10 @@ namespace MidiBottleneck.Tests
         {
             internal readonly ManualResetEvent Entered = new ManualResetEvent(false);
             internal readonly ManualResetEvent Release = new ManualResetEvent(false);
+            internal readonly ManualResetEvent AfterRecordEntered = new ManualResetEvent(false);
+            internal readonly ManualResetEvent AfterRecordRelease = new ManualResetEvent(false);
             internal volatile bool FailMatchingControl;
+            internal int BlockAfterRecordSendNumber = -1;
             private readonly int _blockSendNumber;
             private readonly object _sync = new object();
             private readonly List<byte[]> _payloads = new List<byte[]>();
@@ -12965,6 +21882,11 @@ namespace MidiBottleneck.Tests
                 if (FailMatchingControl && payload.Length == 3 && payload[0] == 0xB0 && payload[1] == 7 && payload[2] == 80)
                     throw new InvalidOperationException("Synthetic channel-control failure.");
                 lock (_sync) _payloads.Add((byte[])payload.Clone());
+                if (sendNumber == Volatile.Read(ref BlockAfterRecordSendNumber))
+                {
+                    AfterRecordEntered.Set();
+                    AfterRecordRelease.WaitOne();
+                }
             }
 
             public void Reset() { }

@@ -46,7 +46,15 @@ namespace MidiBottleneck
         public long QueueAgeLimitMicroseconds;
         public OverflowPolicy OverflowPolicy;
         public bool PerNoteIntervalGateEnabled;
+        public bool DelayedNoteOffEnabled;
+        public bool ScaleNoteIntervalByTraffic;
+        public bool IntervalPolyphonyLimitEnabled;
+        public int IntervalPolyphonyLimit = PlaybackEngine.DefaultIntervalPolyphonyLimit;
+        public bool NoteAttackLimitEnabled;
+        public bool OutputRateLimitEnabled;
+        public bool OutputPacedTimeline;
         public bool ApplyQueueLimitWithoutSlowdown = true;
+        public AnalysisOverrideSnapshot OverrideProjection;
     }
 
     internal sealed class MessageTypeWorkload
@@ -96,15 +104,27 @@ namespace MidiBottleneck
         public long GateOutputNoteTransitions;
         public long GateOutputNonNoteEvents;
         public long GateFilteredNoteEvents;
+        public long MusicalLimitRejectedAttacks;
+        public long MusicalLimitSuppressedReleases;
+        public long OutputRateRejectedAttacks;
+        public long OutputRateSuppressedReleases;
+        public long OutputRateRejectedOtherMessages;
+        public long OutputRateSafetySoftExcess;
+        public long OverrideProjectedForcedMessages;
+        public long OverrideFilteredSourceMessages;
         public long GateOutputCompletionMicroseconds;
         public double GatePeakEventsPerSecond;
         public AnalysisProjectionState ProjectionState;
         public string ProjectionFailureReason;
 
         public bool HasGateProjection { get { return ProjectionState == AnalysisProjectionState.Complete &&
-            Configuration != null && Configuration.PerNoteIntervalGateEnabled && GateOutputBuckets != null; } }
+            Configuration != null && (Configuration.PerNoteIntervalGateEnabled ||
+            Configuration.DelayedNoteOffEnabled || Configuration.NoteAttackLimitEnabled ||
+            Configuration.OutputRateLimitEnabled) && GateOutputBuckets != null; } }
         public bool HasQueueProjection { get { return ProjectionState == AnalysisProjectionState.Complete &&
-            (Configuration == null || !Configuration.PerNoteIntervalGateEnabled); } }
+            (Configuration == null || !Configuration.PerNoteIntervalGateEnabled &&
+            !Configuration.DelayedNoteOffEnabled && !Configuration.NoteAttackLimitEnabled &&
+            !Configuration.OutputRateLimitEnabled); } }
 
         internal WorkloadAnalysis CopyWorkload(AnalysisConfiguration configuration, CancellationToken token)
         {
@@ -134,10 +154,27 @@ namespace MidiBottleneck
                 Configuration.QueueAgeLimitMicroseconds == configuration.QueueAgeLimitMicroseconds &&
                 Configuration.OverflowPolicy == configuration.OverflowPolicy &&
                 Configuration.PerNoteIntervalGateEnabled == configuration.PerNoteIntervalGateEnabled &&
-                Configuration.ApplyQueueLimitWithoutSlowdown == configuration.ApplyQueueLimitWithoutSlowdown) return this;
+                Configuration.DelayedNoteOffEnabled == configuration.DelayedNoteOffEnabled &&
+                Configuration.ScaleNoteIntervalByTraffic == configuration.ScaleNoteIntervalByTraffic &&
+                Configuration.IntervalPolyphonyLimitEnabled == configuration.IntervalPolyphonyLimitEnabled &&
+                Configuration.IntervalPolyphonyLimit == configuration.IntervalPolyphonyLimit &&
+                Configuration.NoteAttackLimitEnabled == configuration.NoteAttackLimitEnabled &&
+                Configuration.OutputRateLimitEnabled == configuration.OutputRateLimitEnabled &&
+                Configuration.OutputPacedTimeline == configuration.OutputPacedTimeline &&
+                Configuration.ApplyQueueLimitWithoutSlowdown == configuration.ApplyQueueLimitWithoutSlowdown &&
+                SameOverrideProjection(Configuration.OverrideProjection,
+                    configuration.OverrideProjection)) return this;
             WorkloadAnalysis copy = (WorkloadAnalysis)MemberwiseClone();
             copy.Configuration = configuration;
             return copy;
+        }
+
+        private static bool SameOverrideProjection(AnalysisOverrideSnapshot left,
+            AnalysisOverrideSnapshot right)
+        {
+            if (ReferenceEquals(left, right)) return true;
+            return left != null && right != null &&
+                String.Equals(left.Signature, right.Signature, StringComparison.Ordinal);
         }
 
         internal WorkloadAnalysis WithProjectionState(AnalysisProjectionState state)
@@ -260,9 +297,40 @@ namespace MidiBottleneck
             WorkloadAnalysis result = workload.CopyWorkload(configuration, cancellationToken);
             Report(progress, "Reusing file workload", 1, 1, 0, 750);
             if (configuration == null) { Report(progress, "Complete", 1, 1, 0, 1000); return result; }
+            MidiSong projectionSong = song;
+            if (configuration.OverrideProjection != null)
+            {
+                long filtered;
+                projectionSong = CreateOverrideFilteredSong(song,
+                    configuration.OverrideProjection, cancellationToken, out filtered);
+                result.OverrideFilteredSourceMessages = filtered;
+                events = projectionSong.GetEventReader();
+            }
             if (configuration.PerNoteIntervalGateEnabled)
             {
-                ProjectPerNoteGate(song, result, configuration, cancellationToken, progress, null);
+                ProjectPerNoteGate(projectionSong, result, configuration, cancellationToken, progress, null);
+                ApplyProjectedForcedOverrides(result, configuration);
+                result.ProjectionState = AnalysisProjectionState.Complete;
+                return result;
+            }
+            if (configuration.DelayedNoteOffEnabled)
+            {
+                ProjectDelayedNoteOff(projectionSong, result, configuration, cancellationToken, progress, null);
+                ApplyProjectedForcedOverrides(result, configuration);
+                result.ProjectionState = AnalysisProjectionState.Complete;
+                return result;
+            }
+            if (configuration.NoteAttackLimitEnabled)
+            {
+                ProjectNoteAttackLimit(projectionSong, result, configuration, cancellationToken, progress, null);
+                ApplyProjectedForcedOverrides(result, configuration);
+                result.ProjectionState = AnalysisProjectionState.Complete;
+                return result;
+            }
+            if (configuration.OutputRateLimitEnabled)
+            {
+                ProjectOutputRateLimit(projectionSong, result, configuration, cancellationToken, progress, null);
+                ApplyProjectedForcedOverrides(result, configuration);
                 result.ProjectionState = AnalysisProjectionState.Complete;
                 return result;
             }
@@ -270,10 +338,25 @@ namespace MidiBottleneck
             {
                 if (configuration.ServiceDurationMode == ServiceDurationMode.ProcessingTime)
                 {
-                    for (int i = 0; i < result.Buckets.Length; i++)
+                    if (configuration.OverrideProjection == null)
                     {
-                        if ((i & 4095) == 0) cancellationToken.ThrowIfCancellationRequested();
-                        result.Buckets[i].ServiceDemandMicroseconds = checked(result.Buckets[i].EventCount * configuration.ProcessingMicroseconds);
+                        for (int i = 0; i < result.Buckets.Length; i++)
+                        {
+                            if ((i & 4095) == 0) cancellationToken.ThrowIfCancellationRequested();
+                            result.Buckets[i].ServiceDemandMicroseconds = checked(
+                                result.Buckets[i].EventCount * configuration.ProcessingMicroseconds);
+                        }
+                    }
+                    else
+                    {
+                        for (int i = 0; i < events.Count; i++)
+                        {
+                            if ((i & 16383) == 0) cancellationToken.ThrowIfCancellationRequested();
+                            int bucket = (int)Math.Min(result.Buckets.Length - 1,
+                                Math.Max(0, events[i].IntendedMicroseconds / bucketMicroseconds));
+                            result.Buckets[bucket].ServiceDemandMicroseconds +=
+                                configuration.ProcessingMicroseconds;
+                        }
                     }
                     if (configuration.ProcessingMicroseconds > 0)
                         result.EventServiceCapacityPerSecond = 1000000.0 / configuration.ProcessingMicroseconds;
@@ -302,7 +385,8 @@ namespace MidiBottleneck
                     result.EventServiceCapacityPerSecond = configuration.EventsPerSecond;
                 }
             }
-            AnalyzePressure(song, result, configuration, cancellationToken, progress);
+            AnalyzePressure(projectionSong, result, configuration, cancellationToken, progress);
+            ApplyProjectedForcedOverrides(result, configuration);
             result.ProjectionState = AnalysisProjectionState.Complete;
             return result;
         }
@@ -311,6 +395,8 @@ namespace MidiBottleneck
             CancellationToken cancellationToken, Action<WorkloadAnalysisProgress> progress)
         {
             if (song == null) throw new ArgumentNullException("song");
+            if (configuration != null && configuration.OverrideProjection != null)
+                return Analyze(song, bucketMicroseconds, configuration, cancellationToken, progress, null);
             MidiEventReader events = song.GetEventReader();
             Interlocked.Increment(ref WorkloadScanCount);
             int bucketCount = CalculateBucketCount(song.DurationMicroseconds, bucketMicroseconds);
@@ -380,6 +466,24 @@ namespace MidiBottleneck
                     result.ProjectionState = AnalysisProjectionState.Complete;
                     return result;
                 }
+                if (configuration.DelayedNoteOffEnabled)
+                {
+                    ProjectDelayedNoteOff(song, result, configuration, cancellationToken, progress, null);
+                    result.ProjectionState = AnalysisProjectionState.Complete;
+                    return result;
+                }
+                if (configuration.NoteAttackLimitEnabled)
+                {
+                    ProjectNoteAttackLimit(song, result, configuration, cancellationToken, progress, null);
+                    result.ProjectionState = AnalysisProjectionState.Complete;
+                    return result;
+                }
+                if (configuration.OutputRateLimitEnabled)
+                {
+                    ProjectOutputRateLimit(song, result, configuration, cancellationToken, progress, null);
+                    result.ProjectionState = AnalysisProjectionState.Complete;
+                    return result;
+                }
                 if (UsesConfiguredService(configuration) && configuration.ServiceDurationMode == ServiceDurationMode.ProcessingTime && configuration.ProcessingMicroseconds > 0)
                     result.EventServiceCapacityPerSecond = 1000000.0 / configuration.ProcessingMicroseconds;
                 if (UsesConfiguredService(configuration) && configuration.ServiceDurationMode == ServiceDurationMode.MidiBitrate && configuration.MidiBitrate > 0)
@@ -405,7 +509,15 @@ namespace MidiBottleneck
             Action<WorkloadAnalysisProgress> progress, Action<MidiEventView, long> observer)
         {
             MidiEventReader events = song.GetEventReader();
-            PerNoteIntervalGate gate = new PerNoteIntervalGate(configuration.ProcessingMicroseconds);
+            int intervalLimit = configuration.IntervalPolyphonyLimitEnabled
+                ? Math.Max(1, Math.Min(PlaybackEngine.DefaultIntervalPolyphonyLimit,
+                    configuration.IntervalPolyphonyLimit))
+                : PlaybackEngine.DefaultIntervalPolyphonyLimit;
+            PerNoteIntervalGate gate = new PerNoteIntervalGate(
+                configuration.ProcessingMicroseconds,
+                configuration.IntervalPolyphonyLimitEnabled, intervalLimit);
+            AdaptiveNoteIntervalClock adaptive = new AdaptiveNoteIntervalClock(
+                configuration.ProcessingMicroseconds, configuration.ScaleNoteIntervalByTraffic);
             MidiEventView[] emissions = new MidiEventView[128];
             result.GateOutputBuckets = new long[result.Buckets.Length];
             int next = 0;
@@ -418,8 +530,10 @@ namespace MidiBottleneck
                     cancellationToken.ThrowIfCancellationRequested();
                     Report(progress, "Projecting Per-note intervals", next, Math.Max(1, events.Count), 750, 245);
                 }
-                long boundary = gate.NextBoundaryMicroseconds;
+                long localBoundary = gate.NextBoundaryMicroseconds;
                 long source = next < events.Count ? events[next].IntendedMicroseconds : Int64.MaxValue;
+                adaptive.CompleteIfClosed(localBoundary, source);
+                long boundary = adaptive.EffectiveBoundary(localBoundary);
                 if (next < events.Count && source <= boundary)
                 {
                     long tick = events[next].AbsoluteTick;
@@ -440,6 +554,7 @@ namespace MidiBottleneck
                 else if (boundary != Int64.MaxValue)
                 {
                     int count = gate.EmitBoundary(boundary, emissions);
+                    adaptive.RecordBoundaryPass(boundary, count);
                     result.GateFilteredNoteEvents += gate.TakeFilteredEventCount();
                     for (int i = 0; i < count; i++)
                     {
@@ -462,6 +577,245 @@ namespace MidiBottleneck
                     result.GateOutputBuckets[i] / seconds);
             }
             Report(progress, "Per-note projection complete", 1, 1, 995, 5);
+        }
+
+        // Playback and Analysis deliberately share the exact same delayed-note
+        // occurrence matcher and boundary scheduler.
+        internal static void ProjectDelayedNoteOff(MidiSong song, WorkloadAnalysis result,
+            AnalysisConfiguration configuration, CancellationToken cancellationToken,
+            Action<WorkloadAnalysisProgress> progress, Action<MidiEventView, long> observer)
+        {
+            MidiEventReader events = song.GetEventReader();
+            int intervalLimit = configuration.IntervalPolyphonyLimitEnabled
+                ? Math.Max(1, Math.Min(PlaybackEngine.DefaultIntervalPolyphonyLimit,
+                    configuration.IntervalPolyphonyLimit))
+                : PlaybackEngine.DefaultIntervalPolyphonyLimit;
+            DelayedNoteOffGate gate = new DelayedNoteOffGate(
+                configuration.ProcessingMicroseconds,
+                configuration.IntervalPolyphonyLimitEnabled, intervalLimit);
+            AdaptiveNoteIntervalClock adaptive = new AdaptiveNoteIntervalClock(
+                configuration.ProcessingMicroseconds, configuration.ScaleNoteIntervalByTraffic);
+            List<MidiEventView> emissions = new List<MidiEventView>(128);
+            result.GateOutputBuckets = new long[result.Buckets.Length];
+            int next = 0;
+            bool completed = false;
+            long actions = 0;
+            while (next < events.Count || !completed || gate.HasPendingTransitions)
+            {
+                if ((actions++ & 4095) == 0)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    Report(progress, "Projecting Delayed NoteOff", next, Math.Max(1, events.Count), 750, 245);
+                }
+                long localBoundary = gate.NextBoundaryMicroseconds;
+                long source = next < events.Count ? events[next].IntendedMicroseconds : Int64.MaxValue;
+                adaptive.CompleteIfClosed(localBoundary, source);
+                long boundary = adaptive.EffectiveBoundary(localBoundary);
+                // Match live scheduling: D-boundary releases win ties, while
+                // exact-R source transitions participate before recovery picks
+                // its one replacement candidate.
+                bool sourcePrecedesRecovery = next < events.Count &&
+                    gate.SourcePrecedesBoundary(events[next], boundary);
+                if (boundary < source || boundary == source && !sourcePrecedesRecovery)
+                {
+                    int count = gate.EmitBoundary(boundary, emissions);
+                    adaptive.RecordBoundaryPass(boundary, count);
+                    result.GateFilteredNoteEvents += gate.TakeFilteredEventCount();
+                    for (int i = 0; i < count; i++)
+                    {
+                        RecordGateOutput(result, emissions[i], boundary, true);
+                        if (observer != null) observer(emissions[i], boundary);
+                    }
+                }
+                else if (next < events.Count)
+                {
+                    if ((next & 16383) == 0) cancellationToken.ThrowIfCancellationRequested();
+                    MidiEventView midiEvent = events[next++];
+                    if (gate.Admit(midiEvent) == DelayedNoteOffAdmission.NotNote)
+                    {
+                        RecordGateOutput(result, midiEvent, midiEvent.IntendedMicroseconds, false);
+                        if (observer != null) observer(midiEvent, midiEvent.IntendedMicroseconds);
+                        if (DelayedNoteOffGate.IsNoteTerminatingControl(midiEvent))
+                            result.GateFilteredNoteEvents += gate.RetireChannel(midiEvent.Channel,
+                                midiEvent.IntendedMicroseconds);
+                    }
+                    result.GateFilteredNoteEvents += gate.TakeFilteredEventCount();
+                }
+                if (next == events.Count && !completed)
+                {
+                    gate.CompleteSource(song.DurationMicroseconds);
+                    result.GateFilteredNoteEvents += gate.TakeFilteredEventCount();
+                    completed = true;
+                }
+            }
+            double seconds = result.BucketMicroseconds / 1000000.0;
+            for (int i = 0; i < result.GateOutputBuckets.Length; i++)
+            {
+                if ((i & 4095) == 0) cancellationToken.ThrowIfCancellationRequested();
+                result.GatePeakEventsPerSecond = Math.Max(result.GatePeakEventsPerSecond,
+                    result.GateOutputBuckets[i] / seconds);
+            }
+            Report(progress, "Delayed NoteOff projection complete", 1, 1, 995, 5);
+        }
+
+        internal static void ProjectNoteAttackLimit(MidiSong song, WorkloadAnalysis result,
+            AnalysisConfiguration configuration, CancellationToken cancellationToken,
+            Action<WorkloadAnalysisProgress> progress, Action<MidiEventView, long> observer)
+        {
+            MidiEventReader events = song.GetEventReader();
+            MusicalAttackRateLimiter limiter = new MusicalAttackRateLimiter(configuration.EventsPerSecond);
+            List<MidiEventView> emissions = new List<MidiEventView>(128);
+            result.GateOutputBuckets = new long[result.Buckets.Length];
+            int next = 0;
+            long actions = 0;
+            while (next < events.Count)
+            {
+                if ((actions++ & 4095) == 0)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    Report(progress, "Projecting Note start rate gate", next, Math.Max(1, events.Count), 750, 245);
+                }
+                long tick = events[next].AbsoluteTick;
+                long time = events[next].IntendedMicroseconds;
+                limiter.BeginSourceTick(tick);
+                while (next < events.Count && events[next].AbsoluteTick == tick)
+                {
+                    if ((next & 16383) == 0) cancellationToken.ThrowIfCancellationRequested();
+                    limiter.Admit(events[next++]);
+                }
+                int count = limiter.EndSourceTick(emissions);
+                long rejected = limiter.TakeRejectedAttacks();
+                long suppressed = limiter.TakeSuppressedReleases();
+                result.MusicalLimitRejectedAttacks += rejected;
+                result.MusicalLimitSuppressedReleases += suppressed;
+                result.GateFilteredNoteEvents += rejected + suppressed;
+                for (int index = 0; index < count; index++)
+                {
+                    int pitch;
+                    bool noteOn;
+                    bool note = PerNoteIntervalGate.TryClassify(emissions[index], out pitch, out noteOn);
+                    RecordGateOutput(result, emissions[index], time, note);
+                    if (observer != null) observer(emissions[index], time);
+                }
+            }
+            limiter.CompleteSource();
+            double seconds = result.BucketMicroseconds / 1000000.0;
+            for (int i = 0; i < result.GateOutputBuckets.Length; i++)
+            {
+                if ((i & 4095) == 0) cancellationToken.ThrowIfCancellationRequested();
+                result.GatePeakEventsPerSecond = Math.Max(result.GatePeakEventsPerSecond,
+                    result.GateOutputBuckets[i] / seconds);
+            }
+            Report(progress, "Note start rate projection complete", 1, 1, 995, 5);
+        }
+
+        internal static void ProjectOutputRateLimit(MidiSong song, WorkloadAnalysis result,
+            AnalysisConfiguration configuration, CancellationToken cancellationToken,
+            Action<WorkloadAnalysisProgress> progress, Action<MidiEventView, long> observer)
+        {
+            MidiEventReader events = song.GetEventReader();
+            OutputRateGate gate = new OutputRateGate(configuration.EventsPerSecond, 1000000);
+            List<MidiEventView> emissions = new List<MidiEventView>(128);
+            result.GateOutputBuckets = new long[result.Buckets.Length];
+            int next = 0;
+            long actions = 0;
+            while (next < events.Count)
+            {
+                if ((actions++ & 4095) == 0)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    Report(progress, "Projecting Output rate gate", next,
+                        Math.Max(1, events.Count), 750, 245);
+                }
+                long tick = events[next].AbsoluteTick;
+                long time = events[next].IntendedMicroseconds;
+                gate.BeginSourceTick(tick);
+                while (next < events.Count && events[next].AbsoluteTick == tick)
+                {
+                    if ((next & 16383) == 0)
+                        cancellationToken.ThrowIfCancellationRequested();
+                    gate.Admit(events[next++]);
+                }
+                int count = gate.EndSourceTick(emissions, time);
+                long rejected = gate.TakeRejectedAttacks();
+                long suppressed = gate.TakeSuppressedReleases();
+                long rejectedOther = gate.TakeRejectedOtherMessages();
+                result.OutputRateRejectedAttacks += rejected;
+                result.OutputRateSuppressedReleases += suppressed;
+                result.OutputRateRejectedOtherMessages += rejectedOther;
+                result.GateFilteredNoteEvents += rejected + suppressed;
+                for (int index = 0; index < count; index++)
+                {
+                    MidiEventView emitted = emissions[index];
+                    if (gate.RecordDispatch(time, false))
+                        result.OutputRateSafetySoftExcess++;
+                    RecordGateOutput(result, emitted, time,
+                        CompleteNoteTracker.Classify(emitted) != CompleteNoteEventKind.Other);
+                    if (observer != null) observer(emitted, time);
+                }
+            }
+            gate.CompleteSource();
+            double seconds = result.BucketMicroseconds / 1000000.0;
+            for (int i = 0; i < result.GateOutputBuckets.Length; i++)
+            {
+                if ((i & 4095) == 0) cancellationToken.ThrowIfCancellationRequested();
+                result.GatePeakEventsPerSecond = Math.Max(result.GatePeakEventsPerSecond,
+                    result.GateOutputBuckets[i] / seconds);
+            }
+            Report(progress, "Output rate projection complete", 1, 1, 995, 5);
+        }
+
+        private static MidiSong CreateOverrideFilteredSong(MidiSong source,
+            AnalysisOverrideSnapshot snapshot, CancellationToken cancellationToken,
+            out long filtered)
+        {
+            MidiEventReader reader = source.GetEventReader();
+            List<MidiEvent> events = new List<MidiEvent>(reader.Count);
+            filtered = 0;
+            for (int index = 0; index < reader.Count; index++)
+            {
+                if ((index & 16383) == 0) cancellationToken.ThrowIfCancellationRequested();
+                MidiEventView midiEvent = reader[index];
+                if (snapshot.ShouldSuppress(midiEvent))
+                {
+                    filtered++;
+                    continue;
+                }
+                MidiEvent copy = midiEvent.ToCompatibilityEvent();
+                copy.EventIndex = events.Count;
+                events.Add(copy);
+            }
+            return new MidiSong
+            {
+                FilePath = source.FilePath,
+                FileSizeBytes = source.FileSizeBytes,
+                Format = source.Format,
+                TrackCount = source.TrackCount,
+                TicksPerQuarterNote = source.TicksPerQuarterNote,
+                NoteCount = source.NoteCount,
+                NonstandardRunningStatusRepairCount = source.NonstandardRunningStatusRepairCount,
+                Events = events,
+                DurationMicroseconds = source.DurationMicroseconds,
+                TrackMetadata = source.TrackMetadata
+            };
+        }
+
+        private static void ApplyProjectedForcedOverrides(WorkloadAnalysis result,
+            AnalysisConfiguration configuration)
+        {
+            AnalysisOverrideSnapshot snapshot = configuration.OverrideProjection;
+            if (snapshot == null) return;
+            long forced = snapshot.ForcedMessageCount;
+            result.OverrideProjectedForcedMessages = forced;
+            if (forced == 0 || result.GateOutputBuckets == null ||
+                result.GateOutputBuckets.Length == 0) return;
+            result.GateOutputBuckets[0] += forced;
+            result.GateOutputEvents += forced;
+            result.GateOutputNonNoteEvents += forced;
+            double seconds = result.BucketMicroseconds / 1000000.0;
+            if (seconds > 0)
+                result.GatePeakEventsPerSecond = Math.Max(result.GatePeakEventsPerSecond,
+                    result.GateOutputBuckets[0] / seconds);
         }
 
         private static void RecordGateOutput(WorkloadAnalysis result, MidiEventView midiEvent,
@@ -646,6 +1000,8 @@ namespace MidiBottleneck
         private static bool UsesConfiguredService(AnalysisConfiguration configuration)
         {
             return configuration != null && !configuration.PerNoteIntervalGateEnabled &&
+                !configuration.DelayedNoteOffEnabled && !configuration.NoteAttackLimitEnabled &&
+                !configuration.OutputRateLimitEnabled &&
                 (configuration.SimulateSlowdown ||
                 configuration.ApplyQueueLimitWithoutSlowdown && configuration.QueueLengthLimitEnabled);
         }
@@ -680,7 +1036,8 @@ namespace MidiBottleneck
             }
 
             PendingMidiQueue pending = new PendingMidiQueue(configuration.QueueLengthLimit,
-                configuration.OverflowPolicy == OverflowPolicy.DropOldestCompleteNote);
+                configuration.OverflowPolicy == OverflowPolicy.DropOldestCompleteNote ||
+                configuration.OverflowPolicy == OverflowPolicy.DropBackgroundNotes);
             bool busy = false;
             long completion = 0;
             long lastCompleted = 0;
@@ -689,6 +1046,11 @@ namespace MidiBottleneck
             int limit = configuration.QueueAgeLimitEnabled ? Int32.MaxValue :
                 Math.Max(1, configuration.QueueLengthLimit);
             CompleteNoteTracker completeNotes = new CompleteNoteTracker();
+            int musicalFairnessCursor = 0;
+            bool outputPaced = configuration.OutputPacedTimeline && configuration.SimulateSlowdown;
+            long previousSourceArrival = Int64.MinValue;
+            long pacedArrival = 0;
+            long queueArrivalOffset = 0;
             for (int i = 0; i < events.Count; i++)
             {
                 if ((i & 16383) == 0)
@@ -697,13 +1059,43 @@ namespace MidiBottleneck
                     Report(progress, "Projecting finite queue pressure", i, events.Count, 750, 250);
                 }
                 MidiEventView incomingEvent = events[i];
-                long arrival = incomingEvent.IntendedMicroseconds;
+                long sourceArrival = incomingEvent.IntendedMicroseconds;
+                long arrival = sourceArrival;
+                if (outputPaced)
+                {
+                    if (sourceArrival != previousSourceArrival)
+                    {
+                        if (previousSourceArrival == Int64.MinValue)
+                            pacedArrival = sourceArrival;
+                        else
+                        {
+                            while (busy)
+                            {
+                                lastCompleted = completion;
+                                ApplyAnalysisQueueAgeLimit(pending, events, completeNotes,
+                                    configuration, result, completion, queueArrivalOffset);
+                                if (pending.Count > 0)
+                                {
+                                    int next = pending.Dequeue();
+                                    completion = checked(completion +
+                                        serviceClock.NextMicroseconds(events[next]));
+                                }
+                                else busy = false;
+                            }
+                            pacedArrival = checked(Math.Max(pacedArrival, lastCompleted) +
+                                Math.Max(0, sourceArrival - previousSourceArrival));
+                        }
+                        previousSourceArrival = sourceArrival;
+                        queueArrivalOffset = pacedArrival - sourceArrival;
+                    }
+                    arrival = pacedArrival;
+                }
                 bool clearedAtCompletion = false;
                 while (busy && completion <= arrival)
                 {
                     lastCompleted = completion;
                     clearedAtCompletion |= ApplyAnalysisQueueAgeLimit(pending, events,
-                        completeNotes, configuration, result, completion);
+                        completeNotes, configuration, result, completion, queueArrivalOffset);
                     if (pending.Count > 0)
                     {
                         int next = pending.Dequeue();
@@ -746,10 +1138,11 @@ namespace MidiBottleneck
                 };
                 long ageLimit = Math.Max(1, configuration.QueueAgeLimitMicroseconds);
                 bool ageEvictionStalled = false;
-                RecordAnalysisQueueAge(pending, events, result, arrival);
+                RecordAnalysisQueueAge(pending, events, result, arrival, queueArrivalOffset);
                 if (configuration.QueueAgeLimitEnabled && configuration.OverflowPolicy == OverflowPolicy.DropOldest)
                 {
-                    while (AnalysisQueueAgeExceeded(pending, events, arrival, ageLimit))
+                    while (AnalysisQueueAgeExceeded(pending, events, arrival, ageLimit,
+                        queueArrivalOffset))
                     {
                         pending.Dequeue();
                         RecordDrop(result, bucketIndex, 1);
@@ -758,7 +1151,8 @@ namespace MidiBottleneck
                 else if (configuration.QueueAgeLimitEnabled &&
                     configuration.OverflowPolicy == OverflowPolicy.DropOldestCompleteNote)
                 {
-                    while (AnalysisQueueAgeExceeded(pending, events, arrival, ageLimit))
+                    while (AnalysisQueueAgeExceeded(pending, events, arrival, ageLimit,
+                        queueArrivalOffset))
                     {
                         int previousOldest = pending.OldestEventIndex;
                         int evictedAttack;
@@ -779,7 +1173,8 @@ namespace MidiBottleneck
                 }
                 int occupancy = pending.Count + (busy ? 1 : 0);
                 bool ageExceeded = configuration.QueueAgeLimitEnabled &&
-                    AnalysisQueueAgeExceeded(pending, events, arrival, ageLimit);
+                    AnalysisQueueAgeExceeded(pending, events, arrival, ageLimit,
+                        queueArrivalOffset);
                 bool protectedTraffic = noteKind == CompleteNoteEventKind.NoteOff ||
                     CompleteNoteTracker.IsSafetyControl(incomingEvent);
                 bool safetyAdmission = configuration.OverflowPolicy == OverflowPolicy.DropIncomingCompleteNotes &&
@@ -844,12 +1239,42 @@ namespace MidiBottleneck
                             completeNotes.RecordNoteOn(incomingEvent, i, true, false);
                     }
                 }
+                else if (configuration.OverflowPolicy == OverflowPolicy.DropBackgroundNotes)
+                {
+                    int evictedAttack;
+                    int evictedRelease;
+                    bool evicted = pending.TryEvictLeastImportantCompleteNote(events,
+                        ref musicalFairnessCursor, out evictedAttack, out evictedRelease);
+                    if (evicted)
+                    {
+                        if (evictedRelease < 0)
+                            completeNotes.MarkUnsentAttackEvicted(evictedAttack);
+                        RecordDrop(result, bucketIndex, evictedRelease >= 0 ? 2 : 1);
+                    }
+                    bool ownAttackEvicted = evicted &&
+                        noteKind == CompleteNoteEventKind.NoteOff &&
+                        noteMatch.AttackIndex == evictedAttack;
+                    if (ownAttackEvicted || (!evicted &&
+                        noteKind == CompleteNoteEventKind.NoteOn))
+                    {
+                        if (noteKind == CompleteNoteEventKind.NoteOn)
+                            completeNotes.RecordNoteOn(incomingEvent, i, false, true);
+                        RecordDrop(result, bucketIndex, 1);
+                    }
+                    else
+                    {
+                        pending.Enqueue(incomingEntry);
+                        if (noteKind == CompleteNoteEventKind.NoteOn)
+                            completeNotes.RecordNoteOn(incomingEvent, i, true, false);
+                    }
+                }
                 else if (configuration.OverflowPolicy == OverflowPolicy.ClearBufferAndCatchUp)
                 {
-                    int dropped = occupancy + 1;
+                    // Match live Playback: the event already in service is
+                    // ordered/protected from a capacity edit. Clear pending
+                    // and incoming work, but keep its completion and clock.
+                    int dropped = pending.Count + 1;
                     pending.Clear();
-                    serviceClock = beforeCurrentService;
-                    busy = false;
                     while (i + 1 < events.Count && events[i + 1].IntendedMicroseconds <= arrival) { dropped++; i++; }
                     RecordDrop(result, bucketIndex, dropped);
                     result.PredictedBufferClears++;
@@ -882,7 +1307,7 @@ namespace MidiBottleneck
             {
                 lastCompleted = completion;
                 ApplyAnalysisQueueAgeLimit(pending, events, completeNotes, configuration,
-                    result, completion);
+                    result, completion, queueArrivalOffset);
                 if (pending.Count > 0)
                 {
                     int next = pending.Dequeue();
@@ -896,11 +1321,12 @@ namespace MidiBottleneck
         }
 
         private static void RecordAnalysisQueueAge(PendingMidiQueue pending, MidiEventReader events,
-            WorkloadAnalysis result, long logicalNowMicroseconds)
+            WorkloadAnalysis result, long logicalNowMicroseconds, long arrivalOffsetMicroseconds)
         {
             if (pending.Count == 0) return;
             long queueAge = Math.Max(0, logicalNowMicroseconds -
-                events[pending.OldestEventIndex].IntendedMicroseconds);
+                checked(events[pending.OldestEventIndex].IntendedMicroseconds +
+                    arrivalOffsetMicroseconds));
             if (queueAge > result.PredictedPeakQueueAgeMicroseconds)
                 result.PredictedPeakQueueAgeMicroseconds = queueAge;
             int bucket = (int)Math.Min(result.Buckets.Length - 1,
@@ -912,16 +1338,18 @@ namespace MidiBottleneck
         private static bool ApplyAnalysisQueueAgeLimit(PendingMidiQueue pending,
             MidiEventReader events, CompleteNoteTracker completeNotes,
             AnalysisConfiguration configuration, WorkloadAnalysis result,
-            long logicalNowMicroseconds)
+            long logicalNowMicroseconds, long arrivalOffsetMicroseconds)
         {
             if (!configuration.QueueAgeLimitEnabled || pending.Count == 0) return false;
-            RecordAnalysisQueueAge(pending, events, result, logicalNowMicroseconds);
+            RecordAnalysisQueueAge(pending, events, result, logicalNowMicroseconds,
+                arrivalOffsetMicroseconds);
             long limit = Math.Max(1, configuration.QueueAgeLimitMicroseconds);
             int bucket = (int)Math.Min(result.Buckets.Length - 1,
                 Math.Max(0, logicalNowMicroseconds / result.BucketMicroseconds));
             if (configuration.OverflowPolicy == OverflowPolicy.DropOldest)
             {
-                while (AnalysisQueueAgeExceeded(pending, events, logicalNowMicroseconds, limit))
+                while (AnalysisQueueAgeExceeded(pending, events, logicalNowMicroseconds, limit,
+                    arrivalOffsetMicroseconds))
                 {
                     pending.Dequeue();
                     RecordDrop(result, bucket, 1);
@@ -929,7 +1357,8 @@ namespace MidiBottleneck
             }
             else if (configuration.OverflowPolicy == OverflowPolicy.DropOldestCompleteNote)
             {
-                while (AnalysisQueueAgeExceeded(pending, events, logicalNowMicroseconds, limit))
+                while (AnalysisQueueAgeExceeded(pending, events, logicalNowMicroseconds, limit,
+                    arrivalOffsetMicroseconds))
                 {
                     int attack;
                     int release;
@@ -939,7 +1368,8 @@ namespace MidiBottleneck
                 }
             }
             else if (configuration.OverflowPolicy == OverflowPolicy.ClearBufferAndCatchUp &&
-                AnalysisQueueAgeExceeded(pending, events, logicalNowMicroseconds, limit))
+                AnalysisQueueAgeExceeded(pending, events, logicalNowMicroseconds, limit,
+                    arrivalOffsetMicroseconds))
             {
                 int dropped = pending.Count;
                 pending.Clear();
@@ -952,10 +1382,11 @@ namespace MidiBottleneck
         }
 
         private static bool AnalysisQueueAgeExceeded(PendingMidiQueue pending, MidiEventReader events,
-            long logicalNowMicroseconds, long limitMicroseconds)
+            long logicalNowMicroseconds, long limitMicroseconds, long arrivalOffsetMicroseconds)
         {
             return pending.Count > 0 && logicalNowMicroseconds -
-                events[pending.OldestEventIndex].IntendedMicroseconds > limitMicroseconds;
+                checked(events[pending.OldestEventIndex].IntendedMicroseconds +
+                    arrivalOffsetMicroseconds) > limitMicroseconds;
         }
 
         private static void AnalyzeVirtualForwardPressure(MidiSong song, WorkloadAnalysis result,
@@ -1024,6 +1455,9 @@ namespace MidiBottleneck
             long lastCompleted = 0;
             ServiceDurationClock serviceClock = CreateServiceClock(configuration);
             int nextPending = 0;
+            bool outputPaced = configuration.OutputPacedTimeline && configuration.SimulateSlowdown;
+            long previousSourceArrival = Int64.MinValue;
+            long pacedArrival = 0;
             for (int i = 0; i < events.Count; i++)
             {
                 if ((i & 16383) == 0)
@@ -1032,7 +1466,30 @@ namespace MidiBottleneck
                     Report(progress, "Projecting unlimited queue pressure", i, events.Count, 750, 250);
                 }
                 MidiEventView incomingEvent = events[i];
-                long arrival = incomingEvent.IntendedMicroseconds;
+                long sourceArrival = incomingEvent.IntendedMicroseconds;
+                long arrival = sourceArrival;
+                if (outputPaced && sourceArrival != previousSourceArrival)
+                {
+                    if (previousSourceArrival == Int64.MinValue)
+                        pacedArrival = sourceArrival;
+                    else
+                    {
+                        while (busy)
+                        {
+                            lastCompleted = completion;
+                            if (nextPending < i)
+                            {
+                                completion = checked(completion +
+                                    serviceClock.NextMicroseconds(events[nextPending++]));
+                            }
+                            else busy = false;
+                        }
+                        pacedArrival = checked(Math.Max(pacedArrival, lastCompleted) +
+                            Math.Max(0, sourceArrival - previousSourceArrival));
+                    }
+                    previousSourceArrival = sourceArrival;
+                }
+                if (outputPaced) arrival = pacedArrival;
                 while (busy && completion <= arrival)
                 {
                     lastCompleted = completion;

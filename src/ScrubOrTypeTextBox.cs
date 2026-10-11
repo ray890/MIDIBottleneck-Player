@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
 using System.Runtime.InteropServices;
@@ -49,6 +50,11 @@ namespace MidiBottleneck
         private int _typingStartValue;
         private string _lastError;
         private Func<int, string> _displayFormatter;
+        private static readonly object FieldPaletteLock = new object();
+        private static bool _fieldPaletteInitialized;
+        private static bool _fieldPaletteMeasured;
+        private static Color _enabledFieldColor;
+        private static Color _disabledFieldColor;
 
         [DllImport("user32.dll")]
         private static extern bool HideCaret(IntPtr window);
@@ -68,7 +74,7 @@ namespace MidiBottleneck
             TabStop = false;
             TextAlign = HorizontalAlignment.Right;
             Cursor = Cursors.SizeWE;
-            BackColor = SystemColors.Window;
+            ApplySystemFieldBackground();
         }
 
         internal int CurrentValue { get { return _value; } }
@@ -77,6 +83,96 @@ namespace MidiBottleneck
         internal bool CursorIsHidden { get { return _cursorHidden; } }
         internal bool IsForced { get { return _forced; } }
         internal string LastError { get { return _lastError ?? String.Empty; } }
+        internal static Color EnabledFieldBackColorForTesting
+        { get { EnsureSystemFieldPalette(); return _enabledFieldColor; } }
+        internal static Color DisabledFieldBackColorForTesting
+        { get { EnsureSystemFieldPalette(); return _disabledFieldColor; } }
+        internal static bool FieldPaletteMeasuredFromComboBoxForTesting
+        { get { EnsureSystemFieldPalette(); return _fieldPaletteMeasured; } }
+
+        protected override void OnEnabledChanged(EventArgs e)
+        {
+            base.OnEnabledChanged(e);
+            ApplySystemFieldBackground();
+        }
+
+        private void ApplySystemFieldBackground()
+        {
+            EnsureSystemFieldPalette();
+            BackColor = Enabled ? _enabledFieldColor : _disabledFieldColor;
+        }
+
+        private static void EnsureSystemFieldPalette()
+        {
+            if (_fieldPaletteInitialized) return;
+            lock (FieldPaletteLock)
+            {
+                if (_fieldPaletteInitialized) return;
+                Color enabled;
+                Color disabled;
+                bool enabledMeasured = TryMeasureComboBoxField(true, out enabled);
+                bool disabledMeasured = TryMeasureComboBoxField(false, out disabled);
+                _enabledFieldColor = enabledMeasured ? enabled : SystemColors.Window;
+                _disabledFieldColor = disabledMeasured ? disabled : SystemColors.Control;
+                _fieldPaletteMeasured = enabledMeasured && disabledMeasured;
+                _fieldPaletteInitialized = true;
+            }
+        }
+
+        // Read the actual blank field painted by the current native/themed
+        // DropDownList.  The dominant interior pixel avoids borders, the arrow,
+        // and text.  System colors remain the safe fallback if native capture
+        // is unavailable on a noninteractive test desktop.
+        private static bool TryMeasureComboBoxField(bool enabled, out Color color)
+        {
+            color = enabled ? SystemColors.Window : SystemColors.Control;
+            try
+            {
+                using (ComboBox probe = new ComboBox())
+                {
+                    probe.DropDownStyle = ComboBoxStyle.DropDownList;
+                    probe.Size = new Size(140, Math.Max(22, probe.PreferredHeight));
+                    probe.Items.Add(String.Empty);
+                    probe.SelectedIndex = 0;
+                    probe.Enabled = enabled;
+                    IntPtr ignored = probe.Handle;
+                    using (Bitmap bitmap = new Bitmap(probe.Width, probe.Height))
+                    {
+                        probe.DrawToBitmap(bitmap, probe.ClientRectangle);
+                        Dictionary<int, int> counts = new Dictionary<int, int>();
+                        int right = Math.Max(5, bitmap.Width - 28);
+                        int bottom = Math.Max(5, bitmap.Height - 4);
+                        for (int y = 4; y < bottom; y++)
+                        {
+                            for (int x = 4; x < right; x++)
+                            {
+                                int argb = bitmap.GetPixel(x, y).ToArgb();
+                                int count;
+                                counts.TryGetValue(argb, out count);
+                                counts[argb] = count + 1;
+                            }
+                        }
+                        int bestColor = color.ToArgb();
+                        int bestCount = 0;
+                        foreach (KeyValuePair<int, int> pair in counts)
+                        {
+                            if (pair.Value > bestCount)
+                            {
+                                bestColor = pair.Key;
+                                bestCount = pair.Value;
+                            }
+                        }
+                        if (bestCount == 0) return false;
+                        color = Color.FromArgb(bestColor);
+                        return true;
+                    }
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }
 
         internal void ConfigureNumeric(int value, int minimum, int maximum,
             int coarseUnits, int coarsePixels, int fineUnits, int finePixels)

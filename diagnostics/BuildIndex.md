@@ -47,6 +47,7 @@ The public history was reconstructed because original Git commits did not exist.
 | 41 | contextual-offline-help | 2026-09-25 | exact | `v1.0.41` |
 | 42 | queue-age-and-ui-scaling | 2026-09-26 | exact | `v1.0.42` |
 | 43 | presentation-and-soft-limits | 2026-09-26 | exact | `v1.0.43` |
+| 44 | shutdown-observability-and-channel-acknowledgement | 2026-09-27 | exact | `v1.0.44` |
 
 ## Evidence-recovery result
 

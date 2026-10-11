@@ -52,6 +52,11 @@ namespace MidiBottleneck
             public readonly List<MidiEvent> Events = new List<MidiEvent>();
             public readonly List<TempoChange> Tempos = new List<TempoChange>();
             public long EndTick;
+            public string TrackName;
+            public string InstrumentName;
+            public bool TrackNameTruncated;
+            public bool InstrumentNameTruncated;
+            public long RunningStatusRepairCount;
         }
 
         public static MidiSong Load(string path)
@@ -105,9 +110,10 @@ namespace MidiBottleneck
             if (String.IsNullOrEmpty(path))
                 throw new ArgumentException("A MIDI file path is required.", "path");
 
-            using (FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
-            using (BinaryReader reader = new BinaryReader(stream))
+            using (MidiFileContent content = MidiFileContent.Open(path))
+            using (BinaryReader reader = new BinaryReader(content.Stream))
             {
+                Stream stream = content.Stream;
                 RequireChunk(reader, "MThd");
                 uint headerLength = ReadUInt32BigEndian(reader);
                 if (headerLength < 6)
@@ -135,6 +141,7 @@ namespace MidiBottleneck
                 long endTick = 0;
                 long parsedTrackBytes = 0;
                 long parsedEventTotal = 0;
+                long runningStatusRepairCount = 0;
                 long fileLength = Math.Max(1, stream.Length);
 
                 for (int trackIndex = 0; trackIndex < trackCount; trackIndex++)
@@ -169,6 +176,7 @@ namespace MidiBottleneck
                     parsedTracks[trackIndex] = track;
                     parsedTrackBytes += currentTrackLength;
                     parsedEventTotal += track.Events.Count;
+                    runningStatusRepairCount = checked(runningStatusRepairCount + track.RunningStatusRepairCount);
                     ValidateSupportedEventCount(parsedEventTotal);
                     allTempos.AddRange(track.Tempos);
                     if (track.EndTick > endTick)
@@ -225,11 +233,17 @@ namespace MidiBottleneck
 
                 MidiSong song = new MidiSong();
                 song.FilePath = fullPath;
-                song.FileSizeBytes = stream.Length;
+                song.FileSizeBytes = content.FileSizeBytes;
                 song.Format = format;
                 song.TrackCount = trackCount;
+                song.TrackMetadata = new MidiTrackMetadata[trackCount];
+                for (int track = 0; track < trackCount; track++)
+                    song.TrackMetadata[track] = new MidiTrackMetadata(parsedTracks[track].TrackName,
+                        parsedTracks[track].TrackNameTruncated, parsedTracks[track].InstrumentName,
+                        parsedTracks[track].InstrumentNameTruncated);
                 song.TicksPerQuarterNote = division;
                 song.NoteCount = noteCount;
+                song.NonstandardRunningStatusRepairCount = runningStatusRepairCount;
                 song.DurationMicroseconds = duration;
                 song.SetEventStore(compactStore);
                 song.SetChannelSourceValueIndex(channelSourceValues.Complete(compactStore));
@@ -245,6 +259,8 @@ namespace MidiBottleneck
             int position = 0;
             long tick = 0;
             byte runningStatus = 0;
+            byte lastChannelStatus = 0;
+            bool immediatelyAfterMeta = false;
             int order = 0;
 
             while (position < bytes.Length)
@@ -262,18 +278,29 @@ namespace MidiBottleneck
                 byte first = bytes[position++];
                 byte status;
                 int firstData = -1;
+                bool repairedRunningStatus = false;
                 if (first < 0x80)
                 {
                     if (runningStatus < 0x80 || runningStatus >= 0xF0)
-                        throw new InvalidDataException("Invalid running status in track " + trackIndex + ".");
-                    status = runningStatus;
+                    {
+                        if (!MidiRunningStatusCompatibility.CanRepairAfterMeta(
+                            lastChannelStatus, immediatelyAfterMeta, first))
+                            throw new InvalidDataException("Invalid running status in track " + trackIndex + ".");
+                        status = lastChannelStatus;
+                        runningStatus = status;
+                        repairedRunningStatus = true;
+                    }
+                    else status = runningStatus;
                     firstData = first;
                 }
                 else
                 {
                     status = first;
                     if (status < 0xF0)
+                    {
                         runningStatus = status;
+                        lastChannelStatus = status;
+                    }
                 }
 
                 if (status == 0xFF)
@@ -295,11 +322,37 @@ namespace MidiBottleneck
                             result.Tempos.Add(change);
                         }
                     }
+                    else if ((metaType == 0x03 && String.IsNullOrEmpty(result.TrackName)) ||
+                        (metaType == 0x04 && String.IsNullOrEmpty(result.InstrumentName)))
+                    {
+                        int retained = Math.Min((int)length, MidiTrackMetadata.MaximumStoredBytes);
+                        byte[] textBytes = new byte[retained];
+                        Buffer.BlockCopy(bytes, position, textBytes, 0, retained);
+                        bool decodedTruncated;
+                        string text = MidiTrackMetadata.DecodeDisplayText(textBytes, retained,
+                            out decodedTruncated);
+                        if (!String.IsNullOrEmpty(text))
+                        {
+                            bool wasTruncated = decodedTruncated || length > (uint)retained;
+                            if (metaType == 0x03)
+                            {
+                                result.TrackName = text;
+                                result.TrackNameTruncated = wasTruncated;
+                            }
+                            else
+                            {
+                                result.InstrumentName = text;
+                                result.InstrumentNameTruncated = wasTruncated;
+                            }
+                        }
+                    }
                     position += (int)length;
+                    immediatelyAfterMeta = true;
                 }
                 else if (status == 0xF0 || status == 0xF7)
                 {
                     runningStatus = 0;
+                    immediatelyAfterMeta = false;
                     uint length = ReadVariableLength(bytes, ref position);
                     EnsureAvailable(bytes, position, length);
                     int prefix = status == 0xF0 ? 1 : 0;
@@ -333,10 +386,13 @@ namespace MidiBottleneck
                     MidiEventKind kind = KindFromStatus(status);
                     MidiEventData data = MidiEventData.FromShort(status, firstValue, secondValue, dataLength + 1);
                     result.Events.Add(CreateEvent(tick, trackIndex, order, kind, status & 0x0F, status, data));
+                    if (repairedRunningStatus) result.RunningStatusRepairCount++;
+                    immediatelyAfterMeta = false;
                 }
                 else
                 {
                     runningStatus = 0;
+                    immediatelyAfterMeta = false;
                     int dataLength = SystemDataLength(status);
                     byte firstValue = dataLength > 0 ? ReadByte(bytes, ref position) : (byte)0;
                     byte secondValue = dataLength > 1 ? ReadByte(bytes, ref position) : (byte)0;

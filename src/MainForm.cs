@@ -11,8 +11,15 @@ using System.Windows.Forms;
 
 namespace MidiBottleneck
 {
-    internal sealed class MainForm : Form
+    internal sealed class MainForm : Form, IMessageFilter
     {
+        internal const string MidiOpenFileFilter = "MIDI files (*.mid;*.midi;*.rmi)|*.mid;*.midi;*.rmi|All files (*.*)|*.*";
+        internal enum BorderlessPresentationStyle
+        {
+            ClassicStrip,
+            IntegratedHeader,
+            AutoHideOverlay
+        }
         private sealed class OverflowPolicyItem
         {
             internal readonly OverflowPolicy Policy;
@@ -37,6 +44,28 @@ namespace MidiBottleneck
         private const int SystemMenuScale125 = 0x1FE0;
         private const int SystemMenuScale150 = 0x1FF0;
         private const int SystemMenuScale200 = 0x2000;
+        private const int SystemMenuPreservePauseSeek = 0x2010;
+        private const int SystemMenuScaleNoteIntervalByTraffic = 0x2020;
+        private const int SystemMenuTrackRouting = 0x2030;
+        private const int SystemMenuBorderless = 0x2040;
+        private const int SystemMenuOutputPacedTimeline = 0x2050;
+        private const int SystemMenuBorderlessClassic = 0x2060;
+        private const int SystemMenuBorderlessIntegrated = 0x2070;
+        private const int SystemMenuBorderlessAutoHide = 0x2080;
+        private const int WmNcHitTest = 0x0084;
+        private const int WmNcLButtonDown = 0x00A1;
+        private const int WmLButtonDown = 0x0201;
+        private const int HtCaption = 2;
+        private const int HtLeft = 10;
+        private const int HtRight = 11;
+        private const int HtTop = 12;
+        private const int HtTopLeft = 13;
+        private const int HtTopRight = 14;
+        private const int HtBottom = 15;
+        private const int HtBottomLeft = 16;
+        private const int HtBottomRight = 17;
+        private const uint TpmRightButton = 0x0002;
+        private const uint TpmReturnCommand = 0x0100;
         private const uint MfString = 0x0000;
         private const uint MfSeparator = 0x0800;
         private const uint MfPopup = 0x0010;
@@ -61,6 +90,13 @@ namespace MidiBottleneck
         private static extern bool DrawMenuBar(IntPtr window);
         [DllImport("user32.dll")]
         private static extern IntPtr CreatePopupMenu();
+        [DllImport("user32.dll")]
+        private static extern bool ReleaseCapture();
+        [DllImport("user32.dll")]
+        private static extern IntPtr SendMessage(IntPtr window, int message, IntPtr wParam, IntPtr lParam);
+        [DllImport("user32.dll")]
+        private static extern uint TrackPopupMenuEx(IntPtr menu, uint flags, int x, int y,
+            IntPtr window, IntPtr parameters);
         private readonly PlaybackEngine _engine = new PlaybackEngine();
         private readonly WindowsMidiOutput _output = new WindowsMidiOutput();
         private readonly KdmApiMidiOutput _kdmApiOutput = new KdmApiMidiOutput();
@@ -68,6 +104,8 @@ namespace MidiBottleneck
         private readonly HashSet<Control> _midiDropTargets = new HashSet<Control>();
         private readonly Dictionary<Control, Padding> _canonicalMargins = new Dictionary<Control, Padding>();
         private readonly Dictionary<Control, Padding> _canonicalPaddings = new Dictionary<Control, Padding>();
+        private Size _canonicalOpenButtonPreferredSize;
+        private const int CanonicalFileHeaderRowHeight = 32;
         private readonly List<DiagnosticsForm> _analysisWindows = new List<DiagnosticsForm>();
         private ChannelMonitorForm _channelMonitor;
         private PlayerHelpForm _helpWindow;
@@ -76,6 +114,10 @@ namespace MidiBottleneck
         private readonly ToolTip _toolTip = new ToolTip();
         private IMidiOutput _activeOutput;
         private MidiSong _song;
+        private MidiSong _routedSong;
+        private CompiledTrackRoute _trackRoute;
+        private TrackRoutingSettings _trackRoutingSettings;
+        private Func<TrackRoutingForm, DialogResult> _trackRoutingDialogRunnerForTests;
         private MidiSong _engineSong;
         private bool _updatingProcessingControls;
         private bool _updatingOverflowChoices;
@@ -120,12 +162,26 @@ namespace MidiBottleneck
         private bool _forceLargeFileWarningForTests;
         private MidiLargeFileInspection _lastLargeFileInspection;
         private bool _perNoteIntervalGateEnabled;
+        private bool _delayedNoteOffEnabled;
+        private bool _noteAttackLimitEnabled;
+        private bool _outputRateLimitEnabled;
         private bool _applyQueueLimitWithoutSlowdown;
         private bool _chaseMidiStateOnPlaySeek = true;
+        private bool _preservePlaybackQueueOnPauseSeek;
+        private bool _outputPacedTimeline;
+        private bool _scaleNoteIntervalByTraffic;
         private bool _showProcessingModel = true;
         private bool _showStatistics = true;
+        private bool _borderlessMode;
+        private BorderlessPresentationStyle _borderlessStyle = BorderlessPresentationStyle.ClassicStrip;
+        private Rectangle _nativeFrameBounds;
+        private Rectangle _nativeFrameRestoreBounds;
+        private FormWindowState _nativeFrameWindowState;
         private bool _queueAgeLimitEnabled;
+        private bool _intervalPolyphonyLimitEnabled;
+        private bool _rememberedOrdinaryQueueLimitEnabled;
         private int _rememberedEventCountLimit = PlaybackEngine.DefaultQueueLengthLimit;
+        private int _rememberedIntervalPolyphonyLimit = PlaybackEngine.DefaultIntervalPolyphonyLimit;
         private long _rememberedQueueAgeLimit = PlaybackEngine.DefaultQueueAgeLimitMicroseconds;
         private OverflowPolicy _rememberedEventOverflowPolicy = OverflowPolicy.DropNewest;
         private OverflowPolicy _rememberedAgeOverflowPolicy = OverflowPolicy.ClearBufferAndCatchUp;
@@ -133,6 +189,10 @@ namespace MidiBottleneck
         private ServiceDurationMode _lastOrdinaryServiceMode = ServiceDurationMode.ProcessingTime;
         private long _rememberedProcessingMicroseconds = 100;
         private long _rememberedGateMicroseconds = 100;
+        private long _rememberedDelayedNoteOffMicroseconds = 100;
+        private long _rememberedOrdinaryEventRate = 10000;
+        private long _rememberedAttackRate = 100;
+        private long _rememberedOutputRate = 10000;
 
         private Label _fileLabel;
         private Label _fileInfoLabel;
@@ -145,6 +205,7 @@ namespace MidiBottleneck
         private TableLayoutPanel _fileOutputTable;
         private GroupBox _fileOutputGroup;
         private ComboBox _outputCombo;
+        private Label _outputLabel;
         private CheckBox _kdmApiCheck;
         private CheckBox _queueLimitCheck;
         private RateModelComboBox _serviceModeCombo;
@@ -177,6 +238,26 @@ namespace MidiBottleneck
         private FlowLayoutPanel _rateCluster;
         private FlowLayoutPanel _serviceCluster;
         private TableLayoutPanel _playbackButtonLayout;
+        private Panel _borderlessChrome;
+        private Button _borderlessSystemButton;
+        private Label _borderlessTitle;
+        private Button _borderlessMinimizeButton;
+        private Button _borderlessMaximizeButton;
+        private Button _borderlessCloseButton;
+        private Panel _borderlessIntegratedChrome;
+        private Button _borderlessIntegratedSystemButton;
+        private Label _borderlessIntegratedTitle;
+        private Button _borderlessIntegratedMinimizeButton;
+        private Button _borderlessIntegratedMaximizeButton;
+        private Button _borderlessIntegratedCloseButton;
+        private Panel _borderlessOverlayChrome;
+        private Button _borderlessOverlaySystemButton;
+        private Button _borderlessOverlayMinimizeButton;
+        private Button _borderlessOverlayMaximizeButton;
+        private Button _borderlessOverlayCloseButton;
+        private IntPtr _borderlessStyleMenu;
+        private System.Windows.Forms.Timer _borderlessOverlayTimer;
+        private bool _messageFilterInstalled;
         private System.Windows.Forms.Timer _uiTimer;
         private System.Windows.Forms.Timer _analysisRefreshTimer;
         private PlaybackState _lastStatisticsState = PlaybackState.Stopped;
@@ -194,9 +275,15 @@ namespace MidiBottleneck
             _engine.SimulateSlowdown = false;
             _engine.ApplyQueueLimitWithoutSlowdown = false;
             _engine.ChaseMidiStateOnPlaySeek = true;
+            _engine.PreservePlaybackQueueOnPauseSeek = false;
+            _engine.OutputPacedTimeline = false;
+            _engine.ScaleNoteIntervalByTraffic = false;
+            _engine.IntervalPolyphonyLimitEnabled = false;
+            _engine.IntervalPolyphonyLimit = PlaybackEngine.DefaultIntervalPolyphonyLimit;
 
             BuildInterface();
             CaptureCanonicalControlMetrics(_rootLayout);
+            CaptureCanonicalFileOutputMetrics();
             ConfigureMidiDrop(this);
             LoadOutputDevices();
             SetProcessingMicroseconds(100);
@@ -210,6 +297,9 @@ namespace MidiBottleneck
             _uiTimer.Interval = 16;
             _uiTimer.Tick += delegate { RefreshStatistics(); };
             _uiTimer.Start();
+            _borderlessOverlayTimer = new System.Windows.Forms.Timer();
+            _borderlessOverlayTimer.Interval = 100;
+            _borderlessOverlayTimer.Tick += delegate { UpdateBorderlessOverlayVisibility(); };
             _analysisRefreshTimer = new System.Windows.Forms.Timer();
             _analysisRefreshTimer.Interval = 200;
             _analysisRefreshTimer.Tick += RefreshOpenAnalyses;
@@ -220,6 +310,8 @@ namespace MidiBottleneck
                 UpdateCompactUnitVisibility();
             };
             UpdateResponsiveLayout();
+            Application.AddMessageFilter(this);
+            _messageFilterInstalled = true;
         }
 
         protected override void OnHandleCreated(EventArgs e)
@@ -232,7 +324,22 @@ namespace MidiBottleneck
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuAbout, "About " + ProductIdentity.Name + "…");
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuHelp, "&Help (F1)…");
                 AppendMenu(menu, MfSeparator, UIntPtr.Zero, null);
+                AppendMenu(menu, MfString, (UIntPtr)SystemMenuTrackRouting, "Track &routing…");
+                AppendMenu(menu, MfSeparator, UIntPtr.Zero, null);
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuAlwaysOnTop, "Always on top");
+                AppendMenu(menu, MfString, (UIntPtr)SystemMenuBorderless, "Borderless main window");
+                _borderlessStyleMenu = CreatePopupMenu();
+                if (_borderlessStyleMenu != IntPtr.Zero)
+                {
+                    AppendMenu(_borderlessStyleMenu, MfString,
+                        (UIntPtr)SystemMenuBorderlessClassic, "Classic strip");
+                    AppendMenu(_borderlessStyleMenu, MfString,
+                        (UIntPtr)SystemMenuBorderlessIntegrated, "Integrated header");
+                    AppendMenu(_borderlessStyleMenu, MfString,
+                        (UIntPtr)SystemMenuBorderlessAutoHide, "Auto-hide overlay");
+                    AppendMenu(menu, MfPopup, MenuHandleIdentifier(_borderlessStyleMenu),
+                        "Borderless style");
+                }
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuShowProcessingModel, "Show &Processing model");
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuShowStatistics, "Show &Statistics");
                 _uiScaleMenu = CreatePopupMenu();
@@ -244,14 +351,27 @@ namespace MidiBottleneck
                 AppendMenu(menu, MfSeparator, UIntPtr.Zero, null);
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuChaseMidiState,
                     "Chase MIDI state on Play/Seek");
+                AppendMenu(menu, MfString, (UIntPtr)SystemMenuPreservePauseSeek,
+                    "Preserve playback queue on Pause and Seek");
+                AppendMenu(menu, MfString, (UIntPtr)SystemMenuOutputPacedTimeline,
+                    "Output-paced timeline");
+                AppendMenu(menu, MfSeparator, UIntPtr.Zero, null);
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuApplyQueueLimitWithoutSlowdown,
                     "Apply queue limit without slowdown");
                 AppendMenu(menu, MfString, (UIntPtr)SystemMenuQueueAgeLimit,
                     "Limit queue by waiting time (µs)");
+                AppendMenu(menu, MfString, (UIntPtr)SystemMenuScaleNoteIntervalByTraffic,
+                    "Scale note interval by note traffic");
                 UpdateAlwaysOnTopMenuCheck();
+                UpdateBorderlessMenuCheck();
+                UpdateBorderlessStyleMenuChecks();
                 UpdateForwardQueueMenuState();
                 UpdateQueueAgeMenuState();
                 UpdateStateChaseMenuState();
+                UpdatePreservePauseSeekMenuState();
+                UpdateOutputPacedTimelineMenuState();
+                UpdateScaleNoteIntervalMenuState();
+                UpdateTrackRoutingMenuState();
                 UpdateSectionVisibilityMenuChecks();
                 UpdateUiScaleMenuChecks();
             }
@@ -264,16 +384,89 @@ namespace MidiBottleneck
                 int command = message.WParam.ToInt32() & 0xFFF0;
                 if (command == SystemMenuAbout) { ShowAboutDialog(); return; }
                 if (command == SystemMenuHelp) { ShowHelpWindow(); return; }
+                if (command == SystemMenuTrackRouting) { ShowTrackRoutingDialog(); return; }
                 if (command == SystemMenuAlwaysOnTop) { ToggleAlwaysOnTop(); return; }
+                if (command == SystemMenuBorderless) { SetBorderlessMode(!_borderlessMode); return; }
+                if (command == SystemMenuBorderlessClassic)
+                { SetBorderlessStyle(BorderlessPresentationStyle.ClassicStrip); return; }
+                if (command == SystemMenuBorderlessIntegrated)
+                { SetBorderlessStyle(BorderlessPresentationStyle.IntegratedHeader); return; }
+                if (command == SystemMenuBorderlessAutoHide)
+                { SetBorderlessStyle(BorderlessPresentationStyle.AutoHideOverlay); return; }
                 if (command == SystemMenuApplyQueueLimitWithoutSlowdown) { ToggleForwardQueueLimit(); return; }
                 if (command == SystemMenuQueueAgeLimit) { ToggleQueueAgeLimit(); return; }
+                if (command == SystemMenuPreservePauseSeek) { TogglePreservePauseSeek(); return; }
+                if (command == SystemMenuOutputPacedTimeline) { ToggleOutputPacedTimeline(); return; }
+                if (command == SystemMenuScaleNoteIntervalByTraffic)
+                { ToggleScaleNoteIntervalByTraffic(); return; }
                 int scale = UiScaleForCommand(command);
                 if (scale != 0) { ApplyUiScale(scale); return; }
                 if (command == SystemMenuChaseMidiState) { ToggleStateChase(); return; }
                 if (command == SystemMenuShowProcessingModel) { SetSectionVisibility(true, !_showProcessingModel); return; }
                 if (command == SystemMenuShowStatistics) { SetSectionVisibility(false, !_showStatistics); return; }
             }
+            if (message.Msg == WmNcHitTest && _borderlessMode && WindowState == FormWindowState.Normal)
+            {
+                base.WndProc(ref message);
+                if (message.Result == (IntPtr)1)
+                {
+                    Point point = PointToClient(ScreenPointFromLParam(message.LParam));
+                    int hit = BorderlessResizeHit(point);
+                    if (hit != 0) message.Result = (IntPtr)hit;
+                }
+                return;
+            }
             base.WndProc(ref message);
+        }
+
+        public bool PreFilterMessage(ref Message message)
+        {
+            if (message.Msg != WmLButtonDown || !_borderlessMode ||
+                WindowState != FormWindowState.Normal || !IsHandleCreated) return false;
+            Control target = Control.FromChildHandle(message.HWnd);
+            Point local = PointFromClientLParam(message.LParam);
+            int hit = BorderlessResizeHitFromChild(target, local);
+            if (hit == 0) return false;
+            ReleaseCapture();
+            SendMessage(Handle, WmNcLButtonDown, (IntPtr)hit, IntPtr.Zero);
+            return true;
+        }
+
+        private int BorderlessResizeHit(Point point)
+        {
+            int edge = Math.Max(4, ScaleMetric(6));
+            bool left = point.X >= 0 && point.X < edge;
+            bool right = point.X < ClientSize.Width && point.X >= ClientSize.Width - edge;
+            bool top = point.Y >= 0 && point.Y < edge;
+            bool bottom = point.Y < ClientSize.Height && point.Y >= ClientSize.Height - edge;
+            if (top && left) return HtTopLeft;
+            if (top && right) return HtTopRight;
+            if (bottom && left) return HtBottomLeft;
+            if (bottom && right) return HtBottomRight;
+            if (left) return HtLeft;
+            if (right) return HtRight;
+            if (top) return HtTop;
+            if (bottom) return HtBottom;
+            return 0;
+        }
+
+        private int BorderlessResizeHitFromChild(Control child, Point childPoint)
+        {
+            if (child == null || (!ReferenceEquals(child, this) && !IsDescendantOf(child, this)))
+                return 0;
+            return BorderlessResizeHit(PointToClient(child.PointToScreen(childPoint)));
+        }
+
+        private static Point PointFromClientLParam(IntPtr parameter)
+        {
+            int packed = parameter.ToInt32();
+            return new Point((short)(packed & 0xFFFF), (short)((packed >> 16) & 0xFFFF));
+        }
+
+        private static Point ScreenPointFromLParam(IntPtr parameter)
+        {
+            int packed = parameter.ToInt32();
+            return new Point((short)(packed & 0xFFFF), (short)((packed >> 16) & 0xFFFF));
         }
 
         private void ShowAboutDialog()
@@ -283,6 +476,11 @@ namespace MidiBottleneck
 
         protected override bool ProcessCmdKey(ref Message message, Keys keyData)
         {
+            if (_borderlessMode && keyData == (Keys.Alt | Keys.Space))
+            {
+                ShowBorderlessSystemMenu();
+                return true;
+            }
             if (keyData == Keys.F1)
             {
                 ShowHelpWindow();
@@ -336,6 +534,185 @@ namespace MidiBottleneck
         internal PlayerHelpTopic HelpTopicForTesting { get { return HelpTopicForFocusedControl(); } }
         internal PlayerHelpForm HelpWindowForTesting { get { return _helpWindow; } }
         internal static int HelpSystemCommandForTesting { get { return SystemMenuHelp; } }
+        internal static int TrackRoutingSystemCommandForTesting { get { return SystemMenuTrackRouting; } }
+        internal static int BorderlessSystemCommandForTesting { get { return SystemMenuBorderless; } }
+        internal static int BorderlessClassicSystemCommandForTesting { get { return SystemMenuBorderlessClassic; } }
+        internal static int BorderlessIntegratedSystemCommandForTesting { get { return SystemMenuBorderlessIntegrated; } }
+        internal static int BorderlessAutoHideSystemCommandForTesting { get { return SystemMenuBorderlessAutoHide; } }
+        internal bool BorderlessModeForTesting { get { return _borderlessMode; } }
+        internal BorderlessPresentationStyle BorderlessStyleForTesting { get { return _borderlessStyle; } }
+        internal Rectangle NativeFrameBoundsForTesting { get { return _nativeFrameBounds; } }
+        internal Panel BorderlessChromeForTesting { get { return _borderlessChrome; } }
+        internal Panel BorderlessIntegratedChromeForTesting { get { return _borderlessIntegratedChrome; } }
+        internal Panel BorderlessOverlayChromeForTesting { get { return _borderlessOverlayChrome; } }
+        internal Control BorderlessResizeSurfaceForTesting { get { return _rootLayout; } }
+        internal Control BorderlessFileContentForTesting { get { return _fileOutputTable; } }
+        internal IntPtr BorderlessStyleMenuForTesting { get { return _borderlessStyleMenu; } }
+        internal int BorderlessContentTopForTesting { get { return _rootLayout.Top; } }
+        internal int BorderlessResizeHitForTesting(Control child, Point childPoint)
+        { return BorderlessResizeHitFromChild(child, childPoint); }
+        internal void SetBorderlessOverlayPointerForTesting(bool inside)
+        { UpdateBorderlessOverlayVisibility(inside); }
+
+        private void SetBorderlessMode(bool enabled)
+        {
+            if (_borderlessMode == enabled) { UpdateBorderlessMenuCheck(); return; }
+            SuspendLayout();
+            try
+            {
+                if (enabled)
+                {
+                    _nativeFrameWindowState = WindowState;
+                    _nativeFrameBounds = Bounds;
+                    _nativeFrameRestoreBounds = RestoreBounds;
+                    _borderlessMode = true;
+                    FormBorderStyle = FormBorderStyle.None;
+                    ApplyBorderlessChromeScale();
+                    ApplyBorderlessPresentation();
+                }
+                else
+                {
+                    FormWindowState savedState = _nativeFrameWindowState;
+                    Rectangle savedBounds = savedState == FormWindowState.Normal
+                        ? _nativeFrameBounds : _nativeFrameRestoreBounds;
+                    WindowState = FormWindowState.Normal;
+                    _borderlessMode = false;
+                    ApplyBorderlessPresentation();
+                    FormBorderStyle = FormBorderStyle.Sizable;
+                    if (!savedBounds.IsEmpty) Bounds = savedBounds;
+                    if (savedState != FormWindowState.Minimized) WindowState = savedState;
+                }
+                _responsiveLayoutInitialized = false;
+                UpdateResponsiveLayout();
+                ApplyMeasuredWindowConstraints();
+                UpdateBorderlessCaptionButtons();
+            }
+            finally { ResumeLayout(true); }
+            UpdateBorderlessMenuCheck();
+        }
+
+        private void SetBorderlessStyle(BorderlessPresentationStyle style)
+        {
+            if (_borderlessStyle == style)
+            {
+                UpdateBorderlessStyleMenuChecks();
+                return;
+            }
+            _borderlessStyle = style;
+            if (_borderlessMode)
+            {
+                SuspendLayout();
+                try
+                {
+                    ApplyBorderlessPresentation();
+                    _responsiveLayoutInitialized = false;
+                    UpdateResponsiveLayout();
+                    ApplyMeasuredWindowConstraints();
+                }
+                finally { ResumeLayout(true); }
+            }
+            UpdateBorderlessStyleMenuChecks();
+        }
+
+        private void ApplyBorderlessPresentation()
+        {
+            bool classic = _borderlessMode &&
+                _borderlessStyle == BorderlessPresentationStyle.ClassicStrip;
+            bool integrated = _borderlessMode &&
+                _borderlessStyle == BorderlessPresentationStyle.IntegratedHeader;
+            bool overlay = _borderlessMode &&
+                _borderlessStyle == BorderlessPresentationStyle.AutoHideOverlay;
+            if (_borderlessChrome != null)
+            {
+                _borderlessChrome.Visible = classic;
+                if (classic) _borderlessChrome.SendToBack();
+            }
+            if (_borderlessIntegratedChrome != null)
+            {
+                _borderlessIntegratedChrome.Visible = integrated;
+                if (integrated) _borderlessIntegratedChrome.BringToFront();
+            }
+            if (_fileOutputGroup != null)
+            {
+                _fileOutputGroup.Text = integrated ? String.Empty : "File and output";
+                ApplyBorderlessFileGroupPadding();
+            }
+            if (_borderlessOverlayTimer != null) _borderlessOverlayTimer.Enabled = overlay;
+            if (overlay) UpdateBorderlessOverlayVisibility();
+            else if (_borderlessOverlayChrome != null) _borderlessOverlayChrome.Visible = false;
+        }
+
+        private void UpdateBorderlessMenuCheck()
+        {
+            if (!IsHandleCreated) return;
+            IntPtr menu = GetSystemMenu(Handle, false);
+            if (menu == IntPtr.Zero) return;
+            CheckMenuItem(menu, (uint)SystemMenuBorderless,
+                _borderlessMode ? MfChecked : MfUnchecked);
+            DrawMenuBar(Handle);
+        }
+
+        private void UpdateBorderlessStyleMenuChecks()
+        {
+            if (_borderlessStyleMenu == IntPtr.Zero) return;
+            CheckMenuItem(_borderlessStyleMenu, (uint)SystemMenuBorderlessClassic,
+                _borderlessStyle == BorderlessPresentationStyle.ClassicStrip ? MfChecked : MfUnchecked);
+            CheckMenuItem(_borderlessStyleMenu, (uint)SystemMenuBorderlessIntegrated,
+                _borderlessStyle == BorderlessPresentationStyle.IntegratedHeader ? MfChecked : MfUnchecked);
+            CheckMenuItem(_borderlessStyleMenu, (uint)SystemMenuBorderlessAutoHide,
+                _borderlessStyle == BorderlessPresentationStyle.AutoHideOverlay ? MfChecked : MfUnchecked);
+            if (IsHandleCreated) DrawMenuBar(Handle);
+        }
+
+        private void BeginBorderlessWindowDrag(object sender, MouseEventArgs e)
+        {
+            if (!_borderlessMode || e.Button != MouseButtons.Left) return;
+            ReleaseCapture();
+            SendMessage(Handle, WmNcLButtonDown, (IntPtr)HtCaption, IntPtr.Zero);
+        }
+
+        private void ToggleBorderlessMaximize()
+        {
+            WindowState = WindowState == FormWindowState.Maximized
+                ? FormWindowState.Normal : FormWindowState.Maximized;
+            UpdateBorderlessCaptionButtons();
+        }
+
+        private void UpdateBorderlessCaptionButtons()
+        {
+            Button[] buttons = new Button[] { _borderlessMaximizeButton,
+                _borderlessIntegratedMaximizeButton, _borderlessOverlayMaximizeButton };
+            for (int i = 0; i < buttons.Length; i++)
+            {
+                if (buttons[i] == null) continue;
+                buttons[i].Text = WindowState == FormWindowState.Maximized ? "❐" : "□";
+                buttons[i].AccessibleName = WindowState == FormWindowState.Maximized
+                    ? "Restore window" : "Maximize window";
+            }
+        }
+
+        private void ShowBorderlessSystemMenu()
+        {
+            if (!IsHandleCreated) return;
+            IntPtr menu = GetSystemMenu(Handle, false);
+            if (menu == IntPtr.Zero) return;
+            Point location;
+            if (_borderlessStyle == BorderlessPresentationStyle.IntegratedHeader &&
+                _borderlessIntegratedChrome != null)
+                location = _borderlessIntegratedChrome.PointToScreen(
+                    new Point(0, _borderlessIntegratedChrome.Height));
+            else if (_borderlessStyle == BorderlessPresentationStyle.AutoHideOverlay &&
+                _borderlessOverlayChrome != null)
+                location = _borderlessOverlayChrome.PointToScreen(
+                    new Point(0, _borderlessOverlayChrome.Height));
+            else
+                location = PointToScreen(new Point(0,
+                    _borderlessChrome == null ? 0 : _borderlessChrome.Height));
+            uint command = TrackPopupMenuEx(menu, TpmRightButton | TpmReturnCommand,
+                location.X, location.Y, Handle, IntPtr.Zero);
+            if (command != 0)
+                SendMessage(Handle, WmSysCommand, (IntPtr)command, IntPtr.Zero);
+        }
 
         private void ToggleAlwaysOnTop()
         {
@@ -482,6 +859,7 @@ namespace MidiBottleneck
                 _statisticsView.ApplicationScalePercent = percent;
                 _timelineView.ApplicationScalePercent = percent;
                 ApplyFixedUiScaleMetrics();
+                ApplyBorderlessChromeScale();
                 _lastCompactHeight = 0;
                 _lastDefaultRequiredHeight = 0;
                 _lastDefaultHeightSurplus = Math.Max(0,
@@ -495,6 +873,14 @@ namespace MidiBottleneck
                 MaximumSize = Size.Empty;
                 ClientSize = new Size(targetClientWidth, targetClientHeight);
                 UpdateResponsiveLayout();
+                _rootLayout.PerformLayout();
+                PerformLayout();
+                // Native Button preferred height can settle only after the
+                // scaled font has participated in one realized layout pass.
+                // Reapply from the same canonical measurement, never from the
+                // previous scaled size, then let the file table consume it.
+                ApplyFileOutputScaleMetrics();
+                _fileOutputTable.PerformLayout();
                 _rootLayout.PerformLayout();
                 PerformLayout();
                 ApplyMeasuredWindowConstraints();
@@ -530,7 +916,7 @@ namespace MidiBottleneck
                 if (!pair.Key.IsDisposed) pair.Key.Margin = ScalePadding(pair.Value);
             foreach (KeyValuePair<Control, Padding> pair in _canonicalPaddings)
                 if (!pair.Key.IsDisposed) pair.Key.Padding = ScalePadding(pair.Value);
-            _fileOutputTable.RowStyles[0].Height = ScaleMetric(32);
+            ApplyFileOutputScaleMetrics();
             _fileOutputTable.Padding = new Padding(ScaleMetric(1));
             _processingTable.Padding = _compactLayout ? new Padding(0) : new Padding(ScaleMetric(1));
             if (_playbackTable != null) _playbackTable.Padding = new Padding(ScaleMetric(1));
@@ -543,6 +929,29 @@ namespace MidiBottleneck
             _stateLabel.Margin = ScalePadding(12, 3, 3, 3);
             _overflowPolicyCombo.DropDownWidth = ScaleMetric(245);
             _serviceModeCombo.ApplicationScalePercent = _uiScalePercent;
+        }
+
+        private void CaptureCanonicalFileOutputMetrics()
+        {
+            _canonicalOpenButtonPreferredSize = _openButton.GetPreferredSize(Size.Empty);
+            _openButton.AutoSize = false;
+            _openButton.MinimumSize = _canonicalOpenButtonPreferredSize;
+            _openButton.Size = _canonicalOpenButtonPreferredSize;
+        }
+
+        private void ApplyFileOutputScaleMetrics()
+        {
+            _openButton.MinimumSize = Size.Empty;
+            Size preferred = _openButton.GetPreferredSize(Size.Empty);
+            int canonicalWidth = Math.Max(1, ScaleMetric(_canonicalOpenButtonPreferredSize.Width));
+            int canonicalHeight = Math.Max(1, ScaleMetric(_canonicalOpenButtonPreferredSize.Height));
+            Size target = new Size(Math.Max(canonicalWidth, preferred.Width),
+                Math.Max(canonicalHeight, preferred.Height));
+            _openButton.MinimumSize = target;
+            _openButton.Size = target;
+            int measuredRowHeight = _openButton.Height + _openButton.Margin.Vertical;
+            _fileOutputTable.RowStyles[0].Height = Math.Max(
+                ScaleMetric(CanonicalFileHeaderRowHeight), measuredRowHeight);
         }
 
         private void SetSectionVisibility(bool processingModel, bool visible)
@@ -628,6 +1037,7 @@ namespace MidiBottleneck
 
         private void SetQueueAgeLimitEnabled(bool enabled)
         {
+            if (_perNoteIntervalGateEnabled || _delayedNoteOffEnabled) return;
             if (_queueAgeLimitEnabled == enabled) return;
             if (enabled)
             {
@@ -662,7 +1072,9 @@ namespace MidiBottleneck
                 _queueAgeLimitEnabled ? MfChecked : MfUnchecked);
             PlaybackState state = _engine.State;
             bool active = state == PlaybackState.Playing || state == PlaybackState.Paused;
-            EnableMenuItem(menu, (uint)SystemMenuQueueAgeLimit, active ? MfGrayed : MfEnabled);
+            bool intervalGate = _perNoteIntervalGateEnabled || _delayedNoteOffEnabled;
+            EnableMenuItem(menu, (uint)SystemMenuQueueAgeLimit,
+                active || intervalGate ? MfGrayed : MfEnabled);
             DrawMenuBar(Handle);
         }
 
@@ -675,8 +1087,9 @@ namespace MidiBottleneck
                 _applyQueueLimitWithoutSlowdown ? MfChecked : MfUnchecked);
             PlaybackState state = _engine.State;
             bool active = state == PlaybackState.Playing || state == PlaybackState.Paused;
+            bool intervalGate = _perNoteIntervalGateEnabled || _delayedNoteOffEnabled;
             EnableMenuItem(menu, (uint)SystemMenuApplyQueueLimitWithoutSlowdown,
-                active ? MfGrayed : MfEnabled);
+                active || intervalGate ? MfGrayed : MfEnabled);
             DrawMenuBar(Handle);
         }
 
@@ -701,15 +1114,16 @@ namespace MidiBottleneck
                 {
                     _overflowPolicyCombo.Items.Add(new OverflowPolicyItem(OverflowPolicy.DropNewest, "Drop newest"));
                     _overflowPolicyCombo.Items.Add(new OverflowPolicyItem(OverflowPolicy.DropOldest, "Drop oldest"));
-                    _overflowPolicyCombo.Items.Add(new OverflowPolicyItem(OverflowPolicy.ClearBufferAndCatchUp, "Clear buffer and jump to realtime"));
                     _overflowPolicyCombo.Items.Add(new OverflowPolicyItem(OverflowPolicy.DropIncomingCompleteNotes, "Drop incoming complete notes"));
                     _overflowPolicyCombo.Items.Add(new OverflowPolicyItem(OverflowPolicy.DropOldestCompleteNote, "Drop oldest complete note"));
+                    _overflowPolicyCombo.Items.Add(new OverflowPolicyItem(OverflowPolicy.ClearBufferAndCatchUp, "Clear buffer and jump to realtime"));
+                    _overflowPolicyCombo.Items.Add(new OverflowPolicyItem(OverflowPolicy.DropBackgroundNotes, "Drop background notes"));
                 }
                 else
                 {
-                    _overflowPolicyCombo.Items.Add(new OverflowPolicyItem(OverflowPolicy.ClearBufferAndCatchUp, "Clear buffer and jump to realtime"));
                     _overflowPolicyCombo.Items.Add(new OverflowPolicyItem(OverflowPolicy.DropOldest, "Drop oldest"));
                     _overflowPolicyCombo.Items.Add(new OverflowPolicyItem(OverflowPolicy.DropOldestCompleteNote, "Drop oldest complete note (soft limit)"));
+                    _overflowPolicyCombo.Items.Add(new OverflowPolicyItem(OverflowPolicy.ClearBufferAndCatchUp, "Clear buffer and jump to realtime"));
                     if (requested == OverflowPolicy.DropNewest || requested == OverflowPolicy.DropIncomingCompleteNotes)
                         requested = OverflowPolicy.ClearBufferAndCatchUp;
                 }
@@ -727,8 +1141,35 @@ namespace MidiBottleneck
             _updatingProcessingControls = true;
             try
             {
-                if (_queueAgeLimitEnabled)
+                bool intervalGate = _perNoteIntervalGateEnabled || _delayedNoteOffEnabled;
+                if (intervalGate)
                 {
+                    _queueLimitCheck.Checked = _intervalPolyphonyLimitEnabled;
+                    _queueLimitCheck.Text = _compactLayout
+                        ? "Interval limit:" : "Interval polyphony limit:";
+                    _queueLimitValue.Minimum = 1;
+                    _queueLimitValue.Maximum = PlaybackEngine.DefaultIntervalPolyphonyLimit;
+                    _queueLimitValue.Increment = 1;
+                    _queueLimitValue.Value = Math.Max(1, Math.Min(
+                        PlaybackEngine.DefaultIntervalPolyphonyLimit,
+                        _rememberedIntervalPolyphonyLimit));
+                    _queueLimitValue.AccessibleName =
+                        "Maximum note messages in one logical interval";
+                    _queueLimitValue.SetNumericScrubMapping(null);
+                    _eventsLabel.Text = _compactLayout ? "notes" : "note messages/interval";
+                    _toolTip.SetToolTip(_queueLimitCheck,
+                        "Limits transmitted Note On and Note Off messages in each logical interval. This is not the synthesizer's total sounding-voice limit. The setting is structural and is locked while playback is active.");
+                    _toolTip.SetToolTip(_queueLimitValue,
+                        "Maximum transmitted note messages in one interval, from 1 to 128. Required releases take priority; only excess required releases can continue into the next interval.");
+                    _toolTip.SetToolTip(_overflowPolicyCombo,
+                        "Interval polyphony uses one fixed note-safe policy, so the ordinary queue Overflow choices do not apply.");
+                    _engine.IntervalPolyphonyLimitEnabled = _intervalPolyphonyLimitEnabled;
+                    _engine.IntervalPolyphonyLimit = _rememberedIntervalPolyphonyLimit;
+                }
+                else if (_queueAgeLimitEnabled)
+                {
+                    _toolTip.SetToolTip(_queueLimitCheck,
+                        "Queue structure is locked while playback is active.");
                     _queueLimitCheck.Text = _compactLayout ? "Wait limit:" : "Queue waiting-time limit:";
                     _queueLimitValue.Minimum = 1;
                     _queueLimitValue.Maximum = 1800000000m;
@@ -743,6 +1184,9 @@ namespace MidiBottleneck
                 }
                 else
                 {
+                    _toolTip.SetToolTip(_queueLimitCheck,
+                        "Queue structure is locked while playback is active.");
+                    _queueLimitCheck.Checked = _rememberedOrdinaryQueueLimitEnabled;
                     _queueLimitCheck.Text = _compactLayout ? "Queue limit:" : "Queue length limit:";
                     _queueLimitValue.Minimum = 1;
                     _queueLimitValue.Maximum = 1000000m;
@@ -752,7 +1196,7 @@ namespace MidiBottleneck
                     _queueLimitValue.SetNumericScrubMapping(MapQueueScrubValue);
                     _eventsLabel.Text = "events";
                     _toolTip.SetToolTip(_queueLimitValue,
-                        "Click to type; Enter applies, Escape cancels. Drag sideways: fine at small limits, gradually faster at larger limits. Shift adjusts one event per 2 pixels. Up/Down adjusts by 100. Queue structure is locked while playback is active.");
+                        "Click to type; Enter applies, Escape cancels. Drag sideways: fine at small limits, gradually faster at larger limits. Shift adjusts one event per 2 pixels. Up/Down adjusts by 100. During ordinary finite-queue playback, a live value applies to the next admission decision without retracting accepted work.");
                     _engine.QueueLengthLimit = _rememberedEventCountLimit;
                 }
             }
@@ -784,6 +1228,119 @@ namespace MidiBottleneck
             DrawMenuBar(Handle);
         }
 
+        private void TogglePreservePauseSeek()
+        {
+            PlaybackState state = _engine.State;
+            if (state == PlaybackState.Playing || state == PlaybackState.Paused) return;
+            _preservePlaybackQueueOnPauseSeek = !_preservePlaybackQueueOnPauseSeek;
+            _engine.PreservePlaybackQueueOnPauseSeek = _preservePlaybackQueueOnPauseSeek;
+            UpdatePreservePauseSeekMenuState();
+        }
+
+        private void UpdatePreservePauseSeekMenuState()
+        {
+            if (!IsHandleCreated) return;
+            IntPtr menu = GetSystemMenu(Handle, false);
+            if (menu == IntPtr.Zero) return;
+            CheckMenuItem(menu, (uint)SystemMenuPreservePauseSeek,
+                _preservePlaybackQueueOnPauseSeek ? MfChecked : MfUnchecked);
+            PlaybackState state = _engine.State;
+            bool active = state == PlaybackState.Playing || state == PlaybackState.Paused;
+            EnableMenuItem(menu, (uint)SystemMenuPreservePauseSeek, active ? MfGrayed : MfEnabled);
+            DrawMenuBar(Handle);
+        }
+
+        private void ToggleOutputPacedTimeline()
+        {
+            PlaybackState state = _engine.State;
+            if (state == PlaybackState.Playing || state == PlaybackState.Paused) return;
+            _outputPacedTimeline = !_outputPacedTimeline;
+            _engine.OutputPacedTimeline = _outputPacedTimeline;
+            UpdateOutputPacedTimelineMenuState();
+            ScheduleAnalysisRefresh();
+        }
+
+        private void UpdateOutputPacedTimelineMenuState()
+        {
+            if (!IsHandleCreated) return;
+            IntPtr menu = GetSystemMenu(Handle, false);
+            if (menu == IntPtr.Zero) return;
+            CheckMenuItem(menu, (uint)SystemMenuOutputPacedTimeline,
+                _outputPacedTimeline ? MfChecked : MfUnchecked);
+            PlaybackState state = _engine.State;
+            bool active = state == PlaybackState.Playing || state == PlaybackState.Paused;
+            EnableMenuItem(menu, (uint)SystemMenuOutputPacedTimeline,
+                active ? MfGrayed : MfEnabled);
+            DrawMenuBar(Handle);
+        }
+
+        private void ToggleScaleNoteIntervalByTraffic()
+        {
+            PlaybackState state = _engine.State;
+            if (state == PlaybackState.Playing || state == PlaybackState.Paused) return;
+            _scaleNoteIntervalByTraffic = !_scaleNoteIntervalByTraffic;
+            _engine.ScaleNoteIntervalByTraffic = _scaleNoteIntervalByTraffic;
+            UpdateScaleNoteIntervalMenuState();
+            ScheduleAnalysisRefresh();
+        }
+
+        private void UpdateScaleNoteIntervalMenuState()
+        {
+            if (!IsHandleCreated) return;
+            IntPtr menu = GetSystemMenu(Handle, false);
+            if (menu == IntPtr.Zero) return;
+            CheckMenuItem(menu, (uint)SystemMenuScaleNoteIntervalByTraffic,
+                _scaleNoteIntervalByTraffic ? MfChecked : MfUnchecked);
+            PlaybackState state = _engine.State;
+            bool active = state == PlaybackState.Playing || state == PlaybackState.Paused;
+            EnableMenuItem(menu, (uint)SystemMenuScaleNoteIntervalByTraffic,
+                active ? MfGrayed : MfEnabled);
+            DrawMenuBar(Handle);
+        }
+
+        private void UpdateTrackRoutingMenuState()
+        {
+            if (!IsHandleCreated) return;
+            IntPtr menu = GetSystemMenu(Handle, false);
+            if (menu == IntPtr.Zero) return;
+            CheckMenuItem(menu, (uint)SystemMenuTrackRouting,
+                _trackRoute == null ? MfUnchecked : MfChecked);
+            PlaybackState state = _engine.State;
+            bool active = state == PlaybackState.Playing || state == PlaybackState.Paused;
+            bool enabled = _song != null && !_loadingSong && !active;
+            EnableMenuItem(menu, (uint)SystemMenuTrackRouting,
+                enabled ? MfEnabled : MfGrayed);
+            DrawMenuBar(Handle);
+        }
+
+        private void ShowTrackRoutingDialog()
+        {
+            PlaybackState state = _engine.State;
+            if (_song == null || _loadingSong ||
+                state == PlaybackState.Playing || state == PlaybackState.Paused) return;
+            TrackRoutingSettings initial = _trackRoutingSettings == null
+                ? new TrackRoutingSettings() : _trackRoutingSettings.Clone();
+            using (TrackRoutingForm dialog = new TrackRoutingForm(
+                _song, initial, _trackRoute != null, _uiScalePercent))
+            {
+                DialogResult result = _trackRoutingDialogRunnerForTests == null
+                    ? dialog.ShowDialog(this)
+                    : _trackRoutingDialogRunnerForTests(dialog);
+                if (result != DialogResult.OK) return;
+                try
+                {
+                    ApplyTrackRoute(dialog.UseOriginalRouting ? null : dialog.SelectedRoute,
+                        dialog.ExplicitlyConfirmed,
+                        dialog.UseOriginalRouting ? null : dialog.SelectedSettings);
+                }
+                catch (Exception exception)
+                {
+                    MessageBox.Show(this, exception.Message, "Track routing",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+
         private void RestartForProcessingModeChange(PlaybackState previousState)
         {
             RestartForProcessingModeChange(previousState, null);
@@ -791,7 +1348,8 @@ namespace MidiBottleneck
 
         private void RestartForProcessingModeChange(PlaybackState previousState, Action configureAfterStop)
         {
-            if (_song == null || _activeOutput == null)
+            MidiSong playbackSong = EffectiveSong;
+            if (playbackSong == null || _activeOutput == null)
             {
                 if (configureAfterStop != null) configureAfterStop();
                 return;
@@ -801,9 +1359,10 @@ namespace MidiBottleneck
             _engine.Stop();
             _selectedPositionMicroseconds = restartPosition;
             if (configureAfterStop != null) configureAfterStop();
-            _engine.Start(_song, _activeOutput, SelectedProcessingMode(), restartPosition,
+            playbackSong = EffectiveSong;
+            _engine.Start(playbackSong, _activeOutput, SelectedProcessingMode(), restartPosition,
                 previousState == PlaybackState.Paused);
-            _engineSong = _song;
+            _engineSong = playbackSong;
             ResetLiveMeasurements();
         }
 
@@ -869,7 +1428,8 @@ namespace MidiBottleneck
                 if (files == null || files.Length != 1 || String.IsNullOrWhiteSpace(files[0]) || !File.Exists(files[0])) return false;
                 string extension = Path.GetExtension(files[0]);
                 if (!String.Equals(extension, ".mid", StringComparison.OrdinalIgnoreCase) &&
-                    !String.Equals(extension, ".midi", StringComparison.OrdinalIgnoreCase)) return false;
+                    !String.Equals(extension, ".midi", StringComparison.OrdinalIgnoreCase) &&
+                    !String.Equals(extension, ".rmi", StringComparison.OrdinalIgnoreCase)) return false;
                 path = Path.GetFullPath(files[0]);
                 return true;
             }
@@ -883,6 +1443,9 @@ namespace MidiBottleneck
         internal bool AlwaysOnTopForTesting { get { return TopMost; } }
         internal static int AlwaysOnTopSystemCommandForTesting { get { return SystemMenuAlwaysOnTop; } }
         internal bool PerNoteIntervalGateForTesting { get { return _perNoteIntervalGateEnabled; } }
+        internal bool DelayedNoteOffForTesting { get { return _delayedNoteOffEnabled; } }
+        internal bool NoteAttackLimitForTesting { get { return _noteAttackLimitEnabled; } }
+        internal bool OutputRateLimitForTesting { get { return _outputRateLimitEnabled; } }
         internal RateModelChoice RateModelChoiceForTesting { get { return _selectedRateChoice; } }
         internal bool ApplyQueueLimitWithoutSlowdownForTesting { get { return _applyQueueLimitWithoutSlowdown; } }
         internal static int ApplyQueueLimitWithoutSlowdownSystemCommandForTesting
@@ -892,6 +1455,17 @@ namespace MidiBottleneck
         internal OverflowPolicy SelectedOverflowPolicyForTesting { get { return SelectedOverflowPolicy; } }
         internal bool ChaseMidiStateOnPlaySeekForTesting { get { return _chaseMidiStateOnPlaySeek; } }
         internal static int ChaseMidiStateSystemCommandForTesting { get { return SystemMenuChaseMidiState; } }
+        internal bool PreservePlaybackQueueOnPauseSeekForTesting
+        { get { return _preservePlaybackQueueOnPauseSeek; } }
+        internal static int PreservePauseSeekSystemCommandForTesting
+        { get { return SystemMenuPreservePauseSeek; } }
+        internal bool OutputPacedTimelineForTesting { get { return _outputPacedTimeline; } }
+        internal static int OutputPacedTimelineSystemCommandForTesting
+        { get { return SystemMenuOutputPacedTimeline; } }
+        internal bool ScaleNoteIntervalByTrafficForTesting
+        { get { return _scaleNoteIntervalByTraffic; } }
+        internal static int ScaleNoteIntervalByTrafficSystemCommandForTesting
+        { get { return SystemMenuScaleNoteIntervalByTraffic; } }
         internal static int ShowProcessingModelSystemCommandForTesting { get { return SystemMenuShowProcessingModel; } }
         internal static int ShowStatisticsSystemCommandForTesting { get { return SystemMenuShowStatistics; } }
         internal bool ShowProcessingModelForTesting { get { return _showProcessingModel; } }
@@ -925,10 +1499,186 @@ namespace MidiBottleneck
             _rootLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             Controls.Add(_rootLayout);
 
+            BuildBorderlessChrome();
+
             _rootLayout.Controls.Add(BuildFileAndOutputGroup(), 0, 0);
             _rootLayout.Controls.Add(BuildProcessingGroup(), 0, 1);
             _rootLayout.Controls.Add(BuildPlaybackGroup(), 0, 2);
             _rootLayout.Controls.Add(BuildStatisticsGroup(), 0, 3);
+        }
+
+        private void BuildBorderlessChrome()
+        {
+            _borderlessChrome = NewBorderlessChromePanel(ProductIdentity.Name,
+                out _borderlessSystemButton, out _borderlessMinimizeButton,
+                out _borderlessMaximizeButton, out _borderlessCloseButton,
+                out _borderlessTitle);
+            _borderlessChrome.Dock = DockStyle.Top;
+            Controls.Add(_borderlessChrome);
+            _borderlessChrome.SendToBack();
+
+            Label unusedOverlayTitle;
+            _borderlessOverlayChrome = NewBorderlessChromePanel(null,
+                out _borderlessOverlaySystemButton, out _borderlessOverlayMinimizeButton,
+                out _borderlessOverlayMaximizeButton, out _borderlessOverlayCloseButton,
+                out unusedOverlayTitle);
+            _borderlessOverlayChrome.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            Controls.Add(_borderlessOverlayChrome);
+            _borderlessOverlayChrome.BringToFront();
+            ApplyBorderlessChromeScale();
+        }
+
+        private Panel NewBorderlessChromePanel(string title, out Button systemButton,
+            out Button minimizeButton, out Button maximizeButton, out Button closeButton,
+            out Label titleLabel)
+        {
+            Panel panel = new Panel();
+            panel.Visible = false;
+            panel.BackColor = SystemColors.ControlDark;
+            panel.TabStop = false;
+            panel.MouseDown += BeginBorderlessWindowDrag;
+            panel.MouseDoubleClick += delegate(object sender, MouseEventArgs e)
+            { if (e.Button == MouseButtons.Left) ToggleBorderlessMaximize(); };
+
+            systemButton = NewBorderlessCaptionButton("≡", "Window menu");
+            systemButton.Dock = DockStyle.Left;
+            systemButton.Click += delegate { ShowBorderlessSystemMenu(); };
+            closeButton = NewBorderlessCaptionButton("×", "Close window");
+            closeButton.Dock = DockStyle.Right;
+            closeButton.Click += delegate { Close(); };
+            maximizeButton = NewBorderlessCaptionButton("□", "Maximize window");
+            maximizeButton.Dock = DockStyle.Right;
+            maximizeButton.Click += delegate { ToggleBorderlessMaximize(); };
+            minimizeButton = NewBorderlessCaptionButton("—", "Minimize window");
+            minimizeButton.Dock = DockStyle.Right;
+            minimizeButton.Click += delegate { WindowState = FormWindowState.Minimized; };
+
+            titleLabel = null;
+            if (title != null)
+            {
+                titleLabel = new Label();
+                titleLabel.Dock = DockStyle.Fill;
+                titleLabel.Text = title;
+                titleLabel.TextAlign = ContentAlignment.MiddleLeft;
+                titleLabel.AutoEllipsis = true;
+                titleLabel.TabStop = false;
+                titleLabel.MouseDown += BeginBorderlessWindowDrag;
+                titleLabel.MouseDoubleClick += delegate(object sender, MouseEventArgs e)
+                { if (e.Button == MouseButtons.Left) ToggleBorderlessMaximize(); };
+                panel.Controls.Add(titleLabel);
+            }
+            panel.Controls.Add(minimizeButton);
+            panel.Controls.Add(maximizeButton);
+            panel.Controls.Add(closeButton);
+            panel.Controls.Add(systemButton);
+            return panel;
+        }
+
+        private Button NewBorderlessCaptionButton(string text, string accessibleName)
+        {
+            Button button = new Button();
+            button.Text = text;
+            button.AccessibleName = accessibleName;
+            button.TabStop = true;
+            button.FlatStyle = FlatStyle.Flat;
+            button.FlatAppearance.BorderSize = 0;
+            button.Margin = new Padding(0);
+            return button;
+        }
+
+        private void ApplyBorderlessChromeScale()
+        {
+            if (_borderlessChrome == null) return;
+            int height = ScaleMetric(30);
+            int buttonWidth = ScaleMetric(42);
+            _borderlessChrome.Height = height;
+            _borderlessChrome.Padding = new Padding(0);
+            if (_borderlessIntegratedChrome != null)
+            {
+                _borderlessIntegratedChrome.Height = ScaleMetric(24);
+                _borderlessIntegratedChrome.Padding = new Padding(0);
+            }
+            if (_borderlessOverlayChrome != null)
+            {
+                _borderlessOverlayChrome.Height = height;
+                _borderlessOverlayChrome.Width = buttonWidth * 4;
+                _borderlessOverlayChrome.Padding = new Padding(0);
+            }
+            Button[] buttons = new Button[] { _borderlessSystemButton, _borderlessMinimizeButton,
+                _borderlessMaximizeButton, _borderlessCloseButton,
+                _borderlessIntegratedSystemButton, _borderlessIntegratedMinimizeButton,
+                _borderlessIntegratedMaximizeButton, _borderlessIntegratedCloseButton,
+                _borderlessOverlaySystemButton, _borderlessOverlayMinimizeButton,
+                _borderlessOverlayMaximizeButton, _borderlessOverlayCloseButton };
+            for (int i = 0; i < buttons.Length; i++)
+            {
+                if (buttons[i] == null) continue;
+                buttons[i].Width = buttonWidth;
+                buttons[i].Height = buttons[i].Parent == _borderlessIntegratedChrome
+                    ? ScaleMetric(24) : height;
+                buttons[i].Font = Font;
+            }
+            _borderlessTitle.Padding = ScalePadding(6, 0, 4, 0);
+            _borderlessTitle.Font = Font;
+            if (_borderlessIntegratedTitle != null)
+            {
+                _borderlessIntegratedTitle.Padding = ScalePadding(4, 0, 4, 0);
+                _borderlessIntegratedTitle.Font = Font;
+            }
+            UpdateBorderlessChromeBounds();
+            ApplyBorderlessFileGroupPadding();
+        }
+
+        private void UpdateBorderlessChromeBounds()
+        {
+            if (_borderlessIntegratedChrome != null && _fileOutputGroup != null)
+            {
+                int inset = ScaleMetric(_compactLayout ? 3 : 6);
+                _borderlessIntegratedChrome.Location = new Point(inset, 0);
+                _borderlessIntegratedChrome.Width = Math.Max(1,
+                    _fileOutputGroup.ClientSize.Width - inset * 2);
+            }
+            if (_borderlessOverlayChrome != null)
+            {
+                int inset = ScaleMetric(4);
+                _borderlessOverlayChrome.Location = new Point(
+                    Math.Max(0, ClientSize.Width - _borderlessOverlayChrome.Width - inset), inset);
+                if (_borderlessOverlayChrome.Visible) _borderlessOverlayChrome.BringToFront();
+            }
+        }
+
+        private void ApplyBorderlessFileGroupPadding()
+        {
+            if (_fileOutputGroup == null) return;
+            Padding padding = _compactLayout
+                ? ScalePadding(3, 3, 3, 2) : ScalePadding(6, 5, 6, 4);
+            if (_borderlessMode &&
+                _borderlessStyle == BorderlessPresentationStyle.IntegratedHeader)
+                padding.Top = Math.Max(padding.Top, ScaleMetric(24));
+            _fileOutputGroup.Padding = padding;
+            UpdateBorderlessChromeBounds();
+        }
+
+        private void UpdateBorderlessOverlayVisibility()
+        {
+            bool inside = false;
+            if (IsHandleCreated && Visible)
+                inside = RectangleToScreen(ClientRectangle).Contains(Cursor.Position);
+            UpdateBorderlessOverlayVisibility(inside);
+        }
+
+        private void UpdateBorderlessOverlayVisibility(bool pointerInside)
+        {
+            if (_borderlessOverlayChrome == null) return;
+            bool visible = pointerInside && _borderlessMode &&
+                _borderlessStyle == BorderlessPresentationStyle.AutoHideOverlay;
+            if (_borderlessOverlayChrome.Visible != visible)
+                _borderlessOverlayChrome.Visible = visible;
+            if (visible)
+            {
+                UpdateBorderlessChromeBounds();
+                _borderlessOverlayChrome.BringToFront();
+            }
         }
 
         private Control BuildFileAndOutputGroup()
@@ -951,6 +1701,7 @@ namespace MidiBottleneck
             _openButton = new Button();
             _openButton.Text = "Open MIDI...";
             _openButton.AutoSize = true;
+            _openButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             _openButton.Click += OpenMidiClicked;
             table.Controls.Add(_openButton, 0, 0);
 
@@ -1017,11 +1768,12 @@ namespace MidiBottleneck
             _loadingPanel.Controls.Add(_loadActivity, 0, 0);
             _loadingPanel.Controls.Add(_loadStageActivity, 0, 1);
 
-            Label outputLabel = new Label();
-            outputLabel.Text = "MIDI output:";
-            outputLabel.AutoSize = true;
-            outputLabel.Anchor = AnchorStyles.Left;
-            table.Controls.Add(outputLabel, 0, 1);
+            _outputLabel = new Label();
+            _outputLabel.Text = "MIDI output:";
+            _outputLabel.AutoSize = true;
+            _outputLabel.TextAlign = ContentAlignment.MiddleRight;
+            _outputLabel.Anchor = AnchorStyles.Right;
+            table.Controls.Add(_outputLabel, 0, 1);
 
             _outputCombo = new ComboBox();
             _outputCombo.DropDownStyle = ComboBoxStyle.DropDownList;
@@ -1047,6 +1799,15 @@ namespace MidiBottleneck
             table.Controls.Add(_loadingPanel, 3, 1);
 
             group.Controls.Add(table);
+            _borderlessIntegratedChrome = NewBorderlessChromePanel("File and output",
+                out _borderlessIntegratedSystemButton, out _borderlessIntegratedMinimizeButton,
+                out _borderlessIntegratedMaximizeButton, out _borderlessIntegratedCloseButton,
+                out _borderlessIntegratedTitle);
+            _borderlessIntegratedChrome.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right;
+            group.Controls.Add(_borderlessIntegratedChrome);
+            group.SizeChanged += delegate { UpdateBorderlessChromeBounds(); };
+            _borderlessIntegratedChrome.BringToFront();
+            ApplyBorderlessChromeScale();
             return group;
         }
 
@@ -1086,10 +1847,16 @@ namespace MidiBottleneck
             _queueLimitValue.FontChanged += MainNumericFontChanged;
             _queueLimitValue.NumericPresentationSettled += MainNumericTextChanged;
             _toolTip.SetToolTip(_queueLimitValue,
-                "Click to type; Enter applies, Escape cancels. Drag sideways: fine at small limits, gradually faster at larger limits. Shift adjusts one event per 2 pixels. Up/Down adjusts by 100. Queue structure is locked while playback is active.");
+                        "Click to type; Enter applies, Escape cancels. Drag sideways: fine at small limits, gradually faster at larger limits. Shift adjusts one event per 2 pixels. Up/Down adjusts by 100. During ordinary finite-queue playback, a live value applies to the next admission decision without retracting accepted work.");
             _queueLimitValue.ValueChanged += delegate
             {
-                if (_queueAgeLimitEnabled)
+                if (_updatingProcessingControls) return;
+                if (_perNoteIntervalGateEnabled || _delayedNoteOffEnabled)
+                {
+                    _rememberedIntervalPolyphonyLimit = Decimal.ToInt32(_queueLimitValue.Value);
+                    _engine.IntervalPolyphonyLimit = _rememberedIntervalPolyphonyLimit;
+                }
+                else if (_queueAgeLimitEnabled)
                 {
                     _rememberedQueueAgeLimit = Decimal.ToInt64(_queueLimitValue.Value);
                     _engine.QueueAgeLimitMicroseconds = _rememberedQueueAgeLimit;
@@ -1125,6 +1892,7 @@ namespace MidiBottleneck
             _overflowPolicyCombo.SelectedIndexChanged += OverflowPolicyChanged;
             _toolTip.SetToolTip(_overflowPolicyCombo, "A change made during playback applies at the next overflow.");
             _overflowCluster.Controls.Add(_overflowPolicyCombo);
+            _overflowCluster.SizeChanged += delegate { UpdateCompactOverflowWidth(); };
 
             _serviceModeLabel = new Label();
             _serviceModeLabel.Text = "Rate model:";
@@ -1173,6 +1941,7 @@ namespace MidiBottleneck
             _serviceUnitLabel.Anchor = AnchorStyles.Left;
             _rateCluster.Controls.Add(_serviceModeLabel);
             _rateCluster.Controls.Add(_serviceModeCombo);
+            _rateCluster.SizeChanged += delegate { UpdateCompactRateWidth(); };
             _serviceCluster.Controls.Add(_serviceValueLabel);
             _serviceCluster.Controls.Add(_processingValue);
             _serviceCluster.Controls.Add(_serviceUnitLabel);
@@ -1413,7 +2182,7 @@ namespace MidiBottleneck
             using (OpenFileDialog dialog = new OpenFileDialog())
             {
                 dialog.Title = "Open Standard MIDI File";
-                dialog.Filter = "MIDI files (*.mid;*.midi)|*.mid;*.midi|All files (*.*)|*.*";
+                dialog.Filter = MidiOpenFileFilter;
                 dialog.CheckFileExists = true;
                 if (dialog.ShowDialog(this) != DialogResult.OK) return;
                 BeginMidiLoad(dialog.FileName);
@@ -1496,16 +2265,28 @@ namespace MidiBottleneck
                         else
                         {
                             _song = task.Result;
+                            _trackRoute = null;
+                            _routedSong = null;
+                            _sourceReadoutSong = null;
+                            _sourceReadoutEventIndex = -1;
                             _selectedPositionMicroseconds = 0;
                             _fileLabel.Text = Path.GetFileName(_song.FilePath);
                             _toolTip.SetToolTip(_fileLabel, _song.FilePath);
                             UpdateFileInformation();
+                            if (_song.NonstandardRunningStatusRepairCount > 0 && !_suppressLoadErrorDialogs)
+                                MessageBox.Show(this,
+                                    String.Format(CultureInfo.CurrentCulture,
+                                        "This file was loaded with {0:N0} nonstandard running-status repair{1}. The repair was limited to an unambiguous channel message immediately after MIDI metadata.",
+                                        _song.NonstandardRunningStatusRepairCount,
+                                        _song.NonstandardRunningStatusRepairCount == 1 ? String.Empty : "s"),
+                                    "MIDI compatibility repair", MessageBoxButtons.OK, MessageBoxIcon.Information);
                             AnalysisConfiguration configuration = CurrentAnalysisConfiguration();
                             DiagnosticsForm[] windows = _analysisWindows.ToArray();
                             for (int index = 0; index < windows.Length; index++)
                             {
                                 DiagnosticsForm window = windows[index];
-                                if (window != null && !window.IsDisposed) window.AttachSong(_song, configuration);
+                                if (window != null && !window.IsDisposed)
+                                    AttachAnalysisSong(window, EffectiveSong, configuration);
                             }
                             if (_channelMonitor != null && !_channelMonitor.IsDisposed)
                             {
@@ -1676,7 +2457,12 @@ namespace MidiBottleneck
             if (!preserveAnalysisShells) _analysisWindows.Clear();
             _engine.Unload();
             _engineSong = null;
+            _trackRoute = null;
+            _trackRoutingSettings = null;
+            _routedSong = null;
             _song = null;
+            _sourceReadoutSong = null;
+            _sourceReadoutEventIndex = -1;
             _selectedPositionMicroseconds = 0;
             ResetLiveMeasurements();
         }
@@ -1685,7 +2471,68 @@ namespace MidiBottleneck
         internal event Action<long> LoadingVisualSampled;
         internal bool EngineHasAttachedSong { get { return _engine.HasAttachedSong; } }
         internal bool EngineHasAttachedOutput { get { return _engine.HasAttachedOutput; } }
+        internal PlaybackEngine EngineForTesting { get { return _engine; } }
         internal MidiSong CurrentSong { get { return _song; } }
+        internal MidiSong EffectiveSongForTesting { get { return EffectiveSong; } }
+        internal CompiledTrackRoute ActiveTrackRouteForTesting { get { return _trackRoute; } }
+        internal TrackRoutingSettings ActiveTrackRoutingSettingsForTesting
+        { get { return _trackRoutingSettings == null ? null : _trackRoutingSettings.Clone(); } }
+        internal Func<TrackRoutingForm, DialogResult> TrackRoutingDialogRunnerForTesting
+        { get { return _trackRoutingDialogRunnerForTests; } set { _trackRoutingDialogRunnerForTests = value; } }
+        private MidiSong EffectiveSong { get { return _routedSong ?? _song; } }
+
+        // Track routing remains an internal stopped-only configuration boundary
+        // until the preview and explicit Apply UI are complete.  Construct the
+        // immutable derived view first so a bad plan cannot disturb the current
+        // song, engine, or open Analysis windows.
+        internal void ApplyTrackRoute(CompiledTrackRoute route, bool explicitlyConfirmed)
+        {
+            ApplyTrackRoute(route, explicitlyConfirmed, null);
+        }
+
+        private void ApplyTrackRoute(CompiledTrackRoute route, bool explicitlyConfirmed,
+            TrackRoutingSettings settings)
+        {
+            PlaybackState state = _engine.State;
+            if (state == PlaybackState.Playing || state == PlaybackState.Paused)
+                throw new InvalidOperationException(
+                    "Track routing can be changed only while playback is stopped.");
+            if (_song == null)
+                throw new InvalidOperationException("Open a MIDI file before applying track routing.");
+            if (route != null && route.RequiresExplicitApply && !explicitlyConfirmed)
+                throw new InvalidOperationException(
+                    "This track route changes instrument identity or permits conflicts and requires explicit confirmation.");
+
+            MidiSong routed = route == null ? null :
+                TrackRouteApplication.CreateRoutedSong(_song, route);
+
+            _engine.Unload();
+            _engineSong = null;
+            _trackRoute = route;
+            _trackRoutingSettings = route == null || settings == null ? null : settings.Clone();
+            _routedSong = routed;
+            _sourceReadoutSong = null;
+            _sourceReadoutEventIndex = -1;
+            ResetLiveMeasurements();
+
+            MidiSong effective = EffectiveSong;
+            AnalysisConfiguration configuration = CurrentAnalysisConfiguration();
+            DiagnosticsForm[] windows = _analysisWindows.ToArray();
+            for (int index = 0; index < windows.Length; index++)
+            {
+                DiagnosticsForm window = windows[index];
+                if (window != null && !window.IsDisposed)
+                    AttachAnalysisSong(window, effective, configuration);
+            }
+            if (_channelMonitor != null && !_channelMonitor.IsDisposed)
+            {
+                UpdateChannelSourceReadouts(_selectedPositionMicroseconds);
+                _channelMonitor.UpdateSnapshot(_engine.GetChannelSnapshot());
+            }
+            UpdateSeekDisplay();
+            UpdateTransportControls();
+            RefreshStatistics();
+        }
         internal bool SuppressLoadErrorDialogs { get { return _suppressLoadErrorDialogs; } set { _suppressLoadErrorDialogs = value; } }
         internal Exception LastLoadError { get { return _lastLoadError; } }
         internal bool LoadingActivityVisible { get { return _loadingPanel != null && _loadingPanel.Visible; } }
@@ -1754,9 +2601,10 @@ namespace MidiBottleneck
                 if (_selectedPositionMicroseconds >= _song.DurationMicroseconds)
                     _selectedPositionMicroseconds = 0;
                 IMidiOutput selectedOutput = OpenSelectedOutput();
-                _engine.Start(_song, selectedOutput, SelectedProcessingMode(), _selectedPositionMicroseconds);
+                MidiSong playbackSong = EffectiveSong;
+                _engine.Start(playbackSong, selectedOutput, SelectedProcessingMode(), _selectedPositionMicroseconds);
                 _activeOutput = selectedOutput;
-                _engineSong = _song;
+                _engineSong = playbackSong;
                 _outputError = null;
                 ResetLiveMeasurements();
                 UpdateTransportControls();
@@ -1812,10 +2660,11 @@ namespace MidiBottleneck
                 ResetLiveMeasurements();
 
                 IMidiOutput replacement = OpenSelectedOutput();
-                _engine.Start(_song, replacement, SelectedProcessingMode(),
+                MidiSong playbackSong = EffectiveSong;
+                _engine.Start(playbackSong, replacement, SelectedProcessingMode(),
                     restartPosition, previousState == PlaybackState.Paused);
                 _activeOutput = replacement;
-                _engineSong = _song;
+                _engineSong = playbackSong;
                 _outputError = null;
                 ResetLiveMeasurements();
             }
@@ -1865,6 +2714,9 @@ namespace MidiBottleneck
         private ProcessingMode SelectedProcessingMode()
         {
             if (_perNoteIntervalGateEnabled) return ProcessingMode.PerNoteIntervalGate;
+            if (_delayedNoteOffEnabled) return ProcessingMode.DelayedNoteOff;
+            if (_noteAttackLimitEnabled) return ProcessingMode.NoteAttackLimit;
+            if (_outputRateLimitEnabled) return ProcessingMode.OutputRateLimit;
             return _queueLimitCheck.Checked ? ProcessingMode.Drop : ProcessingMode.Queue;
         }
 
@@ -1915,6 +2767,7 @@ namespace MidiBottleneck
             PlaybackState previousState = _engine.State;
             _engine.ProcessingMicroseconds = microseconds;
             if (_perNoteIntervalGateEnabled) _rememberedGateMicroseconds = microseconds;
+            else if (_delayedNoteOffEnabled) _rememberedDelayedNoteOffMicroseconds = microseconds;
             else if (_selectedRateChoice == RateModelChoice.ProcessingTime)
                 _rememberedProcessingMicroseconds = microseconds;
             _updatingProcessingControls = true;
@@ -1932,7 +2785,7 @@ namespace MidiBottleneck
             }
             finally { _updatingProcessingControls = false; }
             UpdateProcessingSummary(microseconds);
-            if (_perNoteIntervalGateEnabled && previousMicroseconds != microseconds &&
+            if ((_perNoteIntervalGateEnabled || _delayedNoteOffEnabled) && previousMicroseconds != microseconds &&
                 (previousState == PlaybackState.Playing || previousState == PlaybackState.Paused))
                 TryRestartForProcessingModeChange(previousState);
             RefreshStatistics();
@@ -1941,13 +2794,18 @@ namespace MidiBottleneck
 
         private void UpdateProcessingSummary(long microseconds)
         {
-            _toolTip.SetToolTip(_processingValue, _perNoteIntervalGateEnabled
-                ? "Click to type or drag sideways following the interval slider's scale; Shift adjusts one microsecond per pixel. Enter applies; Escape cancels. Changing the per-note interval safely silences and restarts at the same position."
-                : "Click to type or drag sideways following the processing-time slider's scale; Shift adjusts one microsecond per pixel. Enter applies; Escape cancels. A live change applies when the next event begins service.");
-            _toolTip.SetToolTip(_processingSlider,
-                _perNoteIntervalGateEnabled
-                    ? "Sets the interval for the per-note gate. Zero resolves at source timestamps without a positive minimum interval. A live edit safely silences and restarts the scheduler at the same position."
-                    : "Click or drag to set the rate. Fine adjustment to 5,000 µs; logarithmic above. A live edit applies when the next event begins service.");
+            string valueTip = _perNoteIntervalGateEnabled
+                ? "Click to type or drag sideways following the interval slider's scale; Shift adjusts one microsecond per pixel. Enter applies; Escape cancels. This is one note-transition interval. With traffic scaling enabled, a batch of N transmitted note messages postpones the next note batch by N intervals. Changing it safely silences and restarts at the same position."
+                : _delayedNoteOffEnabled
+                    ? "Click to type or drag sideways to set the global per-pitch minimum NoteOn duration and one note-transition interval. A derived recovery of one quarter of this value, capped at 40 ms, follows each transmitted NoteOff. With traffic scaling enabled, a batch of N transmitted note messages postpones the next note batch by N intervals. Shift adjusts one microsecond per pixel. Enter applies; Escape cancels. A live edit safely silences and restarts at the same position."
+                    : "Click to type or drag sideways following the processing-time slider's scale; Shift adjusts one microsecond per pixel. Enter applies; Escape cancels. A live change applies when the next event begins service.";
+            string sliderTip = _perNoteIntervalGateEnabled
+                ? "Sets one transition interval for the per-note gate. Zero resolves at source timestamps without a positive minimum interval. Traffic scaling permits a same-boundary chord burst, then waits in proportion to the transmitted note-message count; it is not a strict instantaneous events-per-second ceiling. A live edit safely silences and restarts the scheduler at the same position."
+                : _delayedNoteOffEnabled
+                    ? "Sets global ownership timing for each pitch across tracks and channels. Earlier repetitions coalesce; eligible replacements wait through the derived, capped post-Off recovery. A live edit safely silences and restarts the scheduler."
+                    : "Click or drag to set the rate. Fine adjustment to 5,000 µs; logarithmic above. A live edit applies when the next event begins service.";
+            _toolTip.SetToolTip(_processingValue, valueTip);
+            _toolTip.SetToolTip(_processingSlider, sliderTip);
         }
 
         private void ServiceModeChanged(object sender, EventArgs e)
@@ -1960,6 +2818,12 @@ namespace MidiBottleneck
         {
             return choice == RateModelChoice.ProcessingTime || choice == RateModelChoice.MidiBitrate ||
                 choice == RateModelChoice.EventsPerSecond;
+        }
+
+        private static bool IsMusicalRateChoice(RateModelChoice choice)
+        {
+            return choice == RateModelChoice.PerNoteIntervalGate || choice == RateModelChoice.DelayedNoteOff ||
+                choice == RateModelChoice.NoteAttackLimit || choice == RateModelChoice.OutputRateLimit;
         }
 
         private static ServiceDurationMode OrdinaryModeForChoice(RateModelChoice choice)
@@ -1994,27 +2858,70 @@ namespace MidiBottleneck
         {
             PlaybackState previousState = _engine.State;
             RateModelChoice previousChoice = _selectedRateChoice;
-            bool gateBoundary = (previousChoice == RateModelChoice.PerNoteIntervalGate) !=
-                (choice == RateModelChoice.PerNoteIntervalGate);
-            bool structuralBoundary = gateBoundary ||
+            bool previousIntervalGate = previousChoice == RateModelChoice.PerNoteIntervalGate ||
+                previousChoice == RateModelChoice.DelayedNoteOff;
+            bool nextIntervalGate = choice == RateModelChoice.PerNoteIntervalGate ||
+                choice == RateModelChoice.DelayedNoteOff;
+            if (_queueLimitCheck != null)
+            {
+                if (previousIntervalGate)
+                {
+                    _intervalPolyphonyLimitEnabled = _queueLimitCheck.Checked;
+                    _rememberedIntervalPolyphonyLimit = Decimal.ToInt32(_queueLimitValue.Value);
+                }
+                else _rememberedOrdinaryQueueLimitEnabled = _queueLimitCheck.Checked;
+            }
+            bool musicalBoundary = previousChoice != choice &&
+                (IsMusicalRateChoice(previousChoice) || IsMusicalRateChoice(choice));
+            bool structuralBoundary = musicalBoundary ||
                 ((previousChoice == RateModelChoice.None) != (choice == RateModelChoice.None));
-            ServiceDurationMode mode = choice == RateModelChoice.PerNoteIntervalGate
-                ? ServiceDurationMode.ProcessingTime : IsOrdinaryRateChoice(choice)
+            ServiceDurationMode mode = choice == RateModelChoice.NoteAttackLimit ||
+                choice == RateModelChoice.OutputRateLimit
+                ? ServiceDurationMode.EventsPerSecond : IsMusicalRateChoice(choice)
+                    ? ServiceDurationMode.ProcessingTime : IsOrdinaryRateChoice(choice)
                     ? OrdinaryModeForChoice(choice) : _lastOrdinaryServiceMode;
             if (previousChoice == RateModelChoice.ProcessingTime)
                 _rememberedProcessingMicroseconds = _engine.ProcessingMicroseconds;
             else if (previousChoice == RateModelChoice.PerNoteIntervalGate)
                 _rememberedGateMicroseconds = _engine.ProcessingMicroseconds;
+            else if (previousChoice == RateModelChoice.DelayedNoteOff)
+                _rememberedDelayedNoteOffMicroseconds = _engine.ProcessingMicroseconds;
+            else if (previousChoice == RateModelChoice.EventsPerSecond)
+                _rememberedOrdinaryEventRate = _engine.EventsPerSecond;
+            else if (previousChoice == RateModelChoice.NoteAttackLimit)
+                _rememberedAttackRate = _engine.EventsPerSecond;
+            else if (previousChoice == RateModelChoice.OutputRateLimit)
+                _rememberedOutputRate = _engine.EventsPerSecond;
             long processing = choice == RateModelChoice.PerNoteIntervalGate
-                ? _rememberedGateMicroseconds : choice == RateModelChoice.ProcessingTime
+                ? _rememberedGateMicroseconds : choice == RateModelChoice.DelayedNoteOff
+                    ? _rememberedDelayedNoteOffMicroseconds : choice == RateModelChoice.ProcessingTime
                     ? _rememberedProcessingMicroseconds : _engine.ProcessingMicroseconds;
-            long eventRate = _engine.EventsPerSecond;
+            long eventRate = choice == RateModelChoice.NoteAttackLimit ? _rememberedAttackRate :
+                choice == RateModelChoice.OutputRateLimit ? _rememberedOutputRate :
+                choice == RateModelChoice.EventsPerSecond ? _rememberedOrdinaryEventRate : _engine.EventsPerSecond;
             bool applied = false;
             Action applyConfiguration = delegate
             {
                 if (IsOrdinaryRateChoice(choice)) _lastOrdinaryServiceMode = mode;
                 _selectedRateChoice = choice;
                 _perNoteIntervalGateEnabled = choice == RateModelChoice.PerNoteIntervalGate;
+                _delayedNoteOffEnabled = choice == RateModelChoice.DelayedNoteOff;
+                _noteAttackLimitEnabled = choice == RateModelChoice.NoteAttackLimit;
+                _outputRateLimitEnabled = choice == RateModelChoice.OutputRateLimit;
+                if (_queueLimitCheck != null)
+                {
+                    _updatingProcessingControls = true;
+                    try
+                    {
+                        _queueLimitCheck.Checked = nextIntervalGate
+                            ? _intervalPolyphonyLimitEnabled
+                            : _rememberedOrdinaryQueueLimitEnabled;
+                    }
+                    finally { _updatingProcessingControls = false; }
+                    ConfigureQueueLimitControls();
+                    if (!nextIntervalGate)
+                        OverflowPolicyChanged(_overflowPolicyCombo, EventArgs.Empty);
+                }
                 if (choice == RateModelChoice.None && _applyQueueLimitWithoutSlowdown && _queueLimitCheck.Checked)
                 {
                     _applyQueueLimitWithoutSlowdown = false;
@@ -2071,8 +2978,12 @@ namespace MidiBottleneck
                 }
                 else if (_engine.ServiceDurationMode == ServiceDurationMode.EventsPerSecond)
                 {
-                    _serviceValueLabel.Text = "Events/sec:";
-                    _processingValue.AccessibleName = "Events per second";
+                    _serviceValueLabel.Text = _noteAttackLimitEnabled ? "Note starts/sec:" :
+                        _outputRateLimitEnabled ? (_compactLayout ? "Max output rate:" : "Maximum output rate:") :
+                        "Events/sec:";
+                    _processingValue.AccessibleName = _noteAttackLimitEnabled
+                        ? "Maximum note starts per second" : _outputRateLimitEnabled
+                        ? "Maximum output rate in events per second" : "Events per second";
                     _processingValue.DecimalPlaces = 0;
                     _processingValue.Minimum = 0;
                     _processingValue.Maximum = 9999999;
@@ -2085,8 +2996,12 @@ namespace MidiBottleneck
                 }
                 else
                 {
-                    _serviceValueLabel.Text = _compactLayout ? "Time/event:" : "Processing time per event:";
-                    _processingValue.AccessibleName = "Processing time per event in microseconds";
+                    _serviceValueLabel.Text = _delayedNoteOffEnabled
+                        ? (_compactLayout ? "Min NoteOn:" : "Minimum NoteOn duration:")
+                        : _compactLayout ? "Time/event:" : "Processing time per event:";
+                    _processingValue.AccessibleName = _delayedNoteOffEnabled
+                        ? "Minimum NoteOn duration in microseconds"
+                        : "Processing time per event in microseconds";
                     _processingValue.Minimum = 0;
                     _serviceUnitLabel.Text = "µs";
                     _dinPresetButton.Visible = false;
@@ -2150,6 +3065,9 @@ namespace MidiBottleneck
             long previous = _engine.EventsPerSecond;
             PlaybackState previousState = _engine.State;
             _engine.EventsPerSecond = rate;
+            if (_noteAttackLimitEnabled) _rememberedAttackRate = rate;
+            else if (_outputRateLimitEnabled) _rememberedOutputRate = rate;
+            else if (_selectedRateChoice == RateModelChoice.EventsPerSecond) _rememberedOrdinaryEventRate = rate;
             _updatingProcessingControls = true;
             try
             {
@@ -2159,12 +3077,31 @@ namespace MidiBottleneck
             }
             finally { _updatingProcessingControls = false; }
             UpdateEventRateSummary(rate);
+            if ((_noteAttackLimitEnabled || _outputRateLimitEnabled) && previous != rate &&
+                (previousState == PlaybackState.Playing || previousState == PlaybackState.Paused))
+                TryRestartForProcessingModeChange(previousState);
             RefreshStatistics();
             ScheduleAnalysisRefresh();
         }
 
         private void UpdateEventRateSummary(long rate)
         {
+            if (_noteAttackLimitEnabled)
+            {
+                _toolTip.SetToolTip(_processingValue,
+                    "Progressively paces velocity-positive NoteOn starts at the selected starts-per-second target. Only capacity that has matured can be used; quiet passages save no burst credit. Releases and state/safety traffic remain outside this limit. A live edit safely restarts at the same position.");
+                _toolTip.SetToolTip(_processingSlider,
+                    "Sets the progressively paced NoteOn-start target. Simultaneous attacks use the shared musical ranking; rejected attacks keep their paired releases suppressed.");
+                return;
+            }
+            if (_outputRateLimitEnabled)
+            {
+                _toolTip.SetToolTip(_processingValue,
+                    "Progressively paces transmitted MIDI messages at the selected Maximum output rate. Only matured capacity is available; quiet passages save no burst credit. Required state, safety, and emitted-attack releases may be sent over target. A live edit safely restarts at the same position.");
+                _toolTip.SetToolTip(_processingSlider,
+                    "Sets the total Output rate gate. Rejected note occurrences do not wait for catch-up; live timing uses actual completed output calls.");
+                return;
+            }
             _toolTip.SetToolTip(_processingValue,
                 "Click to type an exact rate or drag sideways. Low rates change about one event/sec per five pixels; higher rates follow the slider's scale. Shift adjusts one event/sec per pixel. Enter applies; Escape cancels. A live change applies when the next event begins service.");
             _toolTip.SetToolTip(_processingSlider, rate == 0
@@ -2174,6 +3111,18 @@ namespace MidiBottleneck
 
         private void QueueLimitChanged(object sender, EventArgs e)
         {
+            if (_updatingProcessingControls) return;
+            if (_perNoteIntervalGateEnabled || _delayedNoteOffEnabled)
+            {
+                _intervalPolyphonyLimitEnabled = _queueLimitCheck.Checked;
+                _engine.IntervalPolyphonyLimitEnabled = _intervalPolyphonyLimitEnabled;
+                UpdatePolicyControlState();
+                UpdateTransportControls();
+                RefreshStatistics();
+                ScheduleAnalysisRefresh();
+                return;
+            }
+            _rememberedOrdinaryQueueLimitEnabled = _queueLimitCheck.Checked;
             if (_queueLimitCheck.Checked && _applyQueueLimitWithoutSlowdown &&
                 _selectedRateChoice == RateModelChoice.None)
                 SelectRateChoice(ChoiceForOrdinaryMode(_lastOrdinaryServiceMode));
@@ -2196,7 +3145,9 @@ namespace MidiBottleneck
                 ? "When full, reject an incoming Note On and later suppress its paired Note Off. Required Note Off and non-note messages are retained, so the configured capacity is a soft safety limit. A live change applies at the next overflow."
                 : policy == OverflowPolicy.DropOldestCompleteNote
                     ? "When full, remove the oldest queued Note On that has not begun service, including its queued release. A later matching release is suppressed. Required releases may exceed the limit; if no old note is eligible, other incoming MIDI is rejected. Requires simulated slowdown."
-                : policy == OverflowPolicy.DropOldest || policy == OverflowPolicy.ClearBufferAndCatchUp
+                    : policy == OverflowPolicy.DropBackgroundNotes
+                        ? "When full, drop one complete unsent background note. Inner chord voices are considered before bass and melody boundaries, then velocity, duration, and fair track or percussion-lane representation decide. Releases for notes already sent, state, safety traffic, and Seek markers remain protected, so the limit can be soft. Requires simulated slowdown."
+                    : policy == OverflowPolicy.DropOldest || policy == OverflowPolicy.ClearBufferAndCatchUp
                     ? "This policy requires simulated slowdown. A forward-only queue cannot retract MIDI that has already been sent."
                     : "A change made during playback applies at the next overflow.");
             UpdateTransportControls();
@@ -2205,11 +3156,13 @@ namespace MidiBottleneck
 
         private bool IsUnsupportedForwardQueueSelection()
         {
-            if (_perNoteIntervalGateEnabled || !_queueLimitCheck.Checked || _engine.SimulateSlowdown ||
+            if (_perNoteIntervalGateEnabled || _delayedNoteOffEnabled || _noteAttackLimitEnabled ||
+                _outputRateLimitEnabled || !_queueLimitCheck.Checked || _engine.SimulateSlowdown ||
                 !_applyQueueLimitWithoutSlowdown) return false;
             OverflowPolicy policy = SelectedOverflowPolicy;
             return policy == OverflowPolicy.DropOldest ||
                 policy == OverflowPolicy.DropOldestCompleteNote ||
+                policy == OverflowPolicy.DropBackgroundNotes ||
                 policy == OverflowPolicy.ClearBufferAndCatchUp;
         }
 
@@ -2225,12 +3178,16 @@ namespace MidiBottleneck
             bool active = _engine.State == PlaybackState.Playing || _engine.State == PlaybackState.Paused;
             bool slowdown = _engine.SimulateSlowdown;
             bool limited = _queueLimitCheck.Checked;
-            bool gate = _perNoteIntervalGateEnabled;
+            bool intervalGate = _perNoteIntervalGateEnabled || _delayedNoteOffEnabled;
+            bool gate = intervalGate || _noteAttackLimitEnabled || _outputRateLimitEnabled;
             bool forwardModel = !gate && limited && !slowdown && _applyQueueLimitWithoutSlowdown &&
                 IsOrdinaryRateChoice(_selectedRateChoice);
-            _queueLimitCheck.Enabled = !gate && !active;
-            _queueLimitValue.Enabled = !gate && limited && (!active || _queueAgeLimitEnabled);
-            _overflowPolicyCombo.Enabled = !gate && limited && !(active && forwardModel);
+            _queueLimitCheck.Enabled = intervalGate ? !active : !gate && !active;
+            _queueLimitValue.Enabled = intervalGate
+                ? limited && !active
+                : !gate && limited && (!active || _queueAgeLimitEnabled || !forwardModel);
+            _overflowPolicyCombo.Enabled = !intervalGate && !gate && limited &&
+                !(active && forwardModel);
             _serviceModeCombo.Enabled = true;
             _processingValue.Enabled = gate || slowdown || forwardModel;
             _processingSlider.Enabled = gate || slowdown || forwardModel;
@@ -2387,6 +3344,9 @@ namespace MidiBottleneck
             }
             long sampleTime = StopwatchTicksToMicroseconds(Stopwatch.GetTimestamp());
             bool synchronized = snapshot.ProcessingMode != ProcessingMode.PerNoteIntervalGate &&
+                snapshot.ProcessingMode != ProcessingMode.DelayedNoteOff &&
+                snapshot.ProcessingMode != ProcessingMode.NoteAttackLimit &&
+                snapshot.ProcessingMode != ProcessingMode.OutputRateLimit &&
                 snapshot.OutstandingEvents == 0 && snapshot.CurrentLagMicroseconds == 0 &&
                 snapshot.LastDispatchedTimelineMicroseconds <= snapshot.IntendedTimelineMicroseconds;
             double? speed = snapshot.State == PlaybackState.Playing
@@ -2397,11 +3357,27 @@ namespace MidiBottleneck
                 ? _outputRate.Add(snapshot.ProcessedEvents, sampleTime) : (double?)null;
             string configuredRate = _perNoteIntervalGateEnabled
                 ? FormatPerNoteFrameRate(_engine.ProcessingMicroseconds, _compactLayout)
-                : FormatMaximumRate(snapshot, _outputRate.MaximumObserved, _compactLayout);
-            _statisticsView.PerNoteIntervalGate = _perNoteIntervalGateEnabled;
-            if (snapshot.DroppedEvents > _lastDroppedEvents)
+                : _delayedNoteOffEnabled
+                    ? FormatDelayedNoteOffDuration(_engine.ProcessingMicroseconds, _compactLayout)
+                    : _noteAttackLimitEnabled
+                        ? (_engine.EventsPerSecond == 0 ? "unlimited note starts" :
+                            _engine.EventsPerSecond.ToString("N0", CultureInfo.CurrentCulture) +
+                            (_compactLayout ? " starts/s" : " note starts/sec"))
+                    : _outputRateLimitEnabled
+                        ? (_engine.EventsPerSecond == 0 ? "unlimited output" :
+                            _engine.EventsPerSecond.ToString("N0", CultureInfo.CurrentCulture) +
+                            (_compactLayout ? " events/s max" : " maximum events/sec")) +
+                            (snapshot.OutputRateSafetySoftExcess == 0 ? String.Empty :
+                                _compactLayout
+                                    ? " (+" + snapshot.OutputRateSafetySoftExcess.ToString("N0", CultureInfo.CurrentCulture) + " required over target)"
+                                    : " (" + snapshot.OutputRateSafetySoftExcess.ToString("N0", CultureInfo.CurrentCulture) + " required messages sent over target)")
+                    : FormatMaximumRate(snapshot, _outputRate.MaximumObserved, _compactLayout);
+            _statisticsView.PerNoteIntervalGate = _perNoteIntervalGateEnabled || _delayedNoteOffEnabled ||
+                _noteAttackLimitEnabled || _outputRateLimitEnabled;
+            long totalDropped = TotalDroppedEvents(snapshot);
+            if (totalDropped > _lastDroppedEvents)
                 _overflowVisibleUntilMicroseconds = sampleTime + 800000;
-            _lastDroppedEvents = snapshot.DroppedEvents;
+            _lastDroppedEvents = totalDropped;
             _statisticsView.SetValues(new string[]
             {
                 FormatTime(snapshot.IntendedTimelineMicroseconds) + (_compactLayout ? "\u2009/\u2009" : " / ") + FormatTime(snapshot.LastDispatchedTimelineMicroseconds),
@@ -2418,7 +3394,8 @@ namespace MidiBottleneck
                 FormatLagMilliseconds(snapshot.MaximumLagMicroseconds),
                 FormatLagMilliseconds(snapshot.CurrentLagMicroseconds)
             });
-            _statisticsView.SetQueuePressure(_queueLimitCheck.Checked && !_perNoteIntervalGateEnabled,
+            _statisticsView.SetQueuePressure(_queueLimitCheck.Checked && !_perNoteIntervalGateEnabled &&
+                !_delayedNoteOffEnabled && !_noteAttackLimitEnabled && !_outputRateLimitEnabled,
                 _queueAgeLimitEnabled ? snapshot.QueueAgeMicroseconds :
                     snapshot.VirtualQueueActive ? snapshot.VirtualOutstandingEvents : snapshot.OutstandingEvents,
                 _queueAgeLimitEnabled ? snapshot.QueueAgeLimitMicroseconds : Decimal.ToInt64(_queueLimitValue.Value),
@@ -2442,8 +3419,7 @@ namespace MidiBottleneck
                         Queue = snapshot.OutstandingEvents.ToString("N0", CultureInfo.CurrentCulture) +
                             " / " + snapshot.MaximumQueueLength.ToString("N0", CultureInfo.CurrentCulture),
                         Events = FormatEventCounts(snapshot, false),
-                        EventsCaption = snapshot.ProcessingMode == ProcessingMode.PerNoteIntervalGate
-                            ? "Events sent / excluded: " : "Events sent / dropped: ",
+                        EventsCaption = "Events sent / dropped: ",
                         OutputRate = RollingOutputRate.Format(outputRate),
                         EffectiveSpeed = EffectivePlaybackSpeed.Format(speed),
                         Lag = FormatLagMilliseconds(snapshot.CurrentLagMicroseconds) + " / " + FormatLagMilliseconds(snapshot.MaximumLagMicroseconds)
@@ -2482,6 +3458,10 @@ namespace MidiBottleneck
             UpdateForwardQueueMenuState();
             UpdateQueueAgeMenuState();
             UpdateStateChaseMenuState();
+            UpdatePreservePauseSeekMenuState();
+            UpdateOutputPacedTimelineMenuState();
+            UpdateScaleNoteIntervalMenuState();
+            UpdateTrackRoutingMenuState();
         }
 
         private void UpdateLoadStatus()
@@ -2610,7 +3590,7 @@ namespace MidiBottleneck
         {
             if (_song == null) return;
             AnalysisConfiguration configuration = CurrentAnalysisConfiguration();
-            DiagnosticsForm diagnostics = new DiagnosticsForm(_song);
+            DiagnosticsForm diagnostics = new DiagnosticsForm(EffectiveSong);
             diagnostics.ApplyApplicationScale(_uiScalePercent);
             _analysisWindows.Add(diagnostics);
             diagnostics.FormClosed += delegate { _analysisWindows.Remove(diagnostics); };
@@ -2620,6 +3600,11 @@ namespace MidiBottleneck
             };
             diagnostics.ChannelsRequested += delegate { ShowChannelMonitor(); };
             diagnostics.TransportToggleRequested += delegate { PlayClicked(this, EventArgs.Empty); };
+            diagnostics.OverrideProjectionChanged += delegate
+            {
+                if (!diagnostics.IsDisposed)
+                    RequestAnalysisForWindow(diagnostics, CurrentAnalysisConfiguration());
+            };
             diagnostics.StartPosition = FormStartPosition.Manual;
             Rectangle working = Screen.FromControl(this).WorkingArea;
             Point proposed = new Point(Right + 12, Top);
@@ -2628,7 +3613,7 @@ namespace MidiBottleneck
             proposed.Y = Math.Max(working.Top, Math.Min(working.Bottom - diagnostics.Height, proposed.Y));
             diagnostics.Location = proposed;
             diagnostics.Show();
-            diagnostics.RequestAnalysis(configuration);
+            RequestAnalysisForWindow(diagnostics, configuration);
         }
 
         internal void ShowAnalysisForTesting()
@@ -2663,6 +3648,7 @@ namespace MidiBottleneck
                 {
                     _engine.SetChannelOverride(request.Channel, request.Attribute, request.Value);
                     monitor.UpdateSnapshot(_engine.GetChannelSnapshot());
+                    ScheduleAnalysisRefresh();
                 }
                 catch (Exception ex)
                 {
@@ -2744,17 +3730,18 @@ namespace MidiBottleneck
         private void UpdateChannelSourceReadouts(long positionMicroseconds)
         {
             ChannelMonitorForm monitor = _channelMonitor;
-            if (monitor == null || monitor.IsDisposed || _song == null) return;
+            MidiSong source = EffectiveSong;
+            if (monitor == null || monitor.IsDisposed || source == null) return;
             if (!_chaseMidiStateOnPlaySeek)
             {
                 monitor.SetSourceReadouts(null);
                 _sourceReadoutEventIndex = -1;
                 return;
             }
-            int exclusive = _song.EventStore.LowerBoundByTime(positionMicroseconds);
-            if (Object.ReferenceEquals(_song, _sourceReadoutSong) && exclusive == _sourceReadoutEventIndex) return;
-            monitor.SetSourceReadouts(_song.GetMidiStateChaseIndex().CreateAttributeReadouts(exclusive));
-            _sourceReadoutSong = _song;
+            int exclusive = source.EventStore.LowerBoundByTime(positionMicroseconds);
+            if (Object.ReferenceEquals(source, _sourceReadoutSong) && exclusive == _sourceReadoutEventIndex) return;
+            monitor.SetSourceReadouts(source.GetMidiStateChaseIndex().CreateAttributeReadouts(exclusive));
+            _sourceReadoutSong = source;
             _sourceReadoutEventIndex = exclusive;
         }
 
@@ -2790,8 +3777,32 @@ namespace MidiBottleneck
             {
                 DiagnosticsForm window = windows[i];
                 if (window == null || window.IsDisposed) continue;
-                window.RequestAnalysis(configuration);
+                RequestAnalysisForWindow(window, configuration);
             }
+        }
+
+        private AnalysisOverrideSnapshot CaptureAnalysisOverrideSnapshot()
+        {
+            int[] values = new int[16 * ChannelOverrideState.AttributeCount];
+            for (int channel = 0; channel < 16; channel++)
+                for (int attribute = 0; attribute < ChannelOverrideState.AttributeCount; attribute++)
+                    values[channel * ChannelOverrideState.AttributeCount + attribute] =
+                        _engine.GetChannelOverride(channel, (ChannelAttribute)attribute);
+            return new AnalysisOverrideSnapshot(values);
+        }
+
+        private void RequestAnalysisForWindow(DiagnosticsForm window,
+            AnalysisConfiguration configuration)
+        {
+            window.RequestAnalysis(configuration, window.ProjectForcedOverridesForTesting
+                ? CaptureAnalysisOverrideSnapshot() : null);
+        }
+
+        private void AttachAnalysisSong(DiagnosticsForm window, MidiSong song,
+            AnalysisConfiguration configuration)
+        {
+            window.AttachSong(song, configuration, window.ProjectForcedOverridesForTesting
+                ? CaptureAnalysisOverrideSnapshot() : null);
         }
 
         private AnalysisConfiguration CurrentAnalysisConfiguration()
@@ -2802,12 +3813,21 @@ namespace MidiBottleneck
             configuration.ProcessingMicroseconds = _engine.ProcessingMicroseconds;
             configuration.MidiBitrate = _engine.MidiBitrate;
             configuration.EventsPerSecond = _engine.EventsPerSecond;
-            configuration.QueueLengthLimitEnabled = _queueLimitCheck.Checked;
+            bool intervalGate = _perNoteIntervalGateEnabled || _delayedNoteOffEnabled;
+            configuration.QueueLengthLimitEnabled = !intervalGate &&
+                _rememberedOrdinaryQueueLimitEnabled;
             configuration.QueueLengthLimit = _rememberedEventCountLimit;
             configuration.QueueAgeLimitEnabled = _queueAgeLimitEnabled;
             configuration.QueueAgeLimitMicroseconds = _rememberedQueueAgeLimit;
             configuration.OverflowPolicy = SelectedOverflowPolicy;
             configuration.PerNoteIntervalGateEnabled = _perNoteIntervalGateEnabled;
+            configuration.DelayedNoteOffEnabled = _delayedNoteOffEnabled;
+            configuration.ScaleNoteIntervalByTraffic = _scaleNoteIntervalByTraffic;
+            configuration.OutputPacedTimeline = _outputPacedTimeline;
+            configuration.IntervalPolyphonyLimitEnabled = _intervalPolyphonyLimitEnabled;
+            configuration.IntervalPolyphonyLimit = _rememberedIntervalPolyphonyLimit;
+            configuration.NoteAttackLimitEnabled = _noteAttackLimitEnabled;
+            configuration.OutputRateLimitEnabled = _outputRateLimitEnabled;
             configuration.ApplyQueueLimitWithoutSlowdown = _applyQueueLimitWithoutSlowdown;
             return configuration;
         }
@@ -2818,7 +3838,7 @@ namespace MidiBottleneck
             targetMicroseconds = Math.Max(0, Math.Min(_song.DurationMicroseconds, targetMicroseconds));
             try
             {
-                if (_engineSong == _song) _engine.Seek(targetMicroseconds);
+                if (_engineSong == EffectiveSong) _engine.Seek(targetMicroseconds);
             }
             catch (PlaybackWorkerTimeoutException ex)
             {
@@ -2868,6 +3888,11 @@ namespace MidiBottleneck
             if (song == null) return String.Empty;
             string first = String.Format(CultureInfo.CurrentCulture, "{0:N0} events  •  {1} tracks", song.EventStore.Count, song.TrackCount);
             string second = String.Format(CultureInfo.CurrentCulture, "{0:N0} notes  •  {1}", song.NoteCount, FormatTime(song.DurationMicroseconds));
+            if (song.NonstandardRunningStatusRepairCount > 0)
+                second += String.Format(CultureInfo.CurrentCulture,
+                    "  •  Loaded with {0:N0} nonstandard running-status repair{1}",
+                    song.NonstandardRunningStatusRepairCount,
+                    song.NonstandardRunningStatusRepairCount == 1 ? String.Empty : "s");
             return compact ? first + Environment.NewLine + second : first + "  •  " + second;
         }
 
@@ -2930,7 +3955,6 @@ namespace MidiBottleneck
                     ? (compact ? "Wait limit:" : "Queue waiting-time limit:")
                     : (compact ? "Queue limit:" : "Queue length limit:");
                 _serviceModeLabel.Text = compact ? "Rate:" : "Rate model:";
-                _serviceModeCombo.CompactDisplay = compact;
                 _serviceValueLabel.Text = _selectedRateChoice == RateModelChoice.None
                     ? String.Empty
                     : _engine.ServiceDurationMode == ServiceDurationMode.MidiBitrate
@@ -2939,6 +3963,16 @@ namespace MidiBottleneck
                         ? "Events/sec:"
                         : (compact ? "Time/event:" : "Processing time per event:");
                 _serviceModeCombo.Width = ScaleMetric(compact ? 170 : 210);
+                // Stretch only across the compact table cell.  AutoSize keeps
+                // the natural control-row height; Dock=Fill also fills the
+                // auto-sized row vertically and can feed that temporary
+                // height back into the window's measured fixed height.
+                _overflowCluster.AutoSize = true;
+                _overflowCluster.Dock = DockStyle.None;
+                _overflowCluster.Anchor = compact ? AnchorStyles.Left | AnchorStyles.Right : AnchorStyles.Left;
+                _rateCluster.AutoSize = true;
+                _rateCluster.Dock = DockStyle.None;
+                _rateCluster.Anchor = compact ? AnchorStyles.Left | AnchorStyles.Right : AnchorStyles.Left;
                 _overflowPolicyCombo.Width = ScaleMetric(compact ? 132 : 235);
                 _overflowCluster.Margin = compact ? new Padding(0) : ScalePadding(4, 0, 0, 0);
                 _serviceCluster.Margin = compact ? new Padding(0) : ScalePadding(4, 0, 0, 0);
@@ -2968,6 +4002,8 @@ namespace MidiBottleneck
                 UpdateMainNumericWidth(_queueLimitValue);
                 UpdateMainNumericWidth(_processingValue);
                 UpdateCompactUnitVisibility();
+                UpdateCompactOverflowWidth();
+                UpdateCompactRateWidth();
                 _timelineView.MinimumSize = new Size(ScaleMetric(300), ScaleMetric(compact ? 20 : 38));
                 _timelineView.Height = ScaleMetric(compact ? 20 : 38);
                 _timelineView.Margin = compact ? ScalePadding(1, 0, 1, 0) : new Padding(ScaleMetric(3));
@@ -2991,6 +4027,7 @@ namespace MidiBottleneck
                     group.Padding = compact ? ScalePadding(3, 3, 3, 2) : ScalePadding(6, 5, 6, 4);
                     group.Margin = compact ? ScalePadding(1, 0, 1, 1) : ScalePadding(2, 1, 2, 3);
                 }
+                ApplyBorderlessFileGroupPadding();
                 if (compact)
                 {
                     // GroupBox reserves its caption independently.  These
@@ -3013,6 +4050,7 @@ namespace MidiBottleneck
                 // otherwise the lower rows retain the old clipped backing
                 // pixels until a statistic happens to change.
                 _rootLayout.PerformLayout();
+                UpdateCompactOverflowWidth();
                 AdjustMainNumericVerticalMargin(_queueLimitValue);
                 AdjustMainNumericVerticalMargin(_processingValue);
                 EnsureMainNumericInsideRow(_queueLimitValue);
@@ -3054,6 +4092,16 @@ namespace MidiBottleneck
         {
             base.OnResizeEnd(e);
             if (!_applyingUiScale) CaptureCanonicalUiGeometry();
+        }
+
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            if (_borderlessMode)
+            {
+                UpdateBorderlessCaptionButtons();
+                UpdateBorderlessChromeBounds();
+            }
         }
 
         private void CaptureCanonicalUiGeometry()
@@ -3103,7 +4151,9 @@ namespace MidiBottleneck
                 Control child = _rootLayout.Controls[i];
                 if (child.Visible && child.Bottom > contentBottom) contentBottom = child.Bottom;
             }
-            int requiredClientHeight = contentBottom + _rootLayout.Padding.Bottom;
+            int requiredClientHeight = contentBottom + _rootLayout.Padding.Bottom +
+                (_borderlessMode && _borderlessChrome != null && _borderlessChrome.Visible
+                    ? _borderlessChrome.Height : 0);
             int nonClientHeight = Math.Max(0, Height - ClientSize.Height);
             return Math.Max(1, requiredClientHeight + nonClientHeight);
         }
@@ -3140,6 +4190,44 @@ namespace MidiBottleneck
                 required += width + child.Margin.Horizontal;
             }
             _eventsLabel.Visible = available >= required;
+        }
+
+        private void UpdateCompactOverflowWidth()
+        {
+            if (_overflowCluster == null || _overflowPolicyCombo == null ||
+                _overflowLabel == null) return;
+            if (!_compactLayout)
+            {
+                int standard = ScaleMetric(235);
+                if (_overflowPolicyCombo.Width != standard)
+                    _overflowPolicyCombo.Width = standard;
+                return;
+            }
+            int available = _overflowCluster.ClientSize.Width -
+                _overflowCluster.Padding.Horizontal - _overflowLabel.Width -
+                _overflowLabel.Margin.Horizontal - _overflowPolicyCombo.Margin.Horizontal;
+            int width = Math.Max(1, available);
+            if (_overflowPolicyCombo.Width != width)
+                _overflowPolicyCombo.Width = width;
+        }
+
+        private void UpdateCompactRateWidth()
+        {
+            if (_rateCluster == null || _serviceModeCombo == null ||
+                _serviceModeLabel == null) return;
+            if (!_compactLayout)
+            {
+                int standard = ScaleMetric(210);
+                if (_serviceModeCombo.Width != standard)
+                    _serviceModeCombo.Width = standard;
+                return;
+            }
+            int available = _rateCluster.ClientSize.Width -
+                _rateCluster.Padding.Horizontal - _serviceModeLabel.Width -
+                _serviceModeLabel.Margin.Horizontal - _serviceModeCombo.Margin.Horizontal;
+            int width = Math.Max(1, available);
+            if (_serviceModeCombo.Width != width)
+                _serviceModeCombo.Width = width;
         }
 
         internal int RealizedRequiredWindowHeight { get { return CalculateRequiredWindowHeight(); } }
@@ -3188,6 +4276,19 @@ namespace MidiBottleneck
             if (snapshot == null) return "—";
             if (snapshot.ProcessingMode == ProcessingMode.PerNoteIntervalGate)
                 return FormatPerNoteFrameRate(snapshot.ProcessingMicroseconds, compact);
+            if (snapshot.ProcessingMode == ProcessingMode.DelayedNoteOff)
+                return FormatDelayedNoteOffDuration(snapshot.ProcessingMicroseconds, compact);
+            if (snapshot.ProcessingMode == ProcessingMode.NoteAttackLimit)
+                return snapshot.EventsPerSecond == 0 ? "unlimited note starts" :
+                    snapshot.EventsPerSecond.ToString("N0", CultureInfo.CurrentCulture) +
+                    (compact ? " starts/s" : " note starts/sec");
+            if (snapshot.ProcessingMode == ProcessingMode.OutputRateLimit)
+                return (snapshot.EventsPerSecond == 0 ? "unlimited output" :
+                    snapshot.EventsPerSecond.ToString("N0", CultureInfo.CurrentCulture) +
+                    (compact ? " events/s max" : " maximum events/sec")) +
+                    (snapshot.OutputRateSafetySoftExcess == 0 ? String.Empty : compact
+                        ? " (+" + snapshot.OutputRateSafetySoftExcess.ToString("N0", CultureInfo.CurrentCulture) + " required over target)"
+                        : " (" + snapshot.OutputRateSafetySoftExcess.ToString("N0", CultureInfo.CurrentCulture) + " required messages sent over target)");
             bool immediate = !snapshot.SimulateSlowdown && !snapshot.VirtualQueueActive ||
                 (snapshot.ServiceDurationMode == ServiceDurationMode.ProcessingTime && snapshot.ProcessingMicroseconds == 0) ||
                 (snapshot.ServiceDurationMode == ServiceDurationMode.EventsPerSecond && snapshot.EventsPerSecond == 0);
@@ -3209,19 +4310,38 @@ namespace MidiBottleneck
                 (compact ? " frames/s" : " frames/sec");
         }
 
+        internal static string FormatDelayedNoteOffDuration(long durationMicroseconds, bool compact)
+        {
+            if (durationMicroseconds <= 0) return compact ? "source timing" : "Source NoteOff timing";
+            return durationMicroseconds.ToString("N0", CultureInfo.CurrentCulture) +
+                (compact ? " µs min" : " µs minimum NoteOn");
+        }
+
         internal static string FormatEventCounts(PlaybackSnapshot snapshot, bool compact)
         {
             if (snapshot == null) return "—";
             string separator = compact ? "\u2009/\u2009" : " / ";
             string sent = snapshot.ProcessedEvents.ToString("N0", CultureInfo.CurrentCulture);
-            string dropped = snapshot.DroppedEvents.ToString("N0", CultureInfo.CurrentCulture);
-            if (snapshot.ProcessingMode != ProcessingMode.PerNoteIntervalGate || snapshot.GateFilteredEvents == 0)
-                return sent + separator + dropped;
-            string filtered = snapshot.GateFilteredEvents.ToString("N0", CultureInfo.CurrentCulture) +
-                (compact ? " gate" : " gate-filtered");
-            return snapshot.DroppedEvents == 0
-                ? sent + separator + filtered
-                : sent + separator + dropped + (compact ? " drop" : " dropped") + separator + filtered;
+            return sent + separator + TotalDroppedEvents(snapshot).ToString("N0",
+                CultureInfo.CurrentCulture);
+        }
+
+        internal static long TotalDroppedEvents(PlaybackSnapshot snapshot)
+        {
+            if (snapshot == null) return 0;
+            long total = Math.Max(0, snapshot.DroppedEvents);
+            total = SaturatingCountAdd(total, snapshot.GateFilteredEvents);
+            total = SaturatingCountAdd(total, snapshot.MusicalLimitRejectedAttacks);
+            total = SaturatingCountAdd(total, snapshot.MusicalLimitSuppressedReleases);
+            total = SaturatingCountAdd(total, snapshot.OutputRateRejectedAttacks);
+            total = SaturatingCountAdd(total, snapshot.OutputRateSuppressedReleases);
+            return SaturatingCountAdd(total, snapshot.OutputRateRejectedOtherMessages);
+        }
+
+        private static long SaturatingCountAdd(long total, long value)
+        {
+            value = Math.Max(0, value);
+            return total > Int64.MaxValue - value ? Int64.MaxValue : total + value;
         }
 
         private void ShowEffectiveSpeedMenu(object sender, MouseEventArgs e)
@@ -3347,6 +4467,25 @@ namespace MidiBottleneck
             if (_speedWindowMenu != null) _speedWindowMenu.Dispose();
             _toolTip.Dispose();
             base.OnFormClosing(e);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                if (_messageFilterInstalled)
+                {
+                    Application.RemoveMessageFilter(this);
+                    _messageFilterInstalled = false;
+                }
+                if (_borderlessOverlayTimer != null)
+                {
+                    _borderlessOverlayTimer.Stop();
+                    _borderlessOverlayTimer.Dispose();
+                    _borderlessOverlayTimer = null;
+                }
+            }
+            base.Dispose(disposing);
         }
 
         private static string FormatTime(long microseconds)

@@ -19,6 +19,10 @@ namespace MidiBottleneck
         private long _dragPositionMicroseconds;
         private bool _dragging;
         private int _applicationScalePercent = 100;
+        private Rectangle _lastTrackBounds;
+        private Rectangle _lastTimeBounds;
+        private string _lastTimeText = String.Empty;
+        private int _lastMeasuredTimeWidth;
 
         public event EventHandler<TimelineSeekEventArgs> SeekRequested;
 
@@ -40,8 +44,7 @@ namespace MidiBottleneck
             {
                 value = Math.Max(50, Math.Min(200, value));
                 _applicationScalePercent = value;
-                Font replacement = new Font("Consolas", 9F * value / 100F,
-                    FontStyle.Regular, GraphicsUnit.Point);
+                Font replacement = UiScaleFont.CreateMonospace(9F, FontStyle.Regular, value);
                 Font previous = _timeFont;
                 _timeFont = replacement;
                 if (previous != null) previous.Dispose();
@@ -133,11 +136,15 @@ namespace MidiBottleneck
         {
             base.OnPaint(e);
             e.Graphics.Clear(BackColor);
-            int timeWidth = ScaleMetric(168);
-            int trackLeft = ScaleMetric(8);
+            string time = FormatTime(PositionMicroseconds) + " / " + FormatTime(_durationMicroseconds);
+            Rectangle timeRectangle;
+            Rectangle track = CalculateLayout(e.Graphics, time, out timeRectangle);
+            _lastTrackBounds = track;
+            _lastTimeBounds = timeRectangle;
+            _lastTimeText = time;
             int trackHeight = ScaleMetric(8);
-            Rectangle track = new Rectangle(trackLeft, (ClientSize.Height - trackHeight) / 2,
-                Math.Max(ScaleMetric(20), ClientSize.Width - timeWidth - ScaleMetric(18)), trackHeight);
+            track.Y = (ClientSize.Height - trackHeight) / 2;
+            track.Height = trackHeight;
             long shownPosition = PositionMicroseconds;
             double fraction = _durationMicroseconds <= 0 ? 0 : Math.Max(0, Math.Min(1, (double)shownPosition / _durationMicroseconds));
             int fillWidth = (int)Math.Round(track.Width * fraction);
@@ -156,9 +163,6 @@ namespace MidiBottleneck
                     track.Y + ((track.Height - thumbHeight) / 2), thumbWidth, thumbHeight);
             }
 
-            Rectangle timeRectangle = new Rectangle(ClientSize.Width - timeWidth, 0,
-                timeWidth - ScaleMetric(4), ClientSize.Height);
-            string time = FormatTime(shownPosition) + " / " + FormatTime(_durationMicroseconds);
             TextRenderer.DrawText(e.Graphics, time, _timeFont, timeRectangle, ForeColor,
                 TextFormatFlags.Right | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);
 
@@ -168,11 +172,34 @@ namespace MidiBottleneck
 
         private long PositionFromX(int x)
         {
-            int timeWidth = ScaleMetric(168);
-            int left = ScaleMetric(8);
-            int width = Math.Max(ScaleMetric(20), ClientSize.Width - timeWidth - ScaleMetric(18));
-            double fraction = Math.Max(0, Math.Min(1, (double)(x - left) / width));
+            Rectangle track;
+            using (Graphics graphics = CreateGraphics())
+            {
+                Rectangle ignored;
+                string time = FormatTime(PositionMicroseconds) + " / " + FormatTime(_durationMicroseconds);
+                track = CalculateLayout(graphics, time, out ignored);
+            }
+            double fraction = Math.Max(0, Math.Min(1, (double)(x - track.Left) / track.Width));
             return (long)Math.Round(_durationMicroseconds * fraction);
+        }
+
+        private Rectangle CalculateLayout(Graphics graphics, string time, out Rectangle timeBounds)
+        {
+            TextFormatFlags flags = TextFormatFlags.SingleLine | TextFormatFlags.NoPadding;
+            int measured = TextRenderer.MeasureText(graphics, time, _timeFont, Size.Empty, flags).Width;
+            _lastMeasuredTimeWidth = measured;
+            int trackLeft = ScaleMetric(8);
+            int rightInset = ScaleMetric(4);
+            int separation = ScaleMetric(8);
+            int minimumTrack = ScaleMetric(20);
+            int maximumTimeWidth = Math.Max(1,
+                ClientSize.Width - trackLeft - minimumTrack - separation - rightInset);
+            int timeWidth = Math.Min(measured, maximumTimeWidth);
+            timeBounds = new Rectangle(Math.Max(trackLeft + minimumTrack + separation,
+                    ClientSize.Width - rightInset - timeWidth), 0,
+                timeWidth, ClientSize.Height);
+            int trackWidth = Math.Max(minimumTrack, timeBounds.Left - separation - trackLeft);
+            return new Rectangle(trackLeft, 0, trackWidth, ClientSize.Height);
         }
 
         private int ScaleMetric(int value)
@@ -186,13 +213,18 @@ namespace MidiBottleneck
             if (handler != null) handler(this, new TimelineSeekEventArgs(_positionMicroseconds));
         }
 
-        private static string FormatTime(long microseconds)
+        internal static string FormatTime(long microseconds)
         {
             if (microseconds < 0) microseconds = 0;
             TimeSpan value = TimeSpan.FromTicks(microseconds * 10);
             int totalMinutes = (int)value.TotalMinutes;
             return String.Format(CultureInfo.CurrentCulture, "{0:00}:{1:00}.{2:000}", totalMinutes, value.Seconds, value.Milliseconds);
         }
+
+        internal Rectangle TrackBoundsForTesting { get { return _lastTrackBounds; } }
+        internal Rectangle TimeBoundsForTesting { get { return _lastTimeBounds; } }
+        internal string TimeTextForTesting { get { return _lastTimeText; } }
+        internal int MeasuredTimeWidthForTesting { get { return _lastMeasuredTimeWidth; } }
 
         protected override void Dispose(bool disposing)
         {

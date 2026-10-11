@@ -4,11 +4,11 @@ This is a direction of travel, not a promise of dates. Correct MIDI behavior, de
 
 ## Near term
 
-- Validate Build 43's native Rate popup, tiny-scale fonts, fixed-height layout, and protected soft-limit presentation under ordinary user workloads.
-- Specify Delayed NoteOff source-occurrence, coalescing, retrigger-protection, and lifecycle behavior before exposing the model.
+- Gather post-release experience with Build 44 and choose the next product phase deliberately; do not begin a portability or backend rewrite as incidental maintenance.
 
 ## Recently completed
 
+- **Build 44 — musical traffic control, track routing, and trustworthy shutdown verification:** isolated the native dialog to the synthetic test harness, moved tests onto a real WinForms message loop, added native-window and descendant-process teardown monitoring, fixed forced-override timing/accounting paths, implemented shared Playback/Analysis Delayed NoteOff, added a complete stopped-session track-routing planner/editor and a reversible three-style borderless main window, corrected external-backlog admission, added optional same-worker Pause plus queue-preserving Seek behavior, and completed the default-off Output-paced timeline. The Note start and total Output rate gates combine exact fractional pacing, a bounded batching tolerance, and an exact rolling one-second ceiling so below-limit/high-limit material remains transparent while sustained excess stays bounded. Track routing uses plain MIDI track/channel wording, compiled-channel emphasis, shared GM Patch names, source-channel-global state association, destination-specific patch timelines with clean instrument handoffs, and deterministic global Aggressive representative selection with explicit confirmed omissions. Bounded RIFF/RMID loading and the disclosed unambiguous post-meta running-status repair are included. Channel 10 presents recognized GM2/GS/XG drum-kit names from Bank and Program with a truthful fallback. Borderless resizing forwards child-control edge drags to the native resize path without drawing a border. The final release gate passed 120/120 tests per architecture plus monitored packaged-player launch/close.
 - **Build 43 — presentation and soft-limit clarity:** restored visible noninteractive Rate headings and native selector rendering, improved low-scale font legibility, removed blank standard-window height, restored queue event-count statistics, added a purple over-limit state, and protected required release/safety traffic consistently in Playback and Analysis.
 - **Build 42 — queue-age and presentation controls:** Rate headings are static presentation elements rather than selectable items, each model remembers its own value, zero-interval Per-note processing has deterministic source-time boundaries, Playback and Analysis share an optional waiting-time queue limit, and the main, Analysis, and Channels windows have non-cumulative 50%–200% scaling.
 - **Build 41 — contextual offline Help:** F1 and a title-bar Help command open one reusable guide at the topic associated with the focused main-window control.
@@ -33,17 +33,17 @@ See [CHANGELOG.md](CHANGELOG.md) for the complete history.
 
 ## Needs a product decision
 
-- **Channel override extensions** — presets, requested-versus-forced display, and optional static transformations that Analysis can model.
-- **Track routing** — route tracks onto constrained hardware channels with explicit rules for program/controller conflicts, percussion, and overlapping merged notes.
-- **Other low-resolution presentation modes** — roll-up or non-cumulative scaling without destabilizing the canonical layout. Session-only section hiding is complete.
-- **Note-release and real-time rate ideas** — a delayed matching NoteOff or a separate drop-based Events/sec cap each needs its own note-pairing and safety contract before becoming a control.
+- **Channel override extensions** — the narrow default-off per-Analysis-window forced-override projection is complete and passes frozen monitored x86/x64 acceptance in Build 44; presets, requested-versus-forced display, static transformations, and broader override systems remain deferred.
+
+## Build 44 retained boundaries
+
+- The three borderless styles, child-area invisible-resize path, and narrow per-Analysis-window forced-override projection are complete. Delayed NoteOff melody retention, zero-interval identity, and Output-rate transition/cadence are closed with evidence. The Output ceiling is exact; short graph-bucket peaks and their one-second ledger echo are retained truthful consequences of bounded batch preservation, and no separate musical strategy was justified. Keep waiting-time **Drop background notes** unavailable unless separately safe semantics are demonstrated.
 
 ## Longer-term research or parked work
 
-- legacy-Windows or cross-platform portability;
-- compositor-synchronized rendering;
-- helper-process isolation for permanently blocked native providers;
-- producer/consumer output separation, which would redefine queue and lag semantics;
-- further giant-file pause attribution after storage and paging pressure are reduced.
+- legacy-Windows or cross-platform portability (deferred pending later product decisions);
+- compositor-synchronized rendering (deferred pending later product decisions);
+- producer/consumer output separation, which would redefine queue and lag semantics (deferred pending later product decisions);
+- helper-process MIDI isolation only as part of a future rewrite/backend architecture.
 
 Detailed engineering notes remain in [Opportunities.md](Opportunities.md). User-visible boundaries are listed in [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).

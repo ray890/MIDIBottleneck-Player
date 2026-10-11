@@ -96,7 +96,11 @@ namespace MidiBottleneck
                 Environment.NewLine + Environment.NewLine +
                 "Estimated memory while the MIDI is open: " + FormatBytes(projection.ProjectedRetainedBytes) + Environment.NewLine +
                 "Estimated highest memory use while loading: " + FormatBytes(projection.ProjectedPeakLowBytes) + "–" +
-                    FormatBytes(projection.ProjectedPeakHighBytes) + Environment.NewLine + Environment.NewLine +
+                    FormatBytes(projection.ProjectedPeakHighBytes) + Environment.NewLine +
+                "Estimated memory if Track routing is applied: " +
+                    FormatBytes(projection.ProjectedRetainedWithRoutingBytes) + Environment.NewLine +
+                "Estimated highest memory use while planning/applying a route: " +
+                    FormatBytes(projection.ProjectedRoutingPeakBytes) + Environment.NewLine + Environment.NewLine +
                 "These are estimates. Loading may still fail if enough memory is not available." + risk;
         }
 

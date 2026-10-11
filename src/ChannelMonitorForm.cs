@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
 
@@ -47,6 +48,25 @@ namespace MidiBottleneck
 
     internal sealed class ChannelMonitorForm : Form
     {
+        private const int WmSysCommand = 0x0112;
+        private const int SystemMenuAlwaysOnTop = 0x1F30;
+        private const uint MfString = 0x0000;
+        private const uint MfSeparator = 0x0800;
+        private const uint MfChecked = 0x0008;
+        private const uint MfUnchecked = 0x0000;
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetSystemMenu(IntPtr window, bool revert);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern bool AppendMenu(IntPtr menu, uint flags, UIntPtr identifier, string text);
+
+        [DllImport("user32.dll")]
+        private static extern uint CheckMenuItem(IntPtr menu, uint identifier, uint flags);
+
+        [DllImport("user32.dll")]
+        private static extern bool DrawMenuBar(IntPtr window);
+
         private readonly BufferedDataGridView _grid;
         private Font _applicationFont;
         private Font _historicalFont;
@@ -77,6 +97,39 @@ namespace MidiBottleneck
         internal event EventHandler<ChannelOverrideRequestEventArgs> OverrideRequested;
         internal event EventHandler<ChannelEnabledRequestEventArgs> ChannelEnabledRequested;
         internal event EventHandler<ChannelChaseRequestEventArgs> HistoricalChaseRequested;
+        internal bool AlwaysOnTopForTesting { get { return TopMost; } }
+        internal static int AlwaysOnTopSystemCommandForTesting { get { return SystemMenuAlwaysOnTop; } }
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            IntPtr menu = GetSystemMenu(Handle, false);
+            if (menu == IntPtr.Zero) return;
+            AppendMenu(menu, MfSeparator, UIntPtr.Zero, null);
+            AppendMenu(menu, MfString, (UIntPtr)SystemMenuAlwaysOnTop, "Always on top");
+            UpdateAlwaysOnTopMenuCheck();
+        }
+
+        protected override void WndProc(ref Message message)
+        {
+            if (message.Msg == WmSysCommand &&
+                (message.WParam.ToInt32() & 0xFFF0) == SystemMenuAlwaysOnTop)
+            {
+                TopMost = !TopMost;
+                UpdateAlwaysOnTopMenuCheck();
+                return;
+            }
+            base.WndProc(ref message);
+        }
+
+        private void UpdateAlwaysOnTopMenuCheck()
+        {
+            if (!IsHandleCreated) return;
+            IntPtr menu = GetSystemMenu(Handle, false);
+            if (menu == IntPtr.Zero) return;
+            CheckMenuItem(menu, (uint)SystemMenuAlwaysOnTop, TopMost ? MfChecked : MfUnchecked);
+            DrawMenuBar(Handle);
+        }
 
         internal ChannelMonitorForm(string fileName)
         {
@@ -121,7 +174,7 @@ namespace MidiBottleneck
             string editHelp = " Click to type or drag horizontally. Right-click releases a forced value to historical Auto; right-click a historical value to restore the latest source value for that attribute.";
             AddColumn("BankMsb", "Bank MSB", 72, "Latest successfully dispatched Bank Select MSB (CC0)." + editHelp, ChannelAttribute.BankMsb);
             AddColumn("BankLsb", "Bank LSB", 72, "Latest successfully dispatched Bank Select LSB (CC32)." + editHelp, ChannelAttribute.BankLsb);
-            AddColumn("Program", "Program", 158, "Latest Program Change, displayed as 1–128 with a General MIDI reference name. The actual sound can differ with non-GM banks, soundfonts, and synthesizers." + editHelp, ChannelAttribute.Program);
+            AddColumn("Program", "Program", 158, "Latest Program Change, displayed as 1–128. Melodic channels use General MIDI reference names; Channel 10 uses recognized GM2, GS, or XG drum-kit names from the displayed Bank and otherwise shows a numbered drum-kit fallback. Device-specific sounds can differ." + editHelp, ChannelAttribute.Program);
             AddColumn("Volume", "Volume", 60, "Latest Channel Volume (CC7)." + editHelp, ChannelAttribute.Volume);
             AddColumn("Expression", "Expr", 54, "Latest Expression (CC11)." + editHelp, ChannelAttribute.Expression);
             AddColumn("Pan", "Pan", 48, "Latest Pan (CC10)." + editHelp, ChannelAttribute.Pan);
@@ -371,15 +424,15 @@ namespace MidiBottleneck
                 SetCell(channel, "Sent", state.SentEvents.ToString("N0", CultureInfo.CurrentCulture), false, false);
                 SetCell(channel, "Dropped", state.DroppedEvents.ToString("N0", CultureInfo.CurrentCulture), false, false);
                 SetCell(channel, "Suppressed", state.OverrideSuppressedEvents.ToString("N0", CultureInfo.CurrentCulture), false, false);
-                SetAttributeCell(channel, "BankMsb", ChannelAttribute.BankMsb, state.BankMsb, state);
-                SetAttributeCell(channel, "BankLsb", ChannelAttribute.BankLsb, state.BankLsb, state);
-                SetAttributeCell(channel, "Program", ChannelAttribute.Program, state.Program, state);
-                SetAttributeCell(channel, "Volume", ChannelAttribute.Volume, state.Volume, state);
-                SetAttributeCell(channel, "Expression", ChannelAttribute.Expression, state.Expression, state);
-                SetAttributeCell(channel, "Pan", ChannelAttribute.Pan, state.Pan, state);
-                SetAttributeCell(channel, "Sustain", ChannelAttribute.Sustain, state.Sustain, state);
-                SetAttributeCell(channel, "Bend", ChannelAttribute.PitchBend, state.PitchBend, state);
-                SetAttributeCell(channel, "Aftertouch", ChannelAttribute.Aftertouch, state.ChannelPressure, state);
+                SetAttributeCell(channel, "BankMsb", ChannelAttribute.BankMsb, state);
+                SetAttributeCell(channel, "BankLsb", ChannelAttribute.BankLsb, state);
+                SetAttributeCell(channel, "Program", ChannelAttribute.Program, state);
+                SetAttributeCell(channel, "Volume", ChannelAttribute.Volume, state);
+                SetAttributeCell(channel, "Expression", ChannelAttribute.Expression, state);
+                SetAttributeCell(channel, "Pan", ChannelAttribute.Pan, state);
+                SetAttributeCell(channel, "Sustain", ChannelAttribute.Sustain, state);
+                SetAttributeCell(channel, "Bend", ChannelAttribute.PitchBend, state);
+                SetAttributeCell(channel, "Aftertouch", ChannelAttribute.Aftertouch, state);
                 SetCell(channel, "Position", state.LastDispatchedMicroseconds < 0 ? "—" : FormatClock(state.LastDispatchedMicroseconds), false, state.LastPositionHistorical);
             }
         }
@@ -444,29 +497,51 @@ namespace MidiBottleneck
             _canonicalColumnWidths[name] = width;
         }
 
-        private void SetAttributeCell(int channel, string columnName, ChannelAttribute attribute, int observed, MidiChannelSnapshot state)
+        private void SetAttributeCell(int channel, string columnName, ChannelAttribute attribute,
+            MidiChannelSnapshot state)
         {
             int bit = 1 << (int)attribute;
             bool forced = (state.ForcedAttributeMask & bit) != 0;
             bool pending = (state.PendingForcedAttributeMask & bit) != 0;
             bool historical = !forced && (state.HistoricalAttributeMask & bit) != 0;
-            int displayed = forced ? ForcedValue(state, attribute) : observed;
-            bool sourceDerived = false;
+            bool sourceDerived;
+            int displayed = DisplayedAttributeValue(channel, attribute, state, out sourceDerived);
+            if (sourceDerived) historical = true;
+            string value = FormatAttribute(channel, attribute, displayed);
+            SetCell(channel, columnName, value, forced, historical, pending);
+            if (sourceDerived)
+                _grid.Rows[channel].Cells[columnName].ToolTipText = value + Environment.NewLine +
+                    "Source-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.";
+            if (attribute == ChannelAttribute.Program && channel == 9 && displayed >= 0)
+            {
+                bool ignored;
+                int bankMsb = DisplayedAttributeValue(channel, ChannelAttribute.BankMsb, state, out ignored);
+                int bankLsb = DisplayedAttributeValue(channel, ChannelAttribute.BankLsb, state, out ignored);
+                string reference = GeneralMidiProgramCatalog.ChannelProgramReference(
+                    channel, bankMsb, bankLsb, displayed);
+                DataGridViewCell cell = _grid.Rows[channel].Cells[columnName];
+                cell.ToolTipText = String.IsNullOrEmpty(cell.ToolTipText)
+                    ? reference : cell.ToolTipText + Environment.NewLine + reference;
+            }
+        }
+
+        private int DisplayedAttributeValue(int channel, ChannelAttribute attribute,
+            MidiChannelSnapshot state, out bool sourceDerived)
+        {
+            int bit = 1 << (int)attribute;
+            bool forced = (state.ForcedAttributeMask & bit) != 0;
+            int displayed = forced ? ForcedValue(state, attribute) : ObservedValue(state, attribute);
+            sourceDerived = false;
             if (!forced && IsUnknownAttribute(attribute, displayed) && _sourceReadouts != null)
             {
                 int source = ObservedValue(_sourceReadouts[channel], attribute);
                 if (!IsUnknownAttribute(attribute, source))
                 {
                     displayed = source;
-                    historical = true;
                     sourceDerived = true;
                 }
             }
-            string value = FormatAttribute(attribute, displayed);
-            SetCell(channel, columnName, value, forced, historical, pending);
-            if (sourceDerived)
-                _grid.Rows[channel].Cells[columnName].ToolTipText = value + Environment.NewLine +
-                    "Source-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.";
+            return displayed;
         }
 
         private static bool IsUnknownAttribute(ChannelAttribute attribute, int value)
@@ -570,7 +645,8 @@ namespace MidiBottleneck
                 attribute == ChannelAttribute.PitchBend ? 16 : 1,
                 attribute == ChannelAttribute.PitchBend ? 1 : 8,
                 1, attribute == ChannelAttribute.PitchBend ? 1 : 16, forced, historical,
-                delegate(int value) { return FormatAttribute(attribute, value); }, AttributeHelp(attribute));
+                delegate(int value) { return FormatAttribute(channel, attribute, value); },
+                AttributeHelp(attribute, channel));
             _editor.Visible = true;
             _editor.BringToFront();
             if (button != MouseButtons.None) _editor.BeginPointerGesture(screenPosition, button);
@@ -630,13 +706,15 @@ namespace MidiBottleneck
                 !IsUnknownAttribute(attribute, ObservedValue(_sourceReadouts[channel], attribute));
         }
 
-        private static string AttributeHelp(ChannelAttribute attribute)
+        private static string AttributeHelp(ChannelAttribute attribute, int channel)
         {
             switch (attribute)
             {
                 case ChannelAttribute.BankMsb:
                 case ChannelAttribute.BankLsb: return "0–127. Bank interpretation is synthesizer-specific. Drag one step per eight pixels, or one per sixteen with Shift.";
-                case ChannelAttribute.Program: return "Program 1–128 with a General MIDI reference name; actual sounds may differ. Drag one step per eight pixels, or one per sixteen with Shift.";
+                case ChannelAttribute.Program: return channel == 9
+                    ? "Program 1–128 with a Bank-aware GM2, GS, or XG drum-kit reference when recognized; device-specific mappings can differ. Drag one step per eight pixels, or one per sixteen with Shift."
+                    : "Program 1–128 with a General MIDI reference name; actual sounds may differ. Drag one step per eight pixels, or one per sixteen with Shift.";
                 case ChannelAttribute.Volume: return "MIDI channel volume, 0–127. Drag one step per eight pixels, or one per sixteen with Shift.";
                 case ChannelAttribute.Expression: return "MIDI expression, 0–127. Drag one step per eight pixels, or one per sixteen with Shift.";
                 case ChannelAttribute.Pan: return "0 left, 64 center, 127 right. Drag one step per eight pixels, or one per sixteen with Shift.";
@@ -847,10 +925,24 @@ namespace MidiBottleneck
             }
         }
 
-        private static string FormatAttribute(ChannelAttribute attribute, int value)
+        private string FormatAttribute(int channel, ChannelAttribute attribute, int value)
         {
             if (value == Int32.MinValue || value < 0 && attribute != ChannelAttribute.PitchBend) return "—";
-            if (attribute == ChannelAttribute.Program) return (value + 1).ToString(CultureInfo.CurrentCulture) + " — " + GeneralMidiNames[value];
+            if (attribute == ChannelAttribute.Program)
+            {
+                int bankMsb = -1;
+                int bankLsb = -1;
+                if (_lastChannels != null && channel >= 0 && channel < _lastChannels.Length)
+                {
+                    bool ignored;
+                    bankMsb = DisplayedAttributeValue(channel, ChannelAttribute.BankMsb,
+                        _lastChannels[channel], out ignored);
+                    bankLsb = DisplayedAttributeValue(channel, ChannelAttribute.BankLsb,
+                        _lastChannels[channel], out ignored);
+                }
+                return (value + 1).ToString(CultureInfo.CurrentCulture) + " — " +
+                    GeneralMidiProgramCatalog.ChannelProgramName(channel, bankMsb, bankLsb, value);
+            }
             if (attribute == ChannelAttribute.Sustain) return value == 0 ? "Off" : "On";
             if (attribute == ChannelAttribute.PitchBend) return value.ToString("+#;-#;0", CultureInfo.CurrentCulture);
             return value.ToString(CultureInfo.CurrentCulture);
@@ -861,18 +953,6 @@ namespace MidiBottleneck
             TimeSpan value = TimeSpan.FromTicks(Math.Max(0, microseconds) * 10);
             return ((int)value.TotalMinutes).ToString("00", CultureInfo.InvariantCulture) + ":" + value.Seconds.ToString("00", CultureInfo.InvariantCulture) + "." + value.Milliseconds.ToString("000", CultureInfo.InvariantCulture);
         }
-
-        private static readonly string[] GeneralMidiNames = new string[]
-        {
-            "Acoustic Grand Piano", "Bright Acoustic Piano", "Electric Grand Piano", "Honky-tonk Piano", "Electric Piano 1", "Electric Piano 2", "Harpsichord", "Clavinet", "Celesta", "Glockenspiel", "Music Box", "Vibraphone", "Marimba", "Xylophone", "Tubular Bells", "Dulcimer",
-            "Drawbar Organ", "Percussive Organ", "Rock Organ", "Church Organ", "Reed Organ", "Accordion", "Harmonica", "Tango Accordion", "Acoustic Guitar (nylon)", "Acoustic Guitar (steel)", "Electric Guitar (jazz)", "Electric Guitar (clean)", "Electric Guitar (muted)", "Overdriven Guitar", "Distortion Guitar", "Guitar Harmonics",
-            "Acoustic Bass", "Electric Bass (finger)", "Electric Bass (pick)", "Fretless Bass", "Slap Bass 1", "Slap Bass 2", "Synth Bass 1", "Synth Bass 2", "Violin", "Viola", "Cello", "Contrabass", "Tremolo Strings", "Pizzicato Strings", "Orchestral Harp", "Timpani",
-            "String Ensemble 1", "String Ensemble 2", "Synth Strings 1", "Synth Strings 2", "Choir Aahs", "Voice Oohs", "Synth Voice", "Orchestra Hit", "Trumpet", "Trombone", "Tuba", "Muted Trumpet", "French Horn", "Brass Section", "Synth Brass 1", "Synth Brass 2",
-            "Soprano Sax", "Alto Sax", "Tenor Sax", "Baritone Sax", "Oboe", "English Horn", "Bassoon", "Clarinet", "Piccolo", "Flute", "Recorder", "Pan Flute", "Blown Bottle", "Shakuhachi", "Whistle", "Ocarina",
-            "Lead 1 (square)", "Lead 2 (sawtooth)", "Lead 3 (calliope)", "Lead 4 (chiff)", "Lead 5 (charang)", "Lead 6 (voice)", "Lead 7 (fifths)", "Lead 8 (bass + lead)", "Pad 1 (new age)", "Pad 2 (warm)", "Pad 3 (polysynth)", "Pad 4 (choir)", "Pad 5 (bowed)", "Pad 6 (metallic)", "Pad 7 (halo)", "Pad 8 (sweep)",
-            "FX 1 (rain)", "FX 2 (soundtrack)", "FX 3 (crystal)", "FX 4 (atmosphere)", "FX 5 (brightness)", "FX 6 (goblins)", "FX 7 (echoes)", "FX 8 (sci-fi)", "Sitar", "Banjo", "Shamisen", "Koto", "Kalimba", "Bag Pipe", "Fiddle", "Shanai",
-            "Tinkle Bell", "Agogo", "Steel Drums", "Woodblock", "Taiko Drum", "Melodic Tom", "Synth Drum", "Reverse Cymbal", "Guitar Fret Noise", "Breath Noise", "Seashore", "Bird Tweet", "Telephone Ring", "Helicopter", "Applause", "Gunshot"
-        };
 
         private static int CountControlsOfType<T>(Control parent) where T : Control
         {

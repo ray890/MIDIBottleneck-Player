@@ -10,6 +10,7 @@ $buildDirectory = Join-Path $projectRoot 'build'
 $distributionDirectory = Join-Path $projectRoot 'dist'
 $manifest = Join-Path $projectRoot 'app.manifest'
 $applicationIcon = Join-Path $projectRoot 'assets\icon\MIDIBottleneck Player.ico'
+$nativeWindowMonitor = Join-Path $buildDirectory 'NativeWindowMonitor.exe'
 
 if (-not (Test-Path -LiteralPath $compiler)) {
     throw "The Windows .NET Framework C# compiler was not found at $compiler"
@@ -17,6 +18,11 @@ if (-not (Test-Path -LiteralPath $compiler)) {
 
 New-Item -ItemType Directory -Force -Path $buildDirectory | Out-Null
 New-Item -ItemType Directory -Force -Path $distributionDirectory | Out-Null
+
+if ($Test) {
+    & $compiler /nologo /target:exe /platform:anycpu /optimize+ /warn:4 "/out:$nativeWindowMonitor" (Join-Path $projectRoot 'tools\NativeWindowMonitor.cs')
+    if ($LASTEXITCODE -ne 0) { throw 'Native-window monitor compilation failed.' }
+}
 
 $sourceFiles = @(Get-ChildItem -LiteralPath (Join-Path $projectRoot 'src') -Filter '*.cs' | ForEach-Object { $_.FullName })
 $testSources = @($sourceFiles | Where-Object { [System.IO.Path]::GetFileName($_) -ne 'Program.cs' })
@@ -58,7 +64,16 @@ function Build-Architecture([string]$architecture, [int]$expectedMachine) {
         if (Test-Path -LiteralPath $testConfiguration) {
             Remove-Item -LiteralPath $testConfiguration -Force
         }
-        if ($MidiIntegration) { & $testApplication --midi-integration } else { & $testApplication }
+        $windowProofLog = Join-Path $buildDirectory ("native-window-proof-{0}.jsonl" -f $architecture)
+        & $nativeWindowMonitor --output $windowProofLog --post-exit-ms 2000 --match 'Deliberately identifiable detector proof window' --expect-match -- $testApplication --native-window-monitor-fixture
+        if ($LASTEXITCODE -ne 0) { throw "$architecture native-window detector proof failed." }
+        $processProofLog = Join-Path $buildDirectory ("native-process-proof-{0}.jsonl" -f $architecture)
+        & $nativeWindowMonitor --output $processProofLog --post-exit-ms 2000 --process-match ("MidiBottleneck.Tests-{0}" -f $architecture) --expect-process-match -- $testApplication --native-process-monitor-fixture
+        if ($LASTEXITCODE -ne 0) { throw "$architecture descendant-process detector proof failed." }
+        $windowLog = Join-Path $buildDirectory ("native-window-{0}.jsonl" -f $architecture)
+        $monitorArguments = @('--output', $windowLog, '--post-exit-ms', '5000', '--timeout-ms', '240000', '--', $testApplication)
+        if ($MidiIntegration) { $monitorArguments += '--midi-integration' }
+        & $nativeWindowMonitor $monitorArguments
         if ($LASTEXITCODE -ne 0) { throw "$architecture tests failed." }
     }
 }
