@@ -4,7 +4,7 @@ These are evidence-backed future directions, not promises for a particular relea
 
 ## Near term
 
-Build 44's initial recovery pass validated the mechanics of Build 43's popup, scaling, queue statistics, and protected soft limits, but its former “no player defect” conclusion was too broad. Later user review found concrete presentation defects in grouping, value priority, timestamp measurement, file/output geometry, restoration, alignment, and field colors. Build 44 corrects those defects and implements the accepted Delayed NoteOff, Note start, and Output rate behavior described below. Its final source freeze passed 120/120 monitored tests per architecture plus packaged-player launch/close.
+Build 44 is published and closed. Gather experience with its released executables, then choose the next product phase deliberately. The deferred architectural work below is not an active build and must not begin incidentally.
 
 ## Completed foundations
 
@@ -101,5 +101,5 @@ A bounded GitHub Actions trial was retired because realized WinForms geometry te
 
 - **Output-paced timeline:** completed as a default-off session mode. Logical source time stops at a due event or same-time batch until simulated/native acceptance completes; future timestamps are not admitted and no catch-up burst is built. Playback uses actual synchronous call duration, while Analysis models deterministic service without claiming to predict native-provider blocking.
 - **Deferred pending later product decisions:** compositor synchronization, producer/consumer output separation, portability, and override extensions beyond the accepted narrow per-Analysis-window projection.
-- **Rewrite/backend architecture only:** helper-process MIDI isolation may be reconsidered with a backend rewrite because it changes IPC, timing, SysEx ownership, and output lifetime. It is not current Build 44 implementation work.
+- **Rewrite/backend architecture only:** helper-process MIDI isolation may be reconsidered with a backend rewrite because it changes IPC, timing, SysEx ownership, and output lifetime. It was not Build 44 work and remains rewrite/backend-only.
 - **Static Per-note Analysis:** completed in Build 39 using the shared gate decisions. The only implemented override projection is the narrow default-off per-window Build 44 item stated above.

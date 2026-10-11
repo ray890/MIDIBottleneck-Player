@@ -17,11 +17,12 @@ MIDIBottleneck Player is a Windows MIDI player and deterministic workload simula
 - Optional processing-time, direct events-per-second, MIDI-bitrate, finite-queue, and overflow models, including forward-only dropping without delayed output.
 - A delayed finite-queue choice that can discard an old unsent note together with its matching release, instead of dropping an arbitrary single MIDI event.
 - Live queue, output-rate, lag, effective-speed, and channel statistics.
-- Whole-file Analysis graphs with predicted queue pressure, output completion, and the selected messages from the Per-note interval gate.
+- Whole-file Analysis graphs with predicted queue pressure, output completion, and model-selected messages. Each window can optionally show raw interval counts or project a snapshot of current forced overrides.
 - A 16-channel monitor with safe live overrides and per-channel filtering.
 - Checked-by-default bank, program, controller, bend, pressure, and RPN/NRPN restoration when Play or Seek begins in the middle of a file.
-- A Per-note interval gate for limiting how often each pitch can change state.
-- Responsive compact layout, session-only 50%–200% main-window scaling, and separate x86/x64 executables.
+- Per-note interval, Delayed NoteOff, Note start rate, and total Output rate gates for bandwidth-conscious playback.
+- Session-only Track routing for adapting a MIDI to hardware with a limited set of usable channels.
+- Responsive compact layout, session-only 50%–200% application scaling, an optional three-style borderless main window, and separate x86/x64 executables.
 - Session-only window-menu choices can hide Processing model, Statistics, or both to reclaim vertical space without changing playback settings.
 - Offline Help is available with F1 or the title-bar menu and opens at the topic associated with the focused main-window control.
 - Click or scrub the processing value and queue limit directly. The centered fields fit the number shown; dragging Queue limit is gentle for small limits and quicker for large ones. The Events/sec slider gives finer control at low rates and accepts exact typed rates up to 9,999,999.
@@ -42,7 +43,7 @@ Windows 7 SP1 is untested. Windows XP and cross-platform support are longer-term
 2. Download `MIDIBottleneck-Player-v<version>-x64.exe` for a typical modern system, or the x86 executable when a 32-bit MIDI environment requires it.
 3. Run the downloaded executable. No extraction or adjacent configuration file is required.
 4. Choose an output, then open or drag one `.mid`, `.midi`, or `.rmi` file onto the window.
-5. Leave **Rate model** at **None** and **Queue length limit** off for ordinary uncapped playback. Choose an ordinary rate model to simulate slower output, or choose **Per-note interval gate** to limit pitch changes. Optional title-bar menu choices can apply a forward-only event-count limit or interpret Queue limit as maximum waiting time; those two modes are intentionally mutually exclusive.
+5. Leave **Rate model** at **None** and **Queue length limit** off for ordinary uncapped playback. Choose an ordinary rate model to simulate slower output, or choose one of the four gate models to reduce note or total event traffic. Optional title-bar menu choices can apply a forward-only event-count limit or interpret Queue limit as maximum waiting time; those two modes are intentionally mutually exclusive.
 
 The window menu also enables **Chase MIDI state on Play/Seek** by default. Starting in the middle restores ordinary channel state before later notes without replaying earlier notes.
 

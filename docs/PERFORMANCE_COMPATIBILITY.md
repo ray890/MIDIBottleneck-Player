@@ -55,6 +55,6 @@ Native calls can block for provider-dependent time. The player prevents concurre
 
 ## Analysis boundaries
 
-Analysis predicts simulator service, queue occupancy, overflow, accepted-output completion, and source-end overrun. It does not predict synthesizer voice stealing or release tails, provider-internal buffering, audio-device latency, live Channel Monitor mutes/overrides, or the audible result of a provider's implementation-specific controller behavior.
+Analysis predicts simulator service, queue occupancy, overflow, accepted-output completion, and source-end overrun. It does not predict synthesizer voice stealing or release tails, provider-internal buffering, audio-device latency, live Channel Monitor mutes, or the audible result of a provider's implementation-specific controller behavior. Forced overrides are excluded by default; an Analysis window can optionally project one immutable snapshot of them.
 
 See [Known limitations](KNOWN_LIMITATIONS.md) for the concise compatibility list and [Technical reference](TECHNICAL_REFERENCE.md) for implementation details.
