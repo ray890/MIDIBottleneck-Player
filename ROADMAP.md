@@ -2,9 +2,30 @@
 
 This is a direction of travel, not a promise of dates. Correct MIDI behavior, deterministic results, x86/x64 parity, and safe output lifecycles take priority over feature count.
 
-## Near term
+## Current status
 
-- Gather post-release experience with Build 44 and choose the next product phase deliberately; do not begin a portability or backend rewrite as incidental maintenance.
+- **Version 1 is in maintenance.** Build 44 (`v1.0.44`) is the last planned feature build of the current Windows .NET player. No further v1 feature builds are planned.
+- **v1.0.44 is the frozen reference.** Its behavior, source, and tests define exactly what the planned version 2 must reproduce.
+- **Next phase:** version 2, Milestone 1. Its scope will be defined separately before any work begins.
+
+## Version 2 plan
+
+Version 2 (numbered 2.x) is a rewrite, not a feature build. These decisions are recorded now; none of this work has started.
+
+- **Goal:** reproduce v1.0.44 behavior exactly, with equal or better performance, including memory and processor cost per MIDI event for very large files.
+- **Design:** one portable, optimized C++17 core shared by thin frontends for each platform. The core itself never calls the operating system directly; a small platform layer supplies timers, threads, file access, and MIDI output.
+- **Proving parity:** a comparison harness will play the same deterministic test files through v1 and v2, record every emitted MIDI message and its timing, and compare the results. v1's source and tests are the reference.
+- **Platform order:** Windows first, with a plain Win32 interface; then Android, Linux, macOS, and possibly a web version.
+- **Android order:** the standard Android MIDI system first (on Android 6 and later it already supports ordinary class-compliant USB MIDI devices), then wider USB MIDI device support, then an optional built-in BASSMIDI synthesizer for Android only. BASSMIDI would need a third-party license review and an explicit exception to the current rule that releases never bundle a synthesizer. Users would supply their own SoundFonts.
+- **Windows XP SP3:** occasional builds, not every release, which may lag behind the main core. C++17 was chosen partly so that XP-capable compilers remain possible. XP gets its own fallbacks—a smaller maximum file size because of 32-bit memory limits, coarser timers, and no newer processor instructions—without making any other build worse. XP support continues only while recorded evidence shows it causes no meaningful harm elsewhere, and its cost is logged.
+- **Windows 98 SE:** an experimental one-time fork. The core is never degraded for it. A later 98 SE build is possible only as a fresh downport from the then-current core, following a recorded downport recipe.
+- **Development and publication:** version 2 is developed privately and will not be published until it matches v1's features. When it is published, the v1 files will move into a v1 archive folder.
+
+### Version 2 requirements found while testing Build 44
+
+- **Integrated header redesign.** In v1.0.44 the Integrated header is still a separate 24-pixel strip (≡, "File and output", —, □, ×) above the File and output box, so it occupies its own row. The intended design puts the window controls inside rows that already exist—for example ≡ before **Open MIDI…** and —, □, × at the right end of the file-name row—with no separate strip or box heading, making the window shorter by the strip's height. Dragging or double-clicking the file name or an empty area would move or maximize the window. The Auto-hide overlay is close to this intent.
+- **Resize cursor feedback.** In borderless mode, v2 must show the correct resize pointer at every invisible edge and corner, including where player controls cover the edge. (See the v1 limitation below.)
+- **When output falls behind.** v2 may offer a choice of what happens when the MIDI output cannot keep up: catch up (the current default), Output-paced timeline (the existing option, keeping its name), and possible new choices—gradual recovery, smoothed catch-up, waiting a bounded time and then skipping ahead with state chase, or adaptive tempo. The new choices are candidates that still need specification, not commitments.
 
 ## Recently completed
 
@@ -33,17 +54,19 @@ See [CHANGELOG.md](CHANGELOG.md) for the complete history.
 
 ## Needs a product decision
 
-- **Channel override extensions** — the narrow default-off per-Analysis-window forced-override projection is complete and passes frozen monitored x86/x64 acceptance in Build 44; presets, requested-versus-forced display, static transformations, and broader override systems remain deferred.
+- **Channel override extensions** — the narrow default-off per-Analysis-window forced-override projection is complete and passes frozen monitored x86/x64 acceptance in Build 44; presets, requested-versus-forced display, static transformations, and broader override systems remain deferred and would now be considered for version 2.
 
 ## Build 44 retained boundaries
 
-- The three borderless styles, child-area invisible-resize path, and narrow per-Analysis-window forced-override projection are complete. Delayed NoteOff melody retention, zero-interval identity, and Output-rate transition/cadence are closed with evidence. The Output ceiling is exact; short graph-bucket peaks and their one-second ledger echo are retained truthful consequences of bounded batch preservation, and no separate musical strategy was justified. Keep waiting-time **Drop background notes** unavailable unless separately safe semantics are demonstrated.
+- All three borderless styles are implemented, and invisible edges and corners can be dragged to resize even where player controls cover them. Two differences from the intended design remain and are moved to version 2: the Integrated header is still a separate strip rather than controls placed inside existing rows, and the pointer does not change to a resize arrow over edges covered by player controls, although dragging there still resizes. The narrow per-Analysis-window forced-override projection is complete. Delayed NoteOff melody retention, zero-interval identity, and Output-rate transition/cadence are closed with evidence. The Output ceiling is exact; short graph-bucket peaks and their one-second ledger echo are retained truthful consequences of bounded batch preservation, and no separate musical strategy was justified. Keep waiting-time **Drop background notes** unavailable unless separately safe semantics are demonstrated.
 
-## Longer-term research or parked work
+## Version 2 design questions
 
-- legacy-Windows or cross-platform portability (deferred pending later product decisions);
-- compositor-synchronized rendering (deferred pending later product decisions);
-- producer/consumer output separation, which would redefine queue and lag semantics (deferred pending later product decisions);
-- helper-process MIDI isolation only as part of a future rewrite/backend architecture.
+These formerly deferred items will be decided as part of the version 2 design, not added to v1:
+
+- portability, now addressed by the version 2 plan above;
+- compositor-synchronized rendering;
+- producer/consumer output separation, which would redefine queue and lag semantics;
+- helper-process MIDI isolation, as part of the version 2 output backend.
 
 Detailed engineering notes remain in [Opportunities.md](Opportunities.md). User-visible boundaries are listed in [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).

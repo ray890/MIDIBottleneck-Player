@@ -4,7 +4,27 @@ These are evidence-backed future directions, not promises for a particular relea
 
 ## Near term
 
-Build 44 is published and closed. Gather experience with its released executables, then choose the next product phase deliberately. The deferred architectural work below is not an active build and must not begin incidentally.
+Build 44 is published and closed. The .NET v1 line is now in maintenance, and no further v1 feature builds are planned. v1.0.44 (commit `3f108be`) is the frozen behavioral reference for version 2. The next phase is version 2, Milestone 1, which will be scoped separately before any work begins. Nothing in this file is an active build, and v1 behavior is not being changed to address the version 2 requirements below.
+
+## Version 2 rewrite plan
+
+These are recorded product decisions, not started work.
+
+- **Frozen reference.** v1.0.44 behavior, source, and tests are the specification. Version 2 must reproduce that behavior exactly.
+- **Architecture.** A portable, optimized C++17 core with thin per-platform frontends. The core makes no direct operating-system calls; a platform layer supplies timers, threads, file access, and MIDI output.
+- **Performance.** Equal or better than v1.0.44, including memory and processor cost per event for very large files. The v1 compact segmented storage and direct parser remain the baseline to match or beat.
+- **Parity evidence.** A comparison harness records emitted MIDI messages and their timing for deterministic fixtures under v1 and v2 and compares them. Agreement on those recordings, not visual similarity, is the proof of parity.
+- **Platform order.** Windows first with a plain Win32 frontend, then Android, Linux, macOS, and possibly web.
+- **Android sequence.** First the Android MIDI API, which already covers class-compliant USB MIDI devices on Android 6 and later; then additional USB MIDI support beyond that; then an optional integrated BASSMIDI output for Android only. BASSMIDI requires a third-party license review and an explicit exception to the current policy that releases never bundle a synthesizer. Users would supply their own SoundFonts.
+- **Windows XP SP3.** Occasional builds rather than every release, which may lag the main core. C++17 was chosen so XP-capable compilers remain possible. XP receives fallbacks—a 32-bit memory limit and therefore a smaller maximum file size, coarser timers, and no newer processor instruction sets—without degrading other builds. XP support continues only while real recorded evidence shows no meaningful harm elsewhere; an XP cost log records that evidence.
+- **Windows 98 SE.** An experimental one-time fork. The core is never degraded for it. A later 98 SE build is possible only as a fresh downport from the then-current core, following a recorded downport recipe.
+- **Development and publication.** Version 2 is numbered 2.x, developed privately, and not published until it reaches v1 feature parity. At publication, the v1 files move into a v1 archive folder.
+
+### Version 2 requirements from Build 44 testing
+
+- **Integrated header.** In v1.0.44 the Integrated header is a separate 24-pixel strip (≡, "File and output", —, □, ×) over the File and output box, so it still occupies its own row. The intended design places window controls inline with existing rows—for example ≡ before **Open MIDI…** and —/□/× at the right end of the file-name row—with no separate strip and no box heading, so the window is shorter by the strip's height. Dragging and double-clicking work on the file name or empty area. The Auto-hide overlay is close to this intent.
+- **Resize cursor.** In v1.0.44, invisible-edge resizing works by dragging, but the pointer does not change to a resize cursor while hovering over edges covered by player controls. The main form answers the Windows hit-test only over its own uncovered area, and the child-control message filter intercepts only the left-button press. Version 2 must show correct resize-cursor feedback everywhere along the invisible edges and corners.
+- **Output-paced timeline.** The name is retained. A possible version 2 design area, "When output falls behind," would offer catch up (the current default) and output-paced (the existing option), plus candidates that need specification and are not commitments: gradual recovery, smoothed catch-up, a bounded wait followed by skipping ahead with state chase, and adaptive tempo.
 
 ## Completed foundations
 
@@ -14,7 +34,6 @@ Build 44 is published and closed. Gather experience with its released executable
 - **Build 27 — compact final event store:** uses immutable 40-byte record segments and a segmented long-payload store. Playback and Analysis read compact views without per-event object allocation.
 - **Build 28 — direct compact parser:** parses bounded track streams into provisional segments, merges directly into the final store, and segments tempo/source histories. No runtime configuration sidecar remains.
 - **Build 29 — large-file preflight:** scans only files large enough to justify a second pass, then estimates open-file and loading-peak memory from exact SMF counts.
-- **Build 44 — bounded MIDI compatibility:** opens bare SMF and RIFF/RMID payloads through one bounded source view shared by preflight and production. One deterministic post-meta running-status repair is counted and disclosed; ambiguous malformed input stays strict.
 - **Build 30 — human-facing refinement:** clarifies memory warnings, gate statistics, downloads, documentation, release history, and roadmap. Effective speed now uses a monotonic gate-progress frontier.
 - **Build 31 — queue-state correctness:** distinguishes real blocked-output backlog from virtual rate-model pressure and applies forward-only Drop newest/complete-note decisions without delaying accepted MIDI.
 - **Build 33 — direct event rate:** adds a third visible rate model with an integer rational clock shared by playback, virtual forward admission, and Analysis. Rejected work consumes no service phase, zero is unlimited/immediate, and active edits use a same-position generation restart.
@@ -29,6 +48,7 @@ Build 44 is published and closed. Gather experience with its released executable
 - **Build 42 — queue-age and presentation controls:** grouped Rate headings are static popup text and are absent from the ComboBox's selectable/accessibility item model; None and all four active models retain independent values. Zero Per-note intervals resolve at source timestamps. A default-off waiting-time queue limit shares strict age and overflow decisions with Analysis. Session-only 50%–200% scaling for the main, Analysis, and Channels windows is recalculated from canonical 100% measurements.
 - **Build 43 — presentation and protected pressure:** the grouped popup rendered static headings while the collapsed Rate field used native themed rendering, but the headings did not create sufficiently perceptible grouping and several small-scale/layout defects remained. Tahoma/Lucida Console improved 50%/75% readability, standard height became content-locked, Queue now/max remained an event count, and purple identified required protected traffic above a soft limit. Playback and Analysis preserved the same protected-admission decisions.
 - **Build 44 — shutdown observability and Channels acknowledgement:** the test process now uses a real `Application.Run` lifecycle, and full x86/x64 gates monitor native top-level windows plus descendant error-reporting processes through post-exit teardown. The former popup-triggered `0xC0020001` fault was test-harness-only; the packaged player remained clean. A forced-value acknowledgement race found by the frozen gate now preserves truthful historical provenance when Auto wins the boundary.
+- **Build 44 — bounded MIDI compatibility:** opens bare SMF and RIFF/RMID payloads through one bounded source view shared by preflight and production. One deterministic post-meta running-status repair is counted and disclosed; ambiguous malformed input stays strict.
 - **Build 44 — Bank-aware percussion presentation:** Channel 10 combines its effective displayed Bank and Program for recognized GM2, GS, and XG drum-kit names, keeps the 1-based Program visible, and uses a qualified numbered fallback for device-specific or unknown mappings. Other channels retain the shared melodic General MIDI catalog.
 
 Build 37 compared the older finite policies with Build 34 on the same bounded 120,000-event synthetic fixture. The Build 35 linked-node path showed a local Analysis slowdown, especially for Drop oldest. A segmented FIFO now handles policies that do not need complete-note eviction. This recovered much, but not all, of the baseline time, with matching projected drop and occupancy decisions and zero measured Gen0 collections. Further throughput conclusions require representative repeated workloads; this is not a claim about native provider speed.
@@ -61,13 +81,18 @@ Both parsers retain bounded track/instrument names, and the planner presents eve
 
 Completed for **Drop newest** and **Drop incoming complete notes**. Playback and Analysis share the bounded pressure model, accepted output is not delayed, and real native/scheduler backlog is displayed separately. Drop oldest and clear/catch-up still require a simulated delayed rate model; supporting them without delay would require an ordered producer/consumer contract and cannot honestly be emulated after output is sent.
 
+### Output-paced timeline
+
+Completed in Build 44 as a default-off session mode. Logical source time stops at a due event or same-time batch until simulated/native acceptance completes; future timestamps are not admitted and no catch-up burst is built. Playback uses actual synchronous call duration, while Analysis models deterministic service without claiming to predict native-provider blocking. A broader "When output falls behind" choice is a version 2 design area, described above.
+
 ## Presentation decisions
 
 ### Scaling and alternate main-window mode
 
 - Hiding Statistics or Processing controls is complete in Build 36; the canonical shown-both layout and native DPI measurements remain authoritative.
 - Build 42 applies 50%, 75%, 100%, 125%, 150%, and 200% non-cumulatively to all three application windows on top of the current Windows DPI. The main window preserves responsive transitions and hidden sections; Analysis preserves its split/report/graph geometry and scales graph painting; Channels preserves automatic fitting or the user's manual window/column geometry. Repeated cycling and exact 100% restoration are covered.
-- Build 44 implements the accepted default-off, session-only borderless/chromeless main window with a compact title strip, an integrated File and output header, and a non-shifting auto-hide overlay. All three retain native moving/snapping, taskbar/Alt-Tab identity, keyboard-accessible window controls, and exact native-frame bounds/state restoration. A real child-input path forwards invisible edge/corner drags to native resizing without drawing a border. Automated tests cover that production mapping and lifecycle, while human pointer testing remains the final feel check. Analysis and Channels retain native frames.
+- Build 44 implements all three styles of the default-off, session-only borderless/chromeless main window: a compact title strip, an integrated File and output header, and a non-shifting auto-hide overlay. All three retain native moving/snapping, taskbar/Alt-Tab identity, keyboard-accessible window controls, and exact native-frame bounds/state restoration. A real child-input path forwards invisible edge/corner drags to native resizing without drawing a border. Analysis and Channels retain native frames.
+- Human testing after release found two gaps, both moved to version 2 rather than changed in v1. The Integrated header does not match the intended design: it is still a separate 24-pixel strip above the File and output box instead of controls placed inline with existing rows. Resize-cursor feedback is incomplete: dragging an edge covered by a player control resizes correctly, but hovering there does not show a resize pointer, because only the left-button press is forwarded from child controls. See the version 2 requirements above.
 
 Build 32's placement audit kept these controls in the system menu at the time. Build 40 moved Per-note gate into the grouped Rate model dropdown and removed the separate slowdown checkbox. Forward-only queue admission, state chase, and Always on top remain in the system menu.
 
@@ -97,9 +122,8 @@ The public repository uses explicit first-party packaging and explicit `main`/ta
 
 A bounded GitHub Actions trial was retired because realized WinForms geometry tests depend on interactive desktop, font, and working-area metrics. Future CI should separate display-independent tests or provide a controlled interactive desktop instead of weakening layout assertions.
 
-## Longer-term / high-risk research
+## Version 2 design questions and longer-term research
 
-- **Output-paced timeline:** completed as a default-off session mode. Logical source time stops at a due event or same-time batch until simulated/native acceptance completes; future timestamps are not admitted and no catch-up burst is built. Playback uses actual synchronous call duration, while Analysis models deterministic service without claiming to predict native-provider blocking.
-- **Deferred pending later product decisions:** compositor synchronization, producer/consumer output separation, portability, and override extensions beyond the accepted narrow per-Analysis-window projection.
-- **Rewrite/backend architecture only:** helper-process MIDI isolation may be reconsidered with a backend rewrite because it changes IPC, timing, SysEx ownership, and output lifetime. It was not Build 44 work and remains rewrite/backend-only.
+- **Version 2 design questions:** compositor synchronization, producer/consumer output separation, and portability (now addressed by the version 2 plan above) will be decided within the version 2 design rather than added to v1. Override extensions beyond the accepted narrow per-Analysis-window projection would also be considered there.
+- **Version 2 output backend:** helper-process MIDI isolation may be reconsidered as part of the version 2 backend because it changes IPC, timing, SysEx ownership, and output lifetime. It was not Build 44 work and will not be added to v1.
 - **Static Per-note Analysis:** completed in Build 39 using the shared gate decisions. The only implemented override projection is the narrow default-off per-window Build 44 item stated above.
