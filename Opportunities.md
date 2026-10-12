@@ -4,11 +4,11 @@ These are evidence-backed future directions, not promises for a particular relea
 
 ## Near term
 
-Build 44 is published and closed. The .NET v1 line is now in maintenance, and no further v1 feature builds are planned. v1.0.44 (commit `3f108be`) is the frozen behavioral reference for version 2. The next phase is version 2, Milestone 1, which will be scoped separately before any work begins. Nothing in this file is an active build, and v1 behavior is not being changed to address the version 2 requirements below.
+Build 44 is published and closed. The .NET v1 line is now in maintenance, and no further v1 feature builds are planned. v1.0.44 (commit `3f108be`) is the frozen behavioral reference for version 2. Version 2 development is under way privately on a local branch; milestone status is tracked privately, and version 2 will be published only at v1 feature parity. Nothing in this file is an active build, and v1 behavior is not being changed to address the version 2 requirements below.
 
 ## Version 2 rewrite plan
 
-These are recorded product decisions, not started work.
+These are the recorded product decisions guiding the private version 2 development.
 
 - **Frozen reference.** v1.0.44 behavior, source, and tests are the specification. Version 2 must reproduce that behavior exactly.
 - **Architecture.** A portable, optimized C++17 core with thin per-platform frontends. The core makes no direct operating-system calls; a platform layer supplies timers, threads, file access, and MIDI output.

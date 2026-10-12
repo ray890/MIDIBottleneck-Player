@@ -6,11 +6,11 @@ This is a direction of travel, not a promise of dates. Correct MIDI behavior, de
 
 - **Version 1 is in maintenance.** Build 44 (`v1.0.44`) is the last planned feature build of the current Windows .NET player. No further v1 feature builds are planned.
 - **v1.0.44 is the frozen reference.** Its behavior, source, and tests define exactly what the planned version 2 must reproduce.
-- **Next phase:** version 2, Milestone 1. Its scope will be defined separately before any work begins.
+- **Version 2 is under way privately.** Development happens on a private local branch, and milestone status is tracked privately. Version 2 will be published only when it matches v1's features.
 
 ## Version 2 plan
 
-Version 2 (numbered 2.x) is a rewrite, not a feature build. These decisions are recorded now; none of this work has started.
+Version 2 (numbered 2.x) is a rewrite, not a feature build. These are the recorded decisions guiding the private version 2 development.
 
 - **Goal:** reproduce v1.0.44 behavior exactly, with equal or better performance, including memory and processor cost per MIDI event for very large files.
 - **Design:** one portable, optimized C++17 core shared by thin frontends for each platform. The core itself never calls the operating system directly; a small platform layer supplies timers, threads, file access, and MIDI output.
