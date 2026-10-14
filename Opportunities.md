@@ -10,10 +10,10 @@ Build 44 is published and closed. The .NET v1 line is now in maintenance, and no
 
 These are the recorded product decisions guiding the private version 2 development.
 
-- **Frozen reference.** v1.0.44 behavior, source, and tests are the specification. Version 2 must reproduce that behavior exactly.
+- **Frozen reference.** v1.0.44 behavior, source, and tests define the features version 2 carries over. Version 2 keeps every v1 feature and makes it work as intended, with bug fixes, performance and quality improvements (timing precision, overhead, clearer messages, cleaner code). It is never made worse just to match v1.
 - **Architecture.** A portable, optimized C++17 core with thin per-platform frontends. The core makes no direct operating-system calls; a platform layer supplies timers, threads, file access, and MIDI output.
 - **Performance.** Equal or better than v1.0.44, including memory and processor cost per event for very large files. The v1 compact segmented storage and direct parser remain the baseline to match or beat.
-- **Parity evidence.** A comparison harness records emitted MIDI messages and their timing for deterministic fixtures under v1 and v2 and compares them. Agreement on those recordings, not visual similarity, is the proof of parity.
+- **Parity evidence.** A comparison harness records emitted MIDI messages and their timing for deterministic fixtures under v1 and v2 and compares them. Every difference must be an intended, recorded improvement, and an unexplained difference is a failure; the recordings, not visual similarity, are the evidence.
 - **Platform order.** Windows first with a plain Win32 frontend, then Android, Linux, macOS, and possibly web.
 - **Android sequence.** First the Android MIDI API, which already covers class-compliant USB MIDI devices on Android 6 and later; then additional USB MIDI support beyond that; then an optional integrated BASSMIDI output for Android only. BASSMIDI requires a third-party license review and an explicit exception to the current policy that releases never bundle a synthesizer. Users would supply their own SoundFonts.
 - **Windows XP SP3.** Occasional builds rather than every release, which may lag the main core. C++17 was chosen so XP-capable compilers remain possible. XP receives fallbacks—a 32-bit memory limit and therefore a smaller maximum file size, coarser timers, and no newer processor instruction sets—without degrading other builds. XP support continues only while real recorded evidence shows no meaningful harm elsewhere; an XP cost log records that evidence.
@@ -24,7 +24,7 @@ These are the recorded product decisions guiding the private version 2 developme
 
 - **Integrated header.** In v1.0.44 the Integrated header is a separate 24-pixel strip (≡, "File and output", —, □, ×) over the File and output box, so it still occupies its own row. The intended design places window controls inline with existing rows—for example ≡ before **Open MIDI…** and —/□/× at the right end of the file-name row—with no separate strip and no box heading, so the window is shorter by the strip's height. Dragging and double-clicking work on the file name or empty area. The Auto-hide overlay is close to this intent.
 - **Resize cursor.** In v1.0.44, invisible-edge resizing works by dragging, but the pointer never changes to a resize cursor while hovering over an edge or corner, in any borderless style. The main form's own edge hit-test never takes effect because child controls (the fill-docked root layout and the chrome panels) cover its entire client area, and the child-control message filter intercepts only the left-button press. Version 2 must show correct resize-cursor feedback everywhere along the invisible edges and corners.
-- **Output-paced timeline.** The name is retained. A possible version 2 design area, "When output falls behind," would offer catch up (the current default) and output-paced (the existing option), plus candidates that need specification and are not commitments: gradual recovery, smoothed catch-up, a bounded wait followed by skipping ahead with state chase, and adaptive tempo.
+- **Output-paced timeline.** The name is retained.
 
 ## Completed foundations
 

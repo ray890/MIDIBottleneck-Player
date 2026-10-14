@@ -5,16 +5,16 @@ This is a direction of travel, not a promise of dates. Correct MIDI behavior, de
 ## Current status
 
 - **Version 1 is in maintenance.** Build 44 (`v1.0.44`) is the last planned feature build of the current Windows .NET player. No further v1 feature builds are planned.
-- **v1.0.44 is the frozen reference.** Its behavior, source, and tests define exactly what the planned version 2 must reproduce.
+- **v1.0.44 is the frozen reference.** Its behavior, source, and tests define the features the planned version 2 carries over, and serve as a reference for checking and testing version 2.
 - **Version 2 is under way privately.** Development happens on a private local branch, and milestone status is tracked privately. Version 2 will be published only when it matches v1's features.
 
 ## Version 2 plan
 
 Version 2 (numbered 2.x) is a rewrite, not a feature build. These are the recorded decisions guiding the private version 2 development.
 
-- **Goal:** reproduce v1.0.44 behavior exactly, with equal or better performance, including memory and processor cost per MIDI event for very large files.
+- **Goal:** all v1.0.44 features, with bug fixes, performance and quality improvements: better timing precision, lower memory and processor cost per MIDI event for very large files, clearer messages, and cleaner code. Version 2 is never made worse just to match v1.
 - **Design:** one portable, optimized C++17 core shared by thin frontends for each platform. The core itself never calls the operating system directly; a small platform layer supplies timers, threads, file access, and MIDI output.
-- **Proving parity:** a comparison harness will play the same deterministic test files through v1 and v2, record every emitted MIDI message and its timing, and compare the results. v1's source and tests are the reference.
+- **Checking against v1:** a comparison harness plays the same deterministic test files through v1 and v2, records every emitted MIDI message and its timing, and compares the results. Every difference must be an intended, recorded improvement; an unexplained difference is treated as a failure. v1's source and tests serve as the functional reference and a source of test cases.
 - **Platform order:** Windows first, with a plain Win32 interface; then Android, Linux, macOS, and possibly a web version.
 - **Android order:** the standard Android MIDI system first (on Android 6 and later it already supports ordinary class-compliant USB MIDI devices), then wider USB MIDI device support, then an optional built-in BASSMIDI synthesizer for Android only. BASSMIDI would need a third-party license review and an explicit exception to the current rule that releases never bundle a synthesizer. Users would supply their own SoundFonts.
 - **Windows XP SP3:** occasional builds, not every release, which may lag behind the main core. C++17 was chosen partly so that XP-capable compilers remain possible. XP gets its own fallbacks—a smaller maximum file size because of 32-bit memory limits, coarser timers, and no newer processor instructions—without making any other build worse. XP support continues only while recorded evidence shows it causes no meaningful harm elsewhere, and its cost is logged.
@@ -25,7 +25,6 @@ Version 2 (numbered 2.x) is a rewrite, not a feature build. These are the record
 
 - **Integrated header redesign.** In v1.0.44 the Integrated header is still a separate 24-pixel strip (≡, "File and output", —, □, ×) above the File and output box, so it occupies its own row. The intended design puts the window controls inside rows that already exist—for example ≡ before **Open MIDI…** and —, □, × at the right end of the file-name row—with no separate strip or box heading, making the window shorter by the strip's height. Dragging or double-clicking the file name or an empty area would move or maximize the window. The Auto-hide overlay is close to this intent.
 - **Resize cursor feedback.** In borderless mode, v2 must show the correct resize pointer at every invisible edge and corner, including where player controls cover the edge. (See the v1 limitation below.)
-- **When output falls behind.** v2 may offer a choice of what happens when the MIDI output cannot keep up: catch up (the current default), Output-paced timeline (the existing option, keeping its name), and possible new choices—gradual recovery, smoothed catch-up, waiting a bounded time and then skipping ahead with state chase, or adaptive tempo. The new choices are candidates that still need specification, not commitments.
 
 ## Recently completed
 
