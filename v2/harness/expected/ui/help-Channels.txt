@@ -1,0 +1,5 @@
+Open Channels from Analysis to inspect 16 MIDI channels. Ordinary values are those the player observed sending. Blue bold values are forced overrides. Gray italic values are historical source or former-output information, not proof of current sound.
+
+Program numbers remain visible. Melodic channels use General MIDI instrument references. Channel 10 instead uses the displayed Bank and Program to name recognized GM2, GS, and XG drum kits; an unknown combination is shown as a numbered drum kit. Device-specific mappings can differ.
+
+Click a value to type or drag it. Right-click a forced value to release it to Auto; right-click a historical value to request one source-derived value through the ordered output path. Click Ch to mute or unmute that channel. Muting sends safety releases and filters later source channel messages.

@@ -1,0 +1,102 @@
+trace-format 1
+mode full
+[file]
+size 3101
+container smf
+[preflight]
+status ok
+format 1
+tracks 12
+division 480
+dispatchable-events 24
+note-ons 12
+final-long-payload-bytes 0
+provisional-payload-bytes 0
+tempo-changes 0
+source-value-entries 0
+chase-state-entries 0
+chase-parameter-value-entries 0
+running-status-repairs 0
+routing-lanes 12
+routing-patch-state-events 0
+routing-patch-timeline-upper-bound 0
+routing-generated-state-upper-bound 36
+track 0 events 2 payload-bytes 0 tempo-changes 0
+track 1 events 2 payload-bytes 0 tempo-changes 0
+track 2 events 2 payload-bytes 0 tempo-changes 0
+track 3 events 2 payload-bytes 0 tempo-changes 0
+track 4 events 2 payload-bytes 0 tempo-changes 0
+track 5 events 2 payload-bytes 0 tempo-changes 0
+track 6 events 2 payload-bytes 0 tempo-changes 0
+track 7 events 2 payload-bytes 0 tempo-changes 0
+track 8 events 2 payload-bytes 0 tempo-changes 0
+track 9 events 2 payload-bytes 0 tempo-changes 0
+track 10 events 2 payload-bytes 0 tempo-changes 0
+track 11 events 2 payload-bytes 0 tempo-changes 0
+source-slots 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+routing-note-lanes-by-channel 12 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+routing-patch-state-by-channel 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+estimate ptr4 retained 67824 peak-low 1183936 peak-high 1244544 provisional 2208 merge-workspace 1114496 names 7200 routing-retained 10152 routing-peak 11232 retained-with-routing 77976 routing-peak-total 79056 warning-threshold 1073741824 architecture-risk 0 requires-warning 0
+estimate ptr8 retained 128144 peak-low 1245120 peak-high 1365760 provisional 3072 merge-workspace 1114496 names 7488 routing-retained 13224 routing-peak 14544 retained-with-routing 141368 routing-peak-total 142688 warning-threshold 4294967296 architecture-risk 0 requires-warning 0
+requires-preflight ptr4 0 ptr8 0
+[song]
+status ok
+format 1
+tracks 12
+division 480
+note-count 12
+running-status-repairs 0
+duration-us 16667
+events 24
+payload-bytes 0
+track 0 name "Lead Piano" name-truncated 0 instrument "Acou Grand" instrument-truncated 0
+track 1 name "Caf\u00E9 \u00C3(" name-truncated 0 instrument "\u00C9t\u00E9 \u65E5\u672C" instrument-truncated 0
+track 2 name "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" name-truncated 1 instrument "\uD83C\uDFB9 keys" instrument-truncated 0
+track 3 name "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" name-truncated 1 instrument "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy" instrument-truncated 0
+track 4 name "\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9\u00C3\u00A9" name-truncated 1 instrument "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz" instrument-truncated 1
+track 5 name "Second Name" name-truncated 0 instrument "Strings" instrument-truncated 0
+track 6 name "\uFEFFA B C\u180ED E F G H I J K L\u200BM N" name-truncated 0 instrument "" instrument-truncated 0
+track 7 name "He said \"hi\" \\ ok" name-truncated 0 instrument "\u00C0\u00AFA" instrument-truncated 0
+track 8 name "S\u00ED T" name-truncated 0 instrument "\u00F4" instrument-truncated 0
+track 9 name "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn" name-truncated 1 instrument "iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii" instrument-truncated 1
+track 10 name "" name-truncated 0 instrument "" instrument-truncated 0
+track 11 name "\uFFFE\uFFFF end" name-truncated 0 instrument "\uFEFF" instrument-truncated 0
+[tempo]
+count 0
+[events]
+count 24
+e 0 0 0 0 NoteOn 0 90 3 903C40
+e 1 0 0 1 NoteOn 0 90 3 903C40
+e 2 0 0 2 NoteOn 0 90 3 903C40
+e 3 0 0 3 NoteOn 0 90 3 903C40
+e 4 0 0 4 NoteOn 0 90 3 903C40
+e 5 0 0 5 NoteOn 0 90 3 903C40
+e 6 0 0 6 NoteOn 0 90 3 903C40
+e 7 0 0 7 NoteOn 0 90 3 903C40
+e 8 0 0 8 NoteOn 0 90 3 903C40
+e 9 0 0 9 NoteOn 0 90 3 903C40
+e 10 0 0 10 NoteOn 0 90 3 903C40
+e 11 0 0 11 NoteOn 0 90 3 903C40
+e 12 16 16667 0 NoteOff 0 80 3 803C00
+e 13 16 16667 1 NoteOff 0 80 3 803C00
+e 14 16 16667 2 NoteOff 0 80 3 803C00
+e 15 16 16667 3 NoteOff 0 80 3 803C00
+e 16 16 16667 4 NoteOff 0 80 3 803C00
+e 17 16 16667 5 NoteOff 0 80 3 803C00
+e 18 16 16667 6 NoteOff 0 80 3 803C00
+e 19 16 16667 7 NoteOff 0 80 3 803C00
+e 20 16 16667 8 NoteOff 0 80 3 803C00
+e 21 16 16667 9 NoteOff 0 80 3 803C00
+e 22 16 16667 10 NoteOff 0 80 3 803C00
+e 23 16 16667 11 NoteOff 0 80 3 803C00
+[source-index]
+count 0
+[chase-index]
+entries 0 parameter-series 0
+[source-query]
+[chase-readouts]
+[chase-messages]
+final -
+[chase-messages-filtered]
+final -
+[end]

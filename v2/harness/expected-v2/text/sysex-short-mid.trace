@@ -1,0 +1,79 @@
+trace-format 1
+mode full
+[file]
+size 134
+container smf
+[preflight]
+status ok
+format 1
+tracks 2
+division 96
+dispatchable-events 21
+note-ons 2
+final-long-payload-bytes 8
+provisional-payload-bytes 37
+tempo-changes 0
+source-value-entries 0
+chase-state-entries 0
+chase-parameter-value-entries 0
+running-status-repairs 0
+routing-lanes 2
+routing-patch-state-events 0
+routing-patch-timeline-upper-bound 0
+routing-generated-state-upper-bound 6
+track 0 events 15 payload-bytes 29 tempo-changes 0
+track 1 events 6 payload-bytes 8 tempo-changes 0
+source-slots 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+routing-note-lanes-by-channel 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+routing-patch-state-by-channel 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+estimate ptr4 retained 61776 peak-low 1176237 peak-high 1236810 provisional 829 merge-workspace 1114176 names 1200 routing-retained 1777 routing-peak 1957 retained-with-routing 63553 routing-peak-total 63733 warning-threshold 1073741824 architecture-risk 0 requires-warning 0
+estimate ptr8 retained 121856 peak-low 1236461 peak-high 1357066 provisional 973 merge-workspace 1114176 names 1248 routing-retained 2289 routing-peak 2509 retained-with-routing 124145 routing-peak-total 124365 warning-threshold 4294967296 architecture-risk 0 requires-warning 0
+requires-preflight ptr4 0 ptr8 0
+[song]
+status ok
+format 1
+tracks 2
+division 96
+note-count 2
+running-status-repairs 0
+duration-us 72917
+events 21
+payload-bytes 8
+track 0 name "" name-truncated 0 instrument "" instrument-truncated 0
+track 1 name "" name-truncated 0 instrument "" instrument-truncated 0
+[tempo]
+count 0
+[events]
+count 21
+e 0 0 0 0 SystemExclusive -1 F0 1 F0
+e 1 0 0 1 NoteOn 1 91 3 914050
+e 2 1 5208 0 SystemExclusive -1 F0 2 F0F7
+e 3 1 5208 1 SystemExclusive -1 F0 2 F0F7
+e 4 2 10417 0 SystemExclusive -1 F0 2 F07E
+e 5 2 10417 1 SystemExclusive -1 F7 2 1020
+e 6 3 15625 0 SystemExclusive -1 F0 3 F043F7
+e 7 3 15625 1 SystemExclusive -1 F0 1 F0
+e 8 4 20833 0 SystemExclusive -1 F0 3 F04142
+e 9 4 20833 1 SystemExclusive -1 F7 3 7F7F7F
+e 10 5 26042 0 SystemExclusive -1 F7 1 F8
+e 11 6 31250 0 SystemExclusive -1 F7 1 F7
+e 12 7 36458 0 SystemExclusive -1 F7 2 7FF7
+e 13 8 41667 0 SystemExclusive -1 F7 3 903C64
+e 14 9 46875 0 SystemExclusive -1 F7 3 0102F7
+e 15 9 46875 1 NoteOff 1 81 3 814000
+e 16 10 52083 0 SystemExclusive -1 F0 4 sha256:47B044E647018D1361E4CAAA416E916546623D377CA5138F7F85CD0DFDA91EC5
+e 17 11 57292 0 SystemExclusive -1 F7 0 -
+e 18 12 62500 0 SystemExclusive -1 F7 4 sha256:4B4A9954A484C107F44E8014BE89FBC3E1334D94D1924FE0B7947FE808447DEF
+e 19 13 67708 0 NoteOn 0 90 3 903C64
+e 20 14 72917 0 NoteOff 0 80 3 803C00
+[source-index]
+count 0
+[chase-index]
+entries 0 parameter-series 0
+[source-query]
+[chase-readouts]
+[chase-messages]
+final -
+[chase-messages-filtered]
+final -
+[end]

@@ -1,0 +1,261 @@
+# function	culture	argument	result
+bytes	en-US	-9223372036854775808	\u2014
+bytes	en-US	-1	\u2014
+bytes	en-US	0	\u2014
+bytes	en-US	1	1 bytes
+bytes	en-US	99	99 bytes
+bytes	en-US	1023	1,023 bytes
+bytes	en-US	1024	1.0 KiB
+bytes	en-US	1025	1.0 KiB
+bytes	en-US	1536	1.5 KiB
+bytes	en-US	10239	10.0 KiB
+bytes	en-US	10240	10.0 KiB
+bytes	en-US	102400	100.0 KiB
+bytes	en-US	1048575	1,024.0 KiB
+bytes	en-US	1048576	1.00 MiB
+bytes	en-US	1048577	1.00 MiB
+bytes	en-US	1572864	1.50 MiB
+bytes	en-US	5242880	5.00 MiB
+bytes	en-US	123456789	117.74 MiB
+bytes	en-US	1073741823	1,024.00 MiB
+bytes	en-US	1073741824	1,024.00 MiB
+bytes	en-US	5000000000	4,768.37 MiB
+bytes	en-US	1099511627776	1,048,576.00 MiB
+bytes	en-US	9223372036854775807	8,796,093,022,208.00 MiB
+resolution	en-US	0	0 ms
+graph-resolution	en-US	0	0 ms
+resolution	en-US	1	0.001 ms
+graph-resolution	en-US	1	0.001 ms
+resolution	en-US	999	0.999 ms
+graph-resolution	en-US	999	0.999 ms
+resolution	en-US	1000	1 ms
+graph-resolution	en-US	1000	1 ms
+resolution	en-US	1001	1.001 ms
+graph-resolution	en-US	1001	1.001 ms
+resolution	en-US	1500	1.5 ms
+graph-resolution	en-US	1500	1.5 ms
+resolution	en-US	10000	10 ms
+graph-resolution	en-US	10000	10 ms
+resolution	en-US	12345	12.345 ms
+graph-resolution	en-US	12345	12.345 ms
+resolution	en-US	25000	25 ms
+graph-resolution	en-US	25000	25 ms
+resolution	en-US	100000	100 ms
+graph-resolution	en-US	100000	100 ms
+resolution	en-US	123456	123.456 ms
+graph-resolution	en-US	123456	123.456 ms
+resolution	en-US	250000	250 ms
+graph-resolution	en-US	250000	250 ms
+resolution	en-US	999999	999.999 ms
+graph-resolution	en-US	999999	999.999 ms
+resolution	en-US	1000000	1 s
+graph-resolution	en-US	1000000	1 s
+resolution	en-US	1000001	1 s
+graph-resolution	en-US	1000001	1 s
+resolution	en-US	1500000	1.5 s
+graph-resolution	en-US	1500000	1.5 s
+resolution	en-US	2500000	2.5 s
+graph-resolution	en-US	2500000	2.5 s
+resolution	en-US	60000000	60 s
+graph-resolution	en-US	60000000	60 s
+resolution	en-US	86400000000	86400 s
+graph-resolution	en-US	86400000000	86400 s
+resolution	en-US	123456789012	123456.789 s
+graph-resolution	en-US	123456789012	123456.789 s
+resolution	en-US	1000	1 ms
+graph-resolution	en-US	1000	1 ms
+resolution	en-US	3000	3 ms
+graph-resolution	en-US	3000	3 ms
+resolution	en-US	7000	7 ms
+graph-resolution	en-US	7000	7 ms
+bytes	de-DE	-9223372036854775808	\u2014
+bytes	de-DE	-1	\u2014
+bytes	de-DE	0	\u2014
+bytes	de-DE	1	1 bytes
+bytes	de-DE	99	99 bytes
+bytes	de-DE	1023	1.023 bytes
+bytes	de-DE	1024	1,0 KiB
+bytes	de-DE	1025	1,0 KiB
+bytes	de-DE	1536	1,5 KiB
+bytes	de-DE	10239	10,0 KiB
+bytes	de-DE	10240	10,0 KiB
+bytes	de-DE	102400	100,0 KiB
+bytes	de-DE	1048575	1.024,0 KiB
+bytes	de-DE	1048576	1,00 MiB
+bytes	de-DE	1048577	1,00 MiB
+bytes	de-DE	1572864	1,50 MiB
+bytes	de-DE	5242880	5,00 MiB
+bytes	de-DE	123456789	117,74 MiB
+bytes	de-DE	1073741823	1.024,00 MiB
+bytes	de-DE	1073741824	1.024,00 MiB
+bytes	de-DE	5000000000	4.768,37 MiB
+bytes	de-DE	1099511627776	1.048.576,00 MiB
+bytes	de-DE	9223372036854775807	8.796.093.022.208,00 MiB
+resolution	de-DE	0	0 ms
+graph-resolution	de-DE	0	0 ms
+resolution	de-DE	1	0,001 ms
+graph-resolution	de-DE	1	0,001 ms
+resolution	de-DE	999	0,999 ms
+graph-resolution	de-DE	999	0,999 ms
+resolution	de-DE	1000	1 ms
+graph-resolution	de-DE	1000	1 ms
+resolution	de-DE	1001	1,001 ms
+graph-resolution	de-DE	1001	1,001 ms
+resolution	de-DE	1500	1,5 ms
+graph-resolution	de-DE	1500	1,5 ms
+resolution	de-DE	10000	10 ms
+graph-resolution	de-DE	10000	10 ms
+resolution	de-DE	12345	12,345 ms
+graph-resolution	de-DE	12345	12,345 ms
+resolution	de-DE	25000	25 ms
+graph-resolution	de-DE	25000	25 ms
+resolution	de-DE	100000	100 ms
+graph-resolution	de-DE	100000	100 ms
+resolution	de-DE	123456	123,456 ms
+graph-resolution	de-DE	123456	123,456 ms
+resolution	de-DE	250000	250 ms
+graph-resolution	de-DE	250000	250 ms
+resolution	de-DE	999999	999,999 ms
+graph-resolution	de-DE	999999	999,999 ms
+resolution	de-DE	1000000	1 s
+graph-resolution	de-DE	1000000	1 s
+resolution	de-DE	1000001	1 s
+graph-resolution	de-DE	1000001	1 s
+resolution	de-DE	1500000	1,5 s
+graph-resolution	de-DE	1500000	1,5 s
+resolution	de-DE	2500000	2,5 s
+graph-resolution	de-DE	2500000	2,5 s
+resolution	de-DE	60000000	60 s
+graph-resolution	de-DE	60000000	60 s
+resolution	de-DE	86400000000	86400 s
+graph-resolution	de-DE	86400000000	86400 s
+resolution	de-DE	123456789012	123456,789 s
+graph-resolution	de-DE	123456789012	123456,789 s
+resolution	de-DE	1000	1 ms
+graph-resolution	de-DE	1000	1 ms
+resolution	de-DE	3000	3 ms
+graph-resolution	de-DE	3000	3 ms
+resolution	de-DE	7000	7 ms
+graph-resolution	de-DE	7000	7 ms
+clock	-	-9223372036854775808	00:00.000
+boundary	-	-9223372036854775808	00:00.000000
+graph-clock	-	-9223372036854775808	00:00
+graph-clock-detailed	-	-9223372036854775808	00:00.000
+graph-boundary	-	-9223372036854775808	00:00.000000
+clock	-	-1000	00:00.000
+boundary	-	-1000	00:00.000000
+graph-clock	-	-1000	00:00
+graph-clock-detailed	-	-1000	00:00.000
+graph-boundary	-	-1000	00:00.000000
+clock	-	-1	00:00.000
+boundary	-	-1	00:00.000000
+graph-clock	-	-1	00:00
+graph-clock-detailed	-	-1	00:00.000
+graph-boundary	-	-1	00:00.000000
+clock	-	0	00:00.000
+boundary	-	0	00:00.000000
+graph-clock	-	0	00:00
+graph-clock-detailed	-	0	00:00.000
+graph-boundary	-	0	00:00.000000
+clock	-	1	00:00.000
+boundary	-	1	00:00.000001
+graph-clock	-	1	00:00
+graph-clock-detailed	-	1	00:00.000
+graph-boundary	-	1	00:00.000001
+clock	-	999	00:00.000
+boundary	-	999	00:00.000999
+graph-clock	-	999	00:00
+graph-clock-detailed	-	999	00:00.000
+graph-boundary	-	999	00:00.000999
+clock	-	1000	00:00.001
+boundary	-	1000	00:00.001000
+graph-clock	-	1000	00:00
+graph-clock-detailed	-	1000	00:00.001
+graph-boundary	-	1000	00:00.001000
+clock	-	59999	00:00.059
+boundary	-	59999	00:00.059999
+graph-clock	-	59999	00:00
+graph-clock-detailed	-	59999	00:00.059
+graph-boundary	-	59999	00:00.059999
+clock	-	59999999	00:59.999
+boundary	-	59999999	00:59.999999
+graph-clock	-	59999999	00:59
+graph-clock-detailed	-	59999999	00:59.999
+graph-boundary	-	59999999	00:59.999999
+clock	-	60000000	01:00.000
+boundary	-	60000000	01:00.000000
+graph-clock	-	60000000	01:00
+graph-clock-detailed	-	60000000	01:00.000
+graph-boundary	-	60000000	01:00.000000
+clock	-	61000000	01:01.000
+boundary	-	61000000	01:01.000000
+graph-clock	-	61000000	01:01
+graph-clock-detailed	-	61000000	01:01.000
+graph-boundary	-	61000000	01:01.000000
+clock	-	61999999	01:01.999
+boundary	-	61999999	01:01.999999
+graph-clock	-	61999999	01:01
+graph-clock-detailed	-	61999999	01:01.999
+graph-boundary	-	61999999	01:01.999999
+clock	-	3599999999	59:59.999
+boundary	-	3599999999	59:59.999999
+graph-clock	-	3599999999	59:59
+graph-clock-detailed	-	3599999999	59:59.999
+graph-boundary	-	3599999999	59:59.999999
+clock	-	3600000000	60:00.000
+boundary	-	3600000000	60:00.000000
+graph-clock	-	3600000000	60:00
+graph-clock-detailed	-	3600000000	60:00.000
+graph-boundary	-	3600000000	60:00.000000
+clock	-	3661123456	61:01.123
+boundary	-	3661123456	61:01.123456
+graph-clock	-	3661123456	61:01
+graph-clock-detailed	-	3661123456	61:01.123
+graph-boundary	-	3661123456	61:01.123456
+clock	-	5999999999	99:59.999
+boundary	-	5999999999	99:59.999999
+graph-clock	-	5999999999	99:59
+graph-clock-detailed	-	5999999999	99:59.999
+graph-boundary	-	5999999999	99:59.999999
+clock	-	6000000000	100:00.000
+boundary	-	6000000000	100:00.000000
+graph-clock	-	6000000000	100:00
+graph-clock-detailed	-	6000000000	100:00.000
+graph-boundary	-	6000000000	100:00.000000
+clock	-	36000000000	600:00.000
+boundary	-	36000000000	600:00.000000
+graph-clock	-	36000000000	600:00
+graph-clock-detailed	-	36000000000	600:00.000
+graph-boundary	-	36000000000	600:00.000000
+clock	-	359999999999	5999:59.999
+boundary	-	359999999999	5999:59.999999
+graph-clock	-	359999999999	5999:59
+graph-clock-detailed	-	359999999999	5999:59.999
+graph-boundary	-	359999999999	5999:59.999999
+clock	-	360000000000	6000:00.000
+boundary	-	360000000000	6000:00.000000
+graph-clock	-	360000000000	6000:00
+graph-clock-detailed	-	360000000000	6000:00.000
+graph-boundary	-	360000000000	6000:00.000000
+clock	-	86399999999	1439:59.999
+boundary	-	86399999999	1439:59.999999
+graph-clock	-	86399999999	1439:59
+graph-clock-detailed	-	86399999999	1439:59.999
+graph-boundary	-	86399999999	1439:59.999999
+clock	-	1000000000000	16666:40.000
+boundary	-	1000000000000	16666:40.000000
+graph-clock	-	1000000000000	16666:40
+graph-clock-detailed	-	1000000000000	16666:40.000
+graph-boundary	-	1000000000000	16666:40.000000
+clock	-	12345678901234	205761:18.901
+boundary	-	12345678901234	205761:18.901234
+graph-clock	-	12345678901234	205761:18
+graph-clock-detailed	-	12345678901234	205761:18.901
+graph-boundary	-	12345678901234	205761:18.901234
+overflow	-	0	Drop newest
+overflow	-	1	Drop oldest pending event
+overflow	-	2	Clear buffer and jump to realtime
+overflow	-	3	Drop incoming complete notes
+overflow	-	4	Drop oldest complete note
+overflow	-	5	Drop newest
+overflow	-	6	Drop newest

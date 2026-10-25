@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- MIDI output (U12). Both are optional so the app installs on every phone and says plainly when there is no MIDI.
+         No permission is needed: Android opens class-compliant USB MIDI devices itself and offers them through MidiManager. -->
+    <uses-feature android:name="android.software.midi" android:required="false" />
+    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
+</manifest>

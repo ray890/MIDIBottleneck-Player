@@ -1,0 +1,58 @@
+trace-format 1
+mode full
+[file]
+size 38
+container smf
+[preflight]
+status ok
+format 0
+tracks 1
+division 240
+dispatchable-events 2
+note-ons 1
+final-long-payload-bytes 0
+provisional-payload-bytes 0
+tempo-changes 0
+source-value-entries 0
+chase-state-entries 0
+chase-parameter-value-entries 0
+running-status-repairs 0
+routing-lanes 1
+routing-patch-state-events 0
+routing-patch-timeline-upper-bound 0
+routing-generated-state-upper-bound 3
+track 0 events 2 payload-bytes 0 tempo-changes 0
+source-slots 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+routing-note-lanes-by-channel 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+routing-patch-state-by-channel 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+estimate ptr4 retained 60696 peak-low 1174960 peak-high 1235040 provisional 184 merge-workspace 1114144 names 600 routing-retained 846 routing-peak 936 retained-with-routing 61542 routing-peak-total 61632 warning-threshold 1073741824 architecture-risk 0 requires-warning 0
+estimate ptr8 retained 120752 peak-low 1235088 peak-high 1355200 provisional 256 merge-workspace 1114144 names 624 routing-retained 1102 routing-peak 1212 retained-with-routing 121854 routing-peak-total 121964 warning-threshold 4294967296 architecture-risk 0 requires-warning 0
+requires-preflight ptr4 0 ptr8 0
+[song]
+status ok
+format 0
+tracks 1
+division 240
+note-count 1
+running-status-repairs 0
+duration-us 250000
+events 2
+payload-bytes 0
+track 0 name "" name-truncated 0 instrument "" instrument-truncated 0
+[tempo]
+count 0
+[events]
+count 2
+e 0 0 0 0 NoteOn 0 90 3 903C64
+e 1 120 250000 0 NoteOff 0 80 3 803C00
+[source-index]
+count 0
+[chase-index]
+entries 0 parameter-series 0
+[source-query]
+[chase-readouts]
+[chase-messages]
+final -
+[chase-messages-filtered]
+final -
+[end]

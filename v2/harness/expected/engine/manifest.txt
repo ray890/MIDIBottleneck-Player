@@ -1,0 +1,5 @@
+# Engine comparison manifest, written by v2/harness/make-engine-expected.ps1. See v2/harness/TRACE_FORMAT.md.
+format 1
+scenarios-sha256 995E99D936E981C1C7A61052CAB852DD755B9F116789394C9D31DA4A31E9A8D7
+scenarios 172
+fixtures 23

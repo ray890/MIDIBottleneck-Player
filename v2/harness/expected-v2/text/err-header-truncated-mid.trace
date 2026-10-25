@@ -1,0 +1,11 @@
+trace-format 1
+mode full
+[file]
+size 9
+container smf
+[preflight]
+status error EndOfStreamException "The file ended before its MIDI header was complete. It is damaged or not a complete MIDI file."
+requires-preflight ptr4 0 ptr8 0
+[song]
+status error EndOfStreamException "The file ended before its MIDI header was complete. It is damaged or not a complete MIDI file."
+[end]

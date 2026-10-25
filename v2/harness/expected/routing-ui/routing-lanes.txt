@@ -1,0 +1,1432 @@
+# routing-ui table for routing-lanes.mid (v1 TrackRoutingForm, see RoutingUiReference.cs)
+fixture	routing-lanes.mid
+session	1	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 0
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 1
+S	18	875125f51fd25e5f	e3b4f17d775e6d78	1000000001000000	1111111111111111	0,1,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 0
+S	18	875125f51fd25e5f	e3b4f17d775e6d78	1000000001000000	1111111111111111	0,1,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	875125f51fd25e5f	e3b4f17d775e6d78	1000000001000000	1111111111111111	0,1,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	2	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 0
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 1
+S	18	875125f51fd25e5f	e3b4f17d775e6d78	1000000001000000	1111111111111111	0,1,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 1
+S	18	a9fb437d2c034c89	b6c7aabc9ef210bb	1000000000000000	1111111111111111	0,1,1	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	a9fb437d2c034c89	b6c7aabc9ef210bb	1000000000000000	1111111111111111	0,1,1	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	a9fb437d2c034c89	b6c7aabc9ef210bb	1000000000000000	1111111111111111	0,1,1	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	3	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 0
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 2
+S	18	bfe52a8f4ca1e8f1	3daba8301812687d	1100000001000000	1111111111111111	0,2,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 0
+S	18	bfe52a8f4ca1e8f1	3daba8301812687d	1100000001000000	1111111111111111	0,2,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	4	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 0
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 2
+S	18	bfe52a8f4ca1e8f1	3daba8301812687d	1100000001000000	1111111111111111	0,2,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 1
+S	18	348bea120c3ddad7	bd3dc9c4a029aa67	1100000000000000	1111111111111111	0,2,1	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	348bea120c3ddad7	bd3dc9c4a029aa67	1100000000000000	1111111111111111	0,2,1	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	5	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 0
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 3
+S	18	9a79eb61e4dafe4e	0af8c3317b11c9d1	1110000001000000	1111111111111111	0,3,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 0
+S	18	9a79eb61e4dafe4e	0af8c3317b11c9d1	1110000001000000	1111111111111111	0,3,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	9a79eb61e4dafe4e	0af8c3317b11c9d1	1110000001000000	1111111111111111	0,3,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	9a79eb61e4dafe4e	0af8c3317b11c9d1	1110000001000000	1111111111111111	0,3,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	6	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 0
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 3
+S	18	9a79eb61e4dafe4e	0af8c3317b11c9d1	1110000001000000	1111111111111111	0,3,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 1
+S	18	ddfdd99baab04bd0	66b731e0106028fd	1110000000000000	1111111111111111	0,3,1	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	7	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 0
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 4
+S	18	2ddac39bfd426096	53bd0595ca33d597	1111000001000000	1111111111111111	0,4,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 0
+S	18	2ddac39bfd426096	53bd0595ca33d597	1111000001000000	1111111111111111	0,4,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	2ddac39bfd426096	53bd0595ca33d597	1111000001000000	1111111111111111	0,4,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	8	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 0
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 4
+S	18	2ddac39bfd426096	53bd0595ca33d597	1111000001000000	1111111111111111	0,4,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 1
+S	18	af8a7c29380b3e98	36832d273e862d3f	1111000000000000	1111111111111111	0,4,1	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	af8a7c29380b3e98	36832d273e862d3f	1111000000000000	1111111111111111	0,4,1	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	af8a7c29380b3e98	36832d273e862d3f	1111000000000000	1111111111111111	0,4,1	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	9	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 0
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 8
+S	18	033d562a974f0e72	4e8bfb3335a9f47b	1111111101000000	1111111111111111	0,8,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 0
+S	18	033d562a974f0e72	4e8bfb3335a9f47b	1111111101000000	1111111111111111	0,8,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	10	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 0
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 8
+S	18	033d562a974f0e72	4e8bfb3335a9f47b	1111111101000000	1111111111111111	0,8,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 1
+S	18	b8e38c3e8b5e33fd	45b68b85109758c8	1111111100000000	1111111111111111	0,8,1	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	b8e38c3e8b5e33fd	45b68b85109758c8	1111111100000000	1111111111111111	0,8,1	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	11	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 0
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 16
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 0
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	12	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 0
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 16
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 1
+S	18	f46e3ed351d88132	e8b879f3fa5b098f	1111111111111111	1111111111111111	0,16,1	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	13	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 1
+S	18	db0188d2d8572176	904c5c0a4ddf1d7b	1111111111111111	1111111111111111	1,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 1
+S	18	11feee35ddbaa2a7	cd8409b3a7970e5c	1000000001000000	1111111111111111	1,1,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 0
+S	18	11feee35ddbaa2a7	cd8409b3a7970e5c	1000000001000000	1111111111111111	1,1,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	11feee35ddbaa2a7	cd8409b3a7970e5c	1000000001000000	1111111111111111	1,1,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	14	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 1
+S	18	db0188d2d8572176	904c5c0a4ddf1d7b	1111111111111111	1111111111111111	1,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 1
+S	18	11feee35ddbaa2a7	cd8409b3a7970e5c	1000000001000000	1111111111111111	1,1,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 1
+S	18	a0f30cd7787390b1	e3747eb6a9239c3c	1000000000000000	1111111111111111	1,1,1	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	a0f30cd7787390b1	e3747eb6a9239c3c	1000000000000000	1111111111111111	1,1,1	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	a0f30cd7787390b1	e3747eb6a9239c3c	1000000000000000	1111111111111111	1,1,1	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	15	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 1
+S	18	db0188d2d8572176	904c5c0a4ddf1d7b	1111111111111111	1111111111111111	1,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 2
+S	18	3cf797205ebf50e4	028a15e109643d8a	1100000001000000	1111111111111111	1,2,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 0
+S	18	3cf797205ebf50e4	028a15e109643d8a	1100000001000000	1111111111111111	1,2,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	16	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 1
+S	18	db0188d2d8572176	904c5c0a4ddf1d7b	1111111111111111	1111111111111111	1,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 2
+S	18	3cf797205ebf50e4	028a15e109643d8a	1100000001000000	1111111111111111	1,2,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 1
+S	18	0035bf721c9b3372	a42c939a7fec6c64	1100000000000000	1111111111111111	1,2,1	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	0035bf721c9b3372	a42c939a7fec6c64	1100000000000000	1111111111111111	1,2,1	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	17	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 1
+S	18	db0188d2d8572176	904c5c0a4ddf1d7b	1111111111111111	1111111111111111	1,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 3
+S	18	da6c0eae918b42ff	9b3cb2f03fea145d	1110000001000000	1111111111111111	1,3,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 0
+S	18	da6c0eae918b42ff	9b3cb2f03fea145d	1110000001000000	1111111111111111	1,3,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	da6c0eae918b42ff	9b3cb2f03fea145d	1110000001000000	1111111111111111	1,3,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	da6c0eae918b42ff	9b3cb2f03fea145d	1110000001000000	1111111111111111	1,3,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	18	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 1
+S	18	db0188d2d8572176	904c5c0a4ddf1d7b	1111111111111111	1111111111111111	1,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 3
+S	18	da6c0eae918b42ff	9b3cb2f03fea145d	1110000001000000	1111111111111111	1,3,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 1
+S	18	0f395c0738d46025	89bf17b6252aae4e	1110000000000000	1111111111111111	1,3,1	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	19	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 1
+S	18	db0188d2d8572176	904c5c0a4ddf1d7b	1111111111111111	1111111111111111	1,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 4
+S	18	af44ef2ad2330261	7169dfc54023d4dd	1111000001000000	1111111111111111	1,4,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 0
+S	18	af44ef2ad2330261	7169dfc54023d4dd	1111000001000000	1111111111111111	1,4,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	af44ef2ad2330261	7169dfc54023d4dd	1111000001000000	1111111111111111	1,4,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	20	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 1
+S	18	db0188d2d8572176	904c5c0a4ddf1d7b	1111111111111111	1111111111111111	1,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 4
+S	18	af44ef2ad2330261	7169dfc54023d4dd	1111000001000000	1111111111111111	1,4,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 1
+S	18	8d8cf19ef91b24fb	a9d6ee16690953b8	1111000000000000	1111111111111111	1,4,1	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	8d8cf19ef91b24fb	a9d6ee16690953b8	1111000000000000	1111111111111111	1,4,1	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	8d8cf19ef91b24fb	a9d6ee16690953b8	1111000000000000	1111111111111111	1,4,1	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	21	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 1
+S	18	db0188d2d8572176	904c5c0a4ddf1d7b	1111111111111111	1111111111111111	1,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 8
+S	18	4717016bb1005413	e696333d6681c399	1111111101000000	1111111111111111	1,8,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 0
+S	18	4717016bb1005413	e696333d6681c399	1111111101000000	1111111111111111	1,8,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	22	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 1
+S	18	db0188d2d8572176	904c5c0a4ddf1d7b	1111111111111111	1111111111111111	1,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 8
+S	18	4717016bb1005413	e696333d6681c399	1111111101000000	1111111111111111	1,8,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 1
+S	18	98a711ca3ed1f948	5e4171bad9d44ef4	1111111100000000	1111111111111111	1,8,1	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	98a711ca3ed1f948	5e4171bad9d44ef4	1111111100000000	1111111111111111	1,8,1	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	23	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 1
+S	18	db0188d2d8572176	904c5c0a4ddf1d7b	1111111111111111	1111111111111111	1,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 16
+S	18	db0188d2d8572176	904c5c0a4ddf1d7b	1111111111111111	1111111111111111	1,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 0
+S	18	db0188d2d8572176	904c5c0a4ddf1d7b	1111111111111111	1111111111111111	1,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	db0188d2d8572176	904c5c0a4ddf1d7b	1111111111111111	1111111111111111	1,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	db0188d2d8572176	904c5c0a4ddf1d7b	1111111111111111	1111111111111111	1,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	24	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 1
+S	18	db0188d2d8572176	904c5c0a4ddf1d7b	1111111111111111	1111111111111111	1,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 16
+S	18	db0188d2d8572176	904c5c0a4ddf1d7b	1111111111111111	1111111111111111	1,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 1
+S	18	b0550546414bc023	51d3871be2fa705a	1111111111111111	1111111111111111	1,16,1	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	25	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 2
+S	18	8165f2d98c3069d5	2a54c5407bf51ae2	1111111111111111	1111111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 1
+S	18	d9e7fadb98420f62	0261e25962cb1c1e	1000000001000000	1111111111111111	2,1,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	perc 0
+S	18	d9e7fadb98420f62	0261e25962cb1c1e	1000000001000000	1111111111111111	2,1,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	apply
+S	18	d9e7fadb98420f62	0261e25962cb1c1e	1000000001000000	1111111111111111	2,1,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+end
+session	26	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 2
+S	18	8165f2d98c3069d5	2a54c5407bf51ae2	1111111111111111	1111111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 1
+S	18	d9e7fadb98420f62	0261e25962cb1c1e	1000000001000000	1111111111111111	2,1,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	perc 1
+S	18	e3c01d1918dcfb31	52721cb92f830621	1000000000000000	1111111111111111	2,1,1	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	e3c01d1918dcfb31	52721cb92f830621	1000000000000000	1111111111111111	2,1,1	0	1,0	111010	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	apply
+S	18	e3c01d1918dcfb31	52721cb92f830621	1000000000000000	1111111111111111	2,1,1	0	1,0	111010	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+O	apply	1	tier=2,cap=1,perc=1,usable=FFFF,manual=-
+end
+session	27	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 2
+S	18	8165f2d98c3069d5	2a54c5407bf51ae2	1111111111111111	1111111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 2
+S	18	93baacadca2ce6d9	9b2feb2aa9e7cd30	1100000001000000	1111111111111111	2,2,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	perc 0
+S	18	93baacadca2ce6d9	9b2feb2aa9e7cd30	1100000001000000	1111111111111111	2,2,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+end
+session	28	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 2
+S	18	8165f2d98c3069d5	2a54c5407bf51ae2	1111111111111111	1111111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 2
+S	18	93baacadca2ce6d9	9b2feb2aa9e7cd30	1100000001000000	1111111111111111	2,2,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	perc 1
+S	18	89a6011369366e6c	4b402d624de70df6	1100000000000000	1111111111111111	2,2,1	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	89a6011369366e6c	4b402d624de70df6	1100000000000000	1111111111111111	2,2,1	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	29	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 2
+S	18	8165f2d98c3069d5	2a54c5407bf51ae2	1111111111111111	1111111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 3
+S	18	c3ea9071e0629411	f0e2f9bada951d2c	1110000001000000	1111111111111111	2,3,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	perc 0
+S	18	c3ea9071e0629411	f0e2f9bada951d2c	1110000001000000	1111111111111111	2,3,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	c3ea9071e0629411	f0e2f9bada951d2c	1110000001000000	1111111111111111	2,3,0	0	1,0	111010	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	apply
+S	18	c3ea9071e0629411	f0e2f9bada951d2c	1110000001000000	1111111111111111	2,3,0	0	1,0	111010	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+O	apply	1	tier=2,cap=3,perc=0,usable=FFFF,manual=-
+end
+session	30	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 2
+S	18	8165f2d98c3069d5	2a54c5407bf51ae2	1111111111111111	1111111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 3
+S	18	c3ea9071e0629411	f0e2f9bada951d2c	1110000001000000	1111111111111111	2,3,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	perc 1
+S	18	2eee96c2d078fc84	e2bc23cde1aaf652	1110000000000000	1111111111111111	2,3,1	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	31	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 2
+S	18	8165f2d98c3069d5	2a54c5407bf51ae2	1111111111111111	1111111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 4
+S	18	d86c466b610f7671	aeca6d956e211381	1111000001000000	1111111111111111	2,4,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	perc 0
+S	18	d86c466b610f7671	aeca6d956e211381	1111000001000000	1111111111111111	2,4,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	apply
+S	18	d86c466b610f7671	aeca6d956e211381	1111000001000000	1111111111111111	2,4,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+end
+session	32	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 2
+S	18	8165f2d98c3069d5	2a54c5407bf51ae2	1111111111111111	1111111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 4
+S	18	d86c466b610f7671	aeca6d956e211381	1111000001000000	1111111111111111	2,4,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	perc 1
+S	18	bb21d67e00135ffc	7ad76fbd647f141b	1111000000000000	1111111111111111	2,4,1	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	bb21d67e00135ffc	7ad76fbd647f141b	1111000000000000	1111111111111111	2,4,1	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	bb21d67e00135ffc	7ad76fbd647f141b	1111000000000000	1111111111111111	2,4,1	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	33	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 2
+S	18	8165f2d98c3069d5	2a54c5407bf51ae2	1111111111111111	1111111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 8
+S	18	86f156e74ac6b7ea	ee35aeb402ba930a	1111111101000000	1111111111111111	2,8,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 0
+S	18	86f156e74ac6b7ea	ee35aeb402ba930a	1111111101000000	1111111111111111	2,8,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	34	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 2
+S	18	8165f2d98c3069d5	2a54c5407bf51ae2	1111111111111111	1111111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 8
+S	18	86f156e74ac6b7ea	ee35aeb402ba930a	1111111101000000	1111111111111111	2,8,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 1
+S	18	2f159a6a70a7dc1b	a8e548ee03bbb45d	1111111100000000	1111111111111111	2,8,1	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	2f159a6a70a7dc1b	a8e548ee03bbb45d	1111111100000000	1111111111111111	2,8,1	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	35	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 2
+S	18	8165f2d98c3069d5	2a54c5407bf51ae2	1111111111111111	1111111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 16
+S	18	8165f2d98c3069d5	2a54c5407bf51ae2	1111111111111111	1111111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 0
+S	18	8165f2d98c3069d5	2a54c5407bf51ae2	1111111111111111	1111111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	8165f2d98c3069d5	2a54c5407bf51ae2	1111111111111111	1111111111111111	2,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	8165f2d98c3069d5	2a54c5407bf51ae2	1111111111111111	1111111111111111	2,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	36	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 2
+S	18	8165f2d98c3069d5	2a54c5407bf51ae2	1111111111111111	1111111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 16
+S	18	8165f2d98c3069d5	2a54c5407bf51ae2	1111111111111111	1111111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 1
+S	18	01a166d29859930c	c03b8ea75f63534c	1111111111111111	1111111111111111	2,16,1	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	37	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 0
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	38	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 2
+S	18	8165f2d98c3069d5	2a54c5407bf51ae2	1111111111111111	1111111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	8165f2d98c3069d5	2a54c5407bf51ae2	1111111111111111	1111111111111111	2,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	8165f2d98c3069d5	2a54c5407bf51ae2	1111111111111111	1111111111111111	2,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	39	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 0
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 9 0
+S	18	afd6ad7261526946	cb9833972b888874	1111111110111111	1111111110111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	afd6ad7261526946	cb9833972b888874	1111111110111111	1111111110111111	0,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	afd6ad7261526946	cb9833972b888874	1111111110111111	1111111110111111	0,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	40	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 2
+S	18	8165f2d98c3069d5	2a54c5407bf51ae2	1111111111111111	1111111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 9 0
+S	18	8dfe467f41f6670d	db2d25379c795538	1111111110111111	1111111110111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	8dfe467f41f6670d	db2d25379c795538	1111111110111111	1111111110111111	2,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	8dfe467f41f6670d	db2d25379c795538	1111111110111111	1111111110111111	2,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	41	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 0
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 0 0
+S	18	df9ca2f87dacee15	d6573f03ed37692d	0111111111111111	0111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 1 0
+S	18	91af19ef20fe0c0b	73e566b590d3873b	0011111111111111	0011111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 2 0
+S	18	d5518c637aa068bc	2decdfa458e212b9	0001111111111111	0001111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 3 0
+S	18	29d0834533b55b7c	9cbc403d871ee368	0000111111111111	0000111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 4 0
+S	18	ea428eeac29f143d	3b28b1da8cacab91	0000011111111111	0000011111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 5 0
+S	18	120d3ff2acfce2cf	17cac535ffc33024	0000001111111111	0000001111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 6 0
+S	18	086fc85373cc9f2c	3fa4ed06af89d7d5	0000000111111111	0000000111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 7 0
+S	18	a6732ef060165bf0	23973f7d4a847cc9	0000000011111111	0000000011111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 8 0
+S	18	436a1345d73a2ff5	60d650764c093d97	0000000001111111	0000000001111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 10 0
+S	18	0f1d112065a4d901	a6944fad9321c913	0000000001011111	0000000001011111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 11 0
+S	18	4d47a99843d5f336	20dd68e038c7dcd7	0000000001001111	0000000001001111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 12 0
+S	18	83131b92bba7a688	8b193ea9b0b6099f	0000000001000111	0000000001000111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 13 0
+S	18	b3c205dd64115511	357d4752c250b375	0000000001000011	0000000001000011	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 14 0
+S	18	89f5531502b4a7a9	63455d0fadf2407e	0000000001000001	0000000001000001	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 15 0
+S	18	54e3d8698fd2c7e2	3c43bd421af961be	0000000001000000	0000000001000000	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	54e3d8698fd2c7e2	3c43bd421af961be	0000000001000000	0000000001000000	0,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	54e3d8698fd2c7e2	3c43bd421af961be	0000000001000000	0000000001000000	0,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	42	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 2
+S	18	8165f2d98c3069d5	2a54c5407bf51ae2	1111111111111111	1111111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 0 0
+S	18	fd20a1c9ec029b9d	d29e35a01c699e2e	0111111111111111	0111111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 1 0
+S	18	cd4de39b5233ab45	f90694788fd411fc	0011111111111111	0011111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 2 0
+S	18	6f43f4f21d98ca70	354fb87ca15a6c87	0001111111111111	0001111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 3 0
+S	18	8632b354a7925938	ca7a0591b6c29099	0000111111111111	0000111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 4 0
+S	18	905451931fec385b	1e618ddb3a0bd2f4	0000011111111111	0000011111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 5 0
+S	18	f74c3e945eae563e	14333e58fd3b537b	0000001111111111	0000001111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 6 0
+S	18	fbb7ea166fc1cbbc	c81ffc38dc6db53c	0000000111111111	0000000111111111	2,16,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	usable 7 0
+S	18	4bc39ce2ed211433	93cdb4708159123b	0000000011111111	0000000011111111	2,16,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	usable 8 0
+S	18	68585d55ae08d18f	d854b8df8e1d7215	0000000001111111	0000000001111111	2,16,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	usable 10 0
+S	18	effaf5ba555c0dbd	90e553751c2ca31c	0000000001011111	0000000001011111	2,16,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	usable 11 0
+S	18	8e9250965b56ed39	9a76fa8b4b377501	0000000001001111	0000000001001111	2,16,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	usable 12 0
+S	18	244de4880d3c663e	72b50a1d911a9752	0000000001000111	0000000001000111	2,16,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	usable 13 0
+S	18	332a0d80dfa74fa4	a1e30d60601cb000	0000000001000011	0000000001000011	2,16,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	usable 14 0
+S	18	a8445ab8368ffd5a	ce38f02899cc2b98	0000000001000001	0000000001000001	2,16,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	usable 15 0
+S	18	54e3d8698fd2c7e2	25c622794fd5be59	0000000001000000	0000000001000000	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	54e3d8698fd2c7e2	25c622794fd5be59	0000000001000000	0000000001000000	2,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	54e3d8698fd2c7e2	25c622794fd5be59	0000000001000000	0000000001000000	2,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	43	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 0
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 0 0
+S	18	df9ca2f87dacee15	d6573f03ed37692d	0111111111111111	0111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 1 0
+S	18	91af19ef20fe0c0b	73e566b590d3873b	0011111111111111	0011111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 2 0
+S	18	d5518c637aa068bc	2decdfa458e212b9	0001111111111111	0001111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 3 0
+S	18	29d0834533b55b7c	9cbc403d871ee368	0000111111111111	0000111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 4 0
+S	18	ea428eeac29f143d	3b28b1da8cacab91	0000011111111111	0000011111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 5 0
+S	18	120d3ff2acfce2cf	17cac535ffc33024	0000001111111111	0000001111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 6 0
+S	18	086fc85373cc9f2c	3fa4ed06af89d7d5	0000000111111111	0000000111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 7 0
+S	18	a6732ef060165bf0	23973f7d4a847cc9	0000000011111111	0000000011111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 8 0
+S	18	436a1345d73a2ff5	60d650764c093d97	0000000001111111	0000000001111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 9 0
+S	18	08d900154fa07db3	ae8bf1ba3b538f4e	0000000000111111	0000000000111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 10 0
+S	18	c2490dab64a461f7	e91e518b1c230429	0000000000011111	0000000000011111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 11 0
+S	18	5033f87d445eafc0	5f967d7ee6013dc2	0000000000001111	0000000000001111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 12 0
+S	18	cd42391d60f4357e	48844ce2e04ba716	0000000000000111	0000000000000111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 13 0
+S	18	1bb3dd12182b0157	0b8c38d31fc6888a	0000000000000011	0000000000000011	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 14 0
+S	18	9700b71042b7f6cf	b85998c568d9f518	0000000000000001	0000000000000001	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 15 0
+S	18	ee46f94a16d262e4	f0f9416cdd8466bc	0000000000000000	0000000000000000	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	ee46f94a16d262e4	f0f9416cdd8466bc	0000000000000000	0000000000000000	0,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	ee46f94a16d262e4	f0f9416cdd8466bc	0000000000000000	0000000000000000	0,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	44	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 2
+S	18	8165f2d98c3069d5	2a54c5407bf51ae2	1111111111111111	1111111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 0 0
+S	18	fd20a1c9ec029b9d	d29e35a01c699e2e	0111111111111111	0111111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 1 0
+S	18	cd4de39b5233ab45	f90694788fd411fc	0011111111111111	0011111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 2 0
+S	18	6f43f4f21d98ca70	354fb87ca15a6c87	0001111111111111	0001111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 3 0
+S	18	8632b354a7925938	ca7a0591b6c29099	0000111111111111	0000111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 4 0
+S	18	905451931fec385b	1e618ddb3a0bd2f4	0000011111111111	0000011111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 5 0
+S	18	f74c3e945eae563e	14333e58fd3b537b	0000001111111111	0000001111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 6 0
+S	18	fbb7ea166fc1cbbc	c81ffc38dc6db53c	0000000111111111	0000000111111111	2,16,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	usable 7 0
+S	18	4bc39ce2ed211433	93cdb4708159123b	0000000011111111	0000000011111111	2,16,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	usable 8 0
+S	18	68585d55ae08d18f	d854b8df8e1d7215	0000000001111111	0000000001111111	2,16,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	usable 9 0
+S	18	c73c208ec3aa9e2b	283c35a9b3339a4a	0000000000111111	0000000000111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 10 0
+S	18	eaa3ccc270c919f9	50a471affa48ac93	0000000000011111	0000000000011111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 11 0
+S	18	773db3d7e2a000e8	a8580fc17e61177d	0000000000001111	0000000000001111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 12 0
+S	18	45e8204647b7b93a	1aea9706021022bd	0000000000000111	0000000000000111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 13 0
+S	18	21eb54f84a34a8a1	9ea44958008cc4e3	0000000000000011	0000000000000011	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 14 0
+S	18	cd2ba5327bbf6bcf	f466229c8cf97907	0000000000000001	0000000000000001	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 15 0
+S	18	ee46f94a16d262e4	aba372a4d5355f9e	0000000000000000	0000000000000000	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	ee46f94a16d262e4	aba372a4d5355f9e	0000000000000000	0000000000000000	2,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	ee46f94a16d262e4	aba372a4d5355f9e	0000000000000000	0000000000000000	2,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	45	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 0
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 3 0
+S	18	8ace7856bd57f0a0	da26d25f79d29c80	1110111111111111	1110111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 4 0
+S	18	7b4296bec33d0519	94192509582fc251	1110011111111111	1110011111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 5 0
+S	18	f179ebbff71de523	48e5e30c5dffb07e	1110001111111111	1110001111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 6 0
+S	18	13d969f3ca356258	56ae4a415867100c	1110000111111111	1110000111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 7 0
+S	18	d5dc3f474bae0a3c	1d79f56c920f3280	1110000011111111	1110000011111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 8 0
+S	18	582aa8e90121bef9	01c42724848db252	1110000001111111	1110000001111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 12 0
+S	18	8d8285df501784e7	d5bd475c2b2cfae6	1110000001110111	1110000001110111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 13 0
+S	18	b2a575acec9c3036	072163d54e7c72d7	1110000001110011	1110000001110011	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 14 0
+S	18	3bb20e92dc7faa46	2ebb89ad7dfb06b4	1110000001110001	1110000001110001	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 15 0
+S	18	f58f6e042e21f97d	3ebe6f6f0e36035f	1110000001110000	1110000001110000	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	f58f6e042e21f97d	3ebe6f6f0e36035f	1110000001110000	1110000001110000	0,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	f58f6e042e21f97d	3ebe6f6f0e36035f	1110000001110000	1110000001110000	0,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	46	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 2
+S	18	8165f2d98c3069d5	2a54c5407bf51ae2	1111111111111111	1111111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 3 0
+S	18	3bfd8b9a5e473203	d716b6ceac65d4ab	1110111111111111	1110111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 4 0
+S	18	8e89248e64e3092b	f4dfab02ad201fd8	1110011111111111	1110011111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 5 0
+S	18	af4fd0b8b5673a5c	ba93be70f42f0840	1110001111111111	1110001111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 6 0
+S	18	f55b567b51554e18	0c23d51b0f43b7dd	1110000111111111	1110000111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 7 0
+S	18	ab19fa477615cd2d	5de18c54e6904add	1110000011111111	1110000011111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 8 0
+S	18	2a77a82cd4bc509e	fabe218cb301802d	1110000001111111	1110000001111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 12 0
+S	18	d59d7a01335c5f1e	dcc79043d866bbcf	1110000001110111	1110000001110111	2,16,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	usable 13 0
+S	18	e67b8f1a1404308d	3e4a910a5ac12f9d	1110000001110011	1110000001110011	2,16,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	usable 14 0
+S	18	47b90fe1e435337b	5c98eb9bfcb7d7d6	1110000001110001	1110000001110001	2,16,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	usable 15 0
+S	18	5eb4feb4fbaedefe	1657509513a6f9b8	1110000001110000	1110000001110000	2,16,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	5eb4feb4fbaedefe	1657509513a6f9b8	1110000001110000	1110000001110000	2,16,0	0	1,0	111010	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	apply
+S	18	5eb4feb4fbaedefe	1657509513a6f9b8	1110000001110000	1110000001110000	2,16,0	0	1,0	111010	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+O	apply	1	tier=2,cap=16,perc=0,usable=0E07,manual=-
+end
+session	47	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 0
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 1 0
+S	18	f98b4b64688e7dc6	570434b5619d77be	1011111111111111	1011111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 2 0
+S	18	c9724c729a704449	4261a5798bf3d3a9	1001111111111111	1001111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 3 0
+S	18	7a5ed13569b46691	817ec9e269fe13ec	1000111111111111	1000111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 4 0
+S	18	80b0f3bc06b05cf8	a648bb13cbd7e3ac	1000011111111111	1000011111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 5 0
+S	18	b5fba39b10b0a98a	f4ba777e5cc68826	1000001111111111	1000001111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 6 0
+S	18	c281b18cb628e1c9	8434d1e7cb95f952	1000000111111111	1000000111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 7 0
+S	18	65c76490c0a4e4bd	9a24e015504baa8c	1000000011111111	1000000011111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 8 0
+S	18	f0b1c2fb057f6b08	7ba48ad7840a7941	1000000001111111	1000000001111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 9 0
+S	18	e636dbc3fee9c956	fe4996ceafba5a33	1000000000111111	1000000000111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 10 0
+S	18	b0f2d6ddaf2a2d1a	8fd5a86cd2e00e07	1000000000011111	1000000000011111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 11 0
+S	18	647bd3ef7709146d	afe171b72fb0822b	1000000000001111	1000000000001111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 12 0
+S	18	9504f8209de3617b	7aecff1bba204031	1000000000000111	1000000000000111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 13 0
+S	18	cd865e76a8a5b252	ecc7d1924550bb62	1000000000000011	1000000000000011	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 14 0
+S	18	4960f1b1c6eb313a	4d18b72b539a66df	1000000000000001	1000000000000001	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 15 0
+S	18	a9fb437d2c034c89	62eace5e97a8323e	1000000000000000	1000000000000000	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	a9fb437d2c034c89	62eace5e97a8323e	1000000000000000	1000000000000000	0,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	a9fb437d2c034c89	62eace5e97a8323e	1000000000000000	1000000000000000	0,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	48	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 2
+S	18	8165f2d98c3069d5	2a54c5407bf51ae2	1111111111111111	1111111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 1 0
+S	18	8aa10535201f66d5	e07d05b077823775	1011111111111111	1011111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 2 0
+S	18	f47a8884af0de2f5	1d6e59bba86f5abe	1001111111111111	1001111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 3 0
+S	18	7d28cfaea7b73808	8735f0a4e870770a	1000111111111111	1000111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 4 0
+S	18	5774608e1d957cb8	cd168e37efdaafbd	1000011111111111	1000011111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 5 0
+S	18	c3898d027b4e24ab	a8ad14ba76c4143b	1000001111111111	1000001111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 6 0
+S	18	33d6f1f3d5a04b3e	53670fdd9ddb194d	1000000111111111	1000000111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 7 0
+S	18	45392a7491b3a744	0dca9b70d3c5f13d	1000000011111111	1000000011111111	2,16,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	usable 8 0
+S	18	96d3d3338b864603	8b22e18c48fda603	1000000001111111	1000000001111111	2,16,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	usable 9 0
+S	18	46d98479ccf1251c	a1c7e215ab4bf83d	1000000000111111	1000000000111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 10 0
+S	18	e8dc871379fa18da	2199918f710b005b	1000000000011111	1000000000011111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 11 0
+S	18	876b9655163c1c11	36559ea545cacd91	1000000000001111	1000000000001111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 12 0
+S	18	5f7ca2581601a130	be03cc3b9520aae6	1000000000000111	1000000000000111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 13 0
+S	18	36ced80be5deab4a	0cf761f8c3540941	1000000000000011	1000000000000011	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 14 0
+S	18	6a347101403b45e4	0c7c01135a3c2286	1000000000000001	1000000000000001	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 15 0
+S	18	e3c01d1918dcfb31	f37d1cee79b1d711	1000000000000000	1000000000000000	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	e3c01d1918dcfb31	f37d1cee79b1d711	1000000000000000	1000000000000000	2,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	e3c01d1918dcfb31	f37d1cee79b1d711	1000000000000000	1000000000000000	2,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	49	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 0
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 0 0
+S	18	df9ca2f87dacee15	d6573f03ed37692d	0111111111111111	0111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 1 0
+S	18	91af19ef20fe0c0b	73e566b590d3873b	0011111111111111	0011111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 2 0
+S	18	d5518c637aa068bc	2decdfa458e212b9	0001111111111111	0001111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 3 0
+S	18	29d0834533b55b7c	9cbc403d871ee368	0000111111111111	0000111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 4 0
+S	18	ea428eeac29f143d	3b28b1da8cacab91	0000011111111111	0000011111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 5 0
+S	18	120d3ff2acfce2cf	17cac535ffc33024	0000001111111111	0000001111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 6 0
+S	18	086fc85373cc9f2c	3fa4ed06af89d7d5	0000000111111111	0000000111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 7 0
+S	18	a6732ef060165bf0	23973f7d4a847cc9	0000000011111111	0000000011111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 8 0
+S	18	436a1345d73a2ff5	60d650764c093d97	0000000001111111	0000000001111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 9 0
+S	18	08d900154fa07db3	ae8bf1ba3b538f4e	0000000000111111	0000000000111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 10 0
+S	18	c2490dab64a461f7	e91e518b1c230429	0000000000011111	0000000000011111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 11 0
+S	18	5033f87d445eafc0	5f967d7ee6013dc2	0000000000001111	0000000000001111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 12 0
+S	18	cd42391d60f4357e	48844ce2e04ba716	0000000000000111	0000000000000111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 13 0
+S	18	1bb3dd12182b0157	0b8c38d31fc6888a	0000000000000011	0000000000000011	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 14 0
+S	18	9700b71042b7f6cf	b85998c568d9f518	0000000000000001	0000000000000001	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	9700b71042b7f6cf	b85998c568d9f518	0000000000000001	0000000000000001	0,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	9700b71042b7f6cf	b85998c568d9f518	0000000000000001	0000000000000001	0,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	50	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 2
+S	18	8165f2d98c3069d5	2a54c5407bf51ae2	1111111111111111	1111111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 0 0
+S	18	fd20a1c9ec029b9d	d29e35a01c699e2e	0111111111111111	0111111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 1 0
+S	18	cd4de39b5233ab45	f90694788fd411fc	0011111111111111	0011111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 2 0
+S	18	6f43f4f21d98ca70	354fb87ca15a6c87	0001111111111111	0001111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 3 0
+S	18	8632b354a7925938	ca7a0591b6c29099	0000111111111111	0000111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 4 0
+S	18	905451931fec385b	1e618ddb3a0bd2f4	0000011111111111	0000011111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 5 0
+S	18	f74c3e945eae563e	14333e58fd3b537b	0000001111111111	0000001111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 6 0
+S	18	fbb7ea166fc1cbbc	c81ffc38dc6db53c	0000000111111111	0000000111111111	2,16,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	usable 7 0
+S	18	4bc39ce2ed211433	93cdb4708159123b	0000000011111111	0000000011111111	2,16,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	usable 8 0
+S	18	68585d55ae08d18f	d854b8df8e1d7215	0000000001111111	0000000001111111	2,16,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	usable 9 0
+S	18	c73c208ec3aa9e2b	283c35a9b3339a4a	0000000000111111	0000000000111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 10 0
+S	18	eaa3ccc270c919f9	50a471affa48ac93	0000000000011111	0000000000011111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 11 0
+S	18	773db3d7e2a000e8	a8580fc17e61177d	0000000000001111	0000000000001111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 12 0
+S	18	45e8204647b7b93a	1aea9706021022bd	0000000000000111	0000000000000111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 13 0
+S	18	21eb54f84a34a8a1	9ea44958008cc4e3	0000000000000011	0000000000000011	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 14 0
+S	18	cd2ba5327bbf6bcf	f466229c8cf97907	0000000000000001	0000000000000001	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	cd2ba5327bbf6bcf	f466229c8cf97907	0000000000000001	0000000000000001	2,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	cd2ba5327bbf6bcf	f466229c8cf97907	0000000000000001	0000000000000001	2,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	51	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 0
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 8 0
+S	18	06c7f6ad4fe3ca85	932ea760a6802145	1111111101111111	1111111101111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 9 0
+S	18	0c0610c3c8774603	722918b0ce584ea3	1111111100111111	1111111100111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 10 0
+S	18	a1165429b866d1c7	214235add1179267	1111111100011111	1111111100011111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 11 0
+S	18	a8b9b0f0313ef160	d901af2cd8d84c4c	1111111100001111	1111111100001111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 12 0
+S	18	a9ae0001ca5972d6	e8162ccc53ddfd4d	1111111100000111	1111111100000111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 13 0
+S	18	911b61e334fb3ca7	4c68aeb9dfa0d97a	1111111100000011	1111111100000011	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 14 0
+S	18	ea1a3e54791330cf	e4259893113ad4d5	1111111100000001	1111111100000001	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 15 0
+S	18	2c5e9169fd02d6b4	d1a98511af1037f2	1111111100000000	1111111100000000	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	2c5e9169fd02d6b4	d1a98511af1037f2	1111111100000000	1111111100000000	0,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	2c5e9169fd02d6b4	d1a98511af1037f2	1111111100000000	1111111100000000	0,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	52	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 2
+S	18	8165f2d98c3069d5	2a54c5407bf51ae2	1111111111111111	1111111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 8 0
+S	18	bf1db936ed1f2646	f174702b697e132e	1111111101111111	1111111101111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 9 0
+S	18	8f7952a408b3baf9	e3a39772ec97c1ce	1111111100111111	1111111100111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 10 0
+S	18	49ebcc508b9d240c	754dc078148849bf	1111111100011111	1111111100011111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 11 0
+S	18	503b7b5edf8e9b74	70cef985a2895404	1111111100001111	1111111100001111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 12 0
+S	18	ac615ae4c53fcaca	d929fe59cd5a54a7	1111111100000111	1111111100000111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 13 0
+S	18	db9c4d8f4d5a2246	1b32038304d4ba5f	1111111100000011	1111111100000011	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 14 0
+S	18	a7b4d0a35f73cb28	cfbd06337be9fc69	1111111100000001	1111111100000001	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 15 0
+S	18	2f159a6a70a7dc1b	d7353b4bfc9e6b48	1111111100000000	1111111100000000	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	2f159a6a70a7dc1b	d7353b4bfc9e6b48	1111111100000000	1111111100000000	2,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	2f159a6a70a7dc1b	d7353b4bfc9e6b48	1111111100000000	1111111100000000	2,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	53	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 0
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 0 0
+S	18	df9ca2f87dacee15	d6573f03ed37692d	0111111111111111	0111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 1 0
+S	18	91af19ef20fe0c0b	73e566b590d3873b	0011111111111111	0011111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 2 0
+S	18	d5518c637aa068bc	2decdfa458e212b9	0001111111111111	0001111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 3 0
+S	18	29d0834533b55b7c	9cbc403d871ee368	0000111111111111	0000111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 4 0
+S	18	ea428eeac29f143d	3b28b1da8cacab91	0000011111111111	0000011111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 5 0
+S	18	120d3ff2acfce2cf	17cac535ffc33024	0000001111111111	0000001111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 6 0
+S	18	086fc85373cc9f2c	3fa4ed06af89d7d5	0000000111111111	0000000111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 7 0
+S	18	a6732ef060165bf0	23973f7d4a847cc9	0000000011111111	0000000011111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	a6732ef060165bf0	23973f7d4a847cc9	0000000011111111	0000000011111111	0,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	a6732ef060165bf0	23973f7d4a847cc9	0000000011111111	0000000011111111	0,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	54	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 2
+S	18	8165f2d98c3069d5	2a54c5407bf51ae2	1111111111111111	1111111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 0 0
+S	18	fd20a1c9ec029b9d	d29e35a01c699e2e	0111111111111111	0111111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 1 0
+S	18	cd4de39b5233ab45	f90694788fd411fc	0011111111111111	0011111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 2 0
+S	18	6f43f4f21d98ca70	354fb87ca15a6c87	0001111111111111	0001111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 3 0
+S	18	8632b354a7925938	ca7a0591b6c29099	0000111111111111	0000111111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 4 0
+S	18	905451931fec385b	1e618ddb3a0bd2f4	0000011111111111	0000011111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 5 0
+S	18	f74c3e945eae563e	14333e58fd3b537b	0000001111111111	0000001111111111	2,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 6 0
+S	18	fbb7ea166fc1cbbc	c81ffc38dc6db53c	0000000111111111	0000000111111111	2,16,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	usable 7 0
+S	18	4bc39ce2ed211433	93cdb4708159123b	0000000011111111	0000000011111111	2,16,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	4bc39ce2ed211433	93cdb4708159123b	0000000011111111	0000000011111111	2,16,0	0	1,0	111010	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	apply
+S	18	4bc39ce2ed211433	93cdb4708159123b	0000000011111111	0000000011111111	2,16,0	0	1,0	111010	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+O	apply	1	tier=2,cap=16,perc=0,usable=FF00,manual=-
+end
+session	55	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 0
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 1
+S	18	9a1e67e0a29a3ae9	a24d51ec4aa7087b	1111111111111111	1111111111111111	0,16,0	0	1,1	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	dest 4
+S	18	d312a68d36acfa56	9755e16fd47dd638	1111111111111111	1111111111111111	0,16,0	0	1,4	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 0
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 1
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	1	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 6
+S	18	3c790c3f94b9ff62	4ffab97b06084df4	1111111111111111	1111111111111111	0,16,0	1	1,6	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 9
+S	18	1315b9f96d97e926	a4999d6bcb34d690	1111111111111111	1111111111111111	0,16,0	1	1,9	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 2
+S	18	1315b9f96d97e926	a4999d6bcb34d690	1111111111111111	1111111111111111	0,16,0	2	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 11
+S	18	7ce6fc9a8b2927b2	3e8020fe01e08c91	1111111111111111	1111111111111111	0,16,0	2	1,11	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 14
+S	18	5fdd0b1d1592c5d7	0904ea4e5c10d0ce	1111111111111111	1111111111111111	0,16,0	2	1,14	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 0
+S	18	1315b9f96d97e926	a4999d6bcb34d690	1111111111111111	1111111111111111	0,16,0	2	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 3
+S	18	1315b9f96d97e926	a4999d6bcb34d690	1111111111111111	1111111111111111	0,16,0	3	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 16
+S	18	df4d778f70692cb1	00416046d945ed22	1111111111111111	1111111111111111	0,16,0	3	1,16	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 3
+S	18	b129bbd9f9d8e8cf	6cbb7b1a28fd8097	1111111111111111	1111111111111111	0,16,0	3	1,3	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 4
+S	18	b129bbd9f9d8e8cf	6cbb7b1a28fd8097	1111111111111111	1111111111111111	0,16,0	4	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 5
+S	18	01d3b2564fb64ea0	1b2eabdeb0933c69	1111111111111111	1111111111111111	0,16,0	4	1,5	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 8
+S	18	6a2bfc894fa50ccf	18952d1727be4ddf	1111111111111111	1111111111111111	0,16,0	4	1,8	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 0
+S	18	b129bbd9f9d8e8cf	6cbb7b1a28fd8097	1111111111111111	1111111111111111	0,16,0	4	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 5
+S	18	b129bbd9f9d8e8cf	6cbb7b1a28fd8097	1111111111111111	1111111111111111	0,16,0	5	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 10
+S	18	a5d6a56b93df02ae	7be69e4eb4f9cf2d	1111111111111111	1111111111111111	0,16,0	5	1,10	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 13
+S	18	b96385be33ffd0e9	b9351f010f86312a	1111111111111111	1111111111111111	0,16,0	5	1,13	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 2
+S	18	53a4dfdc2388c89d	a7a9c8b302733777	1111111111111111	1111111111111111	2,16,0	5	1,13	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	53a4dfdc2388c89d	a7a9c8b302733777	1111111111111111	1111111111111111	2,16,0	5	1,13	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	53a4dfdc2388c89d	a7a9c8b302733777	1111111111111111	1111111111111111	2,16,0	5	1,13	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	56	init=tier=1,cap=4,perc=0,usable=FFFF,manual=1.0=2;2.0=9;2.1=0	active=1	culture=en-US
+S	18	3fb00a6b90333086	3d9643a72a651417	1110000001000000	1111111111111111	1,4,0	0	1,3	000101	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 0
+S	18	3fb00a6b90333086	3d9643a72a651417	1110000001000000	1111111111111111	1,4,0	0	1,3	000101	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 0
+S	18	33a4a7c6c7c39ac5	96724e7c10eee5e7	1110000001000000	1111111111111111	1,4,0	0	1,0	000101	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	original
+S	18	33a4a7c6c7c39ac5	96724e7c10eee5e7	1110000001000000	1111111111111111	1,4,0	0	1,0	000101	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+O	original	0	-
+end
+session	57	init=tier=2,cap=3,perc=1,usable=0E07,manual=1.0=2;2.0=9;2.1=0	active=1	culture=en-US
+S	18	c5936beadd3f5db4	8eab7a372157b8bb	1010000001000000	1110000001110000	2,3,1	0	1,3	000101	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 0
+S	18	82d3e608baebdd58	b893092b7230a680	1010000001000000	1110000001110000	0,3,1	0	1,3	000101	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	82d3e608baebdd58	b893092b7230a680	1010000001000000	1110000001110000	0,3,1	0	1,3	000101	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	82d3e608baebdd58	b893092b7230a680	1010000001000000	1110000001110000	0,3,1	0	1,3	000111	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	82d3e608baebdd58	b893092b7230a680	1010000001000000	1110000001110000	0,3,1	0	1,3	000111	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	58	init=tier=0,cap=0,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	875125f51fd25e5f	e3b4f17d775e6d78	1000000001000000	1111111111111111	0,1,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 16
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 1
+S	18	875125f51fd25e5f	e3b4f17d775e6d78	1000000001000000	1111111111111111	0,1,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	original
+S	18	875125f51fd25e5f	e3b4f17d775e6d78	1000000001000000	1111111111111111	0,1,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	59	init=tier=1,cap=99,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	db0188d2d8572176	904c5c0a4ddf1d7b	1111111111111111	1111111111111111	1,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 16
+S	18	db0188d2d8572176	904c5c0a4ddf1d7b	1111111111111111	1111111111111111	1,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 1
+S	18	db0188d2d8572176	904c5c0a4ddf1d7b	1111111111111111	1111111111111111	1,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	db0188d2d8572176	904c5c0a4ddf1d7b	1111111111111111	1111111111111111	1,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	db0188d2d8572176	904c5c0a4ddf1d7b	1111111111111111	1111111111111111	1,16,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	60	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=1	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000101	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	original
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000101	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+O	original	0	-
+end
+session	61	init=tier=2,cap=4,perc=0,usable=FFFF,manual=-	active=0	culture=de-DE
+S	18	d86c466b610f7671	aeca6d956e211381	1111000001000000	1111111111111111	2,4,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	tier 2
+S	18	d86c466b610f7671	aeca6d956e211381	1111000001000000	1111111111111111	2,4,0	0	1,0	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	d86c466b610f7671	aeca6d956e211381	1111000001000000	1111111111111111	2,4,0	0	1,0	111010	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	apply
+S	18	d86c466b610f7671	aeca6d956e211381	1111000001000000	1111111111111111	2,4,0	0	1,0	111010	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+O	apply	1	tier=2,cap=4,perc=0,usable=FFFF,manual=-
+end
+session	62	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=de-DE
+S	18	19ff49dfd4b66e10	7a6c20762b4d4368	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 1
+S	18	db0188d2d8572176	278029c79a2cca4b	1111111111111111	1111111111111111	1,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 2
+S	18	3cf797205ebf50e4	028a15e109643d8a	1100000001000000	1111111111111111	1,2,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	3cf797205ebf50e4	028a15e109643d8a	1100000001000000	1111111111111111	1,2,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	3cf797205ebf50e4	028a15e109643d8a	1100000001000000	1111111111111111	1,2,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	63	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 1
+S	18	9a1e67e0a29a3ae9	a24d51ec4aa7087b	1111111111111111	1111111111111111	0,16,0	0	1,1	110000	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	cap 7
+S	18	ec71652c674649fb	2f08498f8904f6d0	1111111001000000	1111111111111111	0,7,0	0	1,1	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	ec71652c674649fb	2f08498f8904f6d0	1111111001000000	1111111111111111	0,7,0	0	1,1	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 5
+S	18	c18570f9b833b58f	30721271a9d73750	1111111001000000	1111111111111111	0,7,0	0	1,5	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	c18570f9b833b58f	30721271a9d73750	1111111001000000	1111111111111111	0,7,0	0	1,5	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 1
+S	18	4e42baa64122fff8	e82474370bf8a860	1111111000000000	1111111111111111	0,7,1	0	1,5	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	4e42baa64122fff8	e82474370bf8a860	1111111000000000	1111111111111111	0,7,1	0	1,5	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 5
+S	18	4e42baa64122fff8	e82474370bf8a860	1111111000000000	1111111111111111	0,7,1	5	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 8
+S	18	4e42baa64122fff8	e82474370bf8a860	1111111000000000	1111111111111111	0,7,1	8	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	4e42baa64122fff8	e82474370bf8a860	1111111000000000	1111111111111111	0,7,1	8	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	4e42baa64122fff8	e82474370bf8a860	1111111000000000	1111111111111111	0,7,1	8	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 5
+S	18	bb682bc701515e61	529f34cd35fdaaad	1111100000000000	1111111111111111	0,5,1	8	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	bb682bc701515e61	529f34cd35fdaaad	1111100000000000	1111111111111111	0,5,1	8	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 17
+S	18	bb682bc701515e61	529f34cd35fdaaad	1111100000000000	1111111111111111	0,5,1	17	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 12 1
+S	18	bb682bc701515e61	529f34cd35fdaaad	1111100000000000	1111111111111111	0,5,1	17	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 0
+S	18	bb682bc701515e61	529f34cd35fdaaad	1111100000000000	1111111111111111	0,5,1	17	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 4
+S	18	bb682bc701515e61	529f34cd35fdaaad	1111100000000000	1111111111111111	0,5,1	4	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 13
+S	18	bb682bc701515e61	529f34cd35fdaaad	1111100000000000	1111111111111111	0,5,1	13	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 0
+S	18	bb682bc701515e61	529f34cd35fdaaad	1111100000000000	1111111111111111	0,5,1	13	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 15
+S	18	b875ed09c7b6c461	84152c580ef009c8	1110100000000010	1111111111111111	0,5,1	13	1,15	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 9
+S	18	765e58af70bd91e2	1a64c421ab19b35d	1110100010000000	1111111111111111	0,5,1	13	1,9	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 6 1
+S	18	765e58af70bd91e2	1a64c421ab19b35d	1110100010000000	1111111111111111	0,5,1	13	1,9	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	765e58af70bd91e2	1a64c421ab19b35d	1110100010000000	1111111111111111	0,5,1	13	1,9	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 6
+S	18	6dd2a4ab0d282482	336650bb95ec6d6f	1111100010000000	1111111111111111	0,6,1	13	1,9	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 9
+S	18	6dd2a4ab0d282482	336650bb95ec6d6f	1111100010000000	1111111111111111	0,6,1	13	1,9	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 12
+S	18	ef9d1bcd9660d518	8d9bdc5bced4ed95	1111100000010000	1111111111111111	0,6,1	13	1,12	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	ef9d1bcd9660d518	8d9bdc5bced4ed95	1111100000010000	1111111111111111	0,6,1	13	1,12	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 0
+S	18	ef9d1bcd9660d518	8d9bdc5bced4ed95	1111100000010000	1111111111111111	0,6,1	13	1,12	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 10
+S	18	ef9d1bcd9660d518	8d9bdc5bced4ed95	1111100000010000	1111111111111111	0,6,1	10	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 2
+S	18	c567708d2d609d25	be9c139973279c58	1111100000010000	1111111111111111	2,6,1	10	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 2
+S	18	ec66d3c101c88ffd	b342a9fed9486b35	0000100000010000	1111111111111111	2,2,1	10	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 0
+S	18	ec66d3c101c88ffd	b342a9fed9486b35	0000100000010000	1111111111111111	2,2,1	10	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 1
+S	18	94a9dff9f1332795	a1740b8833c3c364	1000100000010000	1111111111111111	2,2,1	10	1,1	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 4
+S	18	94a9dff9f1332795	a1740b8833c3c364	1000100000010000	1111111111111111	2,2,1	4	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 1
+S	18	b115740e78fbb131	2d8bebbf81f63284	1000100000010000	1111111111111111	1,2,1	4	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 15
+S	18	34e0a9e3891adaf1	a70ef00ae64e2a4e	1000100000010010	1111111111111111	1,2,1	4	1,15	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 10
+S	18	fa88a5d5f34daf90	fb3cd157177adf0d	1000100001010000	1111111111111111	1,2,1	4	1,10	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 13
+S	18	fa88a5d5f34daf90	fb3cd157177adf0d	1000100001010000	1111111111111111	1,2,1	13	1,12	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 1
+S	18	fa88a5d5f34daf90	fb3cd157177adf0d	1000100001010000	1111111111111111	1,2,1	13	1,12	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 15
+S	18	fa88a5d5f34daf90	fb3cd157177adf0d	1000100001010000	1111111111111111	1,2,1	15	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	64	init=tier=1,cap=12,perc=1,usable=608F,manual=-	active=0	culture=en-US
+S	18	e0059eaf7fbf17e9	5070db1845bb2a7e	1111000100000110	1111000100000110	1,12,1	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 11
+S	18	e0059eaf7fbf17e9	5070db1845bb2a7e	1111000100000110	1111000100000110	1,12,1	11	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 7
+S	18	e0059eaf7fbf17e9	67dd33e604362734	1111000100000110	1111000100000110	1,12,1	11	1,7	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 3
+S	18	e0059eaf7fbf17e9	67dd33e604362734	1111000100000110	1111000100000110	1,12,1	3	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 0
+S	18	75b7e4c2d73adf91	64e21e3c7be5cf9f	1111000100000110	1111000100000110	1,12,0	3	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 6
+S	18	0aafd342d7b42846	f73744e186f2d278	1111000100000100	1111000100000110	1,6,0	3	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 9 1
+S	18	834fa82aafe495e7	d833843f8ce1b7ca	1111000101000100	1111000101000110	1,6,0	3	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 0
+S	18	834fa82aafe495e7	d833843f8ce1b7ca	1111000101000100	1111000101000110	1,6,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 8
+S	18	73da4e17badf2929	616494ddca298071	1111000101000110	1111000101000110	1,8,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 0
+S	18	73da4e17badf2929	616494ddca298071	1111000101000110	1111000101000110	1,8,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 15 1
+S	18	cca2d6f7b17a98ca	d8e51635cd4558bc	1111000101000111	1111000101000111	1,8,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 9
+S	18	cca2d6f7b17a98ca	d8e51635cd4558bc	1111000101000111	1111000101000111	1,8,0	9	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 8
+S	18	c0f76d89a3ca39b0	298170bb1328fa9b	1111000101000111	1111000101000111	1,8,0	9	1,8	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 0
+S	18	c0f76d89a3ca39b0	298170bb1328fa9b	1111000101000111	1111000101000111	1,8,0	9	1,8	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 3
+S	18	c0f76d89a3ca39b0	298170bb1328fa9b	1111000101000111	1111000101000111	1,8,0	3	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 0
+S	18	c0f76d89a3ca39b0	298170bb1328fa9b	1111000101000111	1111000101000111	1,8,0	3	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 0 1
+S	18	c0f76d89a3ca39b0	298170bb1328fa9b	1111000101000111	1111000101000111	1,8,0	3	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 8
+S	18	c0f76d89a3ca39b0	298170bb1328fa9b	1111000101000111	1111000101000111	1,8,0	8	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 0
+S	18	c0f76d89a3ca39b0	298170bb1328fa9b	1111000101000111	1111000101000111	1,8,0	8	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 1
+S	18	f71055576cd4f643	2f646e17161d3f06	1111000101000110	1111000101000111	1,8,1	8	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 9
+S	18	a2ec0e8e5712b228	15ba5c62b56485db	1111000101000111	1111000101000111	1,9,1	8	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 2
+S	18	4a6756dbae5bdf28	9eead013299eb5bd	1111000101000111	1111000101000111	1,9,1	8	1,2	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	4a6756dbae5bdf28	9eead013299eb5bd	1111000101000111	1111000101000111	1,9,1	8	1,2	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	4a6756dbae5bdf28	9eead013299eb5bd	1111000101000111	1111000101000111	1,9,1	8	1,2	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 8 1
+S	18	bec13e3c4804315e	ae55a77b0b6f476b	1111000111000110	1111000111000111	1,9,1	8	1,2	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	bec13e3c4804315e	ae55a77b0b6f476b	1111000111000110	1111000111000111	1,9,1	8	1,2	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 10
+S	18	8c19ffa413a84fc3	da15e7f27dc6eb85	1111000111000111	1111000111000111	1,10,1	8	1,2	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 5
+S	18	193078e239558270	357be864987dcaea	1111000111000111	1111000111000111	1,10,1	8	1,5	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 2
+S	18	b4a46bb263d350ba	364abdc7e29bb98f	1000000100000000	1111000111000111	1,2,1	8	1,5	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 1
+S	18	b4a46bb263d350ba	364abdc7e29bb98f	1000000100000000	1111000111000111	1,2,1	8	1,5	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 15
+S	18	6042591a0c54b04c	02aca6b1f942c774	0000000100000010	1111000111000111	1,2,1	8	1,15	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 10 1
+S	18	6042591a0c54b04c	02aca6b1f942c774	0000000100000010	1111000111100111	1,2,1	8	1,15	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 0
+S	18	a9248de319df86e1	164243abbdc7fd9c	0000000101000010	1111000111100111	1,2,0	8	1,15	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	a9248de319df86e1	164243abbdc7fd9c	0000000101000010	1111000111100111	1,2,0	8	1,15	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 0
+S	18	a9248de319df86e1	164243abbdc7fd9c	0000000101000010	1111000111100111	1,2,0	8	1,15	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 5
+S	18	db2444f91f40a7e7	df731bb3b603ff33	1000000101000000	1111000111100111	1,2,0	8	1,5	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 2
+S	18	5420c2d2e1e8e727	e853892ea49ae39b	1000000101000000	1111000111100111	2,2,0	8	1,5	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 2
+S	18	5420c2d2e1e8e727	e853892ea49ae39b	1000000101000000	1111000111100111	2,2,0	8	1,5	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 8
+S	18	38d53dddb1081a90	a7c34744762315ea	1111000111100100	1111000111100111	2,8,0	8	1,5	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 8
+S	18	6548063ab5b059b8	728842e2d185d311	1111000111100100	1111000111100111	2,8,0	8	1,8	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 0
+S	18	38d53dddb1081a90	f39d290e6df590ff	1111000111100100	1111000111100111	2,8,0	8	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	65	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=1	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000101	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 0 0
+S	18	df9ca2f87dacee15	d6573f03ed37692d	0111111111111111	0111111111111111	0,16,0	0	1,0	000101	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 16
+S	18	df9ca2f87dacee15	d6573f03ed37692d	0111111111111111	0111111111111111	0,16,0	16	1,0	000101	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 8 1
+S	18	df9ca2f87dacee15	d6573f03ed37692d	0111111111111111	0111111111111111	0,16,0	16	1,0	000101	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 10
+S	18	3af450b883b12fe1	526e7b7bc22b23bd	0111111111110000	0111111111111111	0,10,0	16	1,0	000101	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 2
+S	18	901b9a245024d161	1dc5e6ff5635e772	0111111111110000	0111111111111111	2,10,0	16	1,0	000101	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 15 1
+S	18	901b9a245024d161	1dc5e6ff5635e772	0111111111110000	0111111111111111	2,10,0	16	1,0	000101	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 10
+S	18	91705f77501f98ec	fff5177c2480594a	0111111111100000	0111111111111111	2,10,0	16	1,10	110001	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	tier 1
+S	18	490644852e8a71c8	ba2435122be00b96	0111111111100000	0111111111111111	1,10,0	16	1,10	000101	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 16
+S	18	ac9b170a99ae85ef	53b1c81e3b62b67e	0111111111100001	0111111111111111	1,10,0	16	1,16	000101	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 5 1
+S	18	ac9b170a99ae85ef	53b1c81e3b62b67e	0111111111100001	0111111111111111	1,10,0	16	1,16	000101	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 1
+S	18	ac9b170a99ae85ef	53b1c81e3b62b67e	0111111111100001	0111111111111111	1,10,0	16	1,16	000101	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 2
+S	18	fc70e76ca27f33fb	cacf8bb0ac49c5c8	0111111111100001	0111111111111111	2,10,0	16	1,16	110001	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	usable 11 0
+S	18	fc70e76ca27f33fb	cacf8bb0ac49c5c8	0111111111100001	0111111111101111	2,10,0	16	1,16	110001	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	confirm 0
+S	18	fc70e76ca27f33fb	cacf8bb0ac49c5c8	0111111111100001	0111111111101111	2,10,0	16	1,16	110001	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	fc70e76ca27f33fb	cacf8bb0ac49c5c8	0111111111100001	0111111111101111	2,10,0	16	1,16	111011	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	select 3
+S	18	fc70e76ca27f33fb	cacf8bb0ac49c5c8	0111111111100001	0111111111101111	2,10,0	3	1,0	111011	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	dest 0
+S	18	fc70e76ca27f33fb	cacf8bb0ac49c5c8	0111111111100001	0111111111101111	2,10,0	3	1,0	111011	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	cap 10
+S	18	fc70e76ca27f33fb	cacf8bb0ac49c5c8	0111111111100001	0111111111101111	2,10,0	3	1,0	111011	Review all highlighted warnings and confirm before Apply.	Selected MIDI track/channel output:
+A	cap 13
+S	18	46ce203cdabd5f09	751f6a3c5d0106c3	0111111111101111	0111111111101111	2,13,0	3	1,0	000101	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 13
+S	18	46ce203cdabd5f09	751f6a3c5d0106c3	0111111111101111	0111111111101111	2,13,0	13	1,0	000101	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	46ce203cdabd5f09	751f6a3c5d0106c3	0111111111101111	0111111111101111	2,13,0	13	1,0	000101	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 6
+S	18	f4e199f7d451c884	e3bd7d2228338765	0111111111101111	0111111111101111	2,13,0	13	1,6	000101	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 0
+S	18	f4e199f7d451c884	e3bd7d2228338765	0111111111101111	0111111111101111	2,13,0	13	1,6	000101	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 1
+S	18	df2715342e52d2fa	cb598038a85d3485	0111111111101111	0111111111101111	1,13,0	13	1,6	000101	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	df2715342e52d2fa	cb598038a85d3485	0111111111101111	0111111111101111	1,13,0	13	1,6	000111	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 14 1
+S	18	df2715342e52d2fa	cb598038a85d3485	0111111111101111	0111111111101111	1,13,0	13	1,6	000111	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 0
+S	18	d7b22da8e17cec42	de2331ce1bb8fba7	0111111111101111	0111111111101111	0,13,0	13	1,6	000101	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 9
+S	18	05bd57c4a9750dba	6ed4f3cb7161c72f	0111111111101111	0111111111101111	0,13,0	13	1,9	000101	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 15
+S	18	05bd57c4a9750dba	6ed4f3cb7161c72f	0111111111101111	0111111111101111	0,13,0	15	1,0	000101	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	original
+S	18	05bd57c4a9750dba	6ed4f3cb7161c72f	0111111111101111	0111111111101111	0,13,0	15	1,0	000101	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+O	original	0	-
+end
+session	66	init=tier=2,cap=11,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	f396997fafb4bb4b	b625d2dfdd7d730d	1111111111110000	1111111111111111	2,11,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	f396997fafb4bb4b	b625d2dfdd7d730d	1111111111110000	1111111111111111	2,11,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 2
+S	18	f396997fafb4bb4b	b625d2dfdd7d730d	1111111111110000	1111111111111111	2,11,0	0	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 0
+S	18	989b66bc8d9bee3c	6f0c7d7e2b55be10	1111111111110000	1111111111111111	0,11,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 3
+S	18	05437ab41961418b	af067883aa33411b	1111111111110000	1111111111111111	0,11,0	0	1,3	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 11 0
+S	18	bf3cb02d7d66b592	d7e208d71cc0dcda	1111111111101000	1111111111101111	0,11,0	0	1,3	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 9 1
+S	18	bf3cb02d7d66b592	d7e208d71cc0dcda	1111111111101000	1111111111101111	0,11,0	0	1,3	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	bf3cb02d7d66b592	d7e208d71cc0dcda	1111111111101000	1111111111101111	0,11,0	0	1,3	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	bf3cb02d7d66b592	d7e208d71cc0dcda	1111111111101000	1111111111101111	0,11,0	0	1,3	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 11
+S	18	bf3cb02d7d66b592	d7e208d71cc0dcda	1111111111101000	1111111111101111	0,11,0	11	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 11
+S	18	bf3cb02d7d66b592	d7e208d71cc0dcda	1111111111101000	1111111111101111	0,11,0	11	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 0
+S	18	bf3cb02d7d66b592	d7e208d71cc0dcda	1111111111101000	1111111111101111	0,11,0	11	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 0
+S	18	bf3cb02d7d66b592	d7e208d71cc0dcda	1111111111101000	1111111111101111	0,11,0	11	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 0
+S	18	bf3cb02d7d66b592	d7e208d71cc0dcda	1111111111101000	1111111111101111	0,11,0	11	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 10
+S	18	bf3cb02d7d66b592	d7e208d71cc0dcda	1111111111101000	1111111111101111	0,11,0	10	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 14 1
+S	18	bf3cb02d7d66b592	d7e208d71cc0dcda	1111111111101000	1111111111101111	0,11,0	10	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 4
+S	18	1892197d41830a42	073e96cee5cbbb0c	1111111111101000	1111111111101111	0,11,0	10	1,4	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 9
+S	18	1892197d41830a42	073e96cee5cbbb0c	1111111111101000	1111111111101111	0,11,0	9	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 6
+S	18	1892197d41830a42	073e96cee5cbbb0c	1111111111101000	1111111111101111	0,11,0	6	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 0
+S	18	1892197d41830a42	073e96cee5cbbb0c	1111111111101000	1111111111101111	0,11,0	6	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 12
+S	18	024dc7a419f80ba3	596cb0111ebfa559	1111111111101100	1111111111101111	0,12,0	6	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 9
+S	18	024dc7a419f80ba3	596cb0111ebfa559	1111111111101100	1111111111101111	0,12,0	9	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	024dc7a419f80ba3	596cb0111ebfa559	1111111111101100	1111111111101111	0,12,0	9	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 17
+S	18	024dc7a419f80ba3	596cb0111ebfa559	1111111111101100	1111111111101111	0,12,0	17	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 3
+S	18	3a3826caa71adf6c	d07a583aaf462598	1111111111101100	1111111111101111	0,12,0	17	1,3	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 15
+S	18	1013929b5bedea11	b6b2d82dfe6f1829	1111111111101110	1111111111101111	0,15,0	17	1,3	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 8 1
+S	18	1013929b5bedea11	b6b2d82dfe6f1829	1111111111101110	1111111111101111	0,15,0	17	1,3	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 9 1
+S	18	1013929b5bedea11	b6b2d82dfe6f1829	1111111111101110	1111111111101111	0,15,0	17	1,3	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 2
+S	18	06c5b5a52d3a6c23	22891a7a1e6619b5	1111111111101111	1111111111101111	2,15,0	17	1,3	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 9
+S	18	8400925a48e6b8ea	8c69e62b64ad1ff8	1111111111000000	1111111111101111	2,9,0	17	1,3	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 13 1
+S	18	8400925a48e6b8ea	8c69e62b64ad1ff8	1111111111000000	1111111111101111	2,9,0	17	1,3	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 14
+S	18	8400925a48e6b8ea	8c69e62b64ad1ff8	1111111111000000	1111111111101111	2,9,0	14	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 6 1
+S	18	8400925a48e6b8ea	8c69e62b64ad1ff8	1111111111000000	1111111111101111	2,9,0	14	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 0
+S	18	aea2b360fb170eaf	dedc38598b123581	1111111111000000	1111111111101111	0,9,0	14	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 2 1
+S	18	aea2b360fb170eaf	dedc38598b123581	1111111111000000	1111111111101111	0,9,0	14	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 0
+S	18	aea2b360fb170eaf	dedc38598b123581	1111111111000000	1111111111101111	0,9,0	14	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 4
+S	18	b6cc4d0ee7d4f3de	e59e8b92635c0f4d	1111000001000000	1111111111101111	0,4,0	14	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 10
+S	18	007d679aef54e639	493635e2c2f81e14	1011000001000000	1111111111101111	0,4,0	14	1,10	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 0
+S	18	007d679aef54e639	493635e2c2f81e14	1011000001000000	1111111111101111	0,4,0	14	1,10	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 14
+S	18	c2f713950cfdbf79	2ca56751ddf7a421	1111111111100110	1111111111101111	0,14,0	14	1,10	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 10
+S	18	622ba1d32861d6e6	f22c048c64652def	1111111111000000	1111111111101111	0,10,0	14	1,10	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+session	67	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+S	18	19ff49dfd4b66e10	da75be11ce6fc9d8	1111111111111111	1111111111111111	0,16,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 10
+S	18	691805163f3f5e5b	d6b55fb5b16587df	1111111111100000	1111111111111111	0,10,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 5 0
+S	18	e9f3affe440a1fd6	cdc19aa17d091572	1111101111110000	1111101111111111	0,10,0	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 1
+S	18	9642eb711f5898b2	24b225d66ed4f512	1111101111100000	1111101111111111	0,10,1	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 1 1
+S	18	9642eb711f5898b2	24b225d66ed4f512	1111101111100000	1111101111111111	0,10,1	0	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 3
+S	18	9642eb711f5898b2	24b225d66ed4f512	1111101111100000	1111101111111111	0,10,1	3	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 3
+S	18	c3b106e0f84cabd4	429a16963accb1b6	1111101111100000	1111101111111111	0,10,1	3	1,3	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 0
+S	18	9642eb711f5898b2	24b225d66ed4f512	1111101111100000	1111101111111111	0,10,1	3	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 0
+S	18	9642eb711f5898b2	24b225d66ed4f512	1111101111100000	1111101111111111	0,10,1	3	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	9642eb711f5898b2	24b225d66ed4f512	1111101111100000	1111101111111111	0,10,1	3	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 8 1
+S	18	9642eb711f5898b2	24b225d66ed4f512	1111101111100000	1111101111111111	0,10,1	3	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 16
+S	18	4ba065753982df3f	2d7cf79f4ed65059	1111101111000001	1111101111111111	0,10,1	3	1,16	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 4 1
+S	18	4ba065753982df3f	2d7cf79f4ed65059	1111101111000001	1111101111111111	0,10,1	3	1,16	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 2
+S	18	93c271ebb3c9d703	524a17dc3429a616	1111101111000001	1111101111111111	2,10,1	3	1,16	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	93c271ebb3c9d703	524a17dc3429a616	1111101111000001	1111101111111111	2,10,1	3	1,16	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	93c271ebb3c9d703	524a17dc3429a616	1111101111000001	1111101111111111	2,10,1	3	1,16	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 4
+S	18	20facdefa4e43ddc	ba35ea63a7d650f9	1111101111100000	1111101111111111	2,10,1	3	1,4	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 1
+S	18	7484b4989954e204	371924aa0421acd2	1111101111100000	1111101111111111	1,10,1	3	1,4	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 16
+S	18	7484b4989954e204	371924aa0421acd2	1111101111100000	1111101111111111	1,10,1	16	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 10
+S	18	fc60e7a92026485d	d709c56df86b27f5	1111101111100000	1111101111111111	1,10,1	16	1,10	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 12 1
+S	18	fc60e7a92026485d	d709c56df86b27f5	1111101111100000	1111101111111111	1,10,1	16	1,10	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	fc60e7a92026485d	d709c56df86b27f5	1111101111100000	1111101111111111	1,10,1	16	1,10	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 0
+S	18	7484b4989954e204	371924aa0421acd2	1111101111100000	1111101111111111	1,10,1	16	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	7484b4989954e204	371924aa0421acd2	1111101111100000	1111101111111111	1,10,1	16	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	confirm 1
+S	18	7484b4989954e204	371924aa0421acd2	1111101111100000	1111101111111111	1,10,1	16	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 0
+S	18	7484b4989954e204	371924aa0421acd2	1111101111100000	1111101111111111	1,10,1	16	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 5
+S	18	7484b4989954e204	371924aa0421acd2	1111101111100000	1111101111111111	1,10,1	5	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	perc 1
+S	18	7484b4989954e204	371924aa0421acd2	1111101111100000	1111101111111111	1,10,1	5	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 10
+S	18	7484b4989954e204	371924aa0421acd2	1111101111100000	1111101111111111	1,10,1	5	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 6 1
+S	18	7484b4989954e204	371924aa0421acd2	1111101111100000	1111101111111111	1,10,1	5	1,0	000110	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 3
+S	18	45d0572c940a991c	89bc340794f7866b	1111101111100000	1111101111111111	1,10,1	5	1,3	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 17
+S	18	45d0572c940a991c	89bc340794f7866b	1111101111100000	1111101111111111	1,10,1	17	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	cap 8
+S	18	b8e3a69b8f4422a2	831045254df64b5b	1111101110000000	1111101111111111	1,8,1	17	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	apply
+S	18	b8e3a69b8f4422a2	831045254df64b5b	1111101110000000	1111101111111111	1,8,1	17	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 1 1
+S	18	b8e3a69b8f4422a2	831045254df64b5b	1111101110000000	1111101111111111	1,8,1	17	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 15
+S	18	b8e3a69b8f4422a2	831045254df64b5b	1111101110000000	1111101111111111	1,8,1	15	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	tier 1
+S	18	b8e3a69b8f4422a2	831045254df64b5b	1111101110000000	1111101111111111	1,8,1	15	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 13
+S	18	614f62c6f1454264	0547b23094663685	1111101100001000	1111101111111111	1,8,1	15	1,13	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	dest 0
+S	18	b8e3a69b8f4422a2	831045254df64b5b	1111101110000000	1111101111111111	1,8,1	15	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	select 11
+S	18	b8e3a69b8f4422a2	831045254df64b5b	1111101110000000	1111101111111111	1,8,1	11	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+A	usable 2 1
+S	18	b8e3a69b8f4422a2	831045254df64b5b	1111101110000000	1111101111111111	1,8,1	11	1,0	000100	Resolve every hard error before Apply. The current route remains unchanged.	Selected MIDI track/channel output:
+end
+# end of table

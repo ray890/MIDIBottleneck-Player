@@ -1,0 +1,13 @@
+# producer v1-reference (MIDIBottleneck v1.0.44 sources) x64 clr 4.0.30319.42000
+# input err-header-extra-truncated.mid
+trace-format 1
+mode full
+[file]
+size 16
+container smf
+[preflight]
+status error EndOfStreamException "The MIDI header ended unexpectedly."
+requires-preflight ptr4 0 ptr8 0
+[song]
+status error EndOfStreamException "The MIDI header ended unexpectedly."
+[end]

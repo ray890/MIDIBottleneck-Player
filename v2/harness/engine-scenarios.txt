@@ -1,0 +1,1746 @@
+# MIDIBottleneck Player v2 - deterministic engine scenarios.
+#
+# Read by the v1 lock-step spike (v2/harness/v1-reference/spike) and, later, by
+# the C++ engine harness. The format, every key, the time formulas, the engine
+# defaults and the exact recorded-output format are specified in
+# v2/harness/ENGINE_SCENARIOS.md. Do not change a scenario that has recorded
+# reference output without regenerating and re-verifying that output.
+#
+# The fixtures every scenario runs on (the 23 valid fixtures of
+# v2/harness/fixtures; run-spike.ps1 -AllValid):
+#   decimal-halfway decimal-stress empty-tracks f0-all-message-types
+#   f1-cross-track-tempo f1-v1-test-midi format0-two-tracks header-extra-bytes
+#   index-chase-rich long-sysex-segment-crossing many-events-segments
+#   many-tracks-ties metadata-edge metadata-names models-dense models-notes
+#   rmid-plain-odd rmid-wrapped running-status-repair sysex-short sysex-variants
+#   tempo-changes tempo-edge-values
+format 1
+
+# ======================================================================
+# Part 1. The 21 scenarios of the Milestone 3 spike and its Pause/Seek
+# follow-up. Their recorded output must stay byte-identical.
+# ======================================================================
+
+scenario queue-end
+  describe Queue mode to the end with the engine defaults.
+  at 0 start queue 0
+
+scenario queue-stop-restart
+  describe Stop at 40 percent, then Start at the middle of the song (state chase).
+  at 0 start queue 0
+  at 4/10 stop
+  at 4/10+50000 start queue 1/2
+
+scenario queue-restart-while-playing
+  describe Start while playing (Start stops the running worker first).
+  at 0 start queue 0
+  at 3/10 start queue 6/10
+
+scenario queue-bitrate-then-processing
+  describe MIDI-bitrate service model, switched to a 500 us processing time while playing.
+  set simulate-slowdown on
+  service midi-bitrate 0 31250 10000
+  at 0 start queue 0
+  at 3/10 service processing-time 500 31250 10000
+  at 7/10 stop
+
+scenario drop-1500us-limit32
+  describe Drop mode, 1500 us processing time, 32-event limit, Drop oldest.
+  set simulate-slowdown on
+  set processing-microseconds 1500
+  set queue-length-limit 32
+  set overflow-policy drop-oldest
+  at 0 start drop 0
+
+scenario ordered-queue-300us-stop
+  describe Preserve-on-Pause/Seek (ordered) path, 300 us processing time, Stop at 60 percent.
+  set preserve-playback-queue-on-pause-seek on
+  set simulate-slowdown on
+  set processing-microseconds 300
+  at 0 start queue 0
+  at 6/10 stop
+
+# ---- Pause / Resume / Seek, classic path (queue-*) and ordered path (ordered-*)
+
+profile ordered-300us
+  set preserve-playback-queue-on-pause-seek on
+  set simulate-slowdown on
+  set processing-microseconds 300
+end-profile
+
+scenario queue-pause-resume
+  snapshots on
+  at 0 start queue 0
+  at 3/10 pause
+  at 5/10 resume
+
+scenario ordered-pause-resume
+  snapshots on
+  use ordered-300us
+  at 0 start queue 0
+  at 3/10 pause
+  at 5/10 resume
+
+scenario queue-pause-seek-resume
+  snapshots on
+  at 0 start queue 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario ordered-pause-seek-resume
+  snapshots on
+  use ordered-300us
+  at 0 start queue 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario queue-seek-playing
+  snapshots on
+  at 0 start queue 0
+  at 3/10 seek 7/10
+  at 5/10 seek 1/10
+
+scenario ordered-seek-playing
+  snapshots on
+  use ordered-300us
+  at 0 start queue 0
+  at 3/10 seek 7/10
+  at 5/10 seek 1/10
+
+scenario queue-pause-stop
+  snapshots on
+  at 0 start queue 0
+  at 3/10 pause
+  at 5/10 stop
+
+scenario ordered-pause-stop
+  snapshots on
+  use ordered-300us
+  at 0 start queue 0
+  at 3/10 pause
+  at 5/10 stop
+
+# Left paused: the driver ends the run with its own Stop.
+scenario queue-pause-at-end
+  snapshots on
+  at 0 start queue 0
+  at 3/10 pause
+
+scenario ordered-pause-at-end
+  snapshots on
+  use ordered-300us
+  at 0 start queue 0
+  at 3/10 pause
+
+scenario queue-pause-then-start
+  snapshots on
+  at 0 start queue 0
+  at 3/10 pause
+  at 4/10 start queue 6/10
+
+scenario ordered-pause-then-start
+  snapshots on
+  use ordered-300us
+  at 0 start queue 0
+  at 3/10 pause
+  at 4/10 start queue 6/10
+
+scenario queue-pause-resume-twice
+  snapshots on
+  at 0 start queue 0
+  at 2/10 pause
+  at 3/10 resume
+  at 5/10 pause
+  at 6/10 resume
+
+scenario ordered-pause-resume-twice
+  snapshots on
+  use ordered-300us
+  at 0 start queue 0
+  at 2/10 pause
+  at 3/10 resume
+  at 5/10 pause
+  at 6/10 resume
+
+scenario ordered-drop-pause-seek-resume
+  describe Preserving finite-queue (Drop, limit 32, 1500 us) path through Pause, Seek while paused and Resume.
+  snapshots on
+  set preserve-playback-queue-on-pause-seek on
+  set simulate-slowdown on
+  set processing-microseconds 1500
+  set queue-length-limit 32
+  set overflow-policy drop-oldest
+  at 0 start drop 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+# ======================================================================
+# Part 2. Milestone 5 scenario extension. Every scenario logs the engine
+# snapshot after each command (snapshots full: SNAP and SNAPX lines).
+#
+# The profiles reproduce what MainForm configures on the engine when the
+# user picks a rate model or a gate (MainForm.ApplyRateChoice and
+# SynchronizeRateProcessing): an ordinary rate model sets Simulate slowdown
+# and one service model; a gate (Per-note interval, Delayed NoteOff, Note
+# attack limit, Output rate limit) turns Simulate slowdown off and is
+# selected as the Start processing mode. MainForm's own defaults
+# (100 us processing time, 31,250 bit/s, 10,000 events/s) fill the unused
+# service fields. Representative values are chosen to bite on the dense
+# fixtures; they are not the product defaults.
+# ======================================================================
+
+profile rate-none
+  set simulate-slowdown off
+  service processing-time 100 31250 10000
+end-profile
+
+profile rate-processing-time
+  set simulate-slowdown on
+  service processing-time 500 31250 10000
+end-profile
+
+profile rate-midi-bitrate
+  set simulate-slowdown on
+  service midi-bitrate 100 31250 10000
+end-profile
+
+profile rate-events-per-second
+  set simulate-slowdown on
+  service events-per-second 100 31250 2000
+end-profile
+
+# Drop mode: a 32-event limit over a 1500 us processing time.
+profile drop-base
+  set simulate-slowdown on
+  service processing-time 1500 31250 10000
+  set queue-length-limit 32
+end-profile
+
+profile gate-per-note-interval
+  set simulate-slowdown off
+  service processing-time 5000 31250 10000
+end-profile
+
+profile gate-delayed-note-off
+  set simulate-slowdown off
+  service processing-time 30000 31250 10000
+end-profile
+
+profile gate-note-attack-limit
+  set simulate-slowdown off
+  service events-per-second 100 31250 200
+end-profile
+
+profile gate-output-rate-limit
+  set simulate-slowdown off
+  service events-per-second 100 31250 300
+end-profile
+
+profile ordered
+  set preserve-playback-queue-on-pause-seek on
+end-profile
+
+profile output-paced
+  set output-paced-timeline on
+end-profile
+
+# ---- A. Rate models in Queue mode ------------------------------------
+
+scenario rate-none
+  describe Rate model (none): no simulated slowdown, Queue mode.
+  snapshots full
+  use rate-none
+  at 0 start queue 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario rate-processing-time
+  describe Processing time per event (500 us), Queue mode.
+  snapshots full
+  use rate-processing-time
+  at 0 start queue 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario rate-midi-bitrate
+  describe MIDI bitrate (31,250 bit/s), Queue mode.
+  snapshots full
+  use rate-midi-bitrate
+  at 0 start queue 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario rate-events-per-second
+  describe Events per second (2,000), Queue mode.
+  snapshots full
+  use rate-events-per-second
+  at 0 start queue 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario rate-live-processing-time
+  describe Live edits of the processing time: 500 us, 2000 us at 30 percent, 0 us at 60 percent.
+  snapshots full
+  use rate-processing-time
+  at 0 start queue 0
+  at 3/10 set processing-microseconds 2000
+  at 6/10 set processing-microseconds 0
+
+scenario rate-live-midi-bitrate
+  describe Live edits of the MIDI bitrate: 31,250, 9,600 at 30 percent, 250,000 at 60 percent.
+  snapshots full
+  use rate-midi-bitrate
+  at 0 start queue 0
+  at 3/10 set midi-bitrate 9600
+  at 6/10 set midi-bitrate 250000
+
+scenario rate-live-events-per-second
+  describe Live edits of the events per second: 2,000, 500 at 30 percent, unlimited (0) at 60 percent.
+  snapshots full
+  use rate-events-per-second
+  at 0 start queue 0
+  at 3/10 set events-per-second 500
+  at 6/10 set events-per-second 0
+
+scenario rate-switch-models-live
+  describe Switching the rate model while playing: bitrate, events/s at 30 percent, processing time at 60 percent, bitrate at 85 percent.
+  snapshots full
+  use rate-midi-bitrate
+  at 0 start queue 0
+  at 3/10 service events-per-second 100 31250 1000
+  at 6/10 service processing-time 800 31250 10000
+  at 85/100 service midi-bitrate 100 9600 10000
+
+# ---- B. Drop mode: every overflow policy, the age limit, forward-only ----
+
+scenario drop-policy-drop-newest
+  snapshots full
+  use drop-base
+  set overflow-policy drop-newest
+  at 0 start drop 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario drop-policy-drop-oldest
+  snapshots full
+  use drop-base
+  set overflow-policy drop-oldest
+  at 0 start drop 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario drop-policy-clear-buffer-and-catch-up
+  snapshots full
+  use drop-base
+  set overflow-policy clear-buffer-and-catch-up
+  at 0 start drop 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario drop-policy-drop-incoming-complete-notes
+  snapshots full
+  use drop-base
+  set overflow-policy drop-incoming-complete-notes
+  at 0 start drop 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario drop-policy-drop-oldest-complete-note
+  snapshots full
+  use drop-base
+  set overflow-policy drop-oldest-complete-note
+  at 0 start drop 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario drop-policy-drop-background-notes
+  snapshots full
+  use drop-base
+  set overflow-policy drop-background-notes
+  at 0 start drop 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+# Queue waiting-time limit (20 ms) in place of the event-count limit.
+scenario drop-age-drop-oldest
+  snapshots full
+  use drop-base
+  set queue-age-limit-enabled on
+  set queue-age-limit-microseconds 20000
+  set overflow-policy drop-oldest
+  at 0 start drop 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario drop-age-drop-oldest-complete-note
+  snapshots full
+  use drop-base
+  set queue-age-limit-enabled on
+  set queue-age-limit-microseconds 20000
+  set overflow-policy drop-oldest-complete-note
+  at 0 start drop 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario drop-age-clear-buffer-and-catch-up
+  snapshots full
+  use drop-base
+  set queue-age-limit-enabled on
+  set queue-age-limit-microseconds 20000
+  set overflow-policy clear-buffer-and-catch-up
+  at 0 start drop 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+# Apply the queue limit without slowdown (forward-only, virtual queue):
+# only Drop newest and Drop incoming complete notes are legal.
+scenario drop-forward-drop-newest
+  snapshots full
+  set simulate-slowdown off
+  set apply-queue-limit-without-slowdown on
+  service processing-time 1500 31250 10000
+  set queue-length-limit 32
+  set overflow-policy drop-newest
+  at 0 start drop 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario drop-forward-drop-incoming-complete-notes
+  snapshots full
+  set simulate-slowdown off
+  set apply-queue-limit-without-slowdown on
+  service processing-time 1500 31250 10000
+  set queue-length-limit 32
+  set overflow-policy drop-incoming-complete-notes
+  at 0 start drop 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario drop-rate-none
+  describe Drop mode with the rate model (none): no slowdown, nothing queues.
+  snapshots full
+  use rate-none
+  set queue-length-limit 32
+  set overflow-policy drop-newest
+  at 0 start drop 0
+  at 3/10 snapshot
+
+scenario drop-rate-midi-bitrate
+  snapshots full
+  set simulate-slowdown on
+  service midi-bitrate 100 31250 10000
+  set queue-length-limit 32
+  set overflow-policy drop-oldest
+  at 0 start drop 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario drop-rate-events-per-second
+  snapshots full
+  set simulate-slowdown on
+  service events-per-second 100 31250 1000
+  set queue-length-limit 32
+  set overflow-policy drop-oldest
+  at 0 start drop 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario drop-live-limit-and-policy
+  describe Live edits while playing: limit 8 at 30 percent, policy Drop newest at 50 percent, limit 256 at 70 percent.
+  snapshots full
+  use drop-base
+  set overflow-policy drop-oldest
+  at 0 start drop 0
+  at 3/10 set queue-length-limit 8
+  at 5/10 set overflow-policy drop-newest
+  at 7/10 set queue-length-limit 256
+
+# ---- C. Gates (processing modes Per-note interval, Delayed NoteOff,
+#         Note attack limit, Output rate limit) ---------------------------
+
+scenario gate-per-note-interval
+  describe Per-note interval gate, 5 ms transition interval.
+  snapshots full
+  use gate-per-note-interval
+  at 0 start per-note-interval-gate 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario gate-per-note-interval-zero
+  describe Per-note interval gate with a zero interval (resolves at source timestamps).
+  snapshots full
+  set simulate-slowdown off
+  service processing-time 0 31250 10000
+  at 0 start per-note-interval-gate 0
+  at 5/10 snapshot
+
+scenario gate-per-note-interval-scale-traffic
+  describe Per-note interval gate with interval scaling by traffic.
+  snapshots full
+  use gate-per-note-interval
+  set scale-note-interval-by-traffic on
+  at 0 start per-note-interval-gate 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario gate-per-note-interval-polyphony-4
+  describe Per-note interval gate with the interval polyphony limit enabled at 4 note messages.
+  snapshots full
+  use gate-per-note-interval
+  set interval-polyphony-limit-enabled on
+  set interval-polyphony-limit 4
+  at 0 start per-note-interval-gate 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario gate-per-note-interval-live
+  describe Live gate edits: MainForm stops and restarts at the intended position with the new interval (20 ms at 30 percent, 1 ms at 60 percent).
+  snapshots full
+  use gate-per-note-interval
+  at 0 start per-note-interval-gate 0
+  at 3/10 restart per-note-interval-gate processing-microseconds=20000
+  at 6/10 restart per-note-interval-gate processing-microseconds=1000
+
+scenario gate-per-note-interval-pause-seek-resume
+  snapshots full
+  use gate-per-note-interval
+  at 0 start per-note-interval-gate 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario gate-per-note-interval-restart-while-paused
+  describe Live gate edit while paused: restart paused at the same position, then Resume.
+  snapshots full
+  use gate-per-note-interval
+  at 0 start per-note-interval-gate 0
+  at 3/10 pause
+  at 4/10 restart per-note-interval-gate processing-microseconds=20000
+  at 5/10 resume
+
+scenario gate-delayed-note-off
+  describe Delayed NoteOff gate, 30 ms minimum NoteOn duration.
+  snapshots full
+  use gate-delayed-note-off
+  at 0 start delayed-note-off 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario gate-delayed-note-off-scale-polyphony-4
+  describe Delayed NoteOff with interval scaling by traffic and a 4-message polyphony limit.
+  snapshots full
+  use gate-delayed-note-off
+  set scale-note-interval-by-traffic on
+  set interval-polyphony-limit-enabled on
+  set interval-polyphony-limit 4
+  at 0 start delayed-note-off 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario gate-delayed-note-off-live
+  describe Live gate edits (60 ms at 30 percent, 10 ms at 60 percent), restart at the intended position.
+  snapshots full
+  use gate-delayed-note-off
+  at 0 start delayed-note-off 0
+  at 3/10 restart delayed-note-off processing-microseconds=60000
+  at 6/10 restart delayed-note-off processing-microseconds=10000
+
+scenario gate-delayed-note-off-pause-seek-resume
+  snapshots full
+  use gate-delayed-note-off
+  at 0 start delayed-note-off 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario gate-note-attack-limit
+  describe Note attack (start) limit, 200 note starts per second.
+  snapshots full
+  use gate-note-attack-limit
+  at 0 start note-attack-limit 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario gate-note-attack-limit-live
+  describe Live gate edits (800 starts/s at 30 percent, 50 starts/s at 60 percent), restart at the intended position.
+  snapshots full
+  use gate-note-attack-limit
+  at 0 start note-attack-limit 0
+  at 3/10 restart note-attack-limit events-per-second=800
+  at 6/10 restart note-attack-limit events-per-second=50
+
+scenario gate-note-attack-limit-pause-seek-resume
+  snapshots full
+  use gate-note-attack-limit
+  at 0 start note-attack-limit 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario gate-output-rate-limit
+  describe Output rate limit, 300 messages per second (the recording output itself sustains at most about 1,000 three-byte messages per second).
+  snapshots full
+  use gate-output-rate-limit
+  at 0 start output-rate-limit 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario gate-output-rate-limit-live
+  describe Live gate edits (1,200/s at 30 percent, 100/s at 60 percent), restart at the intended position.
+  snapshots full
+  use gate-output-rate-limit
+  at 0 start output-rate-limit 0
+  at 3/10 restart output-rate-limit events-per-second=1200
+  at 6/10 restart output-rate-limit events-per-second=100
+
+scenario gate-output-rate-limit-pause-seek-resume
+  snapshots full
+  use gate-output-rate-limit
+  at 0 start output-rate-limit 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario gate-output-rate-limit-restart-while-paused
+  snapshots full
+  use gate-output-rate-limit
+  at 0 start output-rate-limit 0
+  at 3/10 pause
+  at 4/10 restart output-rate-limit events-per-second=1200
+  at 5/10 resume
+
+# ---- D. The ordered (preserve-on-Pause/Seek) path -----------------------
+# Each scenario starts, pauses at 30 percent, seeks while paused to 70
+# percent, and resumes at 50 percent (the position-keeping Seek).
+# Live channel controls on this path are in section G; they run with the
+# simulated slowdown off for the reason given in section E.
+
+scenario ordered-rate-none
+  snapshots full
+  use ordered
+  use rate-none
+  at 0 start queue 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario ordered-rate-processing-time
+  snapshots full
+  use ordered
+  use rate-processing-time
+  at 0 start queue 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario ordered-rate-midi-bitrate
+  snapshots full
+  use ordered
+  use rate-midi-bitrate
+  at 0 start queue 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario ordered-rate-events-per-second
+  snapshots full
+  use ordered
+  use rate-events-per-second
+  at 0 start queue 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario ordered-rate-live-edits
+  describe Live rate edits on the ordered Queue path.
+  snapshots full
+  use ordered
+  use rate-midi-bitrate
+  at 0 start queue 0
+  at 3/10 set midi-bitrate 9600
+  at 5/10 service events-per-second 100 31250 1000
+  at 7/10 service processing-time 2000 31250 10000
+
+scenario ordered-drop-policy-drop-newest
+  snapshots full
+  use ordered
+  use drop-base
+  set overflow-policy drop-newest
+  at 0 start drop 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario ordered-drop-policy-drop-oldest
+  snapshots full
+  use ordered
+  use drop-base
+  set overflow-policy drop-oldest
+  at 0 start drop 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario ordered-drop-policy-clear-buffer-and-catch-up
+  snapshots full
+  use ordered
+  use drop-base
+  set overflow-policy clear-buffer-and-catch-up
+  at 0 start drop 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario ordered-drop-policy-drop-incoming-complete-notes
+  snapshots full
+  use ordered
+  use drop-base
+  set overflow-policy drop-incoming-complete-notes
+  at 0 start drop 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario ordered-drop-policy-drop-oldest-complete-note
+  snapshots full
+  use ordered
+  use drop-base
+  set overflow-policy drop-oldest-complete-note
+  at 0 start drop 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario ordered-drop-policy-drop-background-notes
+  snapshots full
+  use ordered
+  use drop-base
+  set overflow-policy drop-background-notes
+  at 0 start drop 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario ordered-drop-age-drop-oldest
+  snapshots full
+  use ordered
+  use drop-base
+  set queue-age-limit-enabled on
+  set queue-age-limit-microseconds 20000
+  set overflow-policy drop-oldest
+  at 0 start drop 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario ordered-drop-age-clear-buffer-and-catch-up
+  snapshots full
+  use ordered
+  use drop-base
+  set queue-age-limit-enabled on
+  set queue-age-limit-microseconds 20000
+  set overflow-policy clear-buffer-and-catch-up
+  at 0 start drop 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario ordered-drop-forward-drop-newest
+  snapshots full
+  use ordered
+  set simulate-slowdown off
+  set apply-queue-limit-without-slowdown on
+  service processing-time 1500 31250 10000
+  set queue-length-limit 32
+  set overflow-policy drop-newest
+  at 0 start drop 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario ordered-drop-forward-drop-incoming-complete-notes
+  snapshots full
+  use ordered
+  set simulate-slowdown off
+  set apply-queue-limit-without-slowdown on
+  service processing-time 1500 31250 10000
+  set queue-length-limit 32
+  set overflow-policy drop-incoming-complete-notes
+  at 0 start drop 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario ordered-drop-live-limit-and-policy
+  snapshots full
+  use ordered
+  use drop-base
+  set overflow-policy drop-oldest
+  at 0 start drop 0
+  at 3/10 set queue-length-limit 8
+  at 5/10 set overflow-policy drop-newest
+  at 7/10 set queue-length-limit 256
+
+scenario ordered-gate-per-note-interval
+  snapshots full
+  use ordered
+  use gate-per-note-interval
+  at 0 start per-note-interval-gate 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario ordered-gate-per-note-interval-scale-polyphony-4
+  snapshots full
+  use ordered
+  use gate-per-note-interval
+  set scale-note-interval-by-traffic on
+  set interval-polyphony-limit-enabled on
+  set interval-polyphony-limit 4
+  at 0 start per-note-interval-gate 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario ordered-gate-per-note-interval-live
+  snapshots full
+  use ordered
+  use gate-per-note-interval
+  at 0 start per-note-interval-gate 0
+  at 3/10 restart per-note-interval-gate processing-microseconds=20000
+  at 6/10 restart per-note-interval-gate processing-microseconds=1000
+
+scenario ordered-gate-delayed-note-off
+  snapshots full
+  use ordered
+  use gate-delayed-note-off
+  at 0 start delayed-note-off 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario ordered-gate-delayed-note-off-live
+  snapshots full
+  use ordered
+  use gate-delayed-note-off
+  at 0 start delayed-note-off 0
+  at 3/10 restart delayed-note-off processing-microseconds=60000
+  at 6/10 restart delayed-note-off processing-microseconds=10000
+
+scenario ordered-gate-note-attack-limit
+  snapshots full
+  use ordered
+  use gate-note-attack-limit
+  at 0 start note-attack-limit 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario ordered-gate-note-attack-limit-live
+  snapshots full
+  use ordered
+  use gate-note-attack-limit
+  at 0 start note-attack-limit 0
+  at 3/10 restart note-attack-limit events-per-second=800
+  at 6/10 restart note-attack-limit events-per-second=50
+
+scenario ordered-gate-output-rate-limit
+  snapshots full
+  use ordered
+  use gate-output-rate-limit
+  at 0 start output-rate-limit 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario ordered-gate-output-rate-limit-live
+  snapshots full
+  use ordered
+  use gate-output-rate-limit
+  at 0 start output-rate-limit 0
+  at 3/10 restart output-rate-limit events-per-second=1200
+  at 6/10 restart output-rate-limit events-per-second=100
+
+scenario ordered-gate-output-rate-limit-restart-while-paused
+  snapshots full
+  use ordered
+  use gate-output-rate-limit
+  at 0 start output-rate-limit 0
+  at 3/10 pause
+  at 4/10 restart output-rate-limit events-per-second=1200
+  at 5/10 resume
+
+# ---- E. Output-paced timeline -----------------------------------------
+# Classic path (output-paced-*) and ordered path (ordered-output-paced-*).
+#
+# Limitation: v1's ordered path busy-polls the clock (a loop with no wait)
+# while an Output-paced service hold, or a live channel control, is pending
+# and the next source event is already due. A virtual clock cannot advance in
+# a poll loop, so the harness fails such a run (PlaybackFailed, busy-poll
+# livelock) instead of hanging. The ordered scenarios below therefore run with
+# the simulated slowdown off (rate model "(none)", the gates, forward-only
+# Drop), where no service hold exists and the Output-paced pause comes from the
+# recording output's send cost. See ENGINE_SCENARIOS.md, "Known limits".
+
+scenario output-paced-queue
+  snapshots full
+  use output-paced
+  use rate-processing-time
+  at 0 start queue 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario output-paced-pause-seek-resume
+  snapshots full
+  use output-paced
+  use rate-processing-time
+  at 0 start queue 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario output-paced-seek-playing
+  snapshots full
+  use output-paced
+  use rate-processing-time
+  at 0 start queue 0
+  at 3/10 seek 7/10
+  at 5/10 seek 1/10
+
+scenario output-paced-drop-oldest
+  snapshots full
+  use output-paced
+  use drop-base
+  set overflow-policy drop-oldest
+  at 0 start drop 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario ordered-output-paced-queue
+  snapshots full
+  use ordered
+  use output-paced
+  use rate-none
+  at 0 start queue 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario ordered-output-paced-pause-resume
+  snapshots full
+  use ordered
+  use output-paced
+  use rate-none
+  at 0 start queue 0
+  at 3/10 pause
+  at 5/10 resume
+
+scenario ordered-output-paced-pause-seek-resume
+  snapshots full
+  use ordered
+  use output-paced
+  use rate-none
+  at 0 start queue 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario ordered-output-paced-seek-playing
+  snapshots full
+  use ordered
+  use output-paced
+  use rate-none
+  at 0 start queue 0
+  at 3/10 seek 7/10
+  at 5/10 seek 1/10
+
+scenario ordered-output-paced-drop-forward-drop-newest
+  snapshots full
+  use ordered
+  use output-paced
+  set simulate-slowdown off
+  set apply-queue-limit-without-slowdown on
+  service processing-time 1500 31250 10000
+  set queue-length-limit 32
+  set overflow-policy drop-newest
+  at 0 start drop 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario ordered-output-paced-gate-per-note-interval
+  snapshots full
+  use ordered
+  use output-paced
+  use gate-per-note-interval
+  at 0 start per-note-interval-gate 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario ordered-output-paced-gate-delayed-note-off
+  snapshots full
+  use ordered
+  use output-paced
+  use gate-delayed-note-off
+  at 0 start delayed-note-off 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario ordered-output-paced-gate-note-attack-limit
+  snapshots full
+  use ordered
+  use output-paced
+  use gate-note-attack-limit
+  at 0 start note-attack-limit 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario ordered-output-paced-gate-output-rate-limit
+  snapshots full
+  use ordered
+  use output-paced
+  use gate-output-rate-limit
+  at 0 start output-rate-limit 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario ordered-output-paced-gate-output-rate-limit-live
+  snapshots full
+  use ordered
+  use output-paced
+  use gate-output-rate-limit
+  at 0 start output-rate-limit 0
+  at 3/10 restart output-rate-limit events-per-second=1200
+  at 6/10 restart output-rate-limit events-per-second=100
+
+# ---- F. Whole-state chase on and off ------------------------------------
+# Start (or Seek) at a mid-song position with the chase enabled
+# (ChaseMidiStateOnPlaySeek, the engine default) and disabled.
+
+profile rate-processing-300
+  set simulate-slowdown on
+  service processing-time 300 31250 10000
+end-profile
+
+scenario chase-on-start-mid
+  snapshots full
+  use rate-processing-300
+  set chase-midi-state-on-play-seek on
+  at 0 start queue 1/2
+  at 3/10 snapshot
+
+scenario chase-off-start-mid
+  snapshots full
+  use rate-processing-300
+  set chase-midi-state-on-play-seek off
+  at 0 start queue 1/2
+  at 3/10 snapshot
+
+scenario chase-on-seek-playing
+  snapshots full
+  use rate-processing-300
+  set chase-midi-state-on-play-seek on
+  at 0 start queue 0
+  at 3/10 seek 7/10
+  at 5/10 seek 1/10
+
+scenario chase-off-seek-playing
+  snapshots full
+  use rate-processing-300
+  set chase-midi-state-on-play-seek off
+  at 0 start queue 0
+  at 3/10 seek 7/10
+  at 5/10 seek 1/10
+
+scenario chase-on-pause-seek-resume
+  snapshots full
+  use rate-processing-300
+  set chase-midi-state-on-play-seek on
+  at 0 start queue 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario chase-off-pause-seek-resume
+  snapshots full
+  use rate-processing-300
+  set chase-midi-state-on-play-seek off
+  at 0 start queue 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario chase-on-stop-restart-mid
+  snapshots full
+  use rate-processing-300
+  set chase-midi-state-on-play-seek on
+  at 0 start queue 0
+  at 4/10 stop
+  at 5/10 start queue 8/10
+
+scenario chase-off-stop-restart-mid
+  snapshots full
+  use rate-processing-300
+  set chase-midi-state-on-play-seek off
+  at 0 start queue 0
+  at 4/10 stop
+  at 5/10 start queue 8/10
+
+scenario ordered-chase-on-seek-playing
+  snapshots full
+  use ordered
+  use rate-processing-300
+  set chase-midi-state-on-play-seek on
+  at 0 start queue 0
+  at 3/10 seek 7/10
+  at 5/10 seek 1/10
+
+scenario ordered-chase-off-seek-playing
+  snapshots full
+  use ordered
+  use rate-processing-300
+  set chase-midi-state-on-play-seek off
+  at 0 start queue 0
+  at 3/10 seek 7/10
+  at 5/10 seek 1/10
+
+scenario ordered-chase-on-pause-seek-resume
+  snapshots full
+  use ordered
+  use rate-processing-300
+  set chase-midi-state-on-play-seek on
+  at 0 start queue 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario ordered-chase-off-pause-seek-resume
+  snapshots full
+  use ordered
+  use rate-processing-300
+  set chase-midi-state-on-play-seek off
+  at 0 start queue 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario chase-on-drop-start-mid
+  snapshots full
+  use drop-base
+  set overflow-policy drop-oldest
+  set chase-midi-state-on-play-seek on
+  at 0 start drop 1/2
+  at 3/10 snapshot
+
+scenario chase-off-drop-start-mid
+  snapshots full
+  use drop-base
+  set overflow-policy drop-oldest
+  set chase-midi-state-on-play-seek off
+  at 0 start drop 1/2
+  at 3/10 snapshot
+
+scenario chase-on-gate-output-rate-limit-start-mid
+  snapshots full
+  use gate-output-rate-limit
+  set chase-midi-state-on-play-seek on
+  at 0 start output-rate-limit 1/2
+  at 3/10 snapshot
+
+scenario chase-off-gate-output-rate-limit-start-mid
+  snapshots full
+  use gate-output-rate-limit
+  set chase-midi-state-on-play-seek off
+  at 0 start output-rate-limit 1/2
+  at 3/10 snapshot
+
+scenario chase-on-gate-per-note-interval-seek
+  snapshots full
+  use gate-per-note-interval
+  set chase-midi-state-on-play-seek on
+  at 0 start per-note-interval-gate 0
+  at 3/10 seek 7/10
+
+scenario chase-off-gate-per-note-interval-seek
+  snapshots full
+  use gate-per-note-interval
+  set chase-midi-state-on-play-seek off
+  at 0 start per-note-interval-gate 0
+  at 3/10 seek 7/10
+
+scenario chase-on-gate-note-attack-limit-start-mid
+  snapshots full
+  use gate-note-attack-limit
+  set chase-midi-state-on-play-seek on
+  at 0 start note-attack-limit 1/2
+  at 3/10 snapshot
+
+scenario chase-off-gate-note-attack-limit-start-mid
+  snapshots full
+  use gate-note-attack-limit
+  set chase-midi-state-on-play-seek off
+  at 0 start note-attack-limit 1/2
+  at 3/10 snapshot
+
+scenario ordered-chase-on-gate-output-rate-limit-seek
+  snapshots full
+  use ordered
+  use gate-output-rate-limit
+  set chase-midi-state-on-play-seek on
+  at 0 start output-rate-limit 0
+  at 3/10 seek 7/10
+
+scenario ordered-chase-off-gate-output-rate-limit-seek
+  snapshots full
+  use ordered
+  use gate-output-rate-limit
+  set chase-midi-state-on-play-seek off
+  at 0 start output-rate-limit 0
+  at 3/10 seek 7/10
+
+# ---- G. Live channel overrides and disabled channels --------------------
+# The commands are the monitor's: SetChannelOverride (set a value, or auto to
+# clear it) and SetChannelEnabled. Without a worker they send directly; with
+# a worker they are applied by the worker at its next boundary.
+
+scenario override-live-set-clear
+  snapshots full
+  use rate-processing-300
+  at 0 start queue 0
+  at 2/10 override 0 program 40
+  at 2/10 override 0 volume 20
+  at 3/10 override 1 pan 10
+  at 3/10 override 9 volume 90
+  at 4/10 override 2 pitch-bend 3000
+  at 5/10 override 0 program auto
+  at 6/10 override 0 volume auto
+  at 7/10 override 1 pan auto
+  at 8/10 override 9 volume auto
+  at 8/10 override 2 pitch-bend auto
+
+scenario override-every-attribute
+  describe All nine attributes on channel 0 set at 20 percent and cleared at 60 percent.
+  snapshots full
+  use rate-processing-300
+  at 0 start queue 0
+  at 2/10 override 0 bank-msb 1
+  at 2/10 override 0 bank-lsb 2
+  at 2/10 override 0 program 33
+  at 2/10 override 0 volume 50
+  at 2/10 override 0 expression 100
+  at 2/10 override 0 pan 20
+  at 2/10 override 0 sustain 1
+  at 2/10 override 0 pitch-bend -2048
+  at 2/10 override 0 aftertouch 40
+  at 6/10 override 0 bank-msb auto
+  at 6/10 override 0 bank-lsb auto
+  at 6/10 override 0 program auto
+  at 6/10 override 0 volume auto
+  at 6/10 override 0 expression auto
+  at 6/10 override 0 pan auto
+  at 6/10 override 0 sustain auto
+  at 6/10 override 0 pitch-bend auto
+  at 6/10 override 0 aftertouch auto
+
+scenario override-before-start-clear-live
+  describe Overrides set while stopped (forced at Start), cleared while playing.
+  snapshots full
+  use rate-processing-300
+  override 0 volume 40
+  override 2 pitch-bend 4000
+  override 9 pan 0
+  at 0 start queue 0
+  at 5/10 override 0 volume auto
+  at 5/10 override 2 pitch-bend auto
+  at 7/10 override 9 pan auto
+
+scenario override-pause-resume
+  describe Overrides set while paused, applied after Resume (classic path).
+  snapshots full
+  use rate-processing-300
+  at 0 start queue 0
+  at 2/10 pause
+  at 3/10 override 0 volume 30
+  at 3/10 override 1 program 7
+  at 4/10 resume
+  at 6/10 override 0 volume auto
+  at 6/10 override 1 program auto
+
+scenario override-seek-playing
+  snapshots full
+  use rate-processing-300
+  at 0 start queue 0
+  at 2/10 override 0 volume 30
+  at 3/10 seek 7/10
+  at 8/10 override 0 volume auto
+
+scenario override-while-stopped
+  describe An override set while stopped but with an output attached is sent directly by the caller.
+  snapshots full
+  use rate-processing-300
+  at 0 start queue 0
+  at 4/10 stop
+  at 5/10 override 0 volume 30
+  at 6/10 start queue 6/10
+  at 8/10 override 0 volume auto
+
+# On the ordered path one override stays set to the end of these two scenarios
+# (channel 9 pan). v1's ordered workers stop admitting when the override
+# "pending output" mask is non-zero, and clearing the last override before the
+# worker applied it leaves the mask set for good (ENGINE_SCENARIOS.md, "Known
+# limits"); a standing override keeps the boundary reachable.
+scenario ordered-override-live-set-clear
+  snapshots full
+  use ordered
+  use rate-none
+  at 0 start queue 0
+  at 1/10 override 9 pan 20
+  at 2/10 override 0 program 40
+  at 2/10 override 0 volume 20
+  at 3/10 override 1 pan 10
+  at 5/10 override 0 program auto
+  at 6/10 override 0 volume auto
+  at 7/10 override 1 pan auto
+
+scenario ordered-override-pause-seek-resume
+  snapshots full
+  use ordered
+  use rate-none
+  at 0 start queue 0
+  at 1/10 override 9 pan 20
+  at 2/10 override 0 volume 30
+  at 3/10 pause
+  at 4/10 override 1 program 7
+  at 4/10 seek 7/10
+  at 5/10 resume
+  at 7/10 override 0 volume auto
+  at 7/10 override 1 program auto
+
+scenario override-drop-oldest
+  snapshots full
+  use drop-base
+  set overflow-policy drop-oldest
+  at 0 start drop 0
+  at 2/10 override 0 volume 30
+  at 3/10 override 1 pan 10
+  at 6/10 override 0 volume auto
+  at 7/10 override 1 pan auto
+
+scenario override-gate-per-note-interval
+  snapshots full
+  use gate-per-note-interval
+  at 0 start per-note-interval-gate 0
+  at 2/10 override 0 volume 30
+  at 3/10 override 1 pan 10
+  at 6/10 override 0 volume auto
+  at 7/10 override 1 pan auto
+
+scenario override-gate-note-attack-limit
+  snapshots full
+  use gate-note-attack-limit
+  at 0 start note-attack-limit 0
+  at 2/10 override 0 volume 30
+  at 3/10 override 1 pan 10
+  at 6/10 override 0 volume auto
+  at 7/10 override 1 pan auto
+
+scenario override-gate-output-rate-limit
+  snapshots full
+  use gate-output-rate-limit
+  at 0 start output-rate-limit 0
+  at 2/10 override 0 volume 30
+  at 3/10 override 1 pan 10
+  at 6/10 override 0 volume auto
+  at 7/10 override 1 pan auto
+
+scenario channel-disable-enable
+  snapshots full
+  use rate-processing-300
+  at 0 start queue 0
+  at 2/10 channel 0 off
+  at 3/10 channel 1 off
+  at 4/10 channel 9 off
+  at 6/10 channel 0 on
+  at 7/10 channel 1 on
+  at 8/10 channel 9 on
+
+scenario channel-disable-before-start
+  snapshots full
+  use rate-processing-300
+  channel 0 off
+  channel 9 off
+  at 0 start queue 0
+  at 5/10 channel 0 on
+  at 7/10 channel 9 on
+
+scenario channel-pause-resume
+  snapshots full
+  use rate-processing-300
+  at 0 start queue 0
+  at 2/10 pause
+  at 3/10 channel 0 off
+  at 3/10 channel 1 off
+  at 4/10 resume
+  at 6/10 channel 0 on
+  at 6/10 channel 1 on
+
+scenario channel-seek-playing
+  snapshots full
+  use rate-processing-300
+  at 0 start queue 0
+  at 2/10 channel 0 off
+  at 3/10 seek 7/10
+  at 8/10 channel 0 on
+
+scenario channel-with-override
+  describe An override on a channel that is disabled and re-enabled (the forced value is re-sent on enable).
+  snapshots full
+  use rate-processing-300
+  at 0 start queue 0
+  at 2/10 override 0 volume 30
+  at 3/10 channel 0 off
+  at 5/10 channel 0 on
+  at 7/10 override 0 volume auto
+
+scenario ordered-channel-disable-enable
+  snapshots full
+  use ordered
+  use rate-none
+  at 0 start queue 0
+  at 2/10 channel 0 off
+  at 3/10 channel 1 off
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+  at 6/10 channel 0 on
+  at 7/10 channel 1 on
+
+scenario channel-drop-oldest
+  snapshots full
+  use drop-base
+  set overflow-policy drop-oldest
+  at 0 start drop 0
+  at 2/10 channel 0 off
+  at 3/10 channel 1 off
+  at 6/10 channel 0 on
+  at 7/10 channel 1 on
+
+scenario channel-gate-per-note-interval
+  snapshots full
+  use gate-per-note-interval
+  at 0 start per-note-interval-gate 0
+  at 2/10 channel 0 off
+  at 3/10 channel 1 off
+  at 6/10 channel 0 on
+  at 7/10 channel 1 on
+
+scenario channel-gate-note-attack-limit
+  snapshots full
+  use gate-note-attack-limit
+  at 0 start note-attack-limit 0
+  at 2/10 channel 0 off
+  at 3/10 channel 1 off
+  at 6/10 channel 0 on
+  at 7/10 channel 1 on
+
+scenario channel-gate-output-rate-limit
+  snapshots full
+  use gate-output-rate-limit
+  at 0 start output-rate-limit 0
+  at 2/10 channel 0 off
+  at 3/10 channel 1 off
+  at 6/10 channel 0 on
+  at 7/10 channel 1 on
+
+# ---- H. Track routing ------------------------------------------------------
+# MainForm.ApplyTrackRoute: TrackRoutePlanner.Compile, then
+# TrackRouteApplication.CreateRoutedSong; the routed view is what Start
+# receives. Tiers: exact-safe, gm-family, aggressive (which can also omit
+# lanes whose every merge is destructive). An invalid plan is logged and the
+# unrouted song plays. The ROUTE line records what the plan did for the song.
+
+scenario route-exact-safe-queue
+  snapshots full
+  route tier=exact-safe cap=16
+  use rate-processing-300
+  at 0 start queue 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario route-gm-family-queue
+  snapshots full
+  route tier=gm-family cap=4
+  use rate-processing-300
+  at 0 start queue 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario route-aggressive-cap2-queue
+  describe Aggressive tier into two destination channels: heavy merging and lane omission where every merge is destructive.
+  snapshots full
+  route tier=aggressive cap=2
+  use rate-processing-300
+  at 0 start queue 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario route-aggressive-cap1-queue
+  snapshots full
+  route tier=aggressive cap=1
+  use rate-processing-300
+  at 0 start queue 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario route-aggressive-perc-any-queue
+  snapshots full
+  route tier=aggressive cap=3 perc=allow-any-destination
+  use rate-processing-300
+  at 0 start queue 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario route-gm-family-pause-seek-resume
+  snapshots full
+  route tier=gm-family cap=4
+  use rate-processing-300
+  at 0 start queue 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario route-aggressive-ordered-pause-seek-resume
+  snapshots full
+  route tier=aggressive cap=2
+  use ordered
+  use rate-processing-300
+  at 0 start queue 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario route-gm-family-ordered-seek-playing
+  snapshots full
+  route tier=gm-family cap=4
+  use ordered
+  use rate-processing-300
+  at 0 start queue 0
+  at 3/10 seek 7/10
+  at 5/10 seek 1/10
+
+scenario route-aggressive-chase-start-mid
+  snapshots full
+  route tier=aggressive cap=2
+  use rate-processing-300
+  at 0 start queue 1/2
+  at 3/10 snapshot
+
+scenario route-aggressive-chase-off-start-mid
+  snapshots full
+  route tier=aggressive cap=2
+  use rate-processing-300
+  set chase-midi-state-on-play-seek off
+  at 0 start queue 1/2
+  at 3/10 snapshot
+
+scenario route-gm-family-drop-oldest
+  snapshots full
+  route tier=gm-family cap=4
+  use drop-base
+  set overflow-policy drop-oldest
+  at 0 start drop 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario route-aggressive-gate-per-note-interval
+  snapshots full
+  route tier=aggressive cap=2
+  use gate-per-note-interval
+  at 0 start per-note-interval-gate 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario route-aggressive-gate-output-rate-limit
+  snapshots full
+  route tier=aggressive cap=2
+  use gate-output-rate-limit
+  at 0 start output-rate-limit 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario route-gm-family-gate-note-attack-limit
+  snapshots full
+  route tier=gm-family cap=4
+  use gate-note-attack-limit
+  at 0 start note-attack-limit 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario route-aggressive-override-and-channel
+  snapshots full
+  route tier=aggressive cap=2
+  use rate-processing-300
+  at 0 start queue 0
+  at 2/10 override 0 volume 30
+  at 3/10 channel 1 off
+  at 6/10 override 0 volume auto
+  at 7/10 channel 1 on
+
+# ---- I. Mutation-check coverage (added after the Milestone 5 engine mutation check) ----
+# Each scenario below makes one decision visible that no earlier scenario exercised
+# (v2/tools/mutation-check.ps1, family "engine"; v2/docs/ENGINE_PORT_NOTES.md).
+#
+# Events per second with a remainder. 1,000,000 mod 13 = 1, so the service clock's carried
+# remainder walks 1, 2, ... 12 and a rounding-up or a dropped carry changes service times.
+# Every earlier scenario uses a rate that divides 1,000,000 (remainder 0 for every event).
+
+scenario rate-eps13-queue
+  describe Events per second with a remainder (13 per second), Queue mode.
+  snapshots full
+  set simulate-slowdown on
+  service events-per-second 100 31250 13
+  at 0 start queue 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario rate-eps13-drop
+  describe Events per second with a remainder (13 per second), Drop mode, 32-event limit, Drop oldest.
+  snapshots full
+  set simulate-slowdown on
+  service events-per-second 100 31250 13
+  set queue-length-limit 32
+  set overflow-policy drop-oldest
+  at 0 start drop 0
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+# Ordered path with the Output-paced timeline and a real (1 us) service time. A longer service time
+# makes v1's ordered worker busy-poll the clock while the service hold is pending whenever the next
+# source event falls inside the hold, which the virtual clock cannot advance (section 11 of
+# ENGINE_SCENARIOS.md); on the 23 fixtures no source event falls inside a 1 us hold, so the hold
+# is real (the timeline advances by the service time as well as the send time) and the run still
+# completes (3 us already livelocks on decimal-halfway). The unlimited (Queue) and the finite
+# (Drop) ordered workers have separate code.
+
+scenario ordered-output-paced-rate-1us-queue
+  describe Ordered Queue, Output-paced timeline, 1 us processing time, Pause, Seek while paused, Resume.
+  snapshots full
+  use ordered
+  use output-paced
+  set simulate-slowdown on
+  service processing-time 1 31250 10000
+  at 0 start queue 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario ordered-output-paced-rate-1us-drop
+  describe Ordered Drop (4-event limit, Drop oldest), Output-paced timeline, 1 us processing time, Pause, Seek, Resume.
+  snapshots full
+  use ordered
+  use output-paced
+  set simulate-slowdown on
+  service processing-time 1 31250 10000
+  set queue-length-limit 4
+  set overflow-policy drop-oldest
+  at 0 start drop 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+# Ordered Drop, Clear buffer and catch up, with disabled channels: an arrival on a disabled
+# channel is filtered, and a filtered arrival never triggers the at-capacity clear.
+# The channels are disabled in setup (applied when the worker starts), so no channel control is
+# pending while the queue is at capacity.
+
+scenario ordered-drop-policy-clear-buffer-channels-off
+  describe Ordered Drop, Clear buffer and catch up, 1500 us processing time, 32-event limit, channels 0, 1 and 9 disabled.
+  snapshots full
+  use ordered
+  use drop-base
+  set overflow-policy clear-buffer-and-catch-up
+  channel 0 off
+  channel 1 off
+  channel 9 off
+  at 0 start drop 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+scenario ordered-drop-policy-clear-buffer-channels-off-slow
+  describe Ordered Drop, Clear buffer and catch up, 3000 us processing time, 8-event limit, channels 0, 2, 4 and 9 disabled.
+  snapshots full
+  use ordered
+  set simulate-slowdown on
+  service processing-time 3000 31250 10000
+  set queue-length-limit 8
+  set overflow-policy clear-buffer-and-catch-up
+  channel 0 off
+  channel 2 off
+  channel 4 off
+  channel 9 off
+  at 0 start drop 0
+  at 3/10 pause
+  at 4/10 seek 7/10
+  at 5/10 resume
+
+# Output rate limit started in the middle of the song. The state chase sends its messages first
+# (exceptional dispatches that consume pacing slots), and the first source ticks are then decided
+# at a time that falls exactly on a slot edge for these rates (index-chase-rich). The decision
+# time is the dispatch time to the microsecond, so a one-microsecond error changes which
+# attacks are admitted. The rates were found by search; they are arbitrary.
+
+scenario gate-output-rate-limit-chase-163
+  describe Output rate limit, 163 messages per second, started mid-song with the state chase.
+  snapshots full
+  set simulate-slowdown off
+  service events-per-second 100 31250 163
+  at 0 start output-rate-limit 1/2
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario gate-output-rate-limit-chase-239
+  describe Output rate limit, 239 messages per second, started mid-song with the state chase.
+  snapshots full
+  set simulate-slowdown off
+  service events-per-second 100 31250 239
+  at 0 start output-rate-limit 1/2
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+scenario gate-output-rate-limit-chase-299
+  describe Output rate limit, 299 messages per second, started mid-song with the state chase.
+  snapshots full
+  set simulate-slowdown off
+  service events-per-second 100 31250 299
+  at 0 start output-rate-limit 1/2
+  at 3/10 snapshot
+  at 6/10 snapshot
+
+# ---- J. DD-006: an override set and cleared while paused (before the worker applied it) ----
+scenario ordered-override-pause-set-clear-resume
+  describe Ordered path: Pause, set an override, clear it again, Resume (v1 froze with the CPU busy).
+  snapshots full
+  use ordered
+  use rate-none
+  at 0 start queue 0
+  at 2/10 pause
+  at 3/10 override 0 volume 20
+  at 4/10 override 0 volume auto
+  at 5/10 resume
+
+scenario override-pause-set-clear-resume
+  describe Classic path: Pause, set an override, clear it again, Resume (control for the ordered case).
+  snapshots full
+  use rate-none
+  at 0 start queue 0
+  at 2/10 pause
+  at 3/10 override 0 volume 20
+  at 4/10 override 0 volume auto
+  at 5/10 resume

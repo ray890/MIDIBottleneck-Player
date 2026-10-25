@@ -1,0 +1,8 @@
+# Regenerable build and run output (never committed)
+/out/
+/build*/
+# Generated fixtures ARE committed, except the large performance fixture
+!/harness/fixtures/*.mid
+!/harness/fixtures/*.rmi
+/harness/fixtures/large/
+/diagnostics/

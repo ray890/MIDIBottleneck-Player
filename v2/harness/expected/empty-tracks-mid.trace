@@ -1,0 +1,67 @@
+# producer v1-reference (MIDIBottleneck v1.0.44 sources) x64 clr 4.0.30319.42000
+# input empty-tracks.mid
+trace-format 1
+mode full
+[file]
+size 86
+container smf
+[preflight]
+status ok
+format 1
+tracks 4
+division 96
+dispatchable-events 2
+note-ons 1
+final-long-payload-bytes 0
+provisional-payload-bytes 0
+tempo-changes 1
+source-value-entries 0
+chase-state-entries 0
+chase-parameter-value-entries 0
+running-status-repairs 0
+routing-lanes 1
+routing-patch-state-events 0
+routing-patch-timeline-upper-bound 0
+routing-generated-state-upper-bound 3
+track 0 events 0 payload-bytes 0 tempo-changes 0
+track 1 events 0 payload-bytes 0 tempo-changes 0
+track 2 events 0 payload-bytes 0 tempo-changes 1
+track 3 events 2 payload-bytes 0 tempo-changes 0
+source-slots 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+routing-note-lanes-by-channel 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+routing-patch-state-by-channel 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+estimate ptr4 retained 11112 peak-low 2108584 peak-high 3337896 provisional 512 merge-workspace 2097472 names 2304 routing-retained 844 routing-peak 960 retained-with-routing 11956 routing-peak-total 12072 warning-threshold 1073741824 architecture-risk 0 requires-warning 0
+estimate ptr8 retained 19976 peak-low 2117632 peak-high 3347232 provisional 800 merge-workspace 2097656 names 2496 routing-retained 1256 routing-peak 1440 retained-with-routing 21232 routing-peak-total 21416 warning-threshold 4294967296 architecture-risk 0 requires-warning 0
+requires-preflight ptr4 0 ptr8 0
+[song]
+status ok
+format 1
+tracks 4
+division 96
+note-count 1
+running-status-repairs 0
+duration-us 729167
+events 2
+payload-bytes 0
+track 0 name "" name-truncated 0 instrument "" instrument-truncated 0
+track 1 name "" name-truncated 0 instrument "" instrument-truncated 0
+track 2 name "Meta only" name-truncated 0 instrument "" instrument-truncated 0
+track 3 name "" name-truncated 0 instrument "" instrument-truncated 0
+[tempo]
+count 1
+t 100 520833 400000 2 1
+[events]
+count 2
+e 0 0 0 3 NoteOn 0 90 3 904040
+e 1 96 500000 3 NoteOff 0 80 3 804000
+[source-index]
+count 0
+[chase-index]
+entries 0 parameter-series 0
+[source-query]
+[chase-readouts]
+[chase-messages]
+final -
+[chase-messages-filtered]
+final -
+[end]

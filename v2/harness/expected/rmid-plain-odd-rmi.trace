@@ -1,0 +1,60 @@
+# producer v1-reference (MIDIBottleneck v1.0.44 sources) x64 clr 4.0.30319.42000
+# input rmid-plain-odd.rmi
+trace-format 1
+mode full
+[file]
+size 54
+container rmid
+[preflight]
+status ok
+format 0
+tracks 1
+division 480
+dispatchable-events 2
+note-ons 1
+final-long-payload-bytes 0
+provisional-payload-bytes 0
+tempo-changes 0
+source-value-entries 0
+chase-state-entries 0
+chase-parameter-value-entries 0
+running-status-repairs 0
+routing-lanes 1
+routing-patch-state-events 0
+routing-patch-timeline-upper-bound 0
+routing-generated-state-upper-bound 3
+track 0 events 2 payload-bytes 0 tempo-changes 0
+source-slots 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+routing-note-lanes-by-channel 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+routing-patch-state-by-channel 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+estimate ptr4 retained 9384 peak-low 2106628 peak-high 3335632 provisional 204 merge-workspace 2097244 names 576 routing-retained 844 routing-peak 960 retained-with-routing 10228 routing-peak-total 10344 warning-threshold 1073741824 architecture-risk 0 requires-warning 0
+estimate ptr8 retained 18104 peak-low 2115400 peak-high 3344488 provisional 288 merge-workspace 2097296 names 624 routing-retained 1256 routing-peak 1440 retained-with-routing 19360 routing-peak-total 19544 warning-threshold 4294967296 architecture-risk 0 requires-warning 0
+requires-preflight ptr4 0 ptr8 0
+[song]
+status ok
+format 0
+tracks 1
+division 480
+note-count 1
+running-status-repairs 0
+duration-us 100000
+events 2
+payload-bytes 0
+track 0 name "" name-truncated 0 instrument "" instrument-truncated 0
+[tempo]
+count 0
+[events]
+count 2
+e 0 0 0 0 NoteOn 0 90 3 903C64
+e 1 96 100000 0 NoteOff 0 80 3 803C00
+[source-index]
+count 0
+[chase-index]
+entries 0 parameter-series 0
+[source-query]
+[chase-readouts]
+[chase-messages]
+final -
+[chase-messages-filtered]
+final -
+[end]

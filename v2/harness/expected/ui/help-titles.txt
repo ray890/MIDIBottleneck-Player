@@ -1,0 +1,9 @@
+# PlayerHelpForm list-box captions in topic order (read from the form).
+Overview	Overview
+FileAndOutput	File and output
+RateModel	Rate model
+QueueAndOverflow	Queue and overflow
+Playback	Playback
+Analysis	Analysis
+Statistics	Statistics
+Channels	Channels

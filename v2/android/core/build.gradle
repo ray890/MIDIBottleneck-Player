@@ -1,0 +1,47 @@
+plugins {
+    id 'com.android.library'
+}
+
+android {
+    namespace 'org.midibottleneck.core'
+    compileSdk 36
+    ndkVersion '27.3.13750724'
+
+    defaultConfig {
+        minSdk 23
+        ndk {
+            abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64'
+        }
+    }
+    flavorDimensions = ['api']
+    productFlavors {
+        modern {
+            dimension 'api'
+            minSdk 29                        // Android 10: native MIDI (AMidi) route
+            externalNativeBuild {
+                cmake {
+                    arguments '-DMIDIBN_ROUTE_AMIDI=ON', '-DANDROID_STL=c++_static'
+                }
+            }
+        }
+        android6 {
+            dimension 'api'
+            minSdk 23                        // Android 6: Java MIDI (android.media.midi) route
+            externalNativeBuild {
+                cmake {
+                    arguments '-DMIDIBN_ROUTE_AMIDI=OFF', '-DANDROID_STL=c++_static'
+                }
+            }
+        }
+    }
+    externalNativeBuild {
+        cmake {
+            path = file('../native/CMakeLists.txt')
+            version = '3.22.1'
+        }
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+}

@@ -1,0 +1,49 @@
+# producer v1-reference (MIDIBottleneck v1.0.44 sources) x64 clr 4.0.30319.42000
+# input err-missing-track-chunk.mid
+trace-format 1
+kind flow
+mode full
+pointer-size 8
+[scenario natural]
+p "Parsing track 1 of 2" 0 2 0 10000 0 4
+p "Parsing track 1 of 2" 0 2 0 10000 0 4
+p "Parsing track 1 of 2" 1 2 923 10000 4 4
+reports 3 decision-requested 0
+outcome error InvalidDataException "Expected MIDI chunk MTrk."
+[scenario preflight]
+p "Inspecting large MIDI" 0 0 0 10000 0 26
+p "Inspecting large MIDI" 0 2 2115 10000 0 4
+p "Inspecting large MIDI" 0 2 2115 10000 0 4
+reports 3 decision-requested 0
+outcome error InvalidDataException "Expected MIDI chunk MTrk."
+[scenario warning-decline]
+p "Inspecting large MIDI" 0 0 0 10000 0 26
+p "Inspecting large MIDI" 0 2 2115 10000 0 4
+p "Inspecting large MIDI" 0 2 2115 10000 0 4
+reports 3 decision-requested 0
+outcome error InvalidDataException "Expected MIDI chunk MTrk."
+[scenario warning-accept]
+p "Inspecting large MIDI" 0 0 0 10000 0 26
+p "Inspecting large MIDI" 0 2 2115 10000 0 4
+p "Inspecting large MIDI" 0 2 2115 10000 0 4
+reports 3 decision-requested 0
+outcome error InvalidDataException "Expected MIDI chunk MTrk."
+[scenario warning-accept-cancel]
+p "Inspecting large MIDI" 0 0 0 10000 0 26
+p "Inspecting large MIDI" 0 2 2115 10000 0 4
+p "Inspecting large MIDI" 0 2 2115 10000 0 4
+reports 3 decision-requested 0
+outcome error InvalidDataException "Expected MIDI chunk MTrk."
+[cancel-sweep natural]
+k 0 reports 0 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 1 reports 1 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 2 reports 3 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 3 reports 3 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 4 reports 3 decision-requested 0 outcome error InvalidDataException "Expected MIDI chunk MTrk."
+[cancel-sweep warning-accept]
+k 0 reports 1 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 1 reports 1 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 2 reports 2 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 3 reports 3 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 4 reports 3 decision-requested 0 outcome error InvalidDataException "Expected MIDI chunk MTrk."
+[end]

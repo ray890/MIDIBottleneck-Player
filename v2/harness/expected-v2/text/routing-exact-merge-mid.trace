@@ -1,0 +1,135 @@
+trace-format 1
+mode full
+[file]
+size 357
+container smf
+[preflight]
+status ok
+format 1
+tracks 4
+division 96
+dispatchable-events 72
+note-ons 36
+final-long-payload-bytes 0
+provisional-payload-bytes 0
+tempo-changes 1
+source-value-entries 0
+chase-state-entries 0
+chase-parameter-value-entries 0
+running-status-repairs 0
+routing-lanes 3
+routing-patch-state-events 0
+routing-patch-timeline-upper-bound 0
+routing-generated-state-upper-bound 108
+track 0 events 0 payload-bytes 0 tempo-changes 1
+track 1 events 24 payload-bytes 0 tempo-changes 0
+track 2 events 24 payload-bytes 0 tempo-changes 0
+track 3 events 24 payload-bytes 0 tempo-changes 0
+source-slots 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+routing-note-lanes-by-channel 0 0 1 0 0 2 0 0 0 0 0 0 0 0 0 0
+routing-patch-state-by-channel 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+estimate ptr4 retained 64176 peak-low 1178952 peak-high 1240712 provisional 2280 merge-workspace 1114240 names 2400 routing-retained 5112 routing-peak 8352 retained-with-routing 69288 routing-peak-total 72528 warning-threshold 1073741824 architecture-risk 0 requires-warning 0
+estimate ptr8 retained 124304 peak-low 1239368 peak-high 1361160 provisional 2568 merge-workspace 1114240 names 2496 routing-retained 5880 routing-peak 9840 retained-with-routing 130184 routing-peak-total 134144 warning-threshold 4294967296 architecture-risk 0 requires-warning 0
+requires-preflight ptr4 0 ptr8 0
+[song]
+status ok
+format 1
+tracks 4
+division 96
+note-count 36
+running-status-repairs 0
+duration-us 2963542
+events 72
+payload-bytes 0
+track 0 name "" name-truncated 0 instrument "" instrument-truncated 0
+track 1 name "" name-truncated 0 instrument "" instrument-truncated 0
+track 2 name "" name-truncated 0 instrument "" instrument-truncated 0
+track 3 name "" name-truncated 0 instrument "" instrument-truncated 0
+[tempo]
+count 1
+t 0 0 500000 0 0
+[events]
+count 72
+e 0 0 0 1 NoteOn 2 92 3 923C78
+e 1 4 20833 2 NoteOn 5 95 3 953C3C
+e 2 24 125000 2 NoteOff 5 85 3 853C00
+e 3 30 156250 3 NoteOn 5 95 3 95481E
+e 4 34 177083 3 NoteOn 5 95 3 954800
+e 5 40 208333 1 NoteOff 2 82 3 823C00
+e 6 48 250000 1 NoteOn 2 92 3 923C78
+e 7 52 270833 2 NoteOn 5 95 3 953C3C
+e 8 72 375000 2 NoteOff 5 85 3 853C00
+e 9 78 406250 3 NoteOn 5 95 3 95491E
+e 10 82 427083 3 NoteOn 5 95 3 954900
+e 11 88 458333 1 NoteOff 2 82 3 823C00
+e 12 96 500000 1 NoteOn 2 92 3 923C78
+e 13 100 520833 2 NoteOn 5 95 3 953C3C
+e 14 120 625000 2 NoteOff 5 85 3 853C00
+e 15 126 656250 3 NoteOn 5 95 3 954A1E
+e 16 130 677083 3 NoteOn 5 95 3 954A00
+e 17 136 708333 1 NoteOff 2 82 3 823C00
+e 18 144 750000 1 NoteOn 2 92 3 923C78
+e 19 148 770833 2 NoteOn 5 95 3 953C3C
+e 20 168 875000 2 NoteOff 5 85 3 853C00
+e 21 174 906250 3 NoteOn 5 95 3 95481E
+e 22 178 927083 3 NoteOn 5 95 3 954800
+e 23 184 958333 1 NoteOff 2 82 3 823C00
+e 24 192 1000000 1 NoteOn 2 92 3 923C78
+e 25 196 1020833 2 NoteOn 5 95 3 953C3C
+e 26 216 1125000 2 NoteOff 5 85 3 853C00
+e 27 222 1156250 3 NoteOn 5 95 3 95491E
+e 28 226 1177083 3 NoteOn 5 95 3 954900
+e 29 232 1208333 1 NoteOff 2 82 3 823C00
+e 30 240 1250000 1 NoteOn 2 92 3 923C78
+e 31 244 1270833 2 NoteOn 5 95 3 953C3C
+e 32 264 1375000 2 NoteOff 5 85 3 853C00
+e 33 270 1406250 3 NoteOn 5 95 3 954A1E
+e 34 274 1427083 3 NoteOn 5 95 3 954A00
+e 35 280 1458333 1 NoteOff 2 82 3 823C00
+e 36 288 1500000 1 NoteOn 2 92 3 923C78
+e 37 292 1520833 2 NoteOn 5 95 3 953C3C
+e 38 312 1625000 2 NoteOff 5 85 3 853C00
+e 39 318 1656250 3 NoteOn 5 95 3 95481E
+e 40 322 1677083 3 NoteOn 5 95 3 954800
+e 41 328 1708333 1 NoteOff 2 82 3 823C00
+e 42 336 1750000 1 NoteOn 2 92 3 923C78
+e 43 340 1770833 2 NoteOn 5 95 3 953C3C
+e 44 360 1875000 2 NoteOff 5 85 3 853C00
+e 45 366 1906250 3 NoteOn 5 95 3 95491E
+e 46 370 1927083 3 NoteOn 5 95 3 954900
+e 47 376 1958333 1 NoteOff 2 82 3 823C00
+e 48 384 2000000 1 NoteOn 2 92 3 923C78
+e 49 388 2020833 2 NoteOn 5 95 3 953C3C
+e 50 408 2125000 2 NoteOff 5 85 3 853C00
+e 51 414 2156250 3 NoteOn 5 95 3 954A1E
+e 52 418 2177083 3 NoteOn 5 95 3 954A00
+e 53 424 2208333 1 NoteOff 2 82 3 823C00
+e 54 432 2250000 1 NoteOn 2 92 3 923C78
+e 55 436 2270833 2 NoteOn 5 95 3 953C3C
+e 56 456 2375000 2 NoteOff 5 85 3 853C00
+e 57 462 2406250 3 NoteOn 5 95 3 95481E
+e 58 466 2427083 3 NoteOn 5 95 3 954800
+e 59 472 2458333 1 NoteOff 2 82 3 823C00
+e 60 480 2500000 1 NoteOn 2 92 3 923C78
+e 61 484 2520833 2 NoteOn 5 95 3 953C3C
+e 62 504 2625000 2 NoteOff 5 85 3 853C00
+e 63 510 2656250 3 NoteOn 5 95 3 95491E
+e 64 514 2677083 3 NoteOn 5 95 3 954900
+e 65 520 2708333 1 NoteOff 2 82 3 823C00
+e 66 528 2750000 1 NoteOn 2 92 3 923C78
+e 67 532 2770833 2 NoteOn 5 95 3 953C3C
+e 68 552 2875000 2 NoteOff 5 85 3 853C00
+e 69 558 2906250 3 NoteOn 5 95 3 954A1E
+e 70 562 2927083 3 NoteOn 5 95 3 954A00
+e 71 568 2958333 1 NoteOff 2 82 3 823C00
+[source-index]
+count 0
+[chase-index]
+entries 0 parameter-series 0
+[source-query]
+[chase-readouts]
+[chase-messages]
+final -
+[chase-messages-filtered]
+final -
+[end]

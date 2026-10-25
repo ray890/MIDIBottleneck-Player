@@ -1,0 +1,62 @@
+trace-format 1
+mode full
+[file]
+size 54
+container smf
+[preflight]
+status ok
+format 0
+tracks 2
+division 96
+dispatchable-events 4
+note-ons 2
+final-long-payload-bytes 0
+provisional-payload-bytes 0
+tempo-changes 0
+source-value-entries 0
+chase-state-entries 0
+chase-parameter-value-entries 0
+running-status-repairs 0
+routing-lanes 2
+routing-patch-state-events 0
+routing-patch-timeline-upper-bound 0
+routing-generated-state-upper-bound 6
+track 0 events 2 payload-bytes 0 tempo-changes 0
+track 1 events 2 payload-bytes 0 tempo-changes 0
+source-slots 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+routing-note-lanes-by-channel 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+routing-patch-state-by-channel 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+estimate ptr4 retained 61344 peak-low 1175776 peak-high 1235904 provisional 368 merge-workspace 1114176 names 1200 routing-retained 1692 routing-peak 1872 retained-with-routing 63036 routing-peak-total 63216 warning-threshold 1073741824 architecture-risk 0 requires-warning 0
+estimate ptr8 retained 121424 peak-low 1236000 peak-high 1356160 provisional 512 merge-workspace 1114176 names 1248 routing-retained 2204 routing-peak 2424 retained-with-routing 123628 routing-peak-total 123848 warning-threshold 4294967296 architecture-risk 0 requires-warning 0
+requires-preflight ptr4 0 ptr8 0
+[song]
+status ok
+format 0
+tracks 2
+division 96
+note-count 2
+running-status-repairs 0
+duration-us 750000
+events 4
+payload-bytes 0
+track 0 name "" name-truncated 0 instrument "" instrument-truncated 0
+track 1 name "" name-truncated 0 instrument "" instrument-truncated 0
+[tempo]
+count 0
+[events]
+count 4
+e 0 0 0 0 NoteOn 0 90 3 903C64
+e 1 48 250000 1 NoteOn 1 91 3 914064
+e 2 96 500000 0 NoteOff 0 80 3 803C00
+e 3 144 750000 1 NoteOff 1 81 3 814000
+[source-index]
+count 0
+[chase-index]
+entries 0 parameter-series 0
+[source-query]
+[chase-readouts]
+[chase-messages]
+final -
+[chase-messages-filtered]
+final -
+[end]

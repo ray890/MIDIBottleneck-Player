@@ -1,0 +1,36 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'org.midibottleneck.player'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'org.midibottleneck.player'
+        minSdk 23
+        targetSdk 36
+        versionCode 1
+        versionName '2.0-dev'
+    }
+    flavorDimensions = ['api']
+    productFlavors {
+        modern {
+            dimension 'api'
+            minSdk 29
+        }
+        android6 {
+            dimension 'api'
+            minSdk 23
+            applicationIdSuffix '.android6'   // installs next to the main build
+        }
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation project(':core')
+}

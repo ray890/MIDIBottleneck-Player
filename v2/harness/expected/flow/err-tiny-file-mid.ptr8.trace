@@ -1,0 +1,33 @@
+# producer v1-reference (MIDIBottleneck v1.0.44 sources) x64 clr 4.0.30319.42000
+# input err-tiny-file.mid
+trace-format 1
+kind flow
+mode full
+pointer-size 8
+[scenario natural]
+reports 0 decision-requested 0
+outcome error InvalidDataException "Expected MIDI chunk MThd."
+[scenario preflight]
+p "Inspecting large MIDI" 0 0 0 10000 0 3
+reports 1 decision-requested 0
+outcome error InvalidDataException "Expected MIDI chunk MThd."
+[scenario warning-decline]
+p "Inspecting large MIDI" 0 0 0 10000 0 3
+reports 1 decision-requested 0
+outcome error InvalidDataException "Expected MIDI chunk MThd."
+[scenario warning-accept]
+p "Inspecting large MIDI" 0 0 0 10000 0 3
+reports 1 decision-requested 0
+outcome error InvalidDataException "Expected MIDI chunk MThd."
+[scenario warning-accept-cancel]
+p "Inspecting large MIDI" 0 0 0 10000 0 3
+reports 1 decision-requested 0
+outcome error InvalidDataException "Expected MIDI chunk MThd."
+[cancel-sweep natural]
+k 0 reports 0 decision-requested 0 outcome error InvalidDataException "Expected MIDI chunk MThd."
+k 1 reports 0 decision-requested 0 outcome error InvalidDataException "Expected MIDI chunk MThd."
+[cancel-sweep warning-accept]
+k 0 reports 1 decision-requested 0 outcome error InvalidDataException "Expected MIDI chunk MThd."
+k 1 reports 1 decision-requested 0 outcome error InvalidDataException "Expected MIDI chunk MThd."
+k 2 reports 1 decision-requested 0 outcome error InvalidDataException "Expected MIDI chunk MThd."
+[end]

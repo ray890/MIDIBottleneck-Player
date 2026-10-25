@@ -1,0 +1,71 @@
+# producer v1-reference (MIDIBottleneck v1.0.44 sources) x64 clr 4.0.30319.42000
+model-trace 1
+family routing-large
+[fixture routing-held-1000000.mid]
+> fixture routing-held-1000000.mid
+= events 2000000 duration 1042
+> route tier=0,cap=16,perc=0,usable=FFFF,manual=-
+= valid 1 explicit 0 highest 0 lanes 1 assignments 1 destinations 1 errors 0
+= lane 0.0 name  inst  display Track 1 ev 2000000 at 1000000 first 0 last 1042 dyn 0 sus 0 sys 0 sig 0000000000000000 rep -1/-1/-1 dom 66688000000 hist 1 intervals 1000000 6e92789c3f76296f timeline 0 cbf29ce484222325
+= assign 0.0 dest 0 tier 0 flags 01000000 | 
+= dest 0 rep -1/-1/-1 lane 0.0 members 0.0
+= stats routed 1 dests 1 merged 0 retimbred 0 omitted 0 omitted-starts 0 generated 0 included 2000000 output 2000000
+= event-destinations 2000000 4b11765498601325 0:2000000
+= generated 0 0 cbf29ce484222325
+= row 0.0 | Track 1 \u00B7 channel 1 | bank ?/?, program ? | 2,000,000 / 1,000,000 | Channel 1 | Exact-safe | 0
+= preview VALID COMPLETE PLAN
+= preview Automatic tier: Exact-safe
+= preview Routed: 1 MIDI track/channel entries to 1 output channel
+= preview Merged: 0 additional entries share output channels
+= preview Retimbred: 0 entries
+= preview Omitted: 0 entries / 0 note starts
+= preview Destination Bank/Program messages generated: 0
+= preview Routed output view: 2,000,000 source messages + 0 generated = 2,000,000 total
+= preview Apply confirmation: not required
+= preview 
+= preview OUTPUT CHANNEL 1
+= preview Representative: bank ?/?, program ? from track 1, ch 1
+= preview   \u2022 Track 1 \u00B7 source ch 1 \u2014 Exact-safe; representative
+= preview 
+= used 1000000000000000
+= apply 1 0 1 0 Exact-safe complete plan. Apply changes only this stopped session.
+= applied 1 1 1
+> routed-view
+= view 2000000 2dc97ad7f846ced9 lower 1000000 0:0:0:0:0:90:3:900040/0 1:0:0:0:0:90:3:900140/1 2:0:0:0:0:90:3:900240/2 3:0:0:0:0:90:3:900340/3
+> route tier=2,cap=4,perc=0,usable=FFFF,manual=-
+= valid 1 explicit 1 highest 2 lanes 1 assignments 1 destinations 1 errors 0
+= lane 0.0 name  inst  display Track 1 ev 2000000 at 1000000 first 0 last 1042 dyn 0 sus 0 sys 0 sig 0000000000000000 rep -1/-1/-1 dom 66688000000 hist 1 intervals 1000000 6e92789c3f76296f timeline 0 cbf29ce484222325
+= assign 0.0 dest 0 tier 2 flags 01000000 | 
+= dest 0 rep -1/-1/-1 lane 0.0 members 0.0
+= stats routed 1 dests 1 merged 0 retimbred 0 omitted 0 omitted-starts 0 generated 0 included 2000000 output 2000000
+= event-destinations 2000000 4b11765498601325 0:2000000
+= generated 0 0 cbf29ce484222325
+= row 0.0 | Track 1 \u00B7 channel 1 | bank ?/?, program ? | 2,000,000 / 1,000,000 | Channel 1 | Aggressive | 0
+= preview VALID COMPLETE PLAN
+= preview Automatic tier: Aggressive
+= preview Routed: 1 MIDI track/channel entries to 1 output channel
+= preview Merged: 0 additional entries share output channels
+= preview Retimbred: 0 entries
+= preview Omitted: 0 entries / 0 note starts
+= preview Destination Bank/Program messages generated: 0
+= preview Routed output view: 2,000,000 source messages + 0 generated = 2,000,000 total
+= preview Apply confirmation: required
+= preview 
+= preview OUTPUT CHANNEL 1
+= preview Representative: bank ?/?, program ? from track 1, ch 1
+= preview   \u2022 Track 1 \u00B7 source ch 1 \u2014 Aggressive; representative
+= preview 
+= used 1000000000000000
+= apply 1 1 0 0 Review all highlighted warnings and confirm before Apply.
+= confirm 1 1 1 0 Review all highlighted warnings and confirm before Apply.
+= applied 1 1 1
+> routed-view
+= view 2000000 2dc97ad7f846ced9 lower 1000000 0:0:0:0:0:90:3:900040/0 1:0:0:0:0:90:3:900140/1 2:0:0:0:0:90:3:900240/2 3:0:0:0:0:90:3:900340/3
+[fixture routing-held-1000001.mid]
+> fixture routing-held-1000001.mid
+= events 2000002 duration 1042
+> route tier=0,cap=16,perc=0,usable=FFFF,manual=-
+! InvalidOperationException - Track-routing analysis exceeded the bounded active-note occurrence limit.
+> route tier=2,cap=4,perc=0,usable=FFFF,manual=-
+! InvalidOperationException - Track-routing analysis exceeded the bounded active-note occurrence limit.
+[end]

@@ -1,0 +1,86 @@
+# producer v1-reference (MIDIBottleneck v1.0.44 sources) x64 clr 4.0.30319.42000
+# input large-8m.mid
+trace-format 1
+mode summary
+[file]
+size 26816723
+container smf
+[preflight]
+status ok
+format 1
+tracks 16
+division 480
+dispatchable-events 8000160
+note-ons 4466592
+final-long-payload-bytes 3840
+provisional-payload-bytes 3840
+tempo-changes 250
+source-value-entries 1084234
+chase-state-entries 1943762
+chase-parameter-value-entries 31289
+running-status-repairs 0
+routing-lanes 16
+routing-patch-state-events 15540
+routing-patch-timeline-upper-bound 15540
+routing-generated-state-upper-bound 13446396
+track 0 events 500010 payload-bytes 240 tempo-changes 250
+track 1 events 500010 payload-bytes 240 tempo-changes 0
+track 2 events 500010 payload-bytes 240 tempo-changes 0
+track 3 events 500010 payload-bytes 240 tempo-changes 0
+track 4 events 500010 payload-bytes 240 tempo-changes 0
+track 5 events 500010 payload-bytes 240 tempo-changes 0
+track 6 events 500010 payload-bytes 240 tempo-changes 0
+track 7 events 500010 payload-bytes 240 tempo-changes 0
+track 8 events 500010 payload-bytes 240 tempo-changes 0
+track 9 events 500010 payload-bytes 240 tempo-changes 0
+track 10 events 500010 payload-bytes 240 tempo-changes 0
+track 11 events 500010 payload-bytes 240 tempo-changes 0
+track 12 events 500010 payload-bytes 240 tempo-changes 0
+track 13 events 500010 payload-bytes 240 tempo-changes 0
+track 14 events 500010 payload-bytes 240 tempo-changes 0
+track 15 events 500010 payload-bytes 240 tempo-changes 0
+source-slots 486 457 0 475 966 968 948 31704 31730 465 508 0 485 1010 991 1005 31738 31713 464 511 0 498 979 971 997 31782 31633 502 516 0 484 974 959 973 31876 31776 449 521 0 510 935 952 968 31601 31535 517 471 0 496 953 959 943 31634 31930 473 459 0 484 904 954 964 31600 31513 503 499 0 491 979 974 991 31924 31703 417 433 0 452 984 968 956 31734 31521 497 492 0 488 965 986 954 31601 31630 502 473 0 481 957 956 945 31652 31471 496 469 0 481 988 970 953 31722 31973 535 503 0 477 1020 990 997 31832 31536 482 483 0 494 1036 988 1012 31635 31707 473 489 0 506 977 1000 1002 31657 31770 493 502 0 518 904 896 900 31914 31606
+routing-note-lanes-by-channel 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+routing-patch-state-by-channel 943 973 975 1018 970 988 932 1002 850 989 975 965 1038 965 962 995
+estimate ptr4 retained 346033604 peak-low 348131988 peak-high 669457192 provisional 320096404 merge-workspace 2098384 names 9216 routing-retained 1326633664 routing-peak 1613920240 retained-with-routing 1672667268 routing-peak-total 1959953844 warning-threshold 1073741824 architecture-risk 1 requires-warning 1
+estimate ptr8 retained 347535224 peak-low 349634320 peak-high 671007800 provisional 320144680 merge-workspace 2099096 names 9984 routing-retained 1928494896 routing-peak 2407353928 retained-with-routing 2276030120 routing-peak-total 2754889152 warning-threshold 4294967296 architecture-risk 0 requires-warning 0
+requires-preflight ptr4 1 ptr8 0
+[song]
+status ok
+format 1
+tracks 16
+division 480
+note-count 4466592
+running-status-repairs 0
+duration-us 784626928
+events 8000160
+payload-bytes 3840
+track 0 name "" name-truncated 0 instrument "" instrument-truncated 0
+track 1 name "" name-truncated 0 instrument "" instrument-truncated 0
+track 2 name "" name-truncated 0 instrument "" instrument-truncated 0
+track 3 name "" name-truncated 0 instrument "" instrument-truncated 0
+track 4 name "" name-truncated 0 instrument "" instrument-truncated 0
+track 5 name "" name-truncated 0 instrument "" instrument-truncated 0
+track 6 name "" name-truncated 0 instrument "" instrument-truncated 0
+track 7 name "" name-truncated 0 instrument "" instrument-truncated 0
+track 8 name "" name-truncated 0 instrument "" instrument-truncated 0
+track 9 name "" name-truncated 0 instrument "" instrument-truncated 0
+track 10 name "" name-truncated 0 instrument "" instrument-truncated 0
+track 11 name "" name-truncated 0 instrument "" instrument-truncated 0
+track 12 name "" name-truncated 0 instrument "" instrument-truncated 0
+track 13 name "" name-truncated 0 instrument "" instrument-truncated 0
+track 14 name "" name-truncated 0 instrument "" instrument-truncated 0
+track 15 name "" name-truncated 0 instrument "" instrument-truncated 0
+[tempo]
+count 250
+digest sha256 6FBD7AE862E898E746DB27780CC9036C472243179066DA2C68923C4437D80B85
+[events]
+count 8000160
+digest sha256 D49FB74F26E97C8E7D1EDBC32F12F86F6AB96C16947A0ECD877175E9131B2D20
+[source-index]
+count 1084234
+digest sha256 53F6039D6E689C449BC77A5E1A0D7849A1C9CD6DF948C6E8DEF7235C88F57166
+[chase-index]
+entries 1936632 parameter-series 4854
+digest sha256 1BFA6EDB7533B06C2C8916C780B66EFA912AA79E03639BD95E5BEBD96B35B365
+[end]

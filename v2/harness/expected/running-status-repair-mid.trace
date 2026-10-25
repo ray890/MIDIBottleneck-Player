@@ -1,0 +1,64 @@
+# producer v1-reference (MIDIBottleneck v1.0.44 sources) x64 clr 4.0.30319.42000
+# input running-status-repair.mid
+trace-format 1
+mode full
+[file]
+size 52
+container smf
+[preflight]
+status ok
+format 0
+tracks 1
+division 480
+dispatchable-events 6
+note-ons 3
+final-long-payload-bytes 0
+provisional-payload-bytes 0
+tempo-changes 0
+source-value-entries 0
+chase-state-entries 0
+chase-parameter-value-entries 0
+running-status-repairs 1
+routing-lanes 1
+routing-patch-state-events 0
+routing-patch-timeline-upper-bound 0
+routing-generated-state-upper-bound 9
+track 0 events 6 payload-bytes 0 tempo-changes 0
+source-slots 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+routing-note-lanes-by-channel 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+routing-patch-state-by-channel 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+estimate ptr4 retained 9544 peak-low 2106788 peak-high 3335952 provisional 364 merge-workspace 2097244 names 576 routing-retained 1440 routing-peak 1756 retained-with-routing 10984 routing-peak-total 11300 warning-threshold 1073741824 architecture-risk 0 requires-warning 0
+estimate ptr8 retained 18264 peak-low 2115560 peak-high 3344808 provisional 448 merge-workspace 2097296 names 624 routing-retained 2120 routing-peak 2624 retained-with-routing 20384 routing-peak-total 20888 warning-threshold 4294967296 architecture-risk 0 requires-warning 0
+requires-preflight ptr4 0 ptr8 0
+[song]
+status ok
+format 0
+tracks 1
+division 480
+note-count 3
+running-status-repairs 1
+duration-us 16667
+events 6
+payload-bytes 0
+track 0 name "" name-truncated 0 instrument "" instrument-truncated 0
+[tempo]
+count 0
+[events]
+count 6
+e 0 0 0 0 NoteOn 0 90 3 903C64
+e 1 0 0 0 NoteOn 0 90 3 903E64
+e 2 0 0 0 NoteOn 0 90 3 903F64
+e 3 16 16667 0 NoteOff 0 80 3 803C00
+e 4 16 16667 0 NoteOff 0 80 3 803E00
+e 5 16 16667 0 NoteOff 0 80 3 803F00
+[source-index]
+count 0
+[chase-index]
+entries 0 parameter-series 0
+[source-query]
+[chase-readouts]
+[chase-messages]
+final -
+[chase-messages-filtered]
+final -
+[end]

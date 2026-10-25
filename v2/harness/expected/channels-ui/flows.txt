@@ -1,0 +1,793 @@
+# scenario <name> | op <text> followed by its result lines r <kind> ... ; states are in flow-inputs.txt
+scenario	complete-chase
+op	state 0
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	completechase 0 2 boom
+r	ed	0	-1	0	-	0	0	0	0		RN
+r	tip	0	8	@1421
+op	completechase 0 2 -
+r	ed	0	-1	0	-	0	0	0	0		RN
+r	tip	0	8	@1421
+op	completechase 7 3 Not available.
+r	ed	0	-1	0	-	0	0	0	0		RN
+r	tip	7	9	@1422
+op	state 0
+r	ed	0	-1	0	-	0	0	0	0		RN
+scenario	control-error
+op	state 0
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	controlerror 5 2 Program could not be sent.
+r	ed	0	-1	0	-	0	0	0	0		RN
+r	tip	5	8	@1423
+op	controlerror 0 7 Pitch bend failed.
+r	ed	0	-1	0	-	0	0	0	0		RN
+r	tip	0	13	@1424
+op	controlerror 16 0 ignored
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	controlerror -1 0 ignored
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	controlerror 3 8 
+r	ed	0	-1	0	-	0	0	0	0		RN
+r	tip	3	14	@53
+op	controlerror 2 0 First
+r	ed	0	-1	0	-	0	0	0	0		RN
+r	tip	2	6	@1425
+op	state 0
+r	ed	0	-1	0	-	0	0	0	0		RN
+scenario	detach-attach
+op	state 0
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	detach Loading new MIDI\u2026
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	state 0
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	click L 0 9
+r	ed	1	0	3	100	100	0	0	1		RN
+r	tip	0	9	@53
+op	attach next.mid
+r	ed	1	0	3	100	100	0	0	1		RN
+op	state 0
+r	ed	1	0	3	100	100	0	0	1		RN
+op	click R 0 8
+r	ev	chase	0	2
+r	ed	0	-1	3	-	100	0	0	0		RN
+r	tip	0	8	@585
+op	detach MIDI loading cancelled. No MIDI file is loaded.
+r	ed	0	-1	3	-	100	0	0	0		RN
+op	attach again.mid
+r	ed	0	-1	3	-	100	0	0	0		RN
+op	click R 0 8
+r	ed	0	-1	3	-	100	0	0	0		RN
+r	tip	0	8	@53
+op	state 1
+r	ed	0	-1	3	-	100	0	0	0		RN
+op	click R 3 9
+r	ev	chase	3	3
+r	ed	0	-1	3	-	100	0	0	0		RN
+r	tip	3	9	@84
+scenario	editor-click-typing-range
+op	state 0
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	click L 0 8
+r	ed	1	0	2	5 \u2014 Electric Piano 1	4	0	0	1		RN
+r	tip	0	8	@585
+op	up
+r	ed	1	0	2	5	4	0	1	0		RN
+op	commit 0
+r	ed	1	0	2	5 \u2014 Electric Piano 1	4	0	0	0	Enter a value from 1 through 128.	RN
+op	typing
+r	ed	1	0	2	5	4	0	1	0	Enter a value from 1 through 128.	RN
+op	commit 129
+r	ed	1	0	2	5 \u2014 Electric Piano 1	4	0	0	0	Enter a value from 1 through 128.	RN
+op	typing
+r	ed	1	0	2	5	4	0	1	0	Enter a value from 1 through 128.	RN
+op	commit 128
+r	ev	override	0	2	127
+r	ed	1	0	2	128 \u2014 Gunshot	127	1	0	0		BF
+op	typing
+r	ed	1	0	2	128	127	1	1	0		BF
+op	commit abc
+r	ed	1	0	2	128 \u2014 Gunshot	127	1	0	0	Enter a value from 1 through 128.	BF
+op	typing
+r	ed	1	0	2	128	127	1	1	0	Enter a value from 1 through 128.	BF
+op	commit 1
+r	ev	override	0	2	0
+r	ed	1	0	2	1 \u2014 Acoustic Grand Piano	0	1	0	0		BF
+op	typing
+r	ed	1	0	2	1	0	1	1	0		BF
+op	commit  5 
+r	ev	override	0	2	4
+r	ed	1	0	2	5 \u2014 Electric Piano 1	4	1	0	0		BF
+op	typing
+r	ed	1	0	2	5	4	1	1	0		BF
+op	commit +7
+r	ev	override	0	2	6
+r	ed	1	0	2	7 \u2014 Harpsichord	6	1	0	0		BF
+op	typing
+r	ed	1	0	2	7	6	1	1	0		BF
+op	commit -1
+r	ed	1	0	2	7 \u2014 Harpsichord	6	1	0	0	Enter a value from 1 through 128.	BF
+op	typing
+r	ed	1	0	2	7	6	1	1	0	Enter a value from 1 through 128.	BF
+op	commit 1,2
+r	ed	1	0	2	7 \u2014 Harpsichord	6	1	0	0	Enter a value from 1 through 128.	BF
+op	typing
+r	ed	1	0	2	7	6	1	1	0	Enter a value from 1 through 128.	BF
+op	commit 
+r	ed	1	0	2	7 \u2014 Harpsichord	6	1	0	0	Enter a value from 1 through 128.	BF
+op	typing
+r	ed	1	0	2	7	6	1	1	0	Enter a value from 1 through 128.	BF
+op	commit 99999999999
+r	ed	1	0	2	7 \u2014 Harpsichord	6	1	0	0	Enter a value from 1 through 128.	BF
+op	hide commit
+r	ed	0	-1	2	-	6	1	0	0	Enter a value from 1 through 128.	BF
+scenario	editor-escape-and-hide
+op	state 0
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	click L 0 9
+r	ed	1	0	3	100	100	1	0	1		BF
+r	tip	0	9	@628
+op	up
+r	ed	1	0	3	100	100	1	1	0		BF
+op	escape
+r	ed	1	0	3	100	100	1	0	0		BF
+op	click L 0 9
+r	ed	1	0	3	100	100	1	0	1		BF
+r	tip	0	9	@628
+op	up
+r	ed	1	0	3	100	100	1	1	0		BF
+op	arrow up
+r	ed	1	0	3	101	100	1	1	0		BF
+op	escape
+r	ed	1	0	3	100	100	1	0	0		BF
+op	click L 0 9
+r	ed	1	0	3	100	100	1	0	1		BF
+r	tip	0	9	@628
+op	up
+r	ed	1	0	3	100	100	1	1	0		BF
+op	arrow up
+r	ed	1	0	3	101	100	1	1	0		BF
+op	hide abandon
+r	ed	0	-1	3	-	100	1	0	0		BF
+op	click L 0 9
+r	ed	1	0	3	100	100	1	0	1		BF
+r	tip	0	9	@628
+op	up
+r	ed	1	0	3	100	100	1	1	0		BF
+op	arrow up
+r	ed	1	0	3	101	100	1	1	0		BF
+op	click L 0 0
+r	ev	override	0	3	101
+r	ev	enable	0	0
+r	ed	0	-1	3	-	101	1	0	0		BF
+r	tip	0	0	@80
+scenario	editor-focus-loss
+op	state 0
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	click L 0 9
+r	ed	1	0	3	100	100	1	0	1		BF
+r	tip	0	9	@628
+op	up
+r	ed	1	0	3	100	100	1	1	0		BF
+op	focusloss 100
+r	ed	1	0	3	100	100	1	0	0		BF
+op	click L 0 9
+r	ed	1	0	3	100	100	1	0	1		BF
+r	tip	0	9	@628
+op	up
+r	ed	1	0	3	100	100	1	1	0		BF
+op	focusloss 55
+r	ev	override	0	3	55
+r	ed	1	0	3	55	55	1	0	0		BF
+op	click L 0 9
+r	ed	1	0	3	100	100	1	0	1		BF
+r	tip	0	9	@628
+op	up
+r	ed	1	0	3	100	100	1	1	0		BF
+op	focusloss zzz
+r	ed	1	0	3	100	100	1	0	0	Enter a value from 0 through 127.	BF
+op	click L 0 10
+r	ed	1	0	4	127	127	0	0	1		RN
+r	tip	0	10	@53
+op	up
+r	ed	1	0	4	127	127	0	1	0		RN
+op	focusloss 127
+r	ed	1	0	4	127	127	0	0	0		RN
+op	click L 0 10
+r	ed	1	0	4	127	127	0	0	1		RN
+r	tip	0	10	@53
+op	up
+r	ed	1	0	4	127	127	0	1	0		RN
+op	hide commit
+r	ed	0	-1	4	-	127	0	0	0		RN
+op	click L 0 10
+r	ed	1	0	4	127	127	0	0	1		RN
+r	tip	0	10	@53
+op	up
+r	ed	1	0	4	127	127	0	1	0		RN
+op	arrow up
+r	ed	1	0	4	127	127	0	1	0		RN
+op	hide commit
+r	ed	0	-1	4	-	127	0	0	0		RN
+op	click L 0 10
+r	ed	1	0	4	127	127	0	0	1		RN
+r	tip	0	10	@53
+op	up
+r	ed	1	0	4	127	127	0	1	0		RN
+op	arrow up
+r	ed	1	0	4	127	127	0	1	0		RN
+op	hide abandon
+r	ed	0	-1	4	-	127	0	0	0		RN
+scenario	editor-request-failure
+op	state 0
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	click L 0 9
+r	ed	1	0	3	100	100	1	0	1		BF
+r	tip	0	9	@628
+op	cfg override fail:The output is not open.
+r	ed	1	0	3	100	100	1	0	1		BF
+op	scrub 8 0
+r	ev	override	0	3	101
+r	ed	1	0	3	101	101	1	0	1	Could not apply: The output is not open.	BF
+op	scrub 8 0
+r	ev	override	0	3	102
+r	ed	1	0	3	102	102	1	0	1	Could not apply: The output is not open.	BF
+op	cfg override ok
+r	ed	1	0	3	102	102	1	0	1	Could not apply: The output is not open.	BF
+op	scrub 8 0
+r	ev	override	0	3	103
+r	ed	1	0	3	103	103	1	0	1		BF
+op	up
+r	ed	1	0	3	103	103	1	1	0		BF
+op	typing
+r	ed	1	0	3	103	103	1	1	0		BF
+op	commit 5
+r	ev	override	0	3	5
+r	ed	1	0	3	5	5	1	0	0		BF
+op	cfg override fail:Typed failure.
+r	ed	1	0	3	5	5	1	0	0		BF
+op	typing
+r	ed	1	0	3	5	5	1	1	0		BF
+op	commit 6
+r	ev	override	0	3	6
+r	ed	1	0	3	6	6	1	0	0	Could not apply: Typed failure.	BF
+op	cfg override ok
+r	ed	1	0	3	6	6	1	0	0	Could not apply: Typed failure.	BF
+op	hide commit
+r	ed	0	-1	3	-	6	1	0	0	Could not apply: Typed failure.	BF
+scenario	editor-right-click-forced
+op	state 0
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	click L 0 9
+r	ed	1	0	3	100	100	1	0	1		BF
+r	tip	0	9	@628
+op	edright
+r	ev	override	0	3	auto
+r	ed	0	-1	3	-	100	0	0	0		BF
+op	click L 0 9
+r	ed	1	0	3	100	100	1	0	1		BF
+r	tip	0	9	@628
+op	cfg override fail:Cannot release.
+r	ed	1	0	3	100	100	1	0	1		BF
+op	edright
+r	ev	override	0	3	auto
+r	ed	1	0	3	100	100	1	0	1	Could not return to Auto: Cannot release.	BF
+op	cfg override ok
+r	ed	1	0	3	100	100	1	0	1	Could not return to Auto: Cannot release.	BF
+op	edright
+r	ev	override	0	3	auto
+r	ed	0	-1	3	-	100	0	0	0		BF
+scenario	editor-right-click-historical
+op	state 0
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	click L 0 8
+r	ed	1	0	2	5 \u2014 Electric Piano 1	4	0	0	1		RN
+r	tip	0	8	@585
+op	edright
+r	ev	chase	0	2
+r	ed	0	-1	2	-	4	0	0	0		RN
+op	click L 0 8
+r	ed	1	0	2	5 \u2014 Electric Piano 1	4	0	0	1		RN
+r	tip	0	8	@585
+op	cfg chase fail:No source value.
+r	ed	1	0	2	5 \u2014 Electric Piano 1	4	0	0	1		RN
+op	edright
+r	ev	chase	0	2
+r	ed	0	-1	2	-	4	0	0	0		RN
+op	cfg chase throw:Not playing.
+r	ed	0	-1	2	-	4	0	0	0		RN
+op	edright
+r	ed	0	-1	2	-	4	0	0	0		RN
+op	cfg chase ok
+r	ed	0	-1	2	-	4	0	0	0		RN
+op	click L 1 11
+r	ed	1	1	5	10	10	0	0	1		RN
+r	tip	1	11	@564
+op	edright
+r	ed	1	1	5	10	10	0	0	1	Could not restore source value: Enable this MIDI channel before restoring its source value.	RN
+op	click L 2 9
+r	ed	1	2	3	77	77	0	0	1		RN
+r	tip	2	9	@908
+op	edright
+r	ev	chase	2	3
+r	ed	0	-1	3	-	77	0	0	0		RN
+op	click L 0 10
+r	ed	1	0	4	127	127	0	0	1		RN
+r	tip	0	10	@53
+op	edright
+r	ed	1	0	4	127	127	0	0	1		RN
+scenario	editor-scrub-bend
+op	state 0
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	click L 3 13
+r	ed	1	3	7	-100	-100	1	0	1		BF
+r	tip	3	13	@1426
+op	scrub 1 0
+r	ev	override	3	7	-84
+r	ed	1	3	7	-84	-84	1	0	1		BF
+op	scrub 1 1
+r	ev	override	3	7	-83
+r	ed	1	3	7	-83	-83	1	0	1		BF
+op	scrub -10000 0
+r	ev	override	3	7	-8192
+r	ed	1	3	7	-8192	-8192	1	0	1		BF
+op	scrub 20000 0
+r	ev	override	3	7	8191
+r	ed	1	3	7	+8191	8191	1	0	1		BF
+op	scrub -1 1
+r	ev	override	3	7	8190
+r	ed	1	3	7	+8190	8190	1	0	1		BF
+op	scrub 0 0
+r	ed	1	3	7	+8190	8190	1	0	1		BF
+op	hide commit
+r	ed	0	-1	7	-	8190	1	0	0		BF
+scenario	editor-scrub-program
+op	state 0
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	click L 0 8
+r	ed	1	0	2	5 \u2014 Electric Piano 1	4	0	0	1		RN
+r	tip	0	8	@585
+op	scrub 8 0
+r	ev	override	0	2	5
+r	ed	1	0	2	6 \u2014 Electric Piano 2	5	1	0	1		BF
+op	scrub 8 0
+r	ev	override	0	2	6
+r	ed	1	0	2	7 \u2014 Harpsichord	6	1	0	1		BF
+op	scrub -3000 0
+r	ev	override	0	2	0
+r	ed	1	0	2	1 \u2014 Acoustic Grand Piano	0	1	0	1		BF
+op	scrub 4 0
+r	ed	1	0	2	1 \u2014 Acoustic Grand Piano	0	1	0	1		BF
+op	scrub 4 0
+r	ev	override	0	2	1
+r	ed	1	0	2	2 \u2014 Bright Acoustic Piano	1	1	0	1		BF
+op	scrub 4 1
+r	ed	1	0	2	2 \u2014 Bright Acoustic Piano	1	1	0	1		BF
+op	hide commit
+r	ed	0	-1	2	-	1	1	0	0		BF
+scenario	editor-scrub-sustain
+op	state 0
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	click L 3 12
+r	ed	1	3	6	On	1	1	0	1		BF
+r	tip	3	12	@336
+op	scrub 1 0
+r	ed	1	3	6	On	1	1	0	1		BF
+op	scrub -1 0
+r	ev	override	3	6	0
+r	ed	1	3	6	Off	0	1	0	1		BF
+op	scrub 0 0
+r	ed	1	3	6	Off	0	1	0	1		BF
+op	scrub 3 1
+r	ev	override	3	6	1
+r	ed	1	3	6	On	1	1	0	1		BF
+op	scrub -3 1
+r	ev	override	3	6	0
+r	ed	1	3	6	Off	0	1	0	1		BF
+op	hide commit
+r	ed	0	-1	6	-	0	1	0	0		BF
+op	click L 0 12
+r	ed	1	0	6	On	1	0	0	1		RN
+r	tip	0	12	@124
+op	scrub 5 0
+r	ev	override	0	6	1
+r	ed	1	0	6	On	1	1	0	1		BF
+op	scrub 5 0
+r	ed	1	0	6	On	1	1	0	1		BF
+op	scrub -5 0
+r	ev	override	0	6	0
+r	ed	1	0	6	Off	0	1	0	1		BF
+scenario	editor-scrub-unknown-source
+op	state 0
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	click L 2 9
+r	ed	1	2	3	77	77	0	0	1		RN
+r	tip	2	9	@908
+op	scrub 8 0
+r	ev	override	2	3	78
+r	ed	1	2	3	78	78	1	0	1		BF
+op	hide commit
+r	ed	0	-1	3	-	78	1	0	0		BF
+op	click L 2 13
+r	ed	1	2	7	-42	-42	0	0	1		RN
+r	tip	2	13	@1427
+op	scrub 1 0
+r	ev	override	2	7	-26
+r	ed	1	2	7	-26	-26	1	0	1		BF
+op	hide commit
+r	ed	0	-1	7	-	-26	1	0	0		BF
+op	click L 5 9
+r	ed	1	5	3	100	100	0	0	1		RN
+r	tip	5	9	@53
+op	scrub -1 0
+r	ed	1	5	3	100	100	0	0	1		RN
+op	scrub -8 0
+r	ev	override	5	3	99
+r	ed	1	5	3	99	99	1	0	1		BF
+op	hide commit
+r	ed	0	-1	3	-	99	1	0	0		BF
+scenario	editor-scrub-volume
+op	state 0
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	click L 0 9
+r	ed	1	0	3	100	100	1	0	1		BF
+r	tip	0	9	@628
+op	scrub 8 0
+r	ev	override	0	3	101
+r	ed	1	0	3	101	101	1	0	1		BF
+op	scrub 7 0
+r	ed	1	0	3	101	101	1	0	1		BF
+op	scrub 1 0
+r	ev	override	0	3	102
+r	ed	1	0	3	102	102	1	0	1		BF
+op	scrub -40 1
+r	ev	override	0	3	100
+r	ed	1	0	3	100	100	1	0	1		BF
+op	scrub 100000 0
+r	ev	override	0	3	127
+r	ed	1	0	3	127	127	1	0	1		BF
+op	scrub 5 0
+r	ed	1	0	3	127	127	1	0	1		BF
+op	scrub 1 0
+r	ed	1	0	3	127	127	1	0	1		BF
+op	cfg override fail:Output failed.
+r	ed	1	0	3	127	127	1	0	1		BF
+op	scrub 8 0
+r	ed	1	0	3	127	127	1	0	1		BF
+op	cfg override ok
+r	ed	1	0	3	127	127	1	0	1		BF
+op	scrub 16 1
+r	ed	1	0	3	127	127	1	0	1		BF
+op	hide commit
+r	ed	0	-1	3	-	127	1	0	0		BF
+scenario	editor-typing-bank-volume
+op	state 0
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	click L 0 6
+r	ed	1	0	0	0	0	0	0	1		RN
+r	tip	0	6	@81
+op	up
+r	ed	1	0	0	0	0	0	1	0		RN
+op	commit 127
+r	ev	override	0	0	127
+r	ed	1	0	0	127	127	1	0	0		BF
+op	typing
+r	ed	1	0	0	127	127	1	1	0		BF
+op	commit 128
+r	ed	1	0	0	127	127	1	0	0	Enter a value from 0 through 127.	BF
+op	typing
+r	ed	1	0	0	127	127	1	1	0	Enter a value from 0 through 127.	BF
+op	commit -1
+r	ed	1	0	0	127	127	1	0	0	Enter a value from 0 through 127.	BF
+op	typing
+r	ed	1	0	0	127	127	1	1	0	Enter a value from 0 through 127.	BF
+op	arrow down
+r	ed	1	0	0	126	127	1	1	0		BF
+op	arrow down
+r	ed	1	0	0	125	127	1	1	0		BF
+op	commit
+r	ev	override	0	0	125
+r	ed	1	0	0	125	125	1	0	0		BF
+op	hide commit
+r	ed	0	-1	0	-	125	1	0	0		BF
+op	click L 0 9
+r	ed	1	0	3	100	100	1	0	1		BF
+r	tip	0	9	@628
+op	up
+r	ed	1	0	3	100	100	1	1	0		BF
+op	arrow up
+r	ed	1	0	3	101	100	1	1	0		BF
+op	arrow up
+r	ed	1	0	3	102	100	1	1	0		BF
+op	commit
+r	ev	override	0	3	102
+r	ed	1	0	3	102	102	1	0	0		BF
+op	typing
+r	ed	1	0	3	102	102	1	1	0		BF
+op	escape
+r	ed	1	0	3	102	102	1	0	0		BF
+op	typing
+r	ed	1	0	3	102	102	1	1	0		BF
+op	arrow down
+r	ed	1	0	3	101	102	1	1	0		BF
+op	escape
+r	ed	1	0	3	102	102	1	0	0		BF
+scenario	editor-typing-bend
+op	state 0
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	click L 3 13
+r	ed	1	3	7	-100	-100	1	0	1		BF
+r	tip	3	13	@1426
+op	up
+r	ed	1	3	7	-100	-100	1	1	0		BF
+op	commit -8193
+r	ed	1	3	7	-100	-100	1	0	0	Enter a value from -8192 through 8191.	BF
+op	typing
+r	ed	1	3	7	-100	-100	1	1	0	Enter a value from -8192 through 8191.	BF
+op	commit 8192
+r	ed	1	3	7	-100	-100	1	0	0	Enter a value from -8192 through 8191.	BF
+op	typing
+r	ed	1	3	7	-100	-100	1	1	0	Enter a value from -8192 through 8191.	BF
+op	commit -8192
+r	ev	override	3	7	-8192
+r	ed	1	3	7	-8192	-8192	1	0	0		BF
+op	typing
+r	ed	1	3	7	-8192	-8192	1	1	0		BF
+op	commit 8191
+r	ev	override	3	7	8191
+r	ed	1	3	7	+8191	8191	1	0	0		BF
+op	typing
+r	ed	1	3	7	8191	8191	1	1	0		BF
+op	commit +5
+r	ev	override	3	7	5
+r	ed	1	3	7	+5	5	1	0	0		BF
+op	typing
+r	ed	1	3	7	5	5	1	1	0		BF
+op	commit -0
+r	ev	override	3	7	0
+r	ed	1	3	7	0	0	1	0	0		BF
+op	typing
+r	ed	1	3	7	0	0	1	1	0		BF
+op	commit 0
+r	ed	1	3	7	0	0	1	0	0		BF
+op	typing
+r	ed	1	3	7	0	0	1	1	0		BF
+op	arrow up
+r	ed	1	3	7	1	0	1	1	0		BF
+op	arrow up
+r	ed	1	3	7	2	0	1	1	0		BF
+op	commit
+r	ev	override	3	7	2
+r	ed	1	3	7	+2	2	1	0	0		BF
+op	hide commit
+r	ed	0	-1	7	-	2	1	0	0		BF
+scenario	editor-typing-sustain
+op	state 0
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	click L 3 12
+r	ed	1	3	6	On	1	1	0	1		BF
+r	tip	3	12	@336
+op	up
+r	ed	1	3	6	On	1	1	1	0		BF
+op	commit on
+r	ed	1	3	6	On	1	1	0	0		BF
+op	typing
+r	ed	1	3	6	On	1	1	1	0		BF
+op	commit OFF
+r	ev	override	3	6	0
+r	ed	1	3	6	Off	0	1	0	0		BF
+op	typing
+r	ed	1	3	6	Off	0	1	1	0		BF
+op	commit 2
+r	ed	1	3	6	Off	0	1	0	0	Enter a value from Off through On.	BF
+op	typing
+r	ed	1	3	6	Off	0	1	1	0	Enter a value from Off through On.	BF
+op	commit 1
+r	ev	override	3	6	1
+r	ed	1	3	6	On	1	1	0	0		BF
+op	typing
+r	ed	1	3	6	On	1	1	1	0		BF
+op	commit  oN 
+r	ed	1	3	6	On	1	1	0	0		BF
+op	typing
+r	ed	1	3	6	On	1	1	1	0		BF
+op	commit off
+r	ev	override	3	6	0
+r	ed	1	3	6	Off	0	1	0	0		BF
+op	typing
+r	ed	1	3	6	Off	0	1	1	0		BF
+op	arrow up
+r	ed	1	3	6	On	0	1	1	0		BF
+op	commit
+r	ev	override	3	6	1
+r	ed	1	3	6	On	1	1	0	0		BF
+op	typing
+r	ed	1	3	6	On	1	1	1	0		BF
+op	arrow down
+r	ed	1	3	6	Off	1	1	1	0		BF
+op	commit
+r	ev	override	3	6	0
+r	ed	1	3	6	Off	0	1	0	0		BF
+op	hide commit
+r	ed	0	-1	6	-	0	1	0	0		BF
+scenario	mute-toggle
+op	state 0
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	click L 0 0
+r	ev	enable	0	0
+r	ed	0	-1	0	-	0	0	0	0		RN
+r	tip	0	0	@80
+op	click L 1 0
+r	ev	enable	1	1
+r	ed	0	-1	0	-	0	0	0	0		RN
+r	tip	1	0	@1428
+op	cfg enabled fail:Cannot change the channel.
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	click L 4 0
+r	ev	enable	4	0
+r	ed	0	-1	0	-	0	0	0	0		RN
+r	tip	4	0	@1429
+op	cfg enabled ok
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	click R 0 0
+r	ed	0	-1	0	-	0	0	0	0		RN
+r	tip	0	0	@80
+op	click L 0 1
+r	ed	0	-1	0	-	0	0	0	0		RN
+r	tip	0	1	@203
+op	click L 0 15
+r	ed	0	-1	0	-	0	0	0	0		RN
+r	tip	0	15	@343
+scenario	right-click-disabled-channel
+op	state 0
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	click R 1 11
+r	ed	0	-1	0	-	0	0	0	0		RN
+r	tip	1	11	@1430
+op	click R 1 9
+r	ed	0	-1	0	-	0	0	0	0		RN
+r	tip	1	9	@53
+op	click L 1 11
+r	ed	1	1	5	10	10	0	0	1		RN
+r	tip	1	11	@1430
+op	hide abandon
+r	ed	0	-1	5	-	10	0	0	0		RN
+scenario	right-click-forced-auto
+op	state 0
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	click R 0 9
+r	ev	override	0	3	auto
+r	ed	0	-1	0	-	0	0	0	0		RN
+r	tip	0	9	@628
+op	cfg override fail:The output is not open.
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	click R 0 9
+r	ev	override	0	3	auto
+r	ed	0	-1	0	-	0	0	0	0		RN
+r	tip	0	9	@628
+op	click R 3 13
+r	ev	override	3	7	auto
+r	ed	0	-1	0	-	0	0	0	0		RN
+r	tip	3	13	@1426
+op	cfg override ok
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	click R 3 12
+r	ev	override	3	6	auto
+r	ed	0	-1	0	-	0	0	0	0		RN
+r	tip	3	12	@336
+scenario	right-click-historical-chase
+op	state 0
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	click R 0 8
+r	ev	chase	0	2
+r	ed	0	-1	0	-	0	0	0	0		RN
+r	tip	0	8	@585
+op	cfg chase fail:No source value here.
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	click R 0 8
+r	ev	chase	0	2
+r	ed	0	-1	0	-	0	0	0	0		RN
+r	tip	0	8	@1431
+op	cfg chase throw:Engine busy.
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	click R 0 8
+r	ev	chase	0	2
+r	ed	0	-1	0	-	0	0	0	0		RN
+r	tip	0	8	@1432
+op	cfg chase ok
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	click R 2 9
+r	ev	chase	2	3
+r	ed	0	-1	0	-	0	0	0	0		RN
+r	tip	2	9	@908
+op	click R 2 13
+r	ev	chase	2	7
+r	ed	0	-1	0	-	0	0	0	0		RN
+r	tip	2	13	@1427
+op	click R 2 14
+r	ed	0	-1	0	-	0	0	0	0		RN
+r	tip	2	14	@53
+scenario	right-click-nothing
+op	state 0
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	click R 0 10
+r	ed	0	-1	0	-	0	0	0	0		RN
+r	tip	0	10	@53
+op	click R 0 14
+r	ed	0	-1	0	-	0	0	0	0		RN
+r	tip	0	14	@53
+op	click R 0 1
+r	ed	0	-1	0	-	0	0	0	0		RN
+r	tip	0	1	@203
+op	click R 0 0
+r	ed	0	-1	0	-	0	0	0	0		RN
+r	tip	0	0	@80
+op	click R 5 8
+r	ed	0	-1	0	-	0	0	0	0		RN
+r	tip	5	8	@53
+op	click R 9 8
+r	ed	0	-1	0	-	0	0	0	0		RN
+r	tip	9	8	@1433
+scenario	seeds-without-snapshot
+op	click L 0 9
+r	ed	1	0	3	100	100	0	0	1		RN
+r	tip	0	9	@53
+op	hide commit
+r	ed	0	-1	3	-	100	0	0	0		RN
+op	click L 0 10
+r	ed	1	0	4	127	127	0	0	1		RN
+r	tip	0	10	@53
+op	hide abandon
+r	ed	0	-1	4	-	127	0	0	0		RN
+op	click L 0 11
+r	ed	1	0	5	64	64	0	0	1		RN
+r	tip	0	11	@53
+op	hide abandon
+r	ed	0	-1	5	-	64	0	0	0		RN
+op	click L 0 13
+r	ed	1	0	7	0	0	0	0	1		RN
+r	tip	0	13	@53
+op	hide abandon
+r	ed	0	-1	7	-	0	0	0	0		RN
+op	click L 0 8
+r	ed	1	0	2	1 \u2014 Acoustic Grand Piano	0	0	0	1		RN
+r	tip	0	8	@53
+op	hide abandon
+r	ed	0	-1	2	-	0	0	0	0		RN
+op	click L 0 12
+r	ed	1	0	6	Off	0	0	0	1		RN
+r	tip	0	12	@53
+op	hide abandon
+r	ed	0	-1	6	-	0	0	0	0		RN
+op	click R 0 9
+r	ed	0	-1	6	-	0	0	0	0		RN
+r	tip	0	9	@53
+op	click L 0 0
+r	ed	0	-1	6	-	0	0	0	0		RN
+r	tip	0	0	@53
+scenario	state-changes-with-editor-open
+op	state 0
+r	ed	0	-1	0	-	0	0	0	0		RN
+op	click L 0 9
+r	ed	1	0	3	100	100	1	0	1		BF
+r	tip	0	9	@628
+op	state 1
+r	ed	1	0	3	100	100	1	0	1		BF
+op	scrub 8 0
+r	ev	override	0	3	101
+r	ed	1	0	3	101	101	1	0	1		BF
+op	state 0
+r	ed	1	0	3	101	101	1	0	1		BF
+op	up
+r	ed	1	0	3	101	101	1	1	0		BF
+op	state 1
+r	ed	1	0	3	101	101	1	1	0		BF
+op	typing
+r	ed	1	0	3	101	101	1	1	0		BF
+op	commit 50
+r	ev	override	0	3	50
+r	ed	1	0	3	50	50	1	0	0		BF
+op	hide commit
+r	ed	0	-1	3	-	50	1	0	0		BF
+op	state 0
+r	ed	0	-1	3	-	50	1	0	0		BF

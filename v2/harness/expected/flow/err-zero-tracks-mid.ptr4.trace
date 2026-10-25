@@ -1,0 +1,33 @@
+# producer v1-reference (MIDIBottleneck v1.0.44 sources) x86 clr 4.0.30319.42000
+# input err-zero-tracks.mid
+trace-format 1
+kind flow
+mode full
+pointer-size 4
+[scenario natural]
+reports 0 decision-requested 0
+outcome error InvalidDataException "The MIDI file contains no tracks."
+[scenario preflight]
+p "Inspecting large MIDI" 0 0 0 10000 0 14
+reports 1 decision-requested 0
+outcome error InvalidDataException "The MIDI file contains no tracks."
+[scenario warning-decline]
+p "Inspecting large MIDI" 0 0 0 10000 0 14
+reports 1 decision-requested 0
+outcome error InvalidDataException "The MIDI file contains no tracks."
+[scenario warning-accept]
+p "Inspecting large MIDI" 0 0 0 10000 0 14
+reports 1 decision-requested 0
+outcome error InvalidDataException "The MIDI file contains no tracks."
+[scenario warning-accept-cancel]
+p "Inspecting large MIDI" 0 0 0 10000 0 14
+reports 1 decision-requested 0
+outcome error InvalidDataException "The MIDI file contains no tracks."
+[cancel-sweep natural]
+k 0 reports 0 decision-requested 0 outcome error InvalidDataException "The MIDI file contains no tracks."
+k 1 reports 0 decision-requested 0 outcome error InvalidDataException "The MIDI file contains no tracks."
+[cancel-sweep warning-accept]
+k 0 reports 1 decision-requested 0 outcome error InvalidDataException "The MIDI file contains no tracks."
+k 1 reports 1 decision-requested 0 outcome error InvalidDataException "The MIDI file contains no tracks."
+k 2 reports 1 decision-requested 0 outcome error InvalidDataException "The MIDI file contains no tracks."
+[end]

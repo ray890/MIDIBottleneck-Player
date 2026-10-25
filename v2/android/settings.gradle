@@ -1,0 +1,16 @@
+// MIDIBottleneck Player v2, Android build (Milestone 8, U11). See README-dev.md.
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode = RepositoriesMode.FAIL_ON_PROJECT_REPOS
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+rootProject.name = 'MIDIBottleneck-Android'
+include ':core', ':player', ':selftest'

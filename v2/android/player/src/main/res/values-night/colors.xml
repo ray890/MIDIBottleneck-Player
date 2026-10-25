@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Theme-level colours (dark, follows the system setting). They must equal Palette.dark(): the host test compares them. -->
+<resources>
+    <color name="p_background">#FF0F1318</color>
+    <color name="p_surface">#FF1A2029</color>
+    <color name="p_bar">#FF1C2A3A</color>
+    <color name="p_accent">#FF8DB8E6</color>
+    <color name="p_tonal">#FF2B3644</color>
+    <color name="p_text_secondary">#FFA9B4C0</color>
+</resources>

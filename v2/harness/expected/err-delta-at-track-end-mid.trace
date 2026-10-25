@@ -1,0 +1,13 @@
+# producer v1-reference (MIDIBottleneck v1.0.44 sources) x64 clr 4.0.30319.42000
+# input err-delta-at-track-end.mid
+trace-format 1
+mode full
+[file]
+size 27
+container smf
+[preflight]
+status error InvalidDataException "Track 0 ends after a delta time."
+requires-preflight ptr4 0 ptr8 0
+[song]
+status error InvalidDataException "Track 0 ends after a delta time."
+[end]

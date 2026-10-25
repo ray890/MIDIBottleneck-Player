@@ -1,0 +1,55 @@
+f0-all-message-types.mid	format 0; every channel message kind, running status, system common/real-time, SysEx, meta
+f1-v1-test-midi.mid	v1 test BuildTestMidi (TestRunner.cs:21197): format 1, tempo track, Program, running-status NoteOn, SysEx
+f1-cross-track-tempo.mid	v1 test (TestRunner.cs:2179): simultaneous tempo changes in two tracks
+rmid-wrapped.rmi	v1 test BuildRmid(prefix JUNK, trailing INFO) (TestRunner.cs:21388)
+rmid-plain-odd.rmi	RMID with odd-length data chunk and pad byte
+running-status-repair.mid	v1 test (TestRunner.cs:2246): one post-meta running-status repair
+empty-tracks.mid	format 1 with zero-length MTrk, end-of-track-only, and meta-only tracks
+tempo-changes.mid	many tempo changes, ppqn 96, notes between changes
+tempo-edge-values.mid	tempo 0 ignored, tempo meta of length 2/4 skipped, tempo 1 and 0xFFFFFF
+decimal-halfway.mid	three 1/3-microsecond tempo segments then a half: .NET decimal rounds differently from exact arithmetic
+decimal-stress.mid	odd ppqn 7, large deltas, frequent tempo changes in several tracks
+metadata-names.mid	track/instrument names: whitespace, controls, invalid UTF-8 fallback, surrogates, truncation
+long-sysex-segment-crossing.mid	SysEx payloads crossing the 1 MiB payload segment, plus F7 continuation packets
+sysex-variants.mid	short (<=3 byte) and long SysEx, F7 escapes, zero-length
+header-extra-bytes.mid	MThd length 10 (extra header bytes skipped)
+many-tracks-ties.mid	40 tracks with identical ticks: merge tie order (tick, track, order)
+many-events-segments.mid	10,000+ events per track crossing 2,048-record segments
+format0-two-tracks.mid	format 0 header declaring 2 tracks (accepted by v1)
+sysex-short.mid	every short SysEx form (F0 length 0-2, F7 length 1-3) plus boundaries, in two tied tracks
+metadata-edge.mid	track/instrument name edge cases: 128-unit cap with spaces, 512-byte cuts, C1 controls, blank-first names
+index-chase-rich.mid	controllers, RPN/NRPN, data entry/increment, resets and ties on all 16 channels (index coverage)
+models-notes.mid	model coverage: overlapping same-key notes across tracks, chords, drums, velocity ties, sustain, safety controllers, orphan releases, bursts and gaps
+models-dense.mid	model coverage: dense overload (roughly 60,000 events/sec) with quiet gaps, ppqn 960
+routing-lanes.mid	routing coverage: multi-channel tracks, shared source channels, patch changes while sounding and silent, GM families and banks, dynamic state, sustain, CC120/121/123, same-key overlaps, percussion, names
+routing-many-lanes.mid	routing coverage: more lanes than destinations with overlapping patches and state (tier merges, omission, capacity errors)
+routing-exact-merge.mid	routing coverage: a lane compatible with two exact-safe groups joins the one on its own source channel
+routing-patches-4096.mid	routing coverage: one lane with exactly 4,096 distinct patches (the planner limit)
+routing-patches-4097.mid	routing coverage: one lane with 4,097 distinct patches (rejected)
+err-invalid-running-status.mid	v1 test: data byte with no running status
+err-vlq-too-long.mid	v1 test: five-byte variable-length quantity
+err-truncated-sysex.mid	v1 test: SysEx longer than its track
+err-post-meta-no-prior-status.mid	v1 test: post-meta data without an earlier channel status
+err-running-status-after-sysex.mid	v1 test: running status after SysEx stays strict
+err-riff-wave.rmi	v1 test: RIFF form is not RMID
+err-rmid-no-data.rmi	v1 test: RMID without a data chunk
+err-rmid-bounded.rmi	v1 test: track cannot read through the RMID data bound
+err-rmid-empty-data.rmi	RMID data chunk of length 0
+err-riff-size-too-large.rmi	RIFF size extends beyond the file
+err-riff-truncated-header.rmi	RIFF header shorter than 12 bytes
+err-format2.mid	format 2 rejected
+err-smpte-division.mid	SMPTE time division rejected
+err-zero-division.mid	zero ticks per quarter rejected
+err-zero-tracks.mid	no tracks rejected
+err-not-midi.mid	missing MThd
+err-tiny-file.mid	file shorter than four bytes
+err-header-short.mid	MThd length 5
+err-delta-at-track-end.mid	track ends after a delta time
+err-unsupported-system-status.mid	undefined system status 0xF4
+err-status-inside-channel-message.mid	status byte inside a channel message
+err-missing-track-chunk.mid	header declares two tracks, file has one
+err-meta-overrun.mid	meta length extends past the track
+err-wrong-track-id.mid	second chunk is not MTrk
+err-header-truncated.mid	file ends inside the header fields
+err-track-length-truncated.mid	file ends inside an MTrk length
+err-header-extra-truncated.mid	declared extra header bytes missing

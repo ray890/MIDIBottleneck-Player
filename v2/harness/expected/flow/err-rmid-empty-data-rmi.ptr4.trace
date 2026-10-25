@@ -1,0 +1,28 @@
+# producer v1-reference (MIDIBottleneck v1.0.44 sources) x86 clr 4.0.30319.42000
+# input err-rmid-empty-data.rmi
+trace-format 1
+kind flow
+mode full
+pointer-size 4
+[scenario natural]
+reports 0 decision-requested 0
+outcome error InvalidDataException "The RIFF/RMID data chunk is empty."
+[scenario preflight]
+reports 0 decision-requested 0
+outcome error InvalidDataException "The RIFF/RMID data chunk is empty."
+[scenario warning-decline]
+reports 0 decision-requested 0
+outcome error InvalidDataException "The RIFF/RMID data chunk is empty."
+[scenario warning-accept]
+reports 0 decision-requested 0
+outcome error InvalidDataException "The RIFF/RMID data chunk is empty."
+[scenario warning-accept-cancel]
+reports 0 decision-requested 0
+outcome error InvalidDataException "The RIFF/RMID data chunk is empty."
+[cancel-sweep natural]
+k 0 reports 0 decision-requested 0 outcome error InvalidDataException "The RIFF/RMID data chunk is empty."
+k 1 reports 0 decision-requested 0 outcome error InvalidDataException "The RIFF/RMID data chunk is empty."
+[cancel-sweep warning-accept]
+k 0 reports 0 decision-requested 0 outcome error InvalidDataException "The RIFF/RMID data chunk is empty."
+k 1 reports 0 decision-requested 0 outcome error InvalidDataException "The RIFF/RMID data chunk is empty."
+[end]

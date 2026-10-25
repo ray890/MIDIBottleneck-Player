@@ -1,0 +1,84 @@
+trace-format 1
+mode full
+[file]
+size 3017
+container smf
+[preflight]
+status ok
+format 1
+tracks 8
+division 480
+dispatchable-events 14
+note-ons 7
+final-long-payload-bytes 0
+provisional-payload-bytes 0
+tempo-changes 0
+source-value-entries 0
+chase-state-entries 0
+chase-parameter-value-entries 0
+running-status-repairs 0
+routing-lanes 7
+routing-patch-state-events 0
+routing-patch-timeline-upper-bound 0
+routing-generated-state-upper-bound 21
+track 0 events 2 payload-bytes 0 tempo-changes 0
+track 1 events 2 payload-bytes 0 tempo-changes 0
+track 2 events 2 payload-bytes 0 tempo-changes 0
+track 3 events 2 payload-bytes 0 tempo-changes 0
+track 4 events 2 payload-bytes 0 tempo-changes 0
+track 5 events 2 payload-bytes 0 tempo-changes 0
+track 6 events 2 payload-bytes 0 tempo-changes 0
+track 7 events 0 payload-bytes 0 tempo-changes 0
+source-slots 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+routing-note-lanes-by-channel 6 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0
+routing-patch-state-by-channel 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+estimate ptr4 retained 65184 peak-low 1180608 peak-high 1240976 provisional 1408 merge-workspace 1114368 names 4800 routing-retained 5922 routing-peak 6552 retained-with-routing 71106 routing-peak-total 71736 warning-threshold 1073741824 architecture-risk 0 requires-warning 0
+estimate ptr8 retained 125408 peak-low 1241408 peak-high 1361808 provisional 1984 merge-workspace 1114368 names 4992 routing-retained 7714 routing-peak 8484 retained-with-routing 133122 routing-peak-total 133892 warning-threshold 4294967296 architecture-risk 0 requires-warning 0
+requires-preflight ptr4 0 ptr8 0
+[song]
+status ok
+format 1
+tracks 8
+division 480
+note-count 7
+running-status-repairs 0
+duration-us 21875
+events 14
+payload-bytes 0
+track 0 name "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" name-truncated 0 instrument "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" instrument-truncated 1
+track 1 name "ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd " name-truncated 1 instrument "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\uD83D\uDE00" instrument-truncated 0
+track 2 name "\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 \u00A5\u00E6 " name-truncated 1 instrument "\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9\uD83C\uDFB9" instrument-truncated 1
+track 3 name "A B C D E" name-truncated 0 instrument "\u00FE\u00FF A B" instrument-truncated 0
+track 4 name "Late Name" name-truncated 0 instrument "Late Instrument" instrument-truncated 0
+track 5 name "After Blank" name-truncated 0 instrument "Inst" instrument-truncated 0
+track 6 name "A\u00BF" name-truncated 0 instrument "\u00E2" instrument-truncated 0
+track 7 name "Only Meta" name-truncated 0 instrument "Lead Synth" instrument-truncated 0
+[tempo]
+count 0
+[events]
+count 14
+e 0 0 0 0 NoteOn 0 90 3 903C40
+e 1 0 0 1 NoteOn 0 90 3 903C40
+e 2 0 0 2 NoteOn 0 90 3 903C40
+e 3 0 0 3 NoteOn 0 90 3 903C40
+e 4 0 0 4 NoteOn 2 92 3 923040
+e 5 0 0 5 NoteOn 0 90 3 903C40
+e 6 0 0 6 NoteOn 0 90 3 903C40
+e 7 16 16667 0 NoteOff 0 80 3 803C00
+e 8 16 16667 1 NoteOff 0 80 3 803C00
+e 9 16 16667 2 NoteOff 0 80 3 803C00
+e 10 16 16667 3 NoteOff 0 80 3 803C00
+e 11 16 16667 5 NoteOff 0 80 3 803C00
+e 12 16 16667 6 NoteOff 0 80 3 803C00
+e 13 21 21875 4 NoteOff 2 82 3 823000
+[source-index]
+count 0
+[chase-index]
+entries 0 parameter-series 0
+[source-query]
+[chase-readouts]
+[chase-messages]
+final -
+[chase-messages-filtered]
+final -
+[end]

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Theme-level colours (light). They must equal Palette.light(): the host test compares them. -->
+<resources>
+    <color name="p_background">#FFEFF2F6</color>
+    <color name="p_surface">#FFFFFFFF</color>
+    <color name="p_bar">#FF1A578F</color>
+    <color name="p_accent">#FF1A578F</color>
+    <color name="p_tonal">#FFDCE6F1</color>
+    <color name="p_text_secondary">#FF4A5560</color>
+</resources>

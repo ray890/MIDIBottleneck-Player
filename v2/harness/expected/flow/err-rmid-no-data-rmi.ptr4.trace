@@ -1,0 +1,28 @@
+# producer v1-reference (MIDIBottleneck v1.0.44 sources) x86 clr 4.0.30319.42000
+# input err-rmid-no-data.rmi
+trace-format 1
+kind flow
+mode full
+pointer-size 4
+[scenario natural]
+reports 0 decision-requested 0
+outcome error InvalidDataException "The RIFF/RMID container has no MIDI data chunk."
+[scenario preflight]
+reports 0 decision-requested 0
+outcome error InvalidDataException "The RIFF/RMID container has no MIDI data chunk."
+[scenario warning-decline]
+reports 0 decision-requested 0
+outcome error InvalidDataException "The RIFF/RMID container has no MIDI data chunk."
+[scenario warning-accept]
+reports 0 decision-requested 0
+outcome error InvalidDataException "The RIFF/RMID container has no MIDI data chunk."
+[scenario warning-accept-cancel]
+reports 0 decision-requested 0
+outcome error InvalidDataException "The RIFF/RMID container has no MIDI data chunk."
+[cancel-sweep natural]
+k 0 reports 0 decision-requested 0 outcome error InvalidDataException "The RIFF/RMID container has no MIDI data chunk."
+k 1 reports 0 decision-requested 0 outcome error InvalidDataException "The RIFF/RMID container has no MIDI data chunk."
+[cancel-sweep warning-accept]
+k 0 reports 0 decision-requested 0 outcome error InvalidDataException "The RIFF/RMID container has no MIDI data chunk."
+k 1 reports 0 decision-requested 0 outcome error InvalidDataException "The RIFF/RMID container has no MIDI data chunk."
+[end]

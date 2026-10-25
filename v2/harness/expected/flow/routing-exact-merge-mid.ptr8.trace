@@ -1,0 +1,167 @@
+# producer v1-reference (MIDIBottleneck v1.0.44 sources) x64 clr 4.0.30319.42000
+# input routing-exact-merge.mid
+trace-format 1
+kind flow
+mode full
+pointer-size 8
+[scenario natural]
+p "Parsing track 1 of 4" 0 4 0 10000 0 11
+p "Parsing track 1 of 4" 0 4 0 10000 0 11
+p "Parsing track 1 of 4" 1 4 184 10000 11 11
+p "Parsing track 2 of 4" 1 4 184 10000 0 100
+p "Parsing track 2 of 4" 1 4 184 10000 0 100
+p "Parsing track 2 of 4" 2 4 1865 10000 100 100
+p "Parsing track 3 of 4" 2 4 1865 10000 0 100
+p "Parsing track 3 of 4" 2 4 1865 10000 0 100
+p "Parsing track 3 of 4" 3 4 3546 10000 100 100
+p "Parsing track 4 of 4" 3 4 3546 10000 0 100
+p "Parsing track 4 of 4" 3 4 3546 10000 0 100
+p "Parsing track 4 of 4" 4 4 5226 10000 100 100
+p "Preparing tempo map" 4 4 6000 10000 0 4
+p "Merging tracks and assigning timestamps" 4 4 6500 10000 0 72
+p "Merging tracks and assigning timestamps" 4 4 6500 10000 0 72
+p "Finalizing indexes" 4 4 9500 10000 72 72
+p "Ready" 4 4 10000 10000 1 1
+reports 17 decision-requested 0
+outcome ok events 72 notes 36 duration-us 2963542
+[scenario preflight]
+p "Inspecting large MIDI" 0 0 0 10000 0 357
+p "Inspecting large MIDI" 0 4 154 10000 0 11
+p "Inspecting large MIDI" 0 4 154 10000 0 11
+p "Inspecting large MIDI" 1 4 287 10000 0 100
+p "Inspecting large MIDI" 1 4 287 10000 0 100
+p "Inspecting large MIDI" 2 4 1043 10000 0 100
+p "Inspecting large MIDI" 2 4 1043 10000 0 100
+p "Inspecting large MIDI" 3 4 1799 10000 0 100
+p "Inspecting large MIDI" 3 4 1799 10000 0 100
+p "Inspecting large MIDI" 4 4 2500 10000 1 1
+p "Parsing track 1 of 4" 0 4 2500 10000 0 11
+p "Parsing track 1 of 4" 0 4 2500 10000 0 11
+p "Parsing track 1 of 4" 1 4 2638 10000 11 11
+p "Parsing track 2 of 4" 1 4 2638 10000 0 100
+p "Parsing track 2 of 4" 1 4 2638 10000 0 100
+p "Parsing track 2 of 4" 2 4 3898 10000 100 100
+p "Parsing track 3 of 4" 2 4 3898 10000 0 100
+p "Parsing track 3 of 4" 2 4 3898 10000 0 100
+p "Parsing track 3 of 4" 3 4 5159 10000 100 100
+p "Parsing track 4 of 4" 3 4 5159 10000 0 100
+p "Parsing track 4 of 4" 3 4 5159 10000 0 100
+p "Parsing track 4 of 4" 4 4 6419 10000 100 100
+p "Preparing tempo map" 4 4 7000 10000 0 4
+p "Merging tracks and assigning timestamps" 4 4 7375 10000 0 72
+p "Merging tracks and assigning timestamps" 4 4 7375 10000 0 72
+p "Finalizing indexes" 4 4 9625 10000 72 72
+p "Ready" 4 4 10000 10000 1 1
+reports 27 decision-requested 0
+outcome ok events 72 notes 36 duration-us 2963542
+[scenario warning-decline]
+p "Inspecting large MIDI" 0 0 0 10000 0 357
+p "Inspecting large MIDI" 0 4 154 10000 0 11
+p "Inspecting large MIDI" 0 4 154 10000 0 11
+p "Inspecting large MIDI" 1 4 287 10000 0 100
+p "Inspecting large MIDI" 1 4 287 10000 0 100
+p "Inspecting large MIDI" 2 4 1043 10000 0 100
+p "Inspecting large MIDI" 2 4 1043 10000 0 100
+p "Inspecting large MIDI" 3 4 1799 10000 0 100
+p "Inspecting large MIDI" 3 4 1799 10000 0 100
+p "Inspecting large MIDI" 4 4 2500 10000 1 1
+p "Waiting for confirmation" 4 4 2500 10000 1 1
+reports 11 decision-requested 1
+outcome declined
+[scenario warning-accept]
+p "Inspecting large MIDI" 0 0 0 10000 0 357
+p "Inspecting large MIDI" 0 4 154 10000 0 11
+p "Inspecting large MIDI" 0 4 154 10000 0 11
+p "Inspecting large MIDI" 1 4 287 10000 0 100
+p "Inspecting large MIDI" 1 4 287 10000 0 100
+p "Inspecting large MIDI" 2 4 1043 10000 0 100
+p "Inspecting large MIDI" 2 4 1043 10000 0 100
+p "Inspecting large MIDI" 3 4 1799 10000 0 100
+p "Inspecting large MIDI" 3 4 1799 10000 0 100
+p "Inspecting large MIDI" 4 4 2500 10000 1 1
+p "Waiting for confirmation" 4 4 2500 10000 1 1
+p "Parsing track 1 of 4" 0 4 2500 10000 0 11
+p "Parsing track 1 of 4" 0 4 2500 10000 0 11
+p "Parsing track 1 of 4" 1 4 2638 10000 11 11
+p "Parsing track 2 of 4" 1 4 2638 10000 0 100
+p "Parsing track 2 of 4" 1 4 2638 10000 0 100
+p "Parsing track 2 of 4" 2 4 3898 10000 100 100
+p "Parsing track 3 of 4" 2 4 3898 10000 0 100
+p "Parsing track 3 of 4" 2 4 3898 10000 0 100
+p "Parsing track 3 of 4" 3 4 5159 10000 100 100
+p "Parsing track 4 of 4" 3 4 5159 10000 0 100
+p "Parsing track 4 of 4" 3 4 5159 10000 0 100
+p "Parsing track 4 of 4" 4 4 6419 10000 100 100
+p "Preparing tempo map" 4 4 7000 10000 0 4
+p "Merging tracks and assigning timestamps" 4 4 7375 10000 0 72
+p "Merging tracks and assigning timestamps" 4 4 7375 10000 0 72
+p "Finalizing indexes" 4 4 9625 10000 72 72
+p "Ready" 4 4 10000 10000 1 1
+reports 28 decision-requested 1
+outcome ok events 72 notes 36 duration-us 2963542
+[scenario warning-accept-cancel]
+p "Inspecting large MIDI" 0 0 0 10000 0 357
+p "Inspecting large MIDI" 0 4 154 10000 0 11
+p "Inspecting large MIDI" 0 4 154 10000 0 11
+p "Inspecting large MIDI" 1 4 287 10000 0 100
+p "Inspecting large MIDI" 1 4 287 10000 0 100
+p "Inspecting large MIDI" 2 4 1043 10000 0 100
+p "Inspecting large MIDI" 2 4 1043 10000 0 100
+p "Inspecting large MIDI" 3 4 1799 10000 0 100
+p "Inspecting large MIDI" 3 4 1799 10000 0 100
+p "Inspecting large MIDI" 4 4 2500 10000 1 1
+p "Waiting for confirmation" 4 4 2500 10000 1 1
+reports 11 decision-requested 1
+outcome error OperationCanceledException "The operation was canceled."
+[cancel-sweep natural]
+k 0 reports 0 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 1 reports 1 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 2 reports 3 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 3 reports 3 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 4 reports 4 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 5 reports 6 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 6 reports 6 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 7 reports 7 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 8 reports 9 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 9 reports 9 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 10 reports 10 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 11 reports 12 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 12 reports 12 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 13 reports 14 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 14 reports 14 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 15 reports 15 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 16 reports 16 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 17 reports 17 decision-requested 0 outcome ok events 72 notes 36 duration-us 2963542
+k 18 reports 17 decision-requested 0 outcome ok events 72 notes 36 duration-us 2963542
+[cancel-sweep warning-accept]
+k 0 reports 1 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 1 reports 1 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 2 reports 2 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 3 reports 3 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 4 reports 4 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 5 reports 5 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 6 reports 6 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 7 reports 7 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 8 reports 8 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 9 reports 9 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 10 reports 10 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 11 reports 11 decision-requested 1 outcome error OperationCanceledException "The operation was canceled."
+k 12 reports 12 decision-requested 1 outcome error OperationCanceledException "The operation was canceled."
+k 13 reports 14 decision-requested 1 outcome error OperationCanceledException "The operation was canceled."
+k 14 reports 14 decision-requested 1 outcome error OperationCanceledException "The operation was canceled."
+k 15 reports 15 decision-requested 1 outcome error OperationCanceledException "The operation was canceled."
+k 16 reports 17 decision-requested 1 outcome error OperationCanceledException "The operation was canceled."
+k 17 reports 17 decision-requested 1 outcome error OperationCanceledException "The operation was canceled."
+k 18 reports 18 decision-requested 1 outcome error OperationCanceledException "The operation was canceled."
+k 19 reports 20 decision-requested 1 outcome error OperationCanceledException "The operation was canceled."
+k 20 reports 20 decision-requested 1 outcome error OperationCanceledException "The operation was canceled."
+k 21 reports 21 decision-requested 1 outcome error OperationCanceledException "The operation was canceled."
+k 22 reports 23 decision-requested 1 outcome error OperationCanceledException "The operation was canceled."
+k 23 reports 23 decision-requested 1 outcome error OperationCanceledException "The operation was canceled."
+k 24 reports 25 decision-requested 1 outcome error OperationCanceledException "The operation was canceled."
+k 25 reports 25 decision-requested 1 outcome error OperationCanceledException "The operation was canceled."
+k 26 reports 26 decision-requested 1 outcome error OperationCanceledException "The operation was canceled."
+k 27 reports 27 decision-requested 1 outcome error OperationCanceledException "The operation was canceled."
+k 28 reports 28 decision-requested 1 outcome ok events 72 notes 36 duration-us 2963542
+k 29 reports 28 decision-requested 1 outcome ok events 72 notes 36 duration-us 2963542
+[end]

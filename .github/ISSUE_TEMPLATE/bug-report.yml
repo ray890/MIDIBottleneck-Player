@@ -1,13 +1,13 @@
 name: Deterministic bug report
-description: Report a reproducible player, simulator, Analysis, or UI defect.
+description: Report a reproducible player, queue model, Analysis, or UI defect.
 title: "[Bug] "
 labels: [bug]
 body:
   - type: input
     id: build
     attributes:
-      label: MIDIBottleneck build and architecture
-      placeholder: Build 23, x64
+      label: Build and architecture
+      placeholder: "2.0.0, x64 (or x86, or XP; see About)"
     validations:
       required: true
   - type: textarea

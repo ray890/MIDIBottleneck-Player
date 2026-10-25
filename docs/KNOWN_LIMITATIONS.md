@@ -1,24 +1,50 @@
-# Compatibility and known limits
+# Known limitations (2.0)
 
-- Windows 10 or Windows 11 with a compatible .NET Framework 4.x runtime is required.
-- x86 and x64 are distinct builds. Native WinMM wrappers and KDMAPI-compatible providers must match the executable architecture.
-- Native providers are user-supplied and are not distributed by this project. Deterministic tests use fake or `None` output and do not establish compatibility with every driver.
-- Bare SMF and RIFF/RMID-wrapped format 0 and synchronous format 1 PPQN MIDI files are supported. Format 2, SMPTE time division, malformed RIFF bounds, and ambiguous running-status recovery are rejected.
-- Loading uses bounded stream buffers plus compact segmented provisional/final records, payloads, tempo changes, and source-value indexes. It no longer creates a per-event object graph or contiguous merged list, but huge files can still exhaust aggregate process commit/address space or the explicit 2,147,483,647-event indexed-store limit.
-- Neither architecture needs an adjacent `.exe.config`. Individual SMF payload lengths remain bounded by the format's four-byte variable-length quantity, and Analysis buckets retain their documented cap.
-- Very short SysEx messages lose their content. When a SysEx message is stored as 1 to 3 bytes (for example an empty `F0 F7`, `F0 xx F7` with a single data byte, or a short `F7` escape or continuation packet), v1.0.44 keeps its length but replaces its bytes with zeros, so the intended message is not reproduced. Only these rare, very short SysEx messages are affected; ordinary SysEx of 4 or more stored bytes and all other messages are unaffected. This will not be fixed in version 1; version 2 fixes it.
-- Large-file memory figures are storage-aware projections, not guarantees. They model MIDI records, payloads, tempo data, source-value histories, segment/reference overhead, and merge overlap, but actual CLR fragmentation, other process state, commit availability, and paging vary. A continued load can still fail cleanly if the system cannot satisfy later allocations.
-- In-process code cannot forcibly interrupt a native output call that never returns. Stop, Pause, Seek, and output switching avoid concurrent native calls and will not start a replacement worker across an unsafe boundary.
-- The real backlog statistic includes eligible MIDI that becomes due while a synchronous output call is blocked. With active mutes or overrides, first inspection of a newly grown blocked range must read those immutable events once to classify them; later UI refreshes reuse the cached count.
-- Forward-only queue limiting without slowdown supports Drop newest and Drop incoming complete notes. Both Drop oldest policies and clear/catch-up require a simulated delayed rate model because already-sent MIDI cannot be retracted.
-- Waiting-time queue limiting is mutually exclusive with forward-only admission. It measures modeled pending age, not buffering or rendering time inside a native provider. Drop oldest complete note remains soft when the overdue head is a protected release or safety event.
-- Finite event-count limits are also intentionally soft for required releases and channel-silencing controls. Purple pressure identifies this protected over-limit state; the player does not discard a required release merely to display 100%.
-- Drop oldest complete note protects releases and note-silencing controls when no old queued attack is eligible. Its configured capacity is therefore a soft limit, not an absolute maximum. Ordinary non-note source events can be rejected in that full/no-candidate case.
-- Checked-by-default Play/Seek chase restores ordinary channel state, but deliberately excludes notes, polyphonic key pressure, SysEx, system/meta messages, and channel-mode commands. A Data Increment/Decrement with no earlier known parameter value cannot be reconstructed without guessing and is omitted.
-- Analysis is a deterministic projection of immutable source events and selected simulator settings. Per-note mode projects the shared gate's selected transitions at logical gate times. Live Channel Monitor mutes are not included. Forced overrides are excluded by default, but an Analysis window can optionally project one immutable snapshot of them; it does not follow arbitrary live changes during a calculation. No Analysis mode predicts synthesizer voice stealing, audible release tails, provider buffering, or delays inside a native output call.
-- An initial workload-only Analysis preview intentionally omits all queue-projection values until projection completes. Cancelling retains the scanned workload view; projection failure also retains it and reports the failure reason.
-- Per-note gate occurrence storage grows with the maximum number of simultaneously unmatched source notes. It no longer has a 16,384-note pairing ceiling, but an actual segment-allocation failure stops and reports playback rather than continuing with lossy pairing.
-- Per-note **Maximum rate** is interval frames per second, not total MIDI-event throughput. Lag includes deliberate frame assignment. Static gate Analysis is a source-file projection, so its logical send times can differ from live output under provider delay or live filters.
-- Session scaling is application-relative and sits on top of Windows DPI scaling. Extremely large percentages can still be constrained by the monitor working area; Analysis and Channels keep their own canonical layouts and clamp to the available desktop rather than becoming inaccessible.
-- In borderless main-window mode, you can resize the window by dragging any invisible edge or corner. However, the pointer does not change to a resize arrow when it hovers over an edge or corner, in any borderless style. The player's layout fills the whole window up to its edges, so there is no uncovered strip where Windows would show the arrow. Dragging still resizes. Resize-pointer feedback is planned for version 2.
-- KDMAPI prepared SysEx requires a provider exposing the complete prepare/send/unprepare contract. Unsupported combinations fail explicitly.
+## Sound and drivers
+
+- **No synthesizer is included.** You need a MIDI synthesizer or driver that you install yourself (hardware or software). Without one, use the output **None**, which makes no sound.
+- The 64-bit program works only with 64-bit drivers, the 32-bit programs (x86 and XP) only with 32-bit drivers. Drivers are never distributed by this project, and the tests cannot cover every driver.
+- **Direct WinMM** (off until you tick it) has been tested with OmniMIDI and CoolSoft VirtualMIDISynth on Windows 10, and its speed gain was also seen on two Windows 11 PCs, one of them with Windows MIDI Services. Other drivers are allowed but untested. It cannot be used with None, the MIDI Mapper, Microsoft GS Wavetable Synth or any other device that Windows' own MIDI driver serves (including Windows MIDI Services), hardware or USB ports. The checkbox is greyed out as soon as you choose such an output, and its tooltip explains. Choosing an output does not open the device or play anything to find this out.
+- With Direct WinMM, the player keeps the device open between Stop and the next Play, so another program cannot use a one-user synthesizer in that time. It is released when you change device or output, or close the player.
+- A synthesizer driver can occasionally fail to answer when it is stopped or closed (seen with OmniMIDI after a very heavy flood of messages). The player gives up waiting after a short time and says so instead of freezing, but notes still sounding in that driver cannot be silenced by this program.
+- A call into a driver that never returns cannot be interrupted by any program. Stop, Pause, Seek and output changes avoid starting a second call at the same time.
+- KDMAPI needs a provider that supports the whole prepare/send/unprepare contract for long (SysEx) messages; unsupported combinations fail with a message.
+
+## Windows versions
+
+- Tested: Windows 10, Windows 11 (two PCs) and Windows XP SP3 (XP program). Windows 7, 8 and 8.1 are not tested.
+- The XP program is built for any Pentium-class processor (no SSE2) and is somewhat slower than the other two on the same machine.
+- The programs are not signed. Windows SmartScreen and some antivirus programs may warn about a newly downloaded, unknown program.
+- Windows 8 and later have a slow standard WinMM path (a few tens of thousands of messages per second). Direct WinMM and KDMAPI avoid it.
+
+## MIDI files
+
+- Supported: format 0 and format 1 files with pulses-per-quarter-note timing, bare or in a RIFF/RMID wrapper. Not supported: format 2, SMPTE time division, damaged RIFF wrappers, and files whose running status cannot be recovered unambiguously.
+- Very large files can still exhaust the memory of your computer. The 32-bit programs can use up to 4 GiB on 64-bit Windows (2 GiB on 32-bit Windows) and warn earlier. The large-file memory figures are estimates, not guarantees; a load can still fail cleanly if the system cannot give more memory.
+- There is a limit of 2,147,483,647 events per file.
+
+## What the models can and cannot do
+
+- Analysis is a prediction from the file and your settings. It does not know about synthesizer delay, live channel mutes (unless you ask it to project the current forced values), or a driver that blocks.
+- The Output rate gate's Analysis shows the ideal result for an output that never blocks; live playback uses the real time each call takes.
+- Dropping oldest events needs a simulated delayed rate model, because already-sent MIDI cannot be taken back.
+- Queue limits are soft for required releases and safety messages: the queue can briefly exceed its limit (purple on the queue bar).
+- Dropping single events can drop a Note Off and leave a note sounding; the "complete note" choices avoid this.
+- The Chase option restores ordinary channel state when starting in the middle. It deliberately does not restore notes, key pressure, SysEx, system and meta messages, or channel-mode commands.
+- **Per-note Maximum rate** counts interval frames per second, not total MIDI traffic.
+- "Limit queue by waiting time" measures the player's own modelled waiting, not buffering inside a driver.
+
+## Window and display
+
+- Application scale sits on top of Windows' own display scaling. Very large percentages can be limited by the size of your screen; the Analysis and Channels windows then shrink to fit.
+- With Application scale at 50%, text is very small but nothing is cut off.
+- Live displays follow your monitor's refresh. On Windows XP, without desktop composition, and in remote sessions, a steady 60 times a second is used.
+- The Channel Monitor window costs a little playback speed while it is open (about 1.7 times the cost of playback with it closed in the engine's no-sound test, down from about 10 times earlier in the rewrite).
+
+## Not remembered
+
+- Not remembered, on purpose: the window position and size, the loaded file, and the values on the main window (queue limit, Overflow, Rate model, processing values) and in Analysis, Channels and Track routing. What is remembered (the output, the KDMAPI and Direct WinMM ticks, the window menu options) is kept in `%APPDATA%MIDIBottleneck Playersettings.ini`, or in `MIDIBottleneck Player.ini` next to the program for a portable copy; the two files are not shared.
+
+## Version 1
+
+- Version 1.0.44 stores very short SysEx messages (1 to 3 bytes) as zeros. Version 2 does not have this defect.

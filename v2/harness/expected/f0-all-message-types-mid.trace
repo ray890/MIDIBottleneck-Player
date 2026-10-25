@@ -1,0 +1,140 @@
+# producer v1-reference (MIDIBottleneck v1.0.44 sources) x64 clr 4.0.30319.42000
+# input f0-all-message-types.mid
+trace-format 1
+mode full
+[file]
+size 158
+container smf
+[preflight]
+status ok
+format 0
+tracks 1
+division 480
+dispatchable-events 27
+note-ons 3
+final-long-payload-bytes 6
+provisional-payload-bytes 6
+tempo-changes 1
+source-value-entries 11
+chase-state-entries 7
+chase-parameter-value-entries 0
+running-status-repairs 0
+routing-lanes 2
+routing-patch-state-events 2
+routing-patch-timeline-upper-bound 2
+routing-generated-state-upper-bound 15
+track 0 events 27 payload-bytes 6 tempo-changes 1
+source-slots 0 0 0 0 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 1 1 0 0 0 1 2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+routing-note-lanes-by-channel 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 1
+routing-patch-state-by-channel 0 0 0 2 0 0 0 0 0 0 0 0 0 0 0 0
+estimate ptr4 retained 11250 peak-low 2108494 peak-high 3338568 provisional 1274 merge-workspace 2097244 names 576 routing-retained 2652 routing-peak 3216 retained-with-routing 13902 routing-peak-total 14466 warning-threshold 1073741824 architecture-risk 0 requires-warning 0
+estimate ptr8 retained 20510 peak-low 2117806 peak-high 3347988 provisional 1382 merge-workspace 2097296 names 624 routing-retained 4000 routing-peak 4968 retained-with-routing 24510 routing-peak-total 25478 warning-threshold 4294967296 architecture-risk 0 requires-warning 0
+requires-preflight ptr4 0 ptr8 0
+[song]
+status ok
+format 0
+tracks 1
+division 480
+note-count 3
+running-status-repairs 0
+duration-us 68750
+events 27
+payload-bytes 6
+track 0 name "All types" name-truncated 0 instrument "" instrument-truncated 0
+[tempo]
+count 1
+t 0 0 600000 0 2
+[events]
+count 27
+e 0 0 0 0 ProgramChange 3 C3 2 C310
+e 1 0 0 0 ControlChange 3 B3 3 B30764
+e 2 0 0 0 ControlChange 3 B3 3 B30001
+e 3 5 6250 0 NoteOn 3 93 3 933C50
+e 4 5 6250 0 NoteOn 3 93 3 934051
+e 5 10 12500 0 PolyphonicAftertouch 3 A3 3 A33C20
+e 6 15 18750 0 ChannelAftertouch 3 D3 2 D330
+e 7 15 18750 0 ChannelAftertouch 3 D3 2 D331
+e 8 20 25000 0 PitchBend 3 E3 3 E30040
+e 9 25 31250 0 NoteOn 3 93 3 933C00
+e 10 25 31250 0 NoteOff 3 83 3 834040
+e 11 30 37500 0 SystemMessage -1 F1 2 F123
+e 12 30 37500 0 SystemMessage -1 F2 3 F21020
+e 13 30 37500 0 SystemMessage -1 F3 2 F305
+e 14 30 37500 0 SystemMessage -1 F6 1 F6
+e 15 30 37500 0 SystemMessage -1 F8 1 F8
+e 16 30 37500 0 SystemMessage -1 F9 1 F9
+e 17 30 37500 0 SystemMessage -1 FA 1 FA
+e 18 30 37500 0 SystemMessage -1 FB 1 FB
+e 19 30 37500 0 SystemMessage -1 FC 1 FC
+e 20 30 37500 0 SystemMessage -1 FD 1 FD
+e 21 30 37500 0 SystemMessage -1 FE 1 FE
+e 22 35 43750 0 SystemExclusive -1 F0 6 sha256:2311A98F697042CA0DD3F70175995FE3E188D0E10779B052FA6B9D767D156807
+e 23 40 50000 0 NoteOn 15 9F 3 9F247F
+e 24 45 56250 0 NoteOff 15 8F 3 8F2400
+e 25 45 56250 0 ControlChange 0 B0 3 B07900
+e 26 45 56250 0 ControlChange 0 B0 3 B07800
+[source-index]
+count 11
+slot 0 Expression 1
+v 25 127
+slot 0 Pan 1
+v 25 64
+slot 0 Sustain 1
+v 25 0
+slot 0 PitchBend 1
+v 25 0
+slot 0 Aftertouch 1
+v 25 0
+slot 3 BankMsb 1
+v 2 1
+slot 3 Program 1
+v 0 16
+slot 3 Volume 1
+v 1 100
+slot 3 PitchBend 1
+v 8 0
+slot 3 Aftertouch 2
+v 6 48
+v 7 49
+[chase-index]
+entries 8 parameter-series 0
+state 3 0 1
+v 2 1
+state 3 7 1
+v 1 100
+state 3 120 1
+v 0 16
+state 3 121 1
+v 8 0
+state 3 122 2
+v 6 48
+v 7 49
+reset 0 1
+v 25 0
+selector 0 1
+v 25 -1
+[source-query]
+q 0 0 3.BankMsb=1 3.Program=16 3.Volume=100
+q 6 18750 3.Aftertouch=49
+q 8 25000 3.PitchBend=0
+q 24 56250 0.Expression=127 0.Pan=64 0.Sustain=0 0.PitchBend=0 0.Aftertouch=0
+[chase-readouts]
+r 1 3.Program=16
+r 2 3.Volume=100
+r 3 3.BankMsb=1
+r 7 3.ChannelPressure=48
+r 8 3.ChannelPressure=49
+r 9 3.PitchBend=0
+[chase-messages]
+c 1 1 sha256:AFBE670035E130C0FA7FDC42EE5E4275FFE60BC3AA2BDFBBA78301E520760DBD
+c 2 2 sha256:2CE918D7C16FF11A84AD0BF3FD0CA4B8BD3778BC52229CED761A482CB259B67A
+c 3 3 sha256:581D4B23770DA7B0F44702C4097660EA8A8B7EE7A4F3E3B8794C7F43E989F879
+c 7 4 sha256:2008BD502CAD206F5C55D6A9FE7650EFA65D5225A54B2572DB653C3A7B7BF072
+c 8 4 sha256:AE621B9F5A91B12F60309C9D8D5CE0F8682A9A69A7250E6FF071DE5FE19F8B6E
+c 9 5 sha256:A3A617D4F8CD308E44CE22918BFB142CB2E13BDC8DB2AEA702EDE955F791334F
+final ControlChange:B30001 ProgramChange:C310 ControlChange:B30764 PitchBend:E30040 SystemMessage:D331
+[chase-messages-filtered]
+c 1 1 sha256:AFBE670035E130C0FA7FDC42EE5E4275FFE60BC3AA2BDFBBA78301E520760DBD
+c 3 2 sha256:C54BC279A9A58A35B640B9FBB19E55343BA46C984EAE6481565E7B1A0C82AE5F
+final ControlChange:B30001 ProgramChange:C310
+[end]

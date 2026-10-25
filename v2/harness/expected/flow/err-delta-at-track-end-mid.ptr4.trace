@@ -1,0 +1,47 @@
+# producer v1-reference (MIDIBottleneck v1.0.44 sources) x86 clr 4.0.30319.42000
+# input err-delta-at-track-end.mid
+trace-format 1
+kind flow
+mode full
+pointer-size 4
+[scenario natural]
+p "Parsing track 1 of 1" 0 1 0 10000 0 5
+p "Parsing track 1 of 1" 0 1 0 10000 0 5
+reports 2 decision-requested 0
+outcome error InvalidDataException "Track 0 ends after a delta time."
+[scenario preflight]
+p "Inspecting large MIDI" 0 0 0 10000 0 27
+p "Inspecting large MIDI" 0 1 2037 10000 0 5
+p "Inspecting large MIDI" 0 1 2037 10000 0 5
+reports 3 decision-requested 0
+outcome error InvalidDataException "Track 0 ends after a delta time."
+[scenario warning-decline]
+p "Inspecting large MIDI" 0 0 0 10000 0 27
+p "Inspecting large MIDI" 0 1 2037 10000 0 5
+p "Inspecting large MIDI" 0 1 2037 10000 0 5
+reports 3 decision-requested 0
+outcome error InvalidDataException "Track 0 ends after a delta time."
+[scenario warning-accept]
+p "Inspecting large MIDI" 0 0 0 10000 0 27
+p "Inspecting large MIDI" 0 1 2037 10000 0 5
+p "Inspecting large MIDI" 0 1 2037 10000 0 5
+reports 3 decision-requested 0
+outcome error InvalidDataException "Track 0 ends after a delta time."
+[scenario warning-accept-cancel]
+p "Inspecting large MIDI" 0 0 0 10000 0 27
+p "Inspecting large MIDI" 0 1 2037 10000 0 5
+p "Inspecting large MIDI" 0 1 2037 10000 0 5
+reports 3 decision-requested 0
+outcome error InvalidDataException "Track 0 ends after a delta time."
+[cancel-sweep natural]
+k 0 reports 0 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 1 reports 1 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 2 reports 2 decision-requested 0 outcome error InvalidDataException "Track 0 ends after a delta time."
+k 3 reports 2 decision-requested 0 outcome error InvalidDataException "Track 0 ends after a delta time."
+[cancel-sweep warning-accept]
+k 0 reports 1 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 1 reports 1 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 2 reports 2 decision-requested 0 outcome error OperationCanceledException "The operation was canceled."
+k 3 reports 3 decision-requested 0 outcome error InvalidDataException "Track 0 ends after a delta time."
+k 4 reports 3 decision-requested 0 outcome error InvalidDataException "Track 0 ends after a delta time."
+[end]

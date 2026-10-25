@@ -1,0 +1,33 @@
+# producer v1-reference (MIDIBottleneck v1.0.44 sources) x86 clr 4.0.30319.42000
+# input err-header-short.mid
+trace-format 1
+kind flow
+mode full
+pointer-size 4
+[scenario natural]
+reports 0 decision-requested 0
+outcome error InvalidDataException "The MIDI header is shorter than 6 bytes."
+[scenario preflight]
+p "Inspecting large MIDI" 0 0 0 10000 0 13
+reports 1 decision-requested 0
+outcome error InvalidDataException "The MIDI header is shorter than 6 bytes."
+[scenario warning-decline]
+p "Inspecting large MIDI" 0 0 0 10000 0 13
+reports 1 decision-requested 0
+outcome error InvalidDataException "The MIDI header is shorter than 6 bytes."
+[scenario warning-accept]
+p "Inspecting large MIDI" 0 0 0 10000 0 13
+reports 1 decision-requested 0
+outcome error InvalidDataException "The MIDI header is shorter than 6 bytes."
+[scenario warning-accept-cancel]
+p "Inspecting large MIDI" 0 0 0 10000 0 13
+reports 1 decision-requested 0
+outcome error InvalidDataException "The MIDI header is shorter than 6 bytes."
+[cancel-sweep natural]
+k 0 reports 0 decision-requested 0 outcome error InvalidDataException "The MIDI header is shorter than 6 bytes."
+k 1 reports 0 decision-requested 0 outcome error InvalidDataException "The MIDI header is shorter than 6 bytes."
+[cancel-sweep warning-accept]
+k 0 reports 1 decision-requested 0 outcome error InvalidDataException "The MIDI header is shorter than 6 bytes."
+k 1 reports 1 decision-requested 0 outcome error InvalidDataException "The MIDI header is shorter than 6 bytes."
+k 2 reports 1 decision-requested 0 outcome error InvalidDataException "The MIDI header is shorter than 6 bytes."
+[end]

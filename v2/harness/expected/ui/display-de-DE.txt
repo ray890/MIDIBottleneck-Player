@@ -1,0 +1,818 @@
+# Display strings under de-DE. Row: function, inputs..., result (last field(s)).
+# snap = PlaybackSnapshot fields as Name=Value;... ; bits = double bit pattern in hex or 'null'.
+culture	de-DE	,	.
+duration	-5	-5 \u00b5s
+lag	-5	0,000 ms
+delayednoteoff	-5	0	Source NoteOff timing
+delayednoteoff	-5	1	source timing
+pernote	-5	0	Source-time boundaries
+pernote	-5	1	source-time frames
+window	-5	-0,005 ms
+bytes	-5	0 MiB
+pressurenumber	-5	-5
+duration	0	0 \u00b5s
+lag	0	0,000 ms
+delayednoteoff	0	0	Source NoteOff timing
+delayednoteoff	0	1	source timing
+pernote	0	0	Source-time boundaries
+pernote	0	1	source-time frames
+window	0	Instantaneous
+bytes	0	0 MiB
+pressurenumber	0	0
+duration	1	1 \u00b5s
+lag	1	0,001 ms
+delayednoteoff	1	0	1 \u00b5s minimum NoteOn
+delayednoteoff	1	1	1 \u00b5s min
+pernote	1	0	1.000.000,0 frames/sec
+pernote	1	1	1.000.000 frames/s
+window	1	0,001 ms
+bytes	1	0 MiB
+pressurenumber	1	1
+duration	999	999 \u00b5s
+lag	999	0,999 ms
+delayednoteoff	999	0	999 \u00b5s minimum NoteOn
+delayednoteoff	999	1	999 \u00b5s min
+pernote	999	0	1.001,0 frames/sec
+pernote	999	1	1.001 frames/s
+window	999	0,999 ms
+bytes	999	0 MiB
+pressurenumber	999	999
+duration	1000	1,000 ms
+lag	1000	1,000 ms
+delayednoteoff	1000	0	1.000 \u00b5s minimum NoteOn
+delayednoteoff	1000	1	1.000 \u00b5s min
+pernote	1000	0	1.000,0 frames/sec
+pernote	1000	1	1.000 frames/s
+window	1000	1 ms
+bytes	1000	0 MiB
+pressurenumber	1000	1K
+duration	1001	1,001 ms
+lag	1001	1,001 ms
+delayednoteoff	1001	0	1.001 \u00b5s minimum NoteOn
+delayednoteoff	1001	1	1.001 \u00b5s min
+pernote	1001	0	999,0 frames/sec
+pernote	1001	1	999 frames/s
+window	1001	1,001 ms
+bytes	1001	0 MiB
+pressurenumber	1001	1K
+duration	1234	1,234 ms
+lag	1234	1,234 ms
+delayednoteoff	1234	0	1.234 \u00b5s minimum NoteOn
+delayednoteoff	1234	1	1.234 \u00b5s min
+pernote	1234	0	810,4 frames/sec
+pernote	1234	1	810 frames/s
+window	1234	1,234 ms
+bytes	1234	0 MiB
+pressurenumber	1234	1,2K
+duration	59999999	59.999,999 ms
+lag	59999999	59.999,999 ms
+delayednoteoff	59999999	0	59.999.999 \u00b5s minimum NoteOn
+delayednoteoff	59999999	1	59.999.999 \u00b5s min
+pernote	59999999	0	0,0 frames/sec
+pernote	59999999	1	0 frames/s
+window	59999999	60 s
+bytes	59999999	57 MiB
+pressurenumber	59999999	60M
+duration	60000000	60.000,000 ms
+lag	60000000	60.000,000 ms
+delayednoteoff	60000000	0	60.000.000 \u00b5s minimum NoteOn
+delayednoteoff	60000000	1	60.000.000 \u00b5s min
+pernote	60000000	0	0,0 frames/sec
+pernote	60000000	1	0 frames/s
+window	60000000	60 s
+bytes	60000000	57 MiB
+pressurenumber	60000000	60M
+duration	61000001	61.000,001 ms
+lag	61000001	61.000,001 ms
+delayednoteoff	61000001	0	61.000.001 \u00b5s minimum NoteOn
+delayednoteoff	61000001	1	61.000.001 \u00b5s min
+pernote	61000001	0	0,0 frames/sec
+pernote	61000001	1	0 frames/s
+window	61000001	61 s
+bytes	61000001	58 MiB
+pressurenumber	61000001	61M
+duration	599999999	599.999,999 ms
+lag	599999999	599.999,999 ms
+delayednoteoff	599999999	0	599.999.999 \u00b5s minimum NoteOn
+delayednoteoff	599999999	1	599.999.999 \u00b5s min
+pernote	599999999	0	0,0 frames/sec
+pernote	599999999	1	0 frames/s
+window	599999999	600 s
+bytes	599999999	572 MiB
+pressurenumber	599999999	600M
+duration	3599999999	3.599.999,999 ms
+lag	3599999999	3.599.999,999 ms
+delayednoteoff	3599999999	0	3.599.999.999 \u00b5s minimum NoteOn
+delayednoteoff	3599999999	1	3.599.999.999 \u00b5s min
+pernote	3599999999	0	0,0 frames/sec
+pernote	3599999999	1	0 frames/s
+window	3599999999	3600 s
+bytes	3599999999	3,35 GiB
+pressurenumber	3599999999	3,6B
+duration	3600000000	3.600.000,000 ms
+lag	3600000000	3.600.000,000 ms
+delayednoteoff	3600000000	0	3.600.000.000 \u00b5s minimum NoteOn
+delayednoteoff	3600000000	1	3.600.000.000 \u00b5s min
+pernote	3600000000	0	0,0 frames/sec
+pernote	3600000000	1	0 frames/s
+window	3600000000	3600 s
+bytes	3600000000	3,35 GiB
+pressurenumber	3600000000	3,6B
+duration	3600000001	3.600.000,001 ms
+lag	3600000001	3.600.000,001 ms
+delayednoteoff	3600000001	0	3.600.000.001 \u00b5s minimum NoteOn
+delayednoteoff	3600000001	1	3.600.000.001 \u00b5s min
+pernote	3600000001	0	0,0 frames/sec
+pernote	3600000001	1	0 frames/s
+window	3600000001	3600 s
+bytes	3600000001	3,35 GiB
+pressurenumber	3600000001	3,6B
+duration	86399999999	86.399.999,999 ms
+lag	86399999999	86.399.999,999 ms
+delayednoteoff	86399999999	0	86.399.999.999 \u00b5s minimum NoteOn
+delayednoteoff	86399999999	1	86.399.999.999 \u00b5s min
+pernote	86399999999	0	0,0 frames/sec
+pernote	86399999999	1	0 frames/s
+window	86399999999	86400 s
+bytes	86399999999	80,5 GiB
+pressurenumber	86399999999	86,4B
+duration	1234567890123	1.234.567.890,123 ms
+lag	1234567890123	1.234.567.890,123 ms
+delayednoteoff	1234567890123	0	1.234.567.890.123 \u00b5s minimum NoteOn
+delayednoteoff	1234567890123	1	1.234.567.890.123 \u00b5s min
+pernote	1234567890123	0	0,0 frames/sec
+pernote	1234567890123	1	0 frames/s
+window	1234567890123	1234567,89 s
+bytes	1234567890123	1.149,8 GiB
+pressurenumber	1234567890123	1234,6B
+duration	9999999999999	9.999.999.999,999 ms
+lag	9999999999999	9.999.999.999,999 ms
+delayednoteoff	9999999999999	0	9.999.999.999.999 \u00b5s minimum NoteOn
+delayednoteoff	9999999999999	1	9.999.999.999.999 \u00b5s min
+pernote	9999999999999	0	0,0 frames/sec
+pernote	9999999999999	1	0 frames/s
+window	9999999999999	10000000 s
+bytes	9999999999999	9.313,2 GiB
+pressurenumber	9999999999999	10000B
+duration	92233720368547758	92.233.720.368.547,800 ms
+lag	92233720368547758	92.233.720.368.547,800 ms
+delayednoteoff	92233720368547758	0	92.233.720.368.547.758 \u00b5s minimum NoteOn
+delayednoteoff	92233720368547758	1	92.233.720.368.547.758 \u00b5s min
+pernote	92233720368547758	0	0,0 frames/sec
+pernote	92233720368547758	1	0 frames/s
+window	92233720368547758	92233720368,548 s
+bytes	92233720368547758	85.899.345,9 GiB
+pressurenumber	92233720368547758	92233720,4B
+duration	92233720368547759	92.233.720.368.547,800 ms
+lag	92233720368547759	92.233.720.368.547,800 ms
+delayednoteoff	92233720368547759	0	92.233.720.368.547.759 \u00b5s minimum NoteOn
+delayednoteoff	92233720368547759	1	92.233.720.368.547.759 \u00b5s min
+pernote	92233720368547759	0	0,0 frames/sec
+pernote	92233720368547759	1	0 frames/s
+window	92233720368547759	92233720368,548 s
+bytes	92233720368547759	85.899.345,9 GiB
+pressurenumber	92233720368547759	92233720,4B
+duration	922337203685477581	922.337.203.685.478,000 ms
+lag	922337203685477581	922.337.203.685.478,000 ms
+delayednoteoff	922337203685477581	0	922.337.203.685.477.581 \u00b5s minimum NoteOn
+delayednoteoff	922337203685477581	1	922.337.203.685.477.581 \u00b5s min
+pernote	922337203685477581	0	0,0 frames/sec
+pernote	922337203685477581	1	0 frames/s
+window	922337203685477581	922337203685,478 s
+bytes	922337203685477581	858.993.459,2 GiB
+pressurenumber	922337203685477581	922337203,7B
+duration	469931839100000	469.931.839.100,000 ms
+lag	469931839100000	469.931.839.100,000 ms
+delayednoteoff	469931839100000	0	469.931.839.100.000 \u00b5s minimum NoteOn
+delayednoteoff	469931839100000	1	469.931.839.100.000 \u00b5s min
+pernote	469931839100000	0	0,0 frames/sec
+pernote	469931839100000	1	0 frames/s
+window	469931839100000	469931839,1 s
+bytes	469931839100000	437.658,1 GiB
+pressurenumber	469931839100000	469931,8B
+duration	36028000	36.028,000 ms
+lag	36028000	36.028,000 ms
+delayednoteoff	36028000	0	36.028.000 \u00b5s minimum NoteOn
+delayednoteoff	36028000	1	36.028.000 \u00b5s min
+pernote	36028000	0	0,0 frames/sec
+pernote	36028000	1	0 frames/s
+window	36028000	36,028 s
+bytes	36028000	34 MiB
+pressurenumber	36028000	36M
+duration	1000	1,000 ms
+lag	1000	1,000 ms
+delayednoteoff	1000	0	1.000 \u00b5s minimum NoteOn
+delayednoteoff	1000	1	1.000 \u00b5s min
+pernote	1000	0	1.000,0 frames/sec
+pernote	1000	1	1.000 frames/s
+window	1000	1 ms
+bytes	1000	0 MiB
+pressurenumber	1000	1K
+duration	4	4 \u00b5s
+lag	4	0,004 ms
+delayednoteoff	4	0	4 \u00b5s minimum NoteOn
+delayednoteoff	4	1	4 \u00b5s min
+pernote	4	0	250.000,0 frames/sec
+pernote	4	1	250.000 frames/s
+window	4	0,004 ms
+bytes	4	0 MiB
+pressurenumber	4	4
+duration	-6576562	-6.576.562 \u00b5s
+lag	-6576562	0,000 ms
+delayednoteoff	-6576562	0	Source NoteOff timing
+delayednoteoff	-6576562	1	source timing
+pernote	-6576562	0	Source-time boundaries
+pernote	-6576562	1	source-time frames
+window	-6576562	-6576,562 ms
+bytes	-6576562	0 MiB
+pressurenumber	-6576562	-6,6M
+duration	78804	78,804 ms
+lag	78804	78,804 ms
+delayednoteoff	78804	0	78.804 \u00b5s minimum NoteOn
+delayednoteoff	78804	1	78.804 \u00b5s min
+pernote	78804	0	12,7 frames/sec
+pernote	78804	1	13 frames/s
+window	78804	78,804 ms
+bytes	78804	0 MiB
+pressurenumber	78804	78,8K
+duration	7081537000	7.081.537,000 ms
+lag	7081537000	7.081.537,000 ms
+delayednoteoff	7081537000	0	7.081.537.000 \u00b5s minimum NoteOn
+delayednoteoff	7081537000	1	7.081.537.000 \u00b5s min
+pernote	7081537000	0	0,0 frames/sec
+pernote	7081537000	1	0 frames/s
+window	7081537000	7081,537 s
+bytes	7081537000	6,60 GiB
+pressurenumber	7081537000	7,1B
+duration	52729000	52.729,000 ms
+lag	52729000	52.729,000 ms
+delayednoteoff	52729000	0	52.729.000 \u00b5s minimum NoteOn
+delayednoteoff	52729000	1	52.729.000 \u00b5s min
+pernote	52729000	0	0,0 frames/sec
+pernote	52729000	1	0 frames/s
+window	52729000	52,729 s
+bytes	52729000	50 MiB
+pressurenumber	52729000	52,7M
+duration	-959913098090	-959.913.098.090 \u00b5s
+lag	-959913098090	0,000 ms
+delayednoteoff	-959913098090	0	Source NoteOff timing
+delayednoteoff	-959913098090	1	source timing
+pernote	-959913098090	0	Source-time boundaries
+pernote	-959913098090	1	source-time frames
+window	-959913098090	-959913098,09 ms
+bytes	-959913098090	0 MiB
+pressurenumber	-959913098090	-959,9B
+duration	96313482000	96.313.482,000 ms
+lag	96313482000	96.313.482,000 ms
+delayednoteoff	96313482000	0	96.313.482.000 \u00b5s minimum NoteOn
+delayednoteoff	96313482000	1	96.313.482.000 \u00b5s min
+pernote	96313482000	0	0,0 frames/sec
+pernote	96313482000	1	0 frames/s
+window	96313482000	96313,482 s
+bytes	96313482000	89,7 GiB
+pressurenumber	96313482000	96,3B
+duration	99057000	99.057,000 ms
+lag	99057000	99.057,000 ms
+delayednoteoff	99057000	0	99.057.000 \u00b5s minimum NoteOn
+delayednoteoff	99057000	1	99.057.000 \u00b5s min
+pernote	99057000	0	0,0 frames/sec
+pernote	99057000	1	0 frames/s
+window	99057000	99,057 s
+bytes	99057000	94 MiB
+pressurenumber	99057000	99,1M
+duration	29	29 \u00b5s
+lag	29	0,029 ms
+delayednoteoff	29	0	29 \u00b5s minimum NoteOn
+delayednoteoff	29	1	29 \u00b5s min
+pernote	29	0	34.482,8 frames/sec
+pernote	29	1	34.483 frames/s
+window	29	0,029 ms
+bytes	29	0 MiB
+pressurenumber	29	29
+duration	916768	916,768 ms
+lag	916768	916,768 ms
+delayednoteoff	916768	0	916.768 \u00b5s minimum NoteOn
+delayednoteoff	916768	1	916.768 \u00b5s min
+pernote	916768	0	1,1 frames/sec
+pernote	916768	1	1 frames/s
+window	916768	916,768 ms
+bytes	916768	1 MiB
+pressurenumber	916768	916,8K
+duration	491953270413000	491.953.270.413,000 ms
+lag	491953270413000	491.953.270.413,000 ms
+delayednoteoff	491953270413000	0	491.953.270.413.000 \u00b5s minimum NoteOn
+delayednoteoff	491953270413000	1	491.953.270.413.000 \u00b5s min
+pernote	491953270413000	0	0,0 frames/sec
+pernote	491953270413000	1	0 frames/s
+window	491953270413000	491953270,413 s
+bytes	491953270413000	458.167,2 GiB
+pressurenumber	491953270413000	491953,3B
+duration	51	51 \u00b5s
+lag	51	0,051 ms
+delayednoteoff	51	0	51 \u00b5s minimum NoteOn
+delayednoteoff	51	1	51 \u00b5s min
+pernote	51	0	19.607,8 frames/sec
+pernote	51	1	19.608 frames/s
+window	51	0,051 ms
+bytes	51	0 MiB
+pressurenumber	51	51
+duration	753416	753,416 ms
+lag	753416	753,416 ms
+delayednoteoff	753416	0	753.416 \u00b5s minimum NoteOn
+delayednoteoff	753416	1	753.416 \u00b5s min
+pernote	753416	0	1,3 frames/sec
+pernote	753416	1	1 frames/s
+window	753416	753,416 ms
+bytes	753416	1 MiB
+pressurenumber	753416	753,4K
+duration	39387914000	39.387.914,000 ms
+lag	39387914000	39.387.914,000 ms
+delayednoteoff	39387914000	0	39.387.914.000 \u00b5s minimum NoteOn
+delayednoteoff	39387914000	1	39.387.914.000 \u00b5s min
+pernote	39387914000	0	0,0 frames/sec
+pernote	39387914000	1	0 frames/s
+window	39387914000	39387,914 s
+bytes	39387914000	36,7 GiB
+pressurenumber	39387914000	39,4B
+duration	335195645	335.195,645 ms
+lag	335195645	335.195,645 ms
+delayednoteoff	335195645	0	335.195.645 \u00b5s minimum NoteOn
+delayednoteoff	335195645	1	335.195.645 \u00b5s min
+pernote	335195645	0	0,0 frames/sec
+pernote	335195645	1	0 frames/s
+window	335195645	335,196 s
+bytes	335195645	320 MiB
+pressurenumber	335195645	335,2M
+duration	485242028000	485.242.028,000 ms
+lag	485242028000	485.242.028,000 ms
+delayednoteoff	485242028000	0	485.242.028.000 \u00b5s minimum NoteOn
+delayednoteoff	485242028000	1	485.242.028.000 \u00b5s min
+pernote	485242028000	0	0,0 frames/sec
+pernote	485242028000	1	0 frames/s
+window	485242028000	485242,028 s
+bytes	485242028000	451,9 GiB
+pressurenumber	485242028000	485,2B
+duration	392884693000	392.884.693,000 ms
+lag	392884693000	392.884.693,000 ms
+delayednoteoff	392884693000	0	392.884.693.000 \u00b5s minimum NoteOn
+delayednoteoff	392884693000	1	392.884.693.000 \u00b5s min
+pernote	392884693000	0	0,0 frames/sec
+pernote	392884693000	1	0 frames/s
+window	392884693000	392884,693 s
+bytes	392884693000	365,9 GiB
+pressurenumber	392884693000	392,9B
+bytes	0	0 MiB
+telemetry	65	0	0	1:05 elapsed  \u2022  0 MiB committed
+telemetry	3599	0	1	59:59  \u2022  0 MiB
+bytes	1	0 MiB
+telemetry	465	1	0	7:45 elapsed  \u2022  0 MiB committed
+telemetry	3600	1	1	1:00:00  \u2022  0 MiB
+bytes	1048575	1 MiB
+telemetry	865	1048575	0	14:25 elapsed  \u2022  1 MiB committed
+telemetry	3601	1048575	1	1:00:01  \u2022  1 MiB
+bytes	1048576	1 MiB
+telemetry	1265	1048576	0	21:05 elapsed  \u2022  1 MiB committed
+telemetry	3602	1048576	1	1:00:02  \u2022  1 MiB
+bytes	1572864	2 MiB
+telemetry	1665	1572864	0	27:45 elapsed  \u2022  2 MiB committed
+telemetry	3603	1572864	1	1:00:03  \u2022  2 MiB
+bytes	1073741823	1.024 MiB
+telemetry	2065	1073741823	0	34:25 elapsed  \u2022  1.024 MiB committed
+telemetry	3604	1073741823	1	1:00:04  \u2022  1.024 MiB
+bytes	1073741824	1,00 GiB
+telemetry	2465	1073741824	0	41:05 elapsed  \u2022  1,00 GiB committed
+telemetry	3605	1073741824	1	1:00:05  \u2022  1,00 GiB
+bytes	1610612736	1,50 GiB
+telemetry	2865	1610612736	0	47:45 elapsed  \u2022  1,50 GiB committed
+telemetry	3606	1610612736	1	1:00:06  \u2022  1,50 GiB
+bytes	10737418239	10,00 GiB
+telemetry	3265	10737418239	0	54:25 elapsed  \u2022  10,00 GiB committed
+telemetry	3607	10737418239	1	1:00:07  \u2022  10,00 GiB
+bytes	10737418240	10,0 GiB
+telemetry	3665	10737418240	0	1:01:05 elapsed  \u2022  10,0 GiB committed
+telemetry	3608	10737418240	1	1:00:08  \u2022  10,0 GiB
+bytes	10737418241	10,0 GiB
+telemetry	4065	10737418241	0	1:07:45 elapsed  \u2022  10,0 GiB committed
+telemetry	3609	10737418241	1	1:00:09  \u2022  10,0 GiB
+bytes	1099511627776	1.024,0 GiB
+telemetry	4465	1099511627776	0	1:14:25 elapsed  \u2022  1.024,0 GiB committed
+telemetry	3610	1099511627776	1	1:00:10  \u2022  1.024,0 GiB
+bytes	8589934592	8,00 GiB
+telemetry	4865	8589934592	0	1:21:05 elapsed  \u2022  8,00 GiB committed
+telemetry	3611	8589934592	1	1:00:11  \u2022  8,00 GiB
+bytes	9223372036854775807	8.589.934.592,0 GiB
+telemetry	5265	9223372036854775807	0	1:27:45 elapsed  \u2022  8.589.934.592,0 GiB committed
+telemetry	3612	9223372036854775807	1	1:00:12  \u2022  8.589.934.592,0 GiB
+bytes	-5	0 MiB
+telemetry	5665	-5	0	1:34:25 elapsed  \u2022  0 MiB committed
+telemetry	3613	-5	1	1:00:13  \u2022  0 MiB
+pressurenumber	0	0
+pressurenumber	1	1
+pressurenumber	999	999
+pressurenumber	1000	1K
+pressurenumber	1049	1K
+pressurenumber	1050	1,1K
+pressurenumber	1099	1,1K
+pressurenumber	1500	1,5K
+pressurenumber	999499	999,5K
+pressurenumber	999500	999,5K
+pressurenumber	999949	999,9K
+pressurenumber	999950	1000K
+pressurenumber	1000000	1M
+pressurenumber	1049999	1M
+pressurenumber	1050000	1,1M
+pressurenumber	12345678	12,3M
+pressurenumber	999999999	1000M
+pressurenumber	1000000000	1B
+pressurenumber	2500000000	2,5B
+pressurenumber	1800000000	1,8B
+pressurenumber	-5	-5
+pressurenumber	-1000	-1K
+pressurenumber	-1500000	-1,5M
+pressurenumber	-2000000000	-2B
+telemetry	3415152	35674000	0	948:39:12 elapsed  \u2022  34 MiB committed
+telemetry	4018	334977260259000	1	1:06:58  \u2022  311.971,9 GiB
+telemetry	820	196106804663000	0	13:40 elapsed  \u2022  182.638,7 GiB committed
+telemetry	1906	773000	1	31:46  \u2022  1 MiB
+telemetry	6849	911000	0	1:54:09 elapsed  \u2022  1 MiB committed
+telemetry	2771330	72292663000	1	769:48:50  \u2022  67,3 GiB
+telemetry	84	8000	1	1:24  \u2022  0 MiB
+telemetry	856201	86731226000	0	237:50:01 elapsed  \u2022  80,8 GiB committed
+telemetry	2	85147000	0	0:02 elapsed  \u2022  81 MiB committed
+telemetry	780	1668228187	1	13:00  \u2022  1,55 GiB
+telemetry	182151	342941556	0	50:35:51 elapsed  \u2022  327 MiB committed
+telemetry	662260	129576841280000	0	183:57:40 elapsed  \u2022  120.677,8 GiB committed
+telemetry	90779	529922963000	0	25:12:59 elapsed  \u2022  493,5 GiB committed
+telemetry	1148072	9000	0	318:54:32 elapsed  \u2022  0 MiB committed
+telemetry	27662	30781000	0	7:41:02 elapsed  \u2022  29 MiB committed
+telemetry	134248	62956210000	0	37:17:28 elapsed  \u2022  58,6 GiB committed
+telemetry	1068	5074495000	0	17:48 elapsed  \u2022  4,73 GiB committed
+telemetry	3	5831000	1	0:03  \u2022  6 MiB
+telemetry	409	266036000	1	6:49  \u2022  254 MiB
+telemetry	3076	999521916994000	0	51:16 elapsed  \u2022  930.877,3 GiB committed
+loadingelapsed	0	83220597	159805225	1619709839	0	0
+loadingelapsed	2503229	5013187	0	672216291	10000000	0
+loadingelapsed	8973	57268379	93870016	2805092976	10000000	0
+loadingelapsed	2147	0	13157799	2842352526	1000000000	2
+loadingelapsed	874470	15327878	0	3939655620	3579545	4
+loadingelapsed	430266386694	430350691016	85703515	431953510002	2539062	0
+loadingelapsed	57296779	0	32964062	3908667709	3579545	1066
+loadingelapsed	5920	0	179179823	1399354378	0	0
+loadingelapsed	90838522	0	0	1181494092	2539062	429
+loadingelapsed	6889143886	0	37136765	8732807564	1000000000	1
+loadingelapsed	3996519156	0	0	7158176767	2539062	1245
+loadingelapsed	855069	0	149978964	3791170037	2539062	1433
+loadingelapsed	47	0	114975906	1399901385	0	0
+loadingelapsed	35	47456679	17817529	2200014070	10000000	2
+loadingelapsed	20671700648	0	192837848	22602418887	2539062	684
+loadingelapsed	368020222849	368021775972	121641538	372016798668	1000000000	0
+loadingelapsed	81529549	0	123919066	1207173631	0	0
+loadingelapsed	2	82306293	0	2167838621	0	0
+loadingelapsed	2	83520220	0	3789827635	-1	0
+loadingelapsed	985509385	1007302842	0	1207211355	0	0
+loadstatus	Reading file	348	745	Reading file\r\n34,8% overall  \u2022  74,5% stage
+loadstatus	Counting events	706	779	Counting events\r\n70,6% overall  \u2022  77,9% stage
+loadstatus	Reading file	76	840	Reading file\r\n7,6% overall  \u2022  84,0% stage
+loadstatus	Merging tracks	511	35	Merging tracks\r\n51,1% overall  \u2022  3,5% stage
+loadstatus	Merging tracks	343	546	Merging tracks\r\n34,3% overall  \u2022  54,6% stage
+loadstatus	Counting events	274	366	Counting events\r\n27,4% overall  \u2022  36,6% stage
+loadstatus	Reading file	402	756	Reading file\r\n40,2% overall  \u2022  75,6% stage
+loadstatus	Merging tracks	739	297	Merging tracks\r\n73,9% overall  \u2022  29,7% stage
+loadstatus	Merging tracks	427	784	Merging tracks\r\n42,7% overall  \u2022  78,4% stage
+loadstatus	Building indexes	507	524	Building indexes\r\n50,7% overall  \u2022  52,4% stage
+loadstatus	Counting events	860	950	Counting events\r\n86,0% overall  \u2022  95,0% stage
+loadstatus	Reading file	922	232	Reading file\r\n92,2% overall  \u2022  23,2% stage
+loadstatus	Counting events	943	458	Counting events\r\n94,3% overall  \u2022  45,8% stage
+loadstatus	Reading file	895	635	Reading file\r\n89,5% overall  \u2022  63,5% stage
+loadstatus	Merging tracks	447	764	Merging tracks\r\n44,7% overall  \u2022  76,4% stage
+loadstatus	Merging tracks	616	848	Merging tracks\r\n61,6% overall  \u2022  84,8% stage
+loadstatus	Counting events	961	946	Counting events\r\n96,1% overall  \u2022  94,6% stage
+loadstatus	Counting events	190	531	Counting events\r\n19,0% overall  \u2022  53,1% stage
+loadstatus	Merging tracks	18	43	Merging tracks\r\n1,8% overall  \u2022  4,3% stage
+loadstatus	Building indexes	535	633	Building indexes\r\n53,5% overall  \u2022  63,3% stage
+fileinfo	53196	55465	416	648958414000	1	0	53.196 events  \u2022  55465 tracks  \u2022  416 notes  \u2022  10815:58.414  \u2022  Loaded with 1 nonstandard running-status repair
+fileinfo	1337839098	41453	628473651	82769	0	1	1.337.839.098 events  \u2022  41453 tracks\r\n628.473.651 notes  \u2022  00:00.082
+fileinfo	1125017598	7	4721427919	6128875217000	1	0	1.125.017.598 events  \u2022  7 tracks  \u2022  4.721.427.919 notes  \u2022  102147:55.217  \u2022  Loaded with 1 nonstandard running-status repair
+fileinfo	1234346192	2	5710895	42000	0	1	1.234.346.192 events  \u2022  2 tracks\r\n5.710.895 notes  \u2022  00:00.042
+fileinfo	1705856021	12472	106	648583107113	272476	1	1.705.856.021 events  \u2022  12472 tracks\r\n106 notes  \u2022  10809:43.107  \u2022  Loaded with 272.476 nonstandard running-status repairs
+fileinfo	940477513	8	10	897565709003000	4115489	1	940.477.513 events  \u2022  8 tracks\r\n10 notes  \u2022  14959428:29.003  \u2022  Loaded with 4.115.489 nonstandard running-status repairs
+fileinfo	2124303	62226	34	9376	0	0	2.124.303 events  \u2022  62226 tracks  \u2022  34 notes  \u2022  00:00.009
+fileinfo	679706701	19338	69203958	90651747847000	0	0	679.706.701 events  \u2022  19338 tracks  \u2022  69.203.958 notes  \u2022  1510862:27.847
+fileinfo	1856617	4	79246185122	50361	0	0	1.856.617 events  \u2022  4 tracks  \u2022  79.246.185.122 notes  \u2022  00:00.050
+fileinfo	1653282873	21201	8754	7237	0	0	1.653.282.873 events  \u2022  21201 tracks  \u2022  8.754 notes  \u2022  00:00.007
+fileinfo	0	44897	4142800	9587	0	0	0 events  \u2022  44897 tracks  \u2022  4.142.800 notes  \u2022  00:00.009
+fileinfo	883291265	20	18434209177	0	0	0	883.291.265 events  \u2022  20 tracks  \u2022  18.434.209.177 notes  \u2022  00:00.000
+fileinfo	1197512203	37483	803548797	96320773	0	1	1.197.512.203 events  \u2022  37483 tracks\r\n803.548.797 notes  \u2022  01:36.320
+fileinfo	962130394	20	68375568	5	0	0	962.130.394 events  \u2022  20 tracks  \u2022  68.375.568 notes  \u2022  00:00.000
+fileinfo	730770744	56075	56666	341339000	0	1	730.770.744 events  \u2022  56075 tracks\r\n56.666 notes  \u2022  05:41.339
+fileinfo	1387214889	84168	35720783506	9353	7748	1	1.387.214.889 events  \u2022  84168 tracks\r\n35.720.783.506 notes  \u2022  00:00.009  \u2022  Loaded with 7.748 nonstandard running-status repairs
+fileinfo	1829647	15	32548565	45000	33	0	1.829.647 events  \u2022  15 tracks  \u2022  32.548.565 notes  \u2022  00:00.045  \u2022  Loaded with 33 nonstandard running-status repairs
+fileinfo	916177643	7	25915938	6318000	0	0	916.177.643 events  \u2022  7 tracks  \u2022  25.915.938 notes  \u2022  00:06.318
+fileinfo	1211281	15	0	88	1	1	1.211.281 events  \u2022  15 tracks\r\n0 notes  \u2022  00:00.000  \u2022  Loaded with 1 nonstandard running-status repair
+fileinfo	170305	7358	287143517	823482711000	0	0	170.305 events  \u2022  7358 tracks  \u2022  287.143.517 notes  \u2022  13724:42.711
+repairmessage	1	This file was loaded with 1 nonstandard running-status repair. The repair was limited to an unambiguous channel message immediately after MIDI metadata.
+repairmessage	2	This file was loaded with 2 nonstandard running-status repairs. The repair was limited to an unambiguous channel message immediately after MIDI metadata.
+repairmessage	3	This file was loaded with 3 nonstandard running-status repairs. The repair was limited to an unambiguous channel message immediately after MIDI metadata.
+repairmessage	1000	This file was loaded with 1.000 nonstandard running-status repairs. The repair was limited to an unambiguous channel message immediately after MIDI metadata.
+repairmessage	1234567	This file was loaded with 1.234.567 nonstandard running-status repairs. The repair was limited to an unambiguous channel message immediately after MIDI metadata.
+largemessage	Black \u2013 Mix (v2).mid	970928	65762300	2560800	275212	2169275	23800	0	File: Black \u2013 Mix (v2).mid\r\nMIDI events to process: 970.928\r\n\r\nEstimated memory while the MIDI is open: 63 MiB\r\nEstimated highest memory use while loading: 2 MiB\u20130 MiB\r\nEstimated memory if Track routing is applied: 2 MiB\r\nEstimated highest memory use while planning/applying a route: 0 MiB\r\n\r\nThese are estimates. Loading may still fail if enough memory is not available.
+largemessage	song1.mid	77900571	9421288500	9230529657	94730107	4019958	850200	1	File: song1.mid\r\nMIDI events to process: 77.900.571\r\n\r\nEstimated memory while the MIDI is open: 8,77 GiB\r\nEstimated highest memory use while loading: 8,60 GiB\u201390 MiB\r\nEstimated memory if Track routing is applied: 4 MiB\r\nEstimated highest memory use while planning/applying a route: 1 MiB\r\n\r\nThese are estimates. Loading may still fail if enough memory is not available.\r\n\r\n32-bit warning: this MIDI may be too large for the x86 version. Use the x64 version if possible.
+largemessage	Black \u2013 Mix (v2).mid	988206658013	7252315700	1195	300	0	7716	1	File: Black \u2013 Mix (v2).mid\r\nMIDI events to process: 988.206.658.013\r\n\r\nEstimated memory while the MIDI is open: 6,75 GiB\r\nEstimated highest memory use while loading: 0 MiB\u20130 MiB\r\nEstimated memory if Track routing is applied: 0 MiB\r\nEstimated highest memory use while planning/applying a route: 0 MiB\r\n\r\nThese are estimates. Loading may still fail if enough memory is not available.\r\n\r\n32-bit warning: this MIDI may be too large for the x86 version. Use the x64 version if possible.
+largemessage	Black \u2013 Mix (v2).mid	5063650522	17102381	65974961000	928311535	90427700	615958100	0	File: Black \u2013 Mix (v2).mid\r\nMIDI events to process: 5.063.650.522\r\n\r\nEstimated memory while the MIDI is open: 16 MiB\r\nEstimated highest memory use while loading: 61,4 GiB\u2013885 MiB\r\nEstimated memory if Track routing is applied: 86 MiB\r\nEstimated highest memory use while planning/applying a route: 587 MiB\r\n\r\nThese are estimates. Loading may still fail if enough memory is not available.
+largemessage	song4.mid	5355877586	83562200	119127	400	1800	64426641297	0	File: song4.mid\r\nMIDI events to process: 5.355.877.586\r\n\r\nEstimated memory while the MIDI is open: 80 MiB\r\nEstimated highest memory use while loading: 0 MiB\u20130 MiB\r\nEstimated memory if Track routing is applied: 0 MiB\r\nEstimated highest memory use while planning/applying a route: 60,0 GiB\r\n\r\nThese are estimates. Loading may still fail if enough memory is not available.
+largemessage	Black \u2013 Mix (v2).mid	75278613	903300	92968979099	21447100	9230	76400	0	File: Black \u2013 Mix (v2).mid\r\nMIDI events to process: 75.278.613\r\n\r\nEstimated memory while the MIDI is open: 1 MiB\r\nEstimated highest memory use while loading: 86,6 GiB\u201320 MiB\r\nEstimated memory if Track routing is applied: 0 MiB\r\nEstimated highest memory use while planning/applying a route: 0 MiB\r\n\r\nThese are estimates. Loading may still fail if enough memory is not available.
+largemessage	song6.mid	704503919359	782948400	85273513400	9000700	792	3000	0	File: song6.mid\r\nMIDI events to process: 704.503.919.359\r\n\r\nEstimated memory while the MIDI is open: 747 MiB\r\nEstimated highest memory use while loading: 79,4 GiB\u20139 MiB\r\nEstimated memory if Track routing is applied: 0 MiB\r\nEstimated highest memory use while planning/applying a route: 0 MiB\r\n\r\nThese are estimates. Loading may still fail if enough memory is not available.
+largemessage	Black \u2013 Mix (v2).mid	9	300	311418178	2200	25414179133600	400	1	File: Black \u2013 Mix (v2).mid\r\nMIDI events to process: 9\r\n\r\nEstimated memory while the MIDI is open: 0 MiB\r\nEstimated highest memory use while loading: 297 MiB\u20130 MiB\r\nEstimated memory if Track routing is applied: 23.668,8 GiB\r\nEstimated highest memory use while planning/applying a route: 0 MiB\r\n\r\nThese are estimates. Loading may still fail if enough memory is not available.\r\n\r\n32-bit warning: this MIDI may be too large for the x86 version. Use the x64 version if possible.
+largemessage	song8.mid	76622	4336900	800	0	6550	971616033	0	File: song8.mid\r\nMIDI events to process: 76.622\r\n\r\nEstimated memory while the MIDI is open: 4 MiB\r\nEstimated highest memory use while loading: 0 MiB\u20130 MiB\r\nEstimated memory if Track routing is applied: 0 MiB\r\nEstimated highest memory use while planning/applying a route: 927 MiB\r\n\r\nThese are estimates. Loading may still fail if enough memory is not available.
+largemessage	Black \u2013 Mix (v2).mid	5014666815	0	172000727300	53943464730	6052996900	45274600	0	File: Black \u2013 Mix (v2).mid\r\nMIDI events to process: 5.014.666.815\r\n\r\nEstimated memory while the MIDI is open: 0 MiB\r\nEstimated highest memory use while loading: 160,2 GiB\u201350,2 GiB\r\nEstimated memory if Track routing is applied: 5,64 GiB\r\nEstimated highest memory use while planning/applying a route: 43 MiB\r\n\r\nThese are estimates. Loading may still fail if enough memory is not available.
+largemessage	song10.mid	344	229000	549958949700	435100	49633892429200	15157	0	File: song10.mid\r\nMIDI events to process: 344\r\n\r\nEstimated memory while the MIDI is open: 0 MiB\r\nEstimated highest memory use while loading: 512,2 GiB\u20130 MiB\r\nEstimated memory if Track routing is applied: 46.225,2 GiB\r\nEstimated highest memory use while planning/applying a route: 0 MiB\r\n\r\nThese are estimates. Loading may still fail if enough memory is not available.
+largemessage	song11.mid	5609818011	2100	67115724672	19300	38953834291200	688654	0	File: song11.mid\r\nMIDI events to process: 5.609.818.011\r\n\r\nEstimated memory while the MIDI is open: 0 MiB\r\nEstimated highest memory use while loading: 62,5 GiB\u20130 MiB\r\nEstimated memory if Track routing is applied: 36.278,6 GiB\r\nEstimated highest memory use while planning/applying a route: 1 MiB\r\n\r\nThese are estimates. Loading may still fail if enough memory is not available.
+observed	fff8000000000000	0	\u2014
+observed	fff8000000000000	1	\u2014
+speed	fff8000000000000	\u2014
+outputrate	fff8000000000000	\u2014
+observed	41950da150000000	0	88.303.700,0 events/sec
+observed	41950da150000000	1	88.303.700 events/s
+speed	41950da150000000	88.303.700,0%
+outputrate	41950da150000000	88.303.700,0 events/sec
+observed	7ff0000000000000	0	\u2014
+observed	7ff0000000000000	1	\u2014
+speed	7ff0000000000000	\u2014
+outputrate	7ff0000000000000	\u2014
+observed	4195ba3820000000	0	91.131.400,0 events/sec
+observed	4195ba3820000000	1	91.131.400 events/s
+speed	4195ba3820000000	91.131.400,0%
+outputrate	4195ba3820000000	91.131.400,0 events/sec
+observed	7ff0000000000000	0	\u2014
+observed	7ff0000000000000	1	\u2014
+speed	7ff0000000000000	\u2014
+outputrate	7ff0000000000000	\u2014
+observed	40e8b75000000000	0	50.618,5 events/sec
+observed	40e8b75000000000	1	50.619 events/s
+speed	40e8b75000000000	50.618,5%
+outputrate	40e8b75000000000	50.618,5 events/sec
+observed	405499ff2e48e8a7	0	82,4 events/sec
+observed	405499ff2e48e8a7	1	82 events/s
+speed	405499ff2e48e8a7	82,4%
+outputrate	405499ff2e48e8a7	82,4 events/sec
+observed	40e83ea666666666	0	49.653,2 events/sec
+observed	40e83ea666666666	1	49.653 events/s
+speed	40e83ea666666666	49.653,2%
+outputrate	40e83ea666666666	49.653,2 events/sec
+observed	7ff0000000000000	0	\u2014
+observed	7ff0000000000000	1	\u2014
+speed	7ff0000000000000	\u2014
+outputrate	7ff0000000000000	\u2014
+observed	null	0	\u2014
+observed	null	1	\u2014
+speed	null	\u2014
+outputrate	null	\u2014
+observed	fff8000000000000	0	\u2014
+observed	fff8000000000000	1	\u2014
+speed	fff8000000000000	\u2014
+outputrate	fff8000000000000	\u2014
+observed	415f4d0980000000	0	8.205.350,0 events/sec
+observed	415f4d0980000000	1	8.205.350 events/s
+speed	415f4d0980000000	8.205.350,0%
+outputrate	415f4d0980000000	8.205.350,0 events/sec
+observed	0000000000000000	0	0,0 events/sec
+observed	0000000000000000	1	0 events/s
+speed	0000000000000000	0,0%
+outputrate	0000000000000000	0,0 events/sec
+observed	fff8000000000000	0	\u2014
+observed	fff8000000000000	1	\u2014
+speed	fff8000000000000	\u2014
+outputrate	fff8000000000000	\u2014
+observed	7ff0000000000000	0	\u2014
+observed	7ff0000000000000	1	\u2014
+speed	7ff0000000000000	\u2014
+outputrate	7ff0000000000000	\u2014
+observed	null	0	\u2014
+observed	null	1	\u2014
+speed	null	\u2014
+outputrate	null	\u2014
+observed	fff0000000000000	0	\u2014
+observed	fff0000000000000	1	\u2014
+speed	fff0000000000000	\u2014
+outputrate	fff0000000000000	\u2014
+observed	4073ee083126e979	0	318,9 events/sec
+observed	4073ee083126e979	1	319 events/s
+speed	4073ee083126e979	318,9%
+outputrate	4073ee083126e979	318,9 events/sec
+observed	40c336cccccccccd	0	9.837,6 events/sec
+observed	40c336cccccccccd	1	9.838 events/s
+speed	40c336cccccccccd	9.837,6%
+outputrate	40c336cccccccccd	9.837,6 events/sec
+observed	41c67c62c4000000	0	754.501.000,0 events/sec
+observed	41c67c62c4000000	1	754.501.000 events/s
+speed	41c67c62c4000000	754.501.000,0%
+outputrate	41c67c62c4000000	754.501.000,0 events/sec
+snap	s0	1,5,2231132919,1042720300,0,0,0,26,0,0,1,1,0,0,3087236,6666,2,0,88972,819313333000,917297445000,810821,98
+dropped	s0	3273853245
+counts	s0	0	5 / 3.273.853.245
+maxrate	s0	412473d200000000	0	Source-time boundaries
+snap	s1	0,218574859541,45823370,970,0,0,0,0,0,2525023,1,0,2,1,31250,60543,4,57907735,3,959000,728171843396000,337,605
+dropped	s1	45824340
+counts	s1	0	218.574.859.541 / 45.824.340
+maxrate	s1	fff0000000000000	0	60.543 note starts/sec
+snap	s2	1,176621069,8541089417,78758968,0,0,9610,0,0,0,0,1,2,1804245,31250,2707631,5,0,580687,6083022049000,49000,181600,6
+dropped	s2	8619857995
+counts	s2	0	176.621.069 / 8.619.857.995
+maxrate	s2	0000000000000000	0	2.707.631 maximum events/sec
+snap	s3	2,789941390,8301780,2229474856,0,0,0,0,617514,0,0,1,0,0,3424,5062457,2,63,1471221023,183682070000,91757019000,6763,5193955
+dropped	s3	2238394150
+counts	s3	0	789.941.390 / 2.238.394.150
+maxrate	s3	3f8a98d2ca3ccf95	0	Source-time boundaries
+snap	s4	2,4,9,4836592,0,0,0,0,0,0,1,0,0,1311849,8272061,2293781,1,4761875,227537,588000,7652113000,4916,8878
+dropped	s4	4836601
+counts	s4	1	4\u2009/\u20094.836.601
+maxrate	s4	fff0000000000000	1	1 events/s
+snap	s5	1,38253,6730406748,14,0,8765,0,55735186,0,0,0,0,0,1200226,28904941,958645,4,764276,93484027,9272154000,76986303270000,890381,42787574
+dropped	s5	6786150713
+counts	s5	0	38.253 / 6.786.150.713
+maxrate	s5	7ff0000000000000	0	958.645 note starts/sec
+snap	s6	0,2,9223372036854775806,0,0,0,0,0,0,0,0,1,0,46647,198,0,1,25950,9581,3890000,418801679813000,68423,6506
+dropped	s6	9223372036854775806
+counts	s6	1	2\u2009/\u20099.223.372.036.854.775.806
+maxrate	s6	411c437200000000	1	21 events/s
+snap	s7	0,583,76513361,0,0,38269,0,0,610770,0,0,0,0,0,99364511,4,2,8,0,6000,9156232386000,212025,3
+dropped	s7	77162400
+counts	s7	1	583\u2009/\u200977.162.400
+maxrate	s7	fff0000000000000	1	source-time frames
+snap	s8	2,791429235,398623307,9223372036854775803,0,0,0,0,0,0,1,0,0,1094134,31250,8390432,5,400,184,19400000,923640528947000,284105,650
+dropped	s8	9223372036854775807
+counts	s8	1	791.429.235\u2009/\u20099.223.372.036.854.775.807
+maxrate	s8	401fa8b19a415f46	1	8.390.432 events/s max
+snap	s9	0,9368062,922875,0,0,554,0,0,0,935657,1,0,1,64336,57,0,5,9,8571553374,821726000,87681294211000,2236455,90222
+dropped	s9	923429
+counts	s9	1	9.368.062\u2009/\u2009923.429
+maxrate	s9	7ff0000000000000	1	unlimited output (+935.657 required over target)
+snap	s10	2,688324129696,9048950,0,0,0,0,0,1004,75,0,0,1,1821716,6,76722,5,0,6,523000,785471188072000,2165795,466
+dropped	s10	9049954
+counts	s10	1	688.324.129.696\u2009/\u20099.049.954
+maxrate	s10	c162760e00000000	1	76.722 events/s max (+75 required over target)
+snap	s11	0,99,0,0,828715439,0,0,0,0,0,0,1,1,617063,31250,36,2,0,14969,439852000,6187000,1029904,12421474
+dropped	s11	828715439
+counts	s11	0	99 / 828.715.439
+maxrate	s11	4191736e80000000	0	1,6 frames/sec
+snap	s12	0,85858,98477794,0,0,7197244,0,0,0,18,0,1,2,0,2737372,881919,2,3936188817,80,91878220000,2000,4014641,92337
+dropped	s12	105675038
+counts	s12	1	85.858\u2009/\u2009105.675.038
+maxrate	s12	3f73879c4113c686	1	source-time frames
+snap	s13	3,18,0,25438366,0,0,8,85013166,0,3912605,0,1,0,1561932,2643982,3972345,0,956166461,404,94319537000,28121194650000,37465,38
+dropped	s13	110451540
+counts	s13	0	18 / 110.451.540
+maxrate	s13	418590d340000000	0	0,6 events/sec
+snap	s14	1,56,9,0,0,0,932124044,0,0,893378012,0,1,0,-62,831650,0,4,423251723,15197,928997233000,67315000,7,27806310
+dropped	s14	932124053
+counts	s14	1	56\u2009/\u2009932.124.053
+maxrate	s14	fff0000000000000	1	unlimited note starts
+snap	s15	2,96,62,15,0,0,1,0,0,5278709,0,0,2,858499,71153886,503873,4,0,7,870069000,8919707000,12,31101103
+dropped	s15	78
+counts	s15	0	96 / 78
+maxrate	s15	fff8000000000000	0	503.873 note starts/sec
+snap	s16	2,63195261,0,9313,0,0,0,0,0,0,0,1,2,0,2,2548441,2,47314,0,751245967767000,7051000,2052969,9
+dropped	s16	9313
+counts	s16	0	63.195.261 / 9.313
+maxrate	s16	fff0000000000000	0	Source-time boundaries
+snap	s17	3,55851,0,0,0,5,0,0,0,711,1,0,2,906539,534,4924447,4,0,3194,77747071638000,41884167000,4873229,44299376
+dropped	s17	5
+counts	s17	1	55.851\u2009/\u20095
+maxrate	s17	4180b810e0000000	1	4.924.447 starts/s
+snap	s18	1,95553,375353470,388,0,5093942134,0,0,0,0,1,0,0,722738,67141682,89,1,164606,3201,509787000,998414350517000,67,5963
+dropped	s18	5469295992
+counts	s18	1	95.553\u2009/\u20095.469.295.992
+maxrate	s18	null	1	1 events/s
+snap	s19	1,721,67207752,0,0,0,0,0,0,0,0,1,0,0,5870407,1989,2,2742,635900,1134522722000,739305406722000,176348,20085757
+dropped	s19	67207752
+counts	s19	1	721\u2009/\u200967.207.752
+maxrate	s19	4162b90710000000	1	source-time frames
+snap	s20	0,270400423,642329508,362741,0,0,0,0,0,0,1,0,2,800683,800558,4689232,2,6438,699845,81822416000,561890000,2739,38440005
+cells	s20	0000	0	3	419153a500000001	fff0000000000000	4191140d50000000	1	1363:42.416\u2009/\u200909:21.890	6.438\u2009/\u2009699.845 actual	1 frames/s	-\u221e events/s	270.400.423\u2009/\u2009642.692.249	72.673.600,0%	38.440,005 ms	2,739 ms
+analysis	s20	6.438 / 699.845	2,739 ms / 38.440,005 ms
+snap	s21	0,38,0,756522,5032326,0,634250,76341695,0,0,0,0,0,27885,31250,6268220,2,8383193,25,1060125186000,503134000,2918189,29987391
+cells	s21	1000	0	1	40d6644ccccccccd	0000000000000000	fff0000000000000	0	17668:45.186 / 08:23.134	8.383.193 / 25	Source-time boundaries	0,0 events/sec	38 / 82.764.793	22.929,2%	29.987,391 ms	2.918,189 ms
+analysis	s21	8.383.193 / 25	2.918,189 ms / 29.987,391 ms
+snap	s22	1,198010472,26515255,2667,0,0,0,0,0,1213,0,0,0,69,82721742,0,2,504704,7267,88022157286000,763000,70047,45754903
+cells	s22	0000	885941	6626736	4138367000000000	40d834b333333333	416082ba90000000	0	1467035:57.286 / 00:00.763	504.704 / 7.267	14.492,8 frames/sec	24.786,8 events/sec	198.010.472 / 26.517.922	1.586.800,0%	45.754,903 ms	70,047 ms
+analysis	s22	504.704 / 7.267	70,047 ms / 45.754,903 ms
+snap	s23	1,855207018,6602745972,0,0,496,0,0,0,0,0,0,0,4850,59526025,77,2,0,640347855,61140000,72056309000,3763360,39966211
+cells	s23	0011	0	0	4149be9b00000000	0000000000000000	fff8000000000000	1	01:01.140\u2009/\u20091200:56.309	0\u2009/\u2009640.347.855	unlimited note starts	0 events/s	855.207.018\u2009/\u20096.602.746.468	3.374.390,0%	39.966,211 ms	3.763,360 ms
+analysis	s23	0 / 640.347.855	3.763,360 ms / 39.966,211 ms
+snap	s24	2,19367,20,0,0,0,0,380,0,0,1,1,1,6,24351908,0,5,877,62,29301096000,1907561025000,5,62350
+cells	s24	0010	14280	6847	fff8000000000000	41b6604198000000	3f80dac90ed22ada	1	488:21.096\u2009/\u200931792:41.025	877\u2009/\u200962 actual	6.847 starts/s	375.407.000 events/s	19.367\u2009/\u2009400	\u2014	62,350 ms	0,005 ms
+analysis	s24	877 / 62	0,005 ms / 62,350 ms
+snap	s25	0,58949,68665080,540414632,0,844,0,0,0,0,1,1,0,0,4115145,2,0,57,31130,25234017000,97000,78,56096
+cells	s25	0010	0	6299	3f93804534bd76ef	407b480000000000	3fb00096feb4a666	0	420:34.017 / 00:00.097	57 / 31.130 actual backlog	6.299 note starts/sec	436,5 events/sec	58.949 / 609.080.556	0,0%	56,096 ms	0,078 ms
+analysis	s25	57 / 31.130	0,078 ms / 56,096 ms
+snap	s26	0,92426125856,111,9223372036854775802,0,0,0,0,0,0,1,1,0,1747473,31250,1005404,0,9714,0,612201381000,260768000,7395,48300844
+cells	s26	0000	2999	139	41380fba00000000	0000000000000000	null	1	10203:21.381\u2009/\u200904:20.768	9.714\u2009/\u20090 actual	1 events/s	0 events/s	92.426.125.856\u2009/\u20099.223.372.036.854.775.807	1.576.890,0%	48.300,844 ms	7,395 ms
+analysis	s26	9.714 / 0	7,395 ms / 48.300,844 ms
+snap	s27	0,4,1344640,0,0,0,0,0,0,0,0,0,1,62479,22695649,7843087,5,5564534716,6641299,14549423948000,14969722294000,17248,778608
+cells	s27	0000	1814232	4643391	c152d90000000000	40f2076000000000	41477d2000000000	0	242490:23.948 / 249495:22.294	5.564.534.716 / 6.641.299	7.843.087 maximum events/sec	73.846,0 events/sec	4 / 1.344.640	-4.940.800,0%	778,608 ms	17,248 ms
+analysis	s27	5.564.534.716 / 6.641.299	17,248 ms / 778,608 ms
+snap	s28	0,751366746,9223372036854775806,55782,0,0,0,0,0,0,0,0,1,731697,55612833,46913,4,43,674896848,77534000,36685158194000,4638395,5716526
+cells	s28	0110	2	0	fff8000000000000	7ff0000000000000	4033284b5dcc63f1	1	01:17.534\u2009/\u2009611419:18.194	43\u2009/\u2009674.896.848	2 \u00b5s min	\u221e events/s	751.366.746\u2009/\u20099.223.372.036.854.775.807	\u2014	5.716,526 ms	4.638,395 ms
+analysis	s28	43 / 674.896.848	4.638,395 ms / 5.716,526 ms
+snap	s29	1,568,0,0,-3,3801634,1973191650,0,4015,0,0,1,2,458527,30823,75,1,9,9014861768,55000,128059000,2163227,140
+cells	s29	0000	862168	7678310	7ff0000000000000	41bbfb25a0000000	41231aa500000000	1	00:00.055\u2009/\u200902:08.059	9\u2009/\u20099.014.861.768	75 events/s	469.444.000 events/s	568\u2009/\u20091.976.997.299	\u2014	0,140 ms	2.163,227 ms
+analysis	s29	9 / 9.014.861.768	2.163,227 ms / 0,140 ms
+snap	s30	1,9288,585,255223,0,0,61554538,0,0,0,1,1,2,2088,787,6,2,39,37169745,3000,5000,624645,456745
+cells	s30	0000	0	0	null	3fdb2f2734f82f51	4084224395810626	1	00:00.003\u2009/\u200900:00.005	39\u2009/\u200937.169.745 actual	479 frames/s	0 events/s	9.288\u2009/\u200961.810.346	\u2014	456,745 ms	624,645 ms
+analysis	s30	39 / 37.169.745	624,645 ms / 456,745 ms
+snap	s31	2,4258387,3724075,9223372036854775802,0,0,0,0,0,0,0,1,0,7,25139422,7752832,4,84,8738,14056102226000,7411634265000,65087,5316475
+cells	s31	0100	1434336	897245	40415978d4fdf3b6	0000000000000000	4151380e80000000	0	234268:22.226 / 123527:14.265	84 / 8.738	1.434.336 \u00b5s minimum NoteOn	0,0 events/sec	4.258.387 / 9.223.372.036.854.775.807	34,7%	5.316,475 ms	65,087 ms
+analysis	s31	84 / 8.738	65,087 ms / 5.316,475 ms
+snap	s32	0,72935050981,243121789,2159596378,0,0,0,2106924986,0,0,0,0,0,1063332,674,5365090,2,623,1675072192,49365373000,813632000,3418717,59
+cells	s32	0100	42	4450420	fff8000000000000	3feba704bc27631b	fff0000000000000	0	822:45.373 / 13:33.632	623 / 1.675.072.192	42 \u00b5s minimum NoteOn	0,9 events/sec	72.935.050.981 / 4.509.643.153	\u2014	0,059 ms	3.418,717 ms
+analysis	s32	623 / 1.675.072.192	3.418,717 ms / 0,059 ms
+snap	s33	3,51806381530,71302026,0,5926238667,0,0,758,0,53779,0,1,1,31,31250,7718758,1,291323737,750417,303862000,8526000,76,39465747
+cells	s33	0000	2	14	fff8000000000000	fff8000000000000	4055ac0346dc5d64	1	05:03.862\u2009/\u200900:08.526	291.323.737\u2009/\u2009750.417	31.250 bit/s	NaN events/s	51.806.381.530\u2009/\u20095.997.541.451	\u2014	39.465,747 ms	0,076 ms
+analysis	s33	291.323.737 / 750.417	0,076 ms / 39.465,747 ms
+snap	s34	1,5,9,9223372036854775807,0,0,0,0,81437,0,0,0,2,1225884,31250,13159,3,0,2183429479,7840000,41998135000,391,6
+cells	s34	0000	228	0	4052e00000000000	0000000000000000	41bc39b158000000	0	00:07.840 / 699:58.135	0 / 2.183.429.479	1.225.884 \u00b5s minimum NoteOn	0,0 events/sec	5 / 9.223.372.036.854.775.807	75,5%	0,006 ms	0,391 ms
+analysis	s34	0 / 2.183.429.479	0,391 ms / 0,006 ms
+snap	s35	0,585302,878663325,0,0,0,0,56965281,0,5896914,0,1,1,111044,825,99573,2,5306,403,493000,45000,3871560,1100
+cells	s35	0000	0	1	405fca2d0e560418	40ca048ccccccccc	411bcde400000000	1	00:00.493\u2009/\u200900:00.045	5.306\u2009/\u2009403	9 frames/s	13.321 events/s	585.302\u2009/\u2009935.628.606	127,2%	1,100 ms	3.871,560 ms
+analysis	s35	5.306 / 403	3.871,560 ms / 1,100 ms
+snap	s36	0,664,9223372036854775803,0,0,0,833363558,0,0,0,1,0,2,288,60977812,3,3,36995,54791,1740000,496276000,386915,51
+cells	s36	0100	1159204	6099	7ff0000000000000	40237bc558644524	null	0	00:01.740 / 08:16.276	36.995 / 54.791 actual backlog	1.159.204 \u00b5s minimum NoteOn	9,7 events/sec	664 / 9.223.372.036.854.775.807	\u2014	0,051 ms	386,915 ms
+analysis	s36	36.995 / 54.791	386,915 ms / 0,051 ms
+snap	s37	3,589686313,63,6,0,0,0,0,0,2898146,0,1,2,16,7,7496222,2,441000,5196429517,52000,39741151828000,2049428,6158740
+cells	s37	0000	821969	0	bfb4279c263bd3ec	3ffeebaf102363b3	0000000000000000	0	00:00.052 / 662352:31.828	441.000 / 5.196.429.517	62.500,0 frames/sec	1,9 events/sec	589.686.313 / 69	-0,1%	6.158,740 ms	2.049,428 ms
+analysis	s37	441.000 / 5.196.429.517	2.049,428 ms / 6.158,740 ms
+snap	s38	1,633224069,39075,467337,0,98773,0,803235786,0,0,0,1,0,68,31250,77,2,52,665633459,6061000,87000,2,25799628
+cells	s38	1100	0	0	fff8000000000000	4128954000000000	3fed026aa8eb4636	1	00:06.061\u2009/\u200900:00.087	52\u2009/\u2009665.633.459	source-time frames	805.536 events/s	633.224.069\u2009/\u2009803.840.971	\u2014	25.799,628 ms	0,002 ms
+analysis	s38	52 / 665.633.459	0,002 ms / 25.799,628 ms
+snap	s39	2,362,2368,3976521965,0,0,0,0,0,0,0,0,2,412631,31250,3608,4,5407,5912,350591422000,757000,1,71
+cells	s39	0001	69	91525	fff0000000000000	413efadc00000000	7ff0000000000000	1	5843:11.422\u2009/\u200900:00.757	5.407\u2009/\u20095.912	91.525 events/s max	2.030.300 events/s	362\u2009/\u20093.976.524.333	\u2014	0,071 ms	0,001 ms
+analysis	s39	5.407 / 5.912	0,001 ms / 0,071 ms
+pressure	0	1	38828197	161784152	38.828.197 \u00b5s / 161.784.152 \u00b5s \u2014 24%	38,8M / 161,8M \u00b5s \u2014 24%
+pressure	0	1	8755	327517706	8.755 \u00b5s / 327.517.706 \u00b5s \u2014 0%	8,8K / 327,5M \u00b5s \u2014 0%
+pressure	0	0	8170617	53515	8.170.617 / 53.515 \u2014 15.268%	8,2M / 53,5K \u2014 15.268%
+pressure	1	0	614811076	830825779	Virtual 614.811.076 / 830.825.779 \u2014 74%	Virtual 614,8M / 830,8M \u2014 74%
+pressure	0	1	28117038	17406862	28.117.038 \u00b5s / 17.406.862 \u00b5s \u2014 162%	28,1M / 17,4M \u00b5s \u2014 162%
+pressure	1	0	128260708	1282607079	Virtual 128.260.708 / 1.282.607.079 \u2014 10%	Virtual 128,3M / 1,3B \u2014 10%
+pressure	0	0	15	8394411	15 / 8.394.411 \u2014 0%	15 / 8,4M \u2014 0%
+pressure	0	1	7	7	7 \u00b5s / 7 \u00b5s \u2014 100%	7 / 7 \u00b5s \u2014 100%
+pressure	1	0	32	53	Virtual 32 / 53 \u2014 60%	Virtual 32 / 53 \u2014 60%
+pressure	0	0	8	64161277	8 / 64.161.277 \u2014 0%	8 / 64,2M \u2014 0%
+pressure	0	0	86567825	1164138574	86.567.825 / 1.164.138.574 \u2014 7%	86,6M / 1,2B \u2014 7%
+pressure	0	0	2615241180	334490	2.615.241.180 / 334.490 \u2014 781.859%	2,6B / 334,5K \u2014 781.859%
+pressure	0	0	1795645	769529748	1.795.645 / 769.529.748 \u2014 0%	1,8M / 769,5M \u2014 0%
+pressure	1	0	652	95456	Virtual 652 / 95.456 \u2014 1%	Virtual 652 / 95,5K \u2014 1%
+pressure	1	0	2993887088	985137	Virtual 2.993.887.088 / 985.137 \u2014 303.906%	Virtual 3B / 985,1K \u2014 303.906%
+pressure	0	0	744496097	590869918	744.496.097 / 590.869.918 \u2014 126%	744,5M / 590,9M \u2014 126%
+pressure	1	1	516611201	69	Virtual 516.611.201 \u00b5s / 69 \u00b5s \u2014 748.711.886%	Virtual 516,6M / 69 \u00b5s \u2014 748.711.886%
+pressure	1	0	2407259	1001390	Virtual 2.407.259 / 1.001.390 \u2014 240%	Virtual 2,4M / 1M \u2014 240%
+pressure	0	1	960260250	960260250	960.260.250 \u00b5s / 960.260.250 \u00b5s \u2014 100%	960,3M / 960,3M \u00b5s \u2014 100%
+pressure	0	0	1820140	2637883	1.820.140 / 2.637.883 \u2014 69%	1,8M / 2,6M \u2014 69%
+pressure	1	1	84	84	Virtual 84 \u00b5s / 84 \u00b5s \u2014 100%	Virtual 84 / 84 \u00b5s \u2014 100%
+pressure	1	1	50	42922058	Virtual 50 \u00b5s / 42.922.058 \u00b5s \u2014 0%	Virtual 50 / 42,9M \u00b5s \u2014 0%
+pressure	0	0	9922523	9922523	9.922.523 / 9.922.523 \u2014 100%	9,9M / 9,9M \u2014 100%
+pressure	0	1	814594244	839787880	814.594.244 \u00b5s / 839.787.880 \u00b5s \u2014 97%	814,6M / 839,8M \u00b5s \u2014 97%
+pressure	1	0	240604	776143	Virtual 240.604 / 776.143 \u2014 31%	Virtual 240,6K / 776,1K \u2014 31%
+pressure	0	0	3	361065300	3 / 361.065.300 \u2014 0%	3 / 361,1M \u2014 0%
+pressure	0	1	9605018	960501708	9.605.018 \u00b5s / 960.501.708 \u00b5s \u2014 1%	9,6M / 960,5M \u00b5s \u2014 1%
+pressure	1	0	2151876	5123514	Virtual 2.151.876 / 5.123.514 \u2014 42%	Virtual 2,2M / 5,1M \u2014 42%
+pressure	0	1	8	87252	8 \u00b5s / 87.252 \u00b5s \u2014 0%	8 / 87,3K \u00b5s \u2014 0%
+pressure	0	0	-844	40351728	0 / 40.351.728 \u2014 0%	0 / 40,4M \u2014 0%
+pressure	1	1	8981	8981	Virtual 8.981 \u00b5s / 8.981 \u00b5s \u2014 100%	Virtual 9K / 9K \u00b5s \u2014 100%
+pressure	0	0	10798315	12855137	10.798.315 / 12.855.137 \u2014 84%	10,8M / 12,9M \u2014 84%
+pressure	1	0	448138069	461998009	Virtual 448.138.069 / 461.998.009 \u2014 97%	Virtual 448,1M / 462M \u2014 97%
+pressure	0	1	-148	305	0 \u00b5s / 305 \u00b5s \u2014 0%	0 / 305 \u00b5s \u2014 0%
+pressure	1	1	963	963	Virtual 963 \u00b5s / 963 \u00b5s \u2014 100%	Virtual 963 / 963 \u00b5s \u2014 100%
+pressure	1	0	20580	29826	Virtual 20.580 / 29.826 \u2014 69%	Virtual 20,6K / 29,8K \u2014 69%
+pressure	0	0	0	-1	0 / 1 \u2014 0%	0 / 1 \u2014 0%
+pressure	0	0	568	568	568 / 568 \u2014 100%	568 / 568 \u2014 100%
+pressure	1	0	909793739	1749603346	Virtual 909.793.739 / 1.749.603.346 \u2014 52%	Virtual 909,8M / 1,7B \u2014 52%
+pressure	1	0	1454076935	55380	Virtual 1.454.076.935 / 55.380 \u2014 2.625.635%	Virtual 1,5B / 55,4K \u2014 2.625.635%
+color	0000000000000000	0	Low	65,165,90
+color	0000000000000000	1	High	210,70,70
+color	3fb999999999999a	0	Low	65,165,90
+color	3fb999999999999a	1	High	210,70,70
+color	3fe4cccc971ce797	0	Low	65,165,90
+color	3fe4cccc971ce797	1	High	210,70,70
+color	3fe4cccccccccccd	0	Medium	215,155,35
+color	3fe4cccccccccccd	1	High	210,70,70
+color	3fe4cccd027cb202	0	Medium	215,155,35
+color	3fe4cccd027cb202	1	High	210,70,70
+color	3fecccb7d41743e9	0	Medium	215,155,35
+color	3fecccb7d41743e9	1	High	210,70,70
+color	3feccccccccccccd	0	High	210,70,70
+color	3feccccccccccccd	1	High	210,70,70
+color	3feccce1c58255b0	0	High	210,70,70
+color	3feccce1c58255b0	1	High	210,70,70
+color	3fefae147ae147ae	0	High	210,70,70
+color	3fefae147ae147ae	1	High	210,70,70
+color	3ff0000000000000	0	High	210,70,70
+color	3ff0000000000000	1	High	210,70,70
+color	3ff000001ad7f29b	0	OverLimit	155,75,190
+color	3ff000001ad7f29b	1	OverLimit	155,75,190
+color	3ff8000000000000	0	OverLimit	155,75,190
+color	3ff8000000000000	1	OverLimit	155,75,190
+color	4059000000000000	0	OverLimit	155,75,190
+color	4059000000000000	1	OverLimit	155,75,190
+color	bff0000000000000	0	Low	65,165,90
+color	bff0000000000000	1	High	210,70,70
+palette	225,228,232	155,160,166

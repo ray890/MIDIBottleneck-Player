@@ -1,0 +1,74 @@
+plugins {
+    id 'com.android.application'
+}
+
+// The test data of the native programs (fixtures, expected results, the v2 baseline) is packed into one zip that goes
+// into the APK as an asset; the app unpacks it into its own files folder on the first run.
+def packTestData = tasks.register('packTestData', Zip) {
+    archiveFileName = 'selftest-data.zip'
+    destinationDirectory = layout.buildDirectory.dir('generated/selftest-assets')
+    from(file('../../harness')) {
+        include 'fixtures/**', 'expected/**', 'expected-v2/**', 'expected-v2-ui/**', 'engine-scenarios.txt'
+        into 'v2/harness'
+    }
+}
+tasks.configureEach { task ->
+    if (task.name ==~ /(merge|lintVital|lint).*Assets?.*/ || task.name ==~ /merge.*Assets/) task.dependsOn(packTestData)
+}
+
+android {
+    namespace 'org.midibottleneck.selftest'
+    compileSdk 36
+    ndkVersion '27.3.13750724'
+
+    defaultConfig {
+        applicationId 'org.midibottleneck.selftest'
+        minSdk 23
+        targetSdk 36
+        versionCode 1
+        versionName '2.0-dev'
+        ndk {
+            abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64'
+        }
+        externalNativeBuild {
+            cmake {
+                // The test programs must run at release speed even in this debug-signed APK (engine runs take minutes).
+                arguments '-DANDROID_STL=c++_static', '-DCMAKE_BUILD_TYPE=Release'
+            }
+        }
+    }
+    flavorDimensions = ['api']
+    productFlavors {
+        modern {
+            dimension 'api'
+            minSdk 29
+        }
+        android6 {
+            dimension 'api'
+            minSdk 23
+            applicationIdSuffix '.android6'   // installs next to the main build
+        }
+    }
+    externalNativeBuild {
+        cmake {
+            path = file('src/main/cpp/CMakeLists.txt')
+            version = '3.22.1'
+        }
+    }
+    sourceSets {
+        main {
+            assets.srcDir(layout.buildDirectory.dir('generated/selftest-assets').get().asFile)
+        }
+    }
+    androidResources {
+        noCompress += ['zip']
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation project(':core')
+}

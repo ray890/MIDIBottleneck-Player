@@ -1,0 +1,7 @@
+# Gradle and local build output (never committed)
+.gradle/
+build/
+local.properties
+*.iml
+.cxx/
+native-build/

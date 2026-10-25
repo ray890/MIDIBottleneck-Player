@@ -1,0 +1,66 @@
+trace-format 1
+mode full
+[file]
+size 73
+container smf
+[preflight]
+status ok
+format 0
+tracks 1
+division 480
+dispatchable-events 10
+note-ons 1
+final-long-payload-bytes 9
+provisional-payload-bytes 19
+tempo-changes 0
+source-value-entries 0
+chase-state-entries 0
+chase-parameter-value-entries 0
+running-status-repairs 0
+routing-lanes 1
+routing-patch-state-events 0
+routing-patch-timeline-upper-bound 0
+routing-generated-state-upper-bound 3
+track 0 events 10 payload-bytes 19 tempo-changes 0
+source-slots 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+routing-note-lanes-by-channel 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+routing-patch-state-by-channel 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+estimate ptr4 retained 60913 peak-low 1175187 peak-high 1235478 provisional 411 merge-workspace 1114144 names 600 routing-retained 886 routing-peak 976 retained-with-routing 61799 routing-peak-total 61889 warning-threshold 1073741824 architecture-risk 0 requires-warning 0
+estimate ptr8 retained 120969 peak-low 1235315 peak-high 1355638 provisional 483 merge-workspace 1114144 names 624 routing-retained 1142 routing-peak 1252 retained-with-routing 122111 routing-peak-total 122221 warning-threshold 4294967296 architecture-risk 0 requires-warning 0
+requires-preflight ptr4 0 ptr8 0
+[song]
+status ok
+format 0
+tracks 1
+division 480
+note-count 1
+running-status-repairs 0
+duration-us 13542
+events 10
+payload-bytes 9
+track 0 name "" name-truncated 0 instrument "" instrument-truncated 0
+[tempo]
+count 0
+[events]
+count 10
+e 0 0 0 0 SystemExclusive -1 F0 1 F0
+e 1 1 1042 0 SystemExclusive -1 F0 2 F0F7
+e 2 2 2083 0 SystemExclusive -1 F0 3 F043F7
+e 3 3 3125 0 SystemExclusive -1 F0 4 sha256:27B3A296880F2E9CFC84C21DD4E3432DC5C64DACA3443581CD2A24BEEF3EBA47
+e 4 4 4167 0 SystemExclusive -1 F7 0 -
+e 5 5 5208 0 SystemExclusive -1 F7 1 F8
+e 6 6 6250 0 SystemExclusive -1 F7 3 903C64
+e 7 7 7292 0 SystemExclusive -1 F7 5 sha256:9D1FA53976E5CAFDC0F982B5E391E0E1CFAA2AFDEED9C458877C444948B4788D
+e 8 8 8333 0 NoteOn 0 90 3 903C64
+e 9 13 13542 0 NoteOff 0 80 3 803C00
+[source-index]
+count 0
+[chase-index]
+entries 0 parameter-series 0
+[source-query]
+[chase-readouts]
+[chase-messages]
+final -
+[chase-messages-filtered]
+final -
+[end]

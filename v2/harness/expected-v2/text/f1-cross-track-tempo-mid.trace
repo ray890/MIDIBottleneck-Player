@@ -1,0 +1,65 @@
+trace-format 1
+mode full
+[file]
+size 85
+container smf
+[preflight]
+status ok
+format 1
+tracks 3
+division 480
+dispatchable-events 2
+note-ons 1
+final-long-payload-bytes 0
+provisional-payload-bytes 0
+tempo-changes 3
+source-value-entries 0
+chase-state-entries 0
+chase-parameter-value-entries 0
+running-status-repairs 0
+routing-lanes 1
+routing-patch-state-events 0
+routing-patch-timeline-upper-bound 0
+routing-generated-state-upper-bound 3
+track 0 events 0 payload-bytes 0 tempo-changes 2
+track 1 events 0 payload-bytes 0 tempo-changes 1
+track 2 events 2 payload-bytes 0 tempo-changes 0
+source-slots 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+routing-note-lanes-by-channel 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+routing-patch-state-by-channel 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+estimate ptr4 retained 61896 peak-low 1176536 peak-high 1236616 provisional 496 merge-workspace 1114208 names 1800 routing-retained 846 routing-peak 936 retained-with-routing 62742 routing-peak-total 62832 warning-threshold 1073741824 architecture-risk 0 requires-warning 0
+estimate ptr8 retained 122000 peak-low 1236856 peak-high 1356968 provisional 712 merge-workspace 1114208 names 1872 routing-retained 1102 routing-peak 1212 retained-with-routing 123102 routing-peak-total 123212 warning-threshold 4294967296 architecture-risk 0 requires-warning 0
+requires-preflight ptr4 0 ptr8 0
+[song]
+status ok
+format 1
+tracks 3
+division 480
+note-count 1
+running-status-repairs 0
+duration-us 1500000
+events 2
+payload-bytes 0
+track 0 name "" name-truncated 0 instrument "" instrument-truncated 0
+track 1 name "" name-truncated 0 instrument "" instrument-truncated 0
+track 2 name "" name-truncated 0 instrument "" instrument-truncated 0
+[tempo]
+count 3
+t 0 0 500000 0 0
+t 480 500000 400000 0 1
+t 480 500000 1000000 1 0
+[events]
+count 2
+e 0 480 500000 2 NoteOn 0 90 3 903C64
+e 1 960 1500000 2 NoteOff 0 80 3 803C00
+[source-index]
+count 0
+[chase-index]
+entries 0 parameter-series 0
+[source-query]
+[chase-readouts]
+[chase-messages]
+final -
+[chase-messages-filtered]
+final -
+[end]

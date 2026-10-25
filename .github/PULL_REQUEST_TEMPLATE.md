@@ -5,10 +5,10 @@ Describe the focused change and why it is needed.
 ## Verification
 
 - [ ] Focused tests passed.
-- [ ] Complete x86 suite passed.
-- [ ] Complete x64 suite passed.
+- [ ] The checks for the area I changed passed (see `v2/BUILDING.md`: unit tests, `v2\tools\parity.ps1` ending `PARITY: PASS`, the mutation checks, as relevant).
+- [ ] Every build I could affect was built (x64, x86 and, if relevant, XP).
 - [ ] Visible changes were inspected.
-- [ ] Native-provider testing, if any, was bounded and identified separately.
+- [ ] Real-driver testing, if any, was bounded and identified separately.
 
 ## Risk review
 

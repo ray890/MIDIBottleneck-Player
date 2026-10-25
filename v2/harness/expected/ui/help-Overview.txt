@@ -1,0 +1,7 @@
+MIDIBottleneck Player plays MIDI and shows how dense files interact with output rates and queues.
+
+Open or drop a MIDI file, choose an output, and press Play. None output lets you inspect the model without sound. Rate model starts at None; choose a simulated slowdown or Per-note gate only when you want it.
+
+The title-bar menu can hide Processing or Statistics, scale the application windows from 50% through 200%, or switch the main window to a borderless mode. Borderless style offers a Classic strip, controls integrated into the File and output heading, or an Auto-hide overlay that never shifts the player layout. Every style keeps taskbar identity, native moving/snapping, keyboard-accessible window-menu/minimize/maximize/close controls, and Alt+Space. Invisible edges and corners route pointer drags through ordinary player controls into native resizing without drawing a border; human pointer feel remains part of prototype review. Turning borderless mode off restores the prior native-frame bounds and state. These view choices last for the session and do not change playback. Analysis and Channels keep their native frames.
+
+Press F1 while a main-window control is focused for its topic. The title-bar menu also opens this guide. The full user guide is available in the public repository.

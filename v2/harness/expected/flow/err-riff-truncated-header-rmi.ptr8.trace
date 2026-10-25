@@ -1,0 +1,28 @@
+# producer v1-reference (MIDIBottleneck v1.0.44 sources) x64 clr 4.0.30319.42000
+# input err-riff-truncated-header.rmi
+trace-format 1
+kind flow
+mode full
+pointer-size 8
+[scenario natural]
+reports 0 decision-requested 0
+outcome error InvalidDataException "The RIFF/RMID header is truncated."
+[scenario preflight]
+reports 0 decision-requested 0
+outcome error InvalidDataException "The RIFF/RMID header is truncated."
+[scenario warning-decline]
+reports 0 decision-requested 0
+outcome error InvalidDataException "The RIFF/RMID header is truncated."
+[scenario warning-accept]
+reports 0 decision-requested 0
+outcome error InvalidDataException "The RIFF/RMID header is truncated."
+[scenario warning-accept-cancel]
+reports 0 decision-requested 0
+outcome error InvalidDataException "The RIFF/RMID header is truncated."
+[cancel-sweep natural]
+k 0 reports 0 decision-requested 0 outcome error InvalidDataException "The RIFF/RMID header is truncated."
+k 1 reports 0 decision-requested 0 outcome error InvalidDataException "The RIFF/RMID header is truncated."
+[cancel-sweep warning-accept]
+k 0 reports 0 decision-requested 0 outcome error InvalidDataException "The RIFF/RMID header is truncated."
+k 1 reports 0 decision-requested 0 outcome error InvalidDataException "The RIFF/RMID header is truncated."
+[end]

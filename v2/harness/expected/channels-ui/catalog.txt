@@ -1,0 +1,2178 @@
+# v1 GeneralMidiProgramCatalog: name <program> <text> | drum <channel> <msb> <lsb> <program> <name> <reference> | patch <msb> <lsb> <program> <text>
+name	-2	Unknown program
+name	-1	Unknown program
+name	0	Acoustic Grand Piano
+name	1	Bright Acoustic Piano
+name	2	Electric Grand Piano
+name	3	Honky-tonk Piano
+name	4	Electric Piano 1
+name	5	Electric Piano 2
+name	6	Harpsichord
+name	7	Clavinet
+name	8	Celesta
+name	9	Glockenspiel
+name	10	Music Box
+name	11	Vibraphone
+name	12	Marimba
+name	13	Xylophone
+name	14	Tubular Bells
+name	15	Dulcimer
+name	16	Drawbar Organ
+name	17	Percussive Organ
+name	18	Rock Organ
+name	19	Church Organ
+name	20	Reed Organ
+name	21	Accordion
+name	22	Harmonica
+name	23	Tango Accordion
+name	24	Acoustic Guitar (nylon)
+name	25	Acoustic Guitar (steel)
+name	26	Electric Guitar (jazz)
+name	27	Electric Guitar (clean)
+name	28	Electric Guitar (muted)
+name	29	Overdriven Guitar
+name	30	Distortion Guitar
+name	31	Guitar Harmonics
+name	32	Acoustic Bass
+name	33	Electric Bass (finger)
+name	34	Electric Bass (pick)
+name	35	Fretless Bass
+name	36	Slap Bass 1
+name	37	Slap Bass 2
+name	38	Synth Bass 1
+name	39	Synth Bass 2
+name	40	Violin
+name	41	Viola
+name	42	Cello
+name	43	Contrabass
+name	44	Tremolo Strings
+name	45	Pizzicato Strings
+name	46	Orchestral Harp
+name	47	Timpani
+name	48	String Ensemble 1
+name	49	String Ensemble 2
+name	50	Synth Strings 1
+name	51	Synth Strings 2
+name	52	Choir Aahs
+name	53	Voice Oohs
+name	54	Synth Voice
+name	55	Orchestra Hit
+name	56	Trumpet
+name	57	Trombone
+name	58	Tuba
+name	59	Muted Trumpet
+name	60	French Horn
+name	61	Brass Section
+name	62	Synth Brass 1
+name	63	Synth Brass 2
+name	64	Soprano Sax
+name	65	Alto Sax
+name	66	Tenor Sax
+name	67	Baritone Sax
+name	68	Oboe
+name	69	English Horn
+name	70	Bassoon
+name	71	Clarinet
+name	72	Piccolo
+name	73	Flute
+name	74	Recorder
+name	75	Pan Flute
+name	76	Blown Bottle
+name	77	Shakuhachi
+name	78	Whistle
+name	79	Ocarina
+name	80	Lead 1 (square)
+name	81	Lead 2 (sawtooth)
+name	82	Lead 3 (calliope)
+name	83	Lead 4 (chiff)
+name	84	Lead 5 (charang)
+name	85	Lead 6 (voice)
+name	86	Lead 7 (fifths)
+name	87	Lead 8 (bass + lead)
+name	88	Pad 1 (new age)
+name	89	Pad 2 (warm)
+name	90	Pad 3 (polysynth)
+name	91	Pad 4 (choir)
+name	92	Pad 5 (bowed)
+name	93	Pad 6 (metallic)
+name	94	Pad 7 (halo)
+name	95	Pad 8 (sweep)
+name	96	FX 1 (rain)
+name	97	FX 2 (soundtrack)
+name	98	FX 3 (crystal)
+name	99	FX 4 (atmosphere)
+name	100	FX 5 (brightness)
+name	101	FX 6 (goblins)
+name	102	FX 7 (echoes)
+name	103	FX 8 (sci-fi)
+name	104	Sitar
+name	105	Banjo
+name	106	Shamisen
+name	107	Koto
+name	108	Kalimba
+name	109	Bag Pipe
+name	110	Fiddle
+name	111	Shanai
+name	112	Tinkle Bell
+name	113	Agogo
+name	114	Steel Drums
+name	115	Woodblock
+name	116	Taiko Drum
+name	117	Melodic Tom
+name	118	Synth Drum
+name	119	Reverse Cymbal
+name	120	Guitar Fret Noise
+name	121	Breath Noise
+name	122	Seashore
+name	123	Bird Tweet
+name	124	Telephone Ring
+name	125	Helicopter
+name	126	Applause
+name	127	Gunshot
+name	128	Unknown program
+name	129	Unknown program
+name	130	Unknown program
+drum	9	-1	-1	-1	Drum kit 0	@0
+drum	9	-1	-1	0	Drum kit 1	@0
+drum	9	-1	-1	1	Drum kit 2	@0
+drum	9	-1	-1	8	Drum kit 9	@0
+drum	9	-1	-1	25	Drum kit 26	@0
+drum	9	-1	-1	56	Drum kit 57	@0
+drum	9	-1	-1	127	Drum kit 128	@0
+drum	9	-1	-1	128	Drum kit 129	@0
+drum	9	-1	0	-1	Drum kit 0	@1
+drum	9	-1	0	0	Drum kit 1	@1
+drum	9	-1	0	1	Drum kit 2	@1
+drum	9	-1	0	2	Drum kit 3	@1
+drum	9	-1	0	3	Drum kit 4	@1
+drum	9	-1	0	4	Drum kit 5	@1
+drum	9	-1	0	5	Drum kit 6	@1
+drum	9	-1	0	6	Drum kit 7	@1
+drum	9	-1	0	7	Drum kit 8	@1
+drum	9	-1	0	8	Drum kit 9	@1
+drum	9	-1	0	9	Drum kit 10	@1
+drum	9	-1	0	10	Drum kit 11	@1
+drum	9	-1	0	11	Drum kit 12	@1
+drum	9	-1	0	12	Drum kit 13	@1
+drum	9	-1	0	13	Drum kit 14	@1
+drum	9	-1	0	14	Drum kit 15	@1
+drum	9	-1	0	15	Drum kit 16	@1
+drum	9	-1	0	16	Drum kit 17	@1
+drum	9	-1	0	17	Drum kit 18	@1
+drum	9	-1	0	18	Drum kit 19	@1
+drum	9	-1	0	19	Drum kit 20	@1
+drum	9	-1	0	20	Drum kit 21	@1
+drum	9	-1	0	21	Drum kit 22	@1
+drum	9	-1	0	22	Drum kit 23	@1
+drum	9	-1	0	23	Drum kit 24	@1
+drum	9	-1	0	24	Drum kit 25	@1
+drum	9	-1	0	25	Drum kit 26	@1
+drum	9	-1	0	26	Drum kit 27	@1
+drum	9	-1	0	27	Drum kit 28	@1
+drum	9	-1	0	28	Drum kit 29	@1
+drum	9	-1	0	29	Drum kit 30	@1
+drum	9	-1	0	30	Drum kit 31	@1
+drum	9	-1	0	31	Drum kit 32	@1
+drum	9	-1	0	32	Drum kit 33	@1
+drum	9	-1	0	33	Drum kit 34	@1
+drum	9	-1	0	34	Drum kit 35	@1
+drum	9	-1	0	35	Drum kit 36	@1
+drum	9	-1	0	36	Drum kit 37	@1
+drum	9	-1	0	37	Drum kit 38	@1
+drum	9	-1	0	38	Drum kit 39	@1
+drum	9	-1	0	39	Drum kit 40	@1
+drum	9	-1	0	40	Drum kit 41	@1
+drum	9	-1	0	41	Drum kit 42	@1
+drum	9	-1	0	42	Drum kit 43	@1
+drum	9	-1	0	43	Drum kit 44	@1
+drum	9	-1	0	44	Drum kit 45	@1
+drum	9	-1	0	45	Drum kit 46	@1
+drum	9	-1	0	46	Drum kit 47	@1
+drum	9	-1	0	47	Drum kit 48	@1
+drum	9	-1	0	48	Drum kit 49	@1
+drum	9	-1	0	49	Drum kit 50	@1
+drum	9	-1	0	50	Drum kit 51	@1
+drum	9	-1	0	51	Drum kit 52	@1
+drum	9	-1	0	52	Drum kit 53	@1
+drum	9	-1	0	53	Drum kit 54	@1
+drum	9	-1	0	54	Drum kit 55	@1
+drum	9	-1	0	55	Drum kit 56	@1
+drum	9	-1	0	56	Drum kit 57	@1
+drum	9	-1	0	57	Drum kit 58	@1
+drum	9	-1	0	58	Drum kit 59	@1
+drum	9	-1	0	59	Drum kit 60	@1
+drum	9	-1	0	60	Drum kit 61	@1
+drum	9	-1	0	61	Drum kit 62	@1
+drum	9	-1	0	62	Drum kit 63	@1
+drum	9	-1	0	63	Drum kit 64	@1
+drum	9	-1	0	64	Drum kit 65	@1
+drum	9	-1	0	65	Drum kit 66	@1
+drum	9	-1	0	66	Drum kit 67	@1
+drum	9	-1	0	67	Drum kit 68	@1
+drum	9	-1	0	68	Drum kit 69	@1
+drum	9	-1	0	69	Drum kit 70	@1
+drum	9	-1	0	70	Drum kit 71	@1
+drum	9	-1	0	71	Drum kit 72	@1
+drum	9	-1	0	72	Drum kit 73	@1
+drum	9	-1	0	73	Drum kit 74	@1
+drum	9	-1	0	74	Drum kit 75	@1
+drum	9	-1	0	75	Drum kit 76	@1
+drum	9	-1	0	76	Drum kit 77	@1
+drum	9	-1	0	77	Drum kit 78	@1
+drum	9	-1	0	78	Drum kit 79	@1
+drum	9	-1	0	79	Drum kit 80	@1
+drum	9	-1	0	80	Drum kit 81	@1
+drum	9	-1	0	81	Drum kit 82	@1
+drum	9	-1	0	82	Drum kit 83	@1
+drum	9	-1	0	83	Drum kit 84	@1
+drum	9	-1	0	84	Drum kit 85	@1
+drum	9	-1	0	85	Drum kit 86	@1
+drum	9	-1	0	86	Drum kit 87	@1
+drum	9	-1	0	87	Drum kit 88	@1
+drum	9	-1	0	88	Drum kit 89	@1
+drum	9	-1	0	89	Drum kit 90	@1
+drum	9	-1	0	90	Drum kit 91	@1
+drum	9	-1	0	91	Drum kit 92	@1
+drum	9	-1	0	92	Drum kit 93	@1
+drum	9	-1	0	93	Drum kit 94	@1
+drum	9	-1	0	94	Drum kit 95	@1
+drum	9	-1	0	95	Drum kit 96	@1
+drum	9	-1	0	96	Drum kit 97	@1
+drum	9	-1	0	97	Drum kit 98	@1
+drum	9	-1	0	98	Drum kit 99	@1
+drum	9	-1	0	99	Drum kit 100	@1
+drum	9	-1	0	100	Drum kit 101	@1
+drum	9	-1	0	101	Drum kit 102	@1
+drum	9	-1	0	102	Drum kit 103	@1
+drum	9	-1	0	103	Drum kit 104	@1
+drum	9	-1	0	104	Drum kit 105	@1
+drum	9	-1	0	105	Drum kit 106	@1
+drum	9	-1	0	106	Drum kit 107	@1
+drum	9	-1	0	107	Drum kit 108	@1
+drum	9	-1	0	108	Drum kit 109	@1
+drum	9	-1	0	109	Drum kit 110	@1
+drum	9	-1	0	110	Drum kit 111	@1
+drum	9	-1	0	111	Drum kit 112	@1
+drum	9	-1	0	112	Drum kit 113	@1
+drum	9	-1	0	113	Drum kit 114	@1
+drum	9	-1	0	114	Drum kit 115	@1
+drum	9	-1	0	115	Drum kit 116	@1
+drum	9	-1	0	116	Drum kit 117	@1
+drum	9	-1	0	117	Drum kit 118	@1
+drum	9	-1	0	118	Drum kit 119	@1
+drum	9	-1	0	119	Drum kit 120	@1
+drum	9	-1	0	120	Drum kit 121	@1
+drum	9	-1	0	121	Drum kit 122	@1
+drum	9	-1	0	122	Drum kit 123	@1
+drum	9	-1	0	123	Drum kit 124	@1
+drum	9	-1	0	124	Drum kit 125	@1
+drum	9	-1	0	125	Drum kit 126	@1
+drum	9	-1	0	126	Drum kit 127	@1
+drum	9	-1	0	127	Drum kit 128	@1
+drum	9	-1	0	128	Drum kit 129	@1
+drum	9	-1	1	-1	Drum kit 0	@2
+drum	9	-1	1	0	Drum kit 1	@2
+drum	9	-1	1	1	Drum kit 2	@2
+drum	9	-1	1	8	Drum kit 9	@2
+drum	9	-1	1	25	Drum kit 26	@2
+drum	9	-1	1	56	Drum kit 57	@2
+drum	9	-1	1	127	Drum kit 128	@2
+drum	9	-1	1	128	Drum kit 129	@2
+drum	9	-1	127	-1	Drum kit 0	@3
+drum	9	-1	127	0	Drum kit 1	@3
+drum	9	-1	127	1	Drum kit 2	@3
+drum	9	-1	127	8	Drum kit 9	@3
+drum	9	-1	127	25	Drum kit 26	@3
+drum	9	-1	127	56	Drum kit 57	@3
+drum	9	-1	127	127	Drum kit 128	@3
+drum	9	-1	127	128	Drum kit 129	@3
+drum	9	0	-1	-1	Drum kit 0	@4
+drum	9	0	-1	0	Drum kit 1	@4
+drum	9	0	-1	1	Drum kit 2	@4
+drum	9	0	-1	8	Drum kit 9	@4
+drum	9	0	-1	25	Drum kit 26	@4
+drum	9	0	-1	56	Drum kit 57	@4
+drum	9	0	-1	127	Drum kit 128	@4
+drum	9	0	-1	128	Drum kit 129	@4
+drum	9	0	0	-1	Drum kit 0	@5
+drum	9	0	0	0	Standard Set (GM/GS common)	@6
+drum	9	0	0	1	Drum kit 2	@5
+drum	9	0	0	2	Drum kit 3	@5
+drum	9	0	0	3	Drum kit 4	@5
+drum	9	0	0	4	Drum kit 5	@5
+drum	9	0	0	5	Drum kit 6	@5
+drum	9	0	0	6	Drum kit 7	@5
+drum	9	0	0	7	Drum kit 8	@5
+drum	9	0	0	8	Room Set (common GS)	@7
+drum	9	0	0	9	Drum kit 10	@5
+drum	9	0	0	10	Drum kit 11	@5
+drum	9	0	0	11	Drum kit 12	@5
+drum	9	0	0	12	Drum kit 13	@5
+drum	9	0	0	13	Drum kit 14	@5
+drum	9	0	0	14	Drum kit 15	@5
+drum	9	0	0	15	Drum kit 16	@5
+drum	9	0	0	16	Power Set (common GS)	@7
+drum	9	0	0	17	Drum kit 18	@5
+drum	9	0	0	18	Drum kit 19	@5
+drum	9	0	0	19	Drum kit 20	@5
+drum	9	0	0	20	Drum kit 21	@5
+drum	9	0	0	21	Drum kit 22	@5
+drum	9	0	0	22	Drum kit 23	@5
+drum	9	0	0	23	Drum kit 24	@5
+drum	9	0	0	24	Electronic Set (common GS)	@7
+drum	9	0	0	25	TR-808 Set (common GS)	@7
+drum	9	0	0	26	Drum kit 27	@5
+drum	9	0	0	27	Drum kit 28	@5
+drum	9	0	0	28	Drum kit 29	@5
+drum	9	0	0	29	Drum kit 30	@5
+drum	9	0	0	30	Drum kit 31	@5
+drum	9	0	0	31	Drum kit 32	@5
+drum	9	0	0	32	Jazz Set (common GS)	@7
+drum	9	0	0	33	Drum kit 34	@5
+drum	9	0	0	34	Drum kit 35	@5
+drum	9	0	0	35	Drum kit 36	@5
+drum	9	0	0	36	Drum kit 37	@5
+drum	9	0	0	37	Drum kit 38	@5
+drum	9	0	0	38	Drum kit 39	@5
+drum	9	0	0	39	Drum kit 40	@5
+drum	9	0	0	40	Brush Set (common GS)	@7
+drum	9	0	0	41	Drum kit 42	@5
+drum	9	0	0	42	Drum kit 43	@5
+drum	9	0	0	43	Drum kit 44	@5
+drum	9	0	0	44	Drum kit 45	@5
+drum	9	0	0	45	Drum kit 46	@5
+drum	9	0	0	46	Drum kit 47	@5
+drum	9	0	0	47	Drum kit 48	@5
+drum	9	0	0	48	Orchestra Set (common GS)	@7
+drum	9	0	0	49	Drum kit 50	@5
+drum	9	0	0	50	Drum kit 51	@5
+drum	9	0	0	51	Drum kit 52	@5
+drum	9	0	0	52	Drum kit 53	@5
+drum	9	0	0	53	Drum kit 54	@5
+drum	9	0	0	54	Drum kit 55	@5
+drum	9	0	0	55	Drum kit 56	@5
+drum	9	0	0	56	SFX Set (common GS)	@7
+drum	9	0	0	57	Drum kit 58	@5
+drum	9	0	0	58	Drum kit 59	@5
+drum	9	0	0	59	Drum kit 60	@5
+drum	9	0	0	60	Drum kit 61	@5
+drum	9	0	0	61	Drum kit 62	@5
+drum	9	0	0	62	Drum kit 63	@5
+drum	9	0	0	63	Drum kit 64	@5
+drum	9	0	0	64	Drum kit 65	@5
+drum	9	0	0	65	Drum kit 66	@5
+drum	9	0	0	66	Drum kit 67	@5
+drum	9	0	0	67	Drum kit 68	@5
+drum	9	0	0	68	Drum kit 69	@5
+drum	9	0	0	69	Drum kit 70	@5
+drum	9	0	0	70	Drum kit 71	@5
+drum	9	0	0	71	Drum kit 72	@5
+drum	9	0	0	72	Drum kit 73	@5
+drum	9	0	0	73	Drum kit 74	@5
+drum	9	0	0	74	Drum kit 75	@5
+drum	9	0	0	75	Drum kit 76	@5
+drum	9	0	0	76	Drum kit 77	@5
+drum	9	0	0	77	Drum kit 78	@5
+drum	9	0	0	78	Drum kit 79	@5
+drum	9	0	0	79	Drum kit 80	@5
+drum	9	0	0	80	Drum kit 81	@5
+drum	9	0	0	81	Drum kit 82	@5
+drum	9	0	0	82	Drum kit 83	@5
+drum	9	0	0	83	Drum kit 84	@5
+drum	9	0	0	84	Drum kit 85	@5
+drum	9	0	0	85	Drum kit 86	@5
+drum	9	0	0	86	Drum kit 87	@5
+drum	9	0	0	87	Drum kit 88	@5
+drum	9	0	0	88	Drum kit 89	@5
+drum	9	0	0	89	Drum kit 90	@5
+drum	9	0	0	90	Drum kit 91	@5
+drum	9	0	0	91	Drum kit 92	@5
+drum	9	0	0	92	Drum kit 93	@5
+drum	9	0	0	93	Drum kit 94	@5
+drum	9	0	0	94	Drum kit 95	@5
+drum	9	0	0	95	Drum kit 96	@5
+drum	9	0	0	96	Drum kit 97	@5
+drum	9	0	0	97	Drum kit 98	@5
+drum	9	0	0	98	Drum kit 99	@5
+drum	9	0	0	99	Drum kit 100	@5
+drum	9	0	0	100	Drum kit 101	@5
+drum	9	0	0	101	Drum kit 102	@5
+drum	9	0	0	102	Drum kit 103	@5
+drum	9	0	0	103	Drum kit 104	@5
+drum	9	0	0	104	Drum kit 105	@5
+drum	9	0	0	105	Drum kit 106	@5
+drum	9	0	0	106	Drum kit 107	@5
+drum	9	0	0	107	Drum kit 108	@5
+drum	9	0	0	108	Drum kit 109	@5
+drum	9	0	0	109	Drum kit 110	@5
+drum	9	0	0	110	Drum kit 111	@5
+drum	9	0	0	111	Drum kit 112	@5
+drum	9	0	0	112	Drum kit 113	@5
+drum	9	0	0	113	Drum kit 114	@5
+drum	9	0	0	114	Drum kit 115	@5
+drum	9	0	0	115	Drum kit 116	@5
+drum	9	0	0	116	Drum kit 117	@5
+drum	9	0	0	117	Drum kit 118	@5
+drum	9	0	0	118	Drum kit 119	@5
+drum	9	0	0	119	Drum kit 120	@5
+drum	9	0	0	120	Drum kit 121	@5
+drum	9	0	0	121	Drum kit 122	@5
+drum	9	0	0	122	Drum kit 123	@5
+drum	9	0	0	123	Drum kit 124	@5
+drum	9	0	0	124	Drum kit 125	@5
+drum	9	0	0	125	Drum kit 126	@5
+drum	9	0	0	126	Drum kit 127	@5
+drum	9	0	0	127	Drum kit 128	@5
+drum	9	0	0	128	Drum kit 129	@5
+drum	9	0	1	-1	Drum kit 0	@8
+drum	9	0	1	0	Drum kit 1	@8
+drum	9	0	1	1	Drum kit 2	@8
+drum	9	0	1	8	Drum kit 9	@8
+drum	9	0	1	25	Drum kit 26	@8
+drum	9	0	1	56	Drum kit 57	@8
+drum	9	0	1	127	Drum kit 128	@8
+drum	9	0	1	128	Drum kit 129	@8
+drum	9	0	127	-1	Drum kit 0	@9
+drum	9	0	127	0	Drum kit 1	@9
+drum	9	0	127	1	Drum kit 2	@9
+drum	9	0	127	8	Drum kit 9	@9
+drum	9	0	127	25	Drum kit 26	@9
+drum	9	0	127	56	Drum kit 57	@9
+drum	9	0	127	127	Drum kit 128	@9
+drum	9	0	127	128	Drum kit 129	@9
+drum	9	1	-1	-1	Drum kit 0	@10
+drum	9	1	-1	0	Drum kit 1	@10
+drum	9	1	-1	1	Drum kit 2	@10
+drum	9	1	-1	8	Drum kit 9	@10
+drum	9	1	-1	25	Drum kit 26	@10
+drum	9	1	-1	56	Drum kit 57	@10
+drum	9	1	-1	127	Drum kit 128	@10
+drum	9	1	-1	128	Drum kit 129	@10
+drum	9	1	0	-1	Drum kit 0	@11
+drum	9	1	0	0	Drum kit 1	@11
+drum	9	1	0	1	Drum kit 2	@11
+drum	9	1	0	2	Drum kit 3	@11
+drum	9	1	0	3	Drum kit 4	@11
+drum	9	1	0	4	Drum kit 5	@11
+drum	9	1	0	5	Drum kit 6	@11
+drum	9	1	0	6	Drum kit 7	@11
+drum	9	1	0	7	Drum kit 8	@11
+drum	9	1	0	8	Drum kit 9	@11
+drum	9	1	0	9	Drum kit 10	@11
+drum	9	1	0	10	Drum kit 11	@11
+drum	9	1	0	11	Drum kit 12	@11
+drum	9	1	0	12	Drum kit 13	@11
+drum	9	1	0	13	Drum kit 14	@11
+drum	9	1	0	14	Drum kit 15	@11
+drum	9	1	0	15	Drum kit 16	@11
+drum	9	1	0	16	Drum kit 17	@11
+drum	9	1	0	17	Drum kit 18	@11
+drum	9	1	0	18	Drum kit 19	@11
+drum	9	1	0	19	Drum kit 20	@11
+drum	9	1	0	20	Drum kit 21	@11
+drum	9	1	0	21	Drum kit 22	@11
+drum	9	1	0	22	Drum kit 23	@11
+drum	9	1	0	23	Drum kit 24	@11
+drum	9	1	0	24	Drum kit 25	@11
+drum	9	1	0	25	Drum kit 26	@11
+drum	9	1	0	26	Drum kit 27	@11
+drum	9	1	0	27	Drum kit 28	@11
+drum	9	1	0	28	Drum kit 29	@11
+drum	9	1	0	29	Drum kit 30	@11
+drum	9	1	0	30	Drum kit 31	@11
+drum	9	1	0	31	Drum kit 32	@11
+drum	9	1	0	32	Drum kit 33	@11
+drum	9	1	0	33	Drum kit 34	@11
+drum	9	1	0	34	Drum kit 35	@11
+drum	9	1	0	35	Drum kit 36	@11
+drum	9	1	0	36	Drum kit 37	@11
+drum	9	1	0	37	Drum kit 38	@11
+drum	9	1	0	38	Drum kit 39	@11
+drum	9	1	0	39	Drum kit 40	@11
+drum	9	1	0	40	Drum kit 41	@11
+drum	9	1	0	41	Drum kit 42	@11
+drum	9	1	0	42	Drum kit 43	@11
+drum	9	1	0	43	Drum kit 44	@11
+drum	9	1	0	44	Drum kit 45	@11
+drum	9	1	0	45	Drum kit 46	@11
+drum	9	1	0	46	Drum kit 47	@11
+drum	9	1	0	47	Drum kit 48	@11
+drum	9	1	0	48	Drum kit 49	@11
+drum	9	1	0	49	Drum kit 50	@11
+drum	9	1	0	50	Drum kit 51	@11
+drum	9	1	0	51	Drum kit 52	@11
+drum	9	1	0	52	Drum kit 53	@11
+drum	9	1	0	53	Drum kit 54	@11
+drum	9	1	0	54	Drum kit 55	@11
+drum	9	1	0	55	Drum kit 56	@11
+drum	9	1	0	56	Drum kit 57	@11
+drum	9	1	0	57	Drum kit 58	@11
+drum	9	1	0	58	Drum kit 59	@11
+drum	9	1	0	59	Drum kit 60	@11
+drum	9	1	0	60	Drum kit 61	@11
+drum	9	1	0	61	Drum kit 62	@11
+drum	9	1	0	62	Drum kit 63	@11
+drum	9	1	0	63	Drum kit 64	@11
+drum	9	1	0	64	Drum kit 65	@11
+drum	9	1	0	65	Drum kit 66	@11
+drum	9	1	0	66	Drum kit 67	@11
+drum	9	1	0	67	Drum kit 68	@11
+drum	9	1	0	68	Drum kit 69	@11
+drum	9	1	0	69	Drum kit 70	@11
+drum	9	1	0	70	Drum kit 71	@11
+drum	9	1	0	71	Drum kit 72	@11
+drum	9	1	0	72	Drum kit 73	@11
+drum	9	1	0	73	Drum kit 74	@11
+drum	9	1	0	74	Drum kit 75	@11
+drum	9	1	0	75	Drum kit 76	@11
+drum	9	1	0	76	Drum kit 77	@11
+drum	9	1	0	77	Drum kit 78	@11
+drum	9	1	0	78	Drum kit 79	@11
+drum	9	1	0	79	Drum kit 80	@11
+drum	9	1	0	80	Drum kit 81	@11
+drum	9	1	0	81	Drum kit 82	@11
+drum	9	1	0	82	Drum kit 83	@11
+drum	9	1	0	83	Drum kit 84	@11
+drum	9	1	0	84	Drum kit 85	@11
+drum	9	1	0	85	Drum kit 86	@11
+drum	9	1	0	86	Drum kit 87	@11
+drum	9	1	0	87	Drum kit 88	@11
+drum	9	1	0	88	Drum kit 89	@11
+drum	9	1	0	89	Drum kit 90	@11
+drum	9	1	0	90	Drum kit 91	@11
+drum	9	1	0	91	Drum kit 92	@11
+drum	9	1	0	92	Drum kit 93	@11
+drum	9	1	0	93	Drum kit 94	@11
+drum	9	1	0	94	Drum kit 95	@11
+drum	9	1	0	95	Drum kit 96	@11
+drum	9	1	0	96	Drum kit 97	@11
+drum	9	1	0	97	Drum kit 98	@11
+drum	9	1	0	98	Drum kit 99	@11
+drum	9	1	0	99	Drum kit 100	@11
+drum	9	1	0	100	Drum kit 101	@11
+drum	9	1	0	101	Drum kit 102	@11
+drum	9	1	0	102	Drum kit 103	@11
+drum	9	1	0	103	Drum kit 104	@11
+drum	9	1	0	104	Drum kit 105	@11
+drum	9	1	0	105	Drum kit 106	@11
+drum	9	1	0	106	Drum kit 107	@11
+drum	9	1	0	107	Drum kit 108	@11
+drum	9	1	0	108	Drum kit 109	@11
+drum	9	1	0	109	Drum kit 110	@11
+drum	9	1	0	110	Drum kit 111	@11
+drum	9	1	0	111	Drum kit 112	@11
+drum	9	1	0	112	Drum kit 113	@11
+drum	9	1	0	113	Drum kit 114	@11
+drum	9	1	0	114	Drum kit 115	@11
+drum	9	1	0	115	Drum kit 116	@11
+drum	9	1	0	116	Drum kit 117	@11
+drum	9	1	0	117	Drum kit 118	@11
+drum	9	1	0	118	Drum kit 119	@11
+drum	9	1	0	119	Drum kit 120	@11
+drum	9	1	0	120	Drum kit 121	@11
+drum	9	1	0	121	Drum kit 122	@11
+drum	9	1	0	122	Drum kit 123	@11
+drum	9	1	0	123	Drum kit 124	@11
+drum	9	1	0	124	Drum kit 125	@11
+drum	9	1	0	125	Drum kit 126	@11
+drum	9	1	0	126	Drum kit 127	@11
+drum	9	1	0	127	Drum kit 128	@11
+drum	9	1	0	128	Drum kit 129	@11
+drum	9	1	1	-1	Drum kit 0	@12
+drum	9	1	1	0	Drum kit 1	@12
+drum	9	1	1	1	Drum kit 2	@12
+drum	9	1	1	8	Drum kit 9	@12
+drum	9	1	1	25	Drum kit 26	@12
+drum	9	1	1	56	Drum kit 57	@12
+drum	9	1	1	127	Drum kit 128	@12
+drum	9	1	1	128	Drum kit 129	@12
+drum	9	1	127	-1	Drum kit 0	@13
+drum	9	1	127	0	Drum kit 1	@13
+drum	9	1	127	1	Drum kit 2	@13
+drum	9	1	127	8	Drum kit 9	@13
+drum	9	1	127	25	Drum kit 26	@13
+drum	9	1	127	56	Drum kit 57	@13
+drum	9	1	127	127	Drum kit 128	@13
+drum	9	1	127	128	Drum kit 129	@13
+drum	9	2	-1	-1	Drum kit 0	@14
+drum	9	2	-1	0	Drum kit 1	@14
+drum	9	2	-1	1	Drum kit 2	@14
+drum	9	2	-1	8	Drum kit 9	@14
+drum	9	2	-1	25	Drum kit 26	@14
+drum	9	2	-1	56	Drum kit 57	@14
+drum	9	2	-1	127	Drum kit 128	@14
+drum	9	2	-1	128	Drum kit 129	@14
+drum	9	2	0	-1	Drum kit 0	@15
+drum	9	2	0	0	Drum kit 1	@15
+drum	9	2	0	1	Drum kit 2	@15
+drum	9	2	0	2	Drum kit 3	@15
+drum	9	2	0	3	Drum kit 4	@15
+drum	9	2	0	4	Drum kit 5	@15
+drum	9	2	0	5	Drum kit 6	@15
+drum	9	2	0	6	Drum kit 7	@15
+drum	9	2	0	7	Drum kit 8	@15
+drum	9	2	0	8	Drum kit 9	@15
+drum	9	2	0	9	Drum kit 10	@15
+drum	9	2	0	10	Drum kit 11	@15
+drum	9	2	0	11	Drum kit 12	@15
+drum	9	2	0	12	Drum kit 13	@15
+drum	9	2	0	13	Drum kit 14	@15
+drum	9	2	0	14	Drum kit 15	@15
+drum	9	2	0	15	Drum kit 16	@15
+drum	9	2	0	16	Drum kit 17	@15
+drum	9	2	0	17	Drum kit 18	@15
+drum	9	2	0	18	Drum kit 19	@15
+drum	9	2	0	19	Drum kit 20	@15
+drum	9	2	0	20	Drum kit 21	@15
+drum	9	2	0	21	Drum kit 22	@15
+drum	9	2	0	22	Drum kit 23	@15
+drum	9	2	0	23	Drum kit 24	@15
+drum	9	2	0	24	Drum kit 25	@15
+drum	9	2	0	25	Drum kit 26	@15
+drum	9	2	0	26	Drum kit 27	@15
+drum	9	2	0	27	Drum kit 28	@15
+drum	9	2	0	28	Drum kit 29	@15
+drum	9	2	0	29	Drum kit 30	@15
+drum	9	2	0	30	Drum kit 31	@15
+drum	9	2	0	31	Drum kit 32	@15
+drum	9	2	0	32	Drum kit 33	@15
+drum	9	2	0	33	Drum kit 34	@15
+drum	9	2	0	34	Drum kit 35	@15
+drum	9	2	0	35	Drum kit 36	@15
+drum	9	2	0	36	Drum kit 37	@15
+drum	9	2	0	37	Drum kit 38	@15
+drum	9	2	0	38	Drum kit 39	@15
+drum	9	2	0	39	Drum kit 40	@15
+drum	9	2	0	40	Drum kit 41	@15
+drum	9	2	0	41	Drum kit 42	@15
+drum	9	2	0	42	Drum kit 43	@15
+drum	9	2	0	43	Drum kit 44	@15
+drum	9	2	0	44	Drum kit 45	@15
+drum	9	2	0	45	Drum kit 46	@15
+drum	9	2	0	46	Drum kit 47	@15
+drum	9	2	0	47	Drum kit 48	@15
+drum	9	2	0	48	Drum kit 49	@15
+drum	9	2	0	49	Drum kit 50	@15
+drum	9	2	0	50	Drum kit 51	@15
+drum	9	2	0	51	Drum kit 52	@15
+drum	9	2	0	52	Drum kit 53	@15
+drum	9	2	0	53	Drum kit 54	@15
+drum	9	2	0	54	Drum kit 55	@15
+drum	9	2	0	55	Drum kit 56	@15
+drum	9	2	0	56	Drum kit 57	@15
+drum	9	2	0	57	Drum kit 58	@15
+drum	9	2	0	58	Drum kit 59	@15
+drum	9	2	0	59	Drum kit 60	@15
+drum	9	2	0	60	Drum kit 61	@15
+drum	9	2	0	61	Drum kit 62	@15
+drum	9	2	0	62	Drum kit 63	@15
+drum	9	2	0	63	Drum kit 64	@15
+drum	9	2	0	64	Drum kit 65	@15
+drum	9	2	0	65	Drum kit 66	@15
+drum	9	2	0	66	Drum kit 67	@15
+drum	9	2	0	67	Drum kit 68	@15
+drum	9	2	0	68	Drum kit 69	@15
+drum	9	2	0	69	Drum kit 70	@15
+drum	9	2	0	70	Drum kit 71	@15
+drum	9	2	0	71	Drum kit 72	@15
+drum	9	2	0	72	Drum kit 73	@15
+drum	9	2	0	73	Drum kit 74	@15
+drum	9	2	0	74	Drum kit 75	@15
+drum	9	2	0	75	Drum kit 76	@15
+drum	9	2	0	76	Drum kit 77	@15
+drum	9	2	0	77	Drum kit 78	@15
+drum	9	2	0	78	Drum kit 79	@15
+drum	9	2	0	79	Drum kit 80	@15
+drum	9	2	0	80	Drum kit 81	@15
+drum	9	2	0	81	Drum kit 82	@15
+drum	9	2	0	82	Drum kit 83	@15
+drum	9	2	0	83	Drum kit 84	@15
+drum	9	2	0	84	Drum kit 85	@15
+drum	9	2	0	85	Drum kit 86	@15
+drum	9	2	0	86	Drum kit 87	@15
+drum	9	2	0	87	Drum kit 88	@15
+drum	9	2	0	88	Drum kit 89	@15
+drum	9	2	0	89	Drum kit 90	@15
+drum	9	2	0	90	Drum kit 91	@15
+drum	9	2	0	91	Drum kit 92	@15
+drum	9	2	0	92	Drum kit 93	@15
+drum	9	2	0	93	Drum kit 94	@15
+drum	9	2	0	94	Drum kit 95	@15
+drum	9	2	0	95	Drum kit 96	@15
+drum	9	2	0	96	Drum kit 97	@15
+drum	9	2	0	97	Drum kit 98	@15
+drum	9	2	0	98	Drum kit 99	@15
+drum	9	2	0	99	Drum kit 100	@15
+drum	9	2	0	100	Drum kit 101	@15
+drum	9	2	0	101	Drum kit 102	@15
+drum	9	2	0	102	Drum kit 103	@15
+drum	9	2	0	103	Drum kit 104	@15
+drum	9	2	0	104	Drum kit 105	@15
+drum	9	2	0	105	Drum kit 106	@15
+drum	9	2	0	106	Drum kit 107	@15
+drum	9	2	0	107	Drum kit 108	@15
+drum	9	2	0	108	Drum kit 109	@15
+drum	9	2	0	109	Drum kit 110	@15
+drum	9	2	0	110	Drum kit 111	@15
+drum	9	2	0	111	Drum kit 112	@15
+drum	9	2	0	112	Drum kit 113	@15
+drum	9	2	0	113	Drum kit 114	@15
+drum	9	2	0	114	Drum kit 115	@15
+drum	9	2	0	115	Drum kit 116	@15
+drum	9	2	0	116	Drum kit 117	@15
+drum	9	2	0	117	Drum kit 118	@15
+drum	9	2	0	118	Drum kit 119	@15
+drum	9	2	0	119	Drum kit 120	@15
+drum	9	2	0	120	Drum kit 121	@15
+drum	9	2	0	121	Drum kit 122	@15
+drum	9	2	0	122	Drum kit 123	@15
+drum	9	2	0	123	Drum kit 124	@15
+drum	9	2	0	124	Drum kit 125	@15
+drum	9	2	0	125	Drum kit 126	@15
+drum	9	2	0	126	Drum kit 127	@15
+drum	9	2	0	127	Drum kit 128	@15
+drum	9	2	0	128	Drum kit 129	@15
+drum	9	2	1	-1	Drum kit 0	@16
+drum	9	2	1	0	Drum kit 1	@16
+drum	9	2	1	1	Drum kit 2	@16
+drum	9	2	1	8	Drum kit 9	@16
+drum	9	2	1	25	Drum kit 26	@16
+drum	9	2	1	56	Drum kit 57	@16
+drum	9	2	1	127	Drum kit 128	@16
+drum	9	2	1	128	Drum kit 129	@16
+drum	9	2	127	-1	Drum kit 0	@17
+drum	9	2	127	0	Drum kit 1	@17
+drum	9	2	127	1	Drum kit 2	@17
+drum	9	2	127	8	Drum kit 9	@17
+drum	9	2	127	25	Drum kit 26	@17
+drum	9	2	127	56	Drum kit 57	@17
+drum	9	2	127	127	Drum kit 128	@17
+drum	9	2	127	128	Drum kit 129	@17
+drum	9	63	-1	-1	Drum kit 0	@18
+drum	9	63	-1	0	Drum kit 1	@18
+drum	9	63	-1	1	Drum kit 2	@18
+drum	9	63	-1	8	Drum kit 9	@18
+drum	9	63	-1	25	Drum kit 26	@18
+drum	9	63	-1	56	Drum kit 57	@18
+drum	9	63	-1	127	Drum kit 128	@18
+drum	9	63	-1	128	Drum kit 129	@18
+drum	9	63	0	-1	Drum kit 0	@19
+drum	9	63	0	0	Drum kit 1	@19
+drum	9	63	0	1	Drum kit 2	@19
+drum	9	63	0	2	Drum kit 3	@19
+drum	9	63	0	3	Drum kit 4	@19
+drum	9	63	0	4	Drum kit 5	@19
+drum	9	63	0	5	Drum kit 6	@19
+drum	9	63	0	6	Drum kit 7	@19
+drum	9	63	0	7	Drum kit 8	@19
+drum	9	63	0	8	Drum kit 9	@19
+drum	9	63	0	9	Drum kit 10	@19
+drum	9	63	0	10	Drum kit 11	@19
+drum	9	63	0	11	Drum kit 12	@19
+drum	9	63	0	12	Drum kit 13	@19
+drum	9	63	0	13	Drum kit 14	@19
+drum	9	63	0	14	Drum kit 15	@19
+drum	9	63	0	15	Drum kit 16	@19
+drum	9	63	0	16	Drum kit 17	@19
+drum	9	63	0	17	Drum kit 18	@19
+drum	9	63	0	18	Drum kit 19	@19
+drum	9	63	0	19	Drum kit 20	@19
+drum	9	63	0	20	Drum kit 21	@19
+drum	9	63	0	21	Drum kit 22	@19
+drum	9	63	0	22	Drum kit 23	@19
+drum	9	63	0	23	Drum kit 24	@19
+drum	9	63	0	24	Drum kit 25	@19
+drum	9	63	0	25	Drum kit 26	@19
+drum	9	63	0	26	Drum kit 27	@19
+drum	9	63	0	27	Drum kit 28	@19
+drum	9	63	0	28	Drum kit 29	@19
+drum	9	63	0	29	Drum kit 30	@19
+drum	9	63	0	30	Drum kit 31	@19
+drum	9	63	0	31	Drum kit 32	@19
+drum	9	63	0	32	Drum kit 33	@19
+drum	9	63	0	33	Drum kit 34	@19
+drum	9	63	0	34	Drum kit 35	@19
+drum	9	63	0	35	Drum kit 36	@19
+drum	9	63	0	36	Drum kit 37	@19
+drum	9	63	0	37	Drum kit 38	@19
+drum	9	63	0	38	Drum kit 39	@19
+drum	9	63	0	39	Drum kit 40	@19
+drum	9	63	0	40	Drum kit 41	@19
+drum	9	63	0	41	Drum kit 42	@19
+drum	9	63	0	42	Drum kit 43	@19
+drum	9	63	0	43	Drum kit 44	@19
+drum	9	63	0	44	Drum kit 45	@19
+drum	9	63	0	45	Drum kit 46	@19
+drum	9	63	0	46	Drum kit 47	@19
+drum	9	63	0	47	Drum kit 48	@19
+drum	9	63	0	48	Drum kit 49	@19
+drum	9	63	0	49	Drum kit 50	@19
+drum	9	63	0	50	Drum kit 51	@19
+drum	9	63	0	51	Drum kit 52	@19
+drum	9	63	0	52	Drum kit 53	@19
+drum	9	63	0	53	Drum kit 54	@19
+drum	9	63	0	54	Drum kit 55	@19
+drum	9	63	0	55	Drum kit 56	@19
+drum	9	63	0	56	Drum kit 57	@19
+drum	9	63	0	57	Drum kit 58	@19
+drum	9	63	0	58	Drum kit 59	@19
+drum	9	63	0	59	Drum kit 60	@19
+drum	9	63	0	60	Drum kit 61	@19
+drum	9	63	0	61	Drum kit 62	@19
+drum	9	63	0	62	Drum kit 63	@19
+drum	9	63	0	63	Drum kit 64	@19
+drum	9	63	0	64	Drum kit 65	@19
+drum	9	63	0	65	Drum kit 66	@19
+drum	9	63	0	66	Drum kit 67	@19
+drum	9	63	0	67	Drum kit 68	@19
+drum	9	63	0	68	Drum kit 69	@19
+drum	9	63	0	69	Drum kit 70	@19
+drum	9	63	0	70	Drum kit 71	@19
+drum	9	63	0	71	Drum kit 72	@19
+drum	9	63	0	72	Drum kit 73	@19
+drum	9	63	0	73	Drum kit 74	@19
+drum	9	63	0	74	Drum kit 75	@19
+drum	9	63	0	75	Drum kit 76	@19
+drum	9	63	0	76	Drum kit 77	@19
+drum	9	63	0	77	Drum kit 78	@19
+drum	9	63	0	78	Drum kit 79	@19
+drum	9	63	0	79	Drum kit 80	@19
+drum	9	63	0	80	Drum kit 81	@19
+drum	9	63	0	81	Drum kit 82	@19
+drum	9	63	0	82	Drum kit 83	@19
+drum	9	63	0	83	Drum kit 84	@19
+drum	9	63	0	84	Drum kit 85	@19
+drum	9	63	0	85	Drum kit 86	@19
+drum	9	63	0	86	Drum kit 87	@19
+drum	9	63	0	87	Drum kit 88	@19
+drum	9	63	0	88	Drum kit 89	@19
+drum	9	63	0	89	Drum kit 90	@19
+drum	9	63	0	90	Drum kit 91	@19
+drum	9	63	0	91	Drum kit 92	@19
+drum	9	63	0	92	Drum kit 93	@19
+drum	9	63	0	93	Drum kit 94	@19
+drum	9	63	0	94	Drum kit 95	@19
+drum	9	63	0	95	Drum kit 96	@19
+drum	9	63	0	96	Drum kit 97	@19
+drum	9	63	0	97	Drum kit 98	@19
+drum	9	63	0	98	Drum kit 99	@19
+drum	9	63	0	99	Drum kit 100	@19
+drum	9	63	0	100	Drum kit 101	@19
+drum	9	63	0	101	Drum kit 102	@19
+drum	9	63	0	102	Drum kit 103	@19
+drum	9	63	0	103	Drum kit 104	@19
+drum	9	63	0	104	Drum kit 105	@19
+drum	9	63	0	105	Drum kit 106	@19
+drum	9	63	0	106	Drum kit 107	@19
+drum	9	63	0	107	Drum kit 108	@19
+drum	9	63	0	108	Drum kit 109	@19
+drum	9	63	0	109	Drum kit 110	@19
+drum	9	63	0	110	Drum kit 111	@19
+drum	9	63	0	111	Drum kit 112	@19
+drum	9	63	0	112	Drum kit 113	@19
+drum	9	63	0	113	Drum kit 114	@19
+drum	9	63	0	114	Drum kit 115	@19
+drum	9	63	0	115	Drum kit 116	@19
+drum	9	63	0	116	Drum kit 117	@19
+drum	9	63	0	117	Drum kit 118	@19
+drum	9	63	0	118	Drum kit 119	@19
+drum	9	63	0	119	Drum kit 120	@19
+drum	9	63	0	120	Drum kit 121	@19
+drum	9	63	0	121	Drum kit 122	@19
+drum	9	63	0	122	Drum kit 123	@19
+drum	9	63	0	123	Drum kit 124	@19
+drum	9	63	0	124	Drum kit 125	@19
+drum	9	63	0	125	Drum kit 126	@19
+drum	9	63	0	126	Drum kit 127	@19
+drum	9	63	0	127	Drum kit 128	@19
+drum	9	63	0	128	Drum kit 129	@19
+drum	9	63	1	-1	Drum kit 0	@20
+drum	9	63	1	0	Drum kit 1	@20
+drum	9	63	1	1	Drum kit 2	@20
+drum	9	63	1	8	Drum kit 9	@20
+drum	9	63	1	25	Drum kit 26	@20
+drum	9	63	1	56	Drum kit 57	@20
+drum	9	63	1	127	Drum kit 128	@20
+drum	9	63	1	128	Drum kit 129	@20
+drum	9	63	127	-1	Drum kit 0	@21
+drum	9	63	127	0	Drum kit 1	@21
+drum	9	63	127	1	Drum kit 2	@21
+drum	9	63	127	8	Drum kit 9	@21
+drum	9	63	127	25	Drum kit 26	@21
+drum	9	63	127	56	Drum kit 57	@21
+drum	9	63	127	127	Drum kit 128	@21
+drum	9	63	127	128	Drum kit 129	@21
+drum	9	64	-1	-1	Drum kit 0	@22
+drum	9	64	-1	0	Drum kit 1	@22
+drum	9	64	-1	1	Drum kit 2	@22
+drum	9	64	-1	8	Drum kit 9	@22
+drum	9	64	-1	25	Drum kit 26	@22
+drum	9	64	-1	56	Drum kit 57	@22
+drum	9	64	-1	127	Drum kit 128	@22
+drum	9	64	-1	128	Drum kit 129	@22
+drum	9	64	0	-1	Drum kit 0	@23
+drum	9	64	0	0	Drum kit 1	@23
+drum	9	64	0	1	Drum kit 2	@23
+drum	9	64	0	2	Drum kit 3	@23
+drum	9	64	0	3	Drum kit 4	@23
+drum	9	64	0	4	Drum kit 5	@23
+drum	9	64	0	5	Drum kit 6	@23
+drum	9	64	0	6	Drum kit 7	@23
+drum	9	64	0	7	Drum kit 8	@23
+drum	9	64	0	8	Drum kit 9	@23
+drum	9	64	0	9	Drum kit 10	@23
+drum	9	64	0	10	Drum kit 11	@23
+drum	9	64	0	11	Drum kit 12	@23
+drum	9	64	0	12	Drum kit 13	@23
+drum	9	64	0	13	Drum kit 14	@23
+drum	9	64	0	14	Drum kit 15	@23
+drum	9	64	0	15	Drum kit 16	@23
+drum	9	64	0	16	Drum kit 17	@23
+drum	9	64	0	17	Drum kit 18	@23
+drum	9	64	0	18	Drum kit 19	@23
+drum	9	64	0	19	Drum kit 20	@23
+drum	9	64	0	20	Drum kit 21	@23
+drum	9	64	0	21	Drum kit 22	@23
+drum	9	64	0	22	Drum kit 23	@23
+drum	9	64	0	23	Drum kit 24	@23
+drum	9	64	0	24	Drum kit 25	@23
+drum	9	64	0	25	Drum kit 26	@23
+drum	9	64	0	26	Drum kit 27	@23
+drum	9	64	0	27	Drum kit 28	@23
+drum	9	64	0	28	Drum kit 29	@23
+drum	9	64	0	29	Drum kit 30	@23
+drum	9	64	0	30	Drum kit 31	@23
+drum	9	64	0	31	Drum kit 32	@23
+drum	9	64	0	32	Drum kit 33	@23
+drum	9	64	0	33	Drum kit 34	@23
+drum	9	64	0	34	Drum kit 35	@23
+drum	9	64	0	35	Drum kit 36	@23
+drum	9	64	0	36	Drum kit 37	@23
+drum	9	64	0	37	Drum kit 38	@23
+drum	9	64	0	38	Drum kit 39	@23
+drum	9	64	0	39	Drum kit 40	@23
+drum	9	64	0	40	Drum kit 41	@23
+drum	9	64	0	41	Drum kit 42	@23
+drum	9	64	0	42	Drum kit 43	@23
+drum	9	64	0	43	Drum kit 44	@23
+drum	9	64	0	44	Drum kit 45	@23
+drum	9	64	0	45	Drum kit 46	@23
+drum	9	64	0	46	Drum kit 47	@23
+drum	9	64	0	47	Drum kit 48	@23
+drum	9	64	0	48	Drum kit 49	@23
+drum	9	64	0	49	Drum kit 50	@23
+drum	9	64	0	50	Drum kit 51	@23
+drum	9	64	0	51	Drum kit 52	@23
+drum	9	64	0	52	Drum kit 53	@23
+drum	9	64	0	53	Drum kit 54	@23
+drum	9	64	0	54	Drum kit 55	@23
+drum	9	64	0	55	Drum kit 56	@23
+drum	9	64	0	56	Drum kit 57	@23
+drum	9	64	0	57	Drum kit 58	@23
+drum	9	64	0	58	Drum kit 59	@23
+drum	9	64	0	59	Drum kit 60	@23
+drum	9	64	0	60	Drum kit 61	@23
+drum	9	64	0	61	Drum kit 62	@23
+drum	9	64	0	62	Drum kit 63	@23
+drum	9	64	0	63	Drum kit 64	@23
+drum	9	64	0	64	Drum kit 65	@23
+drum	9	64	0	65	Drum kit 66	@23
+drum	9	64	0	66	Drum kit 67	@23
+drum	9	64	0	67	Drum kit 68	@23
+drum	9	64	0	68	Drum kit 69	@23
+drum	9	64	0	69	Drum kit 70	@23
+drum	9	64	0	70	Drum kit 71	@23
+drum	9	64	0	71	Drum kit 72	@23
+drum	9	64	0	72	Drum kit 73	@23
+drum	9	64	0	73	Drum kit 74	@23
+drum	9	64	0	74	Drum kit 75	@23
+drum	9	64	0	75	Drum kit 76	@23
+drum	9	64	0	76	Drum kit 77	@23
+drum	9	64	0	77	Drum kit 78	@23
+drum	9	64	0	78	Drum kit 79	@23
+drum	9	64	0	79	Drum kit 80	@23
+drum	9	64	0	80	Drum kit 81	@23
+drum	9	64	0	81	Drum kit 82	@23
+drum	9	64	0	82	Drum kit 83	@23
+drum	9	64	0	83	Drum kit 84	@23
+drum	9	64	0	84	Drum kit 85	@23
+drum	9	64	0	85	Drum kit 86	@23
+drum	9	64	0	86	Drum kit 87	@23
+drum	9	64	0	87	Drum kit 88	@23
+drum	9	64	0	88	Drum kit 89	@23
+drum	9	64	0	89	Drum kit 90	@23
+drum	9	64	0	90	Drum kit 91	@23
+drum	9	64	0	91	Drum kit 92	@23
+drum	9	64	0	92	Drum kit 93	@23
+drum	9	64	0	93	Drum kit 94	@23
+drum	9	64	0	94	Drum kit 95	@23
+drum	9	64	0	95	Drum kit 96	@23
+drum	9	64	0	96	Drum kit 97	@23
+drum	9	64	0	97	Drum kit 98	@23
+drum	9	64	0	98	Drum kit 99	@23
+drum	9	64	0	99	Drum kit 100	@23
+drum	9	64	0	100	Drum kit 101	@23
+drum	9	64	0	101	Drum kit 102	@23
+drum	9	64	0	102	Drum kit 103	@23
+drum	9	64	0	103	Drum kit 104	@23
+drum	9	64	0	104	Drum kit 105	@23
+drum	9	64	0	105	Drum kit 106	@23
+drum	9	64	0	106	Drum kit 107	@23
+drum	9	64	0	107	Drum kit 108	@23
+drum	9	64	0	108	Drum kit 109	@23
+drum	9	64	0	109	Drum kit 110	@23
+drum	9	64	0	110	Drum kit 111	@23
+drum	9	64	0	111	Drum kit 112	@23
+drum	9	64	0	112	Drum kit 113	@23
+drum	9	64	0	113	Drum kit 114	@23
+drum	9	64	0	114	Drum kit 115	@23
+drum	9	64	0	115	Drum kit 116	@23
+drum	9	64	0	116	Drum kit 117	@23
+drum	9	64	0	117	Drum kit 118	@23
+drum	9	64	0	118	Drum kit 119	@23
+drum	9	64	0	119	Drum kit 120	@23
+drum	9	64	0	120	Drum kit 121	@23
+drum	9	64	0	121	Drum kit 122	@23
+drum	9	64	0	122	Drum kit 123	@23
+drum	9	64	0	123	Drum kit 124	@23
+drum	9	64	0	124	Drum kit 125	@23
+drum	9	64	0	125	Drum kit 126	@23
+drum	9	64	0	126	Drum kit 127	@23
+drum	9	64	0	127	Drum kit 128	@23
+drum	9	64	0	128	Drum kit 129	@23
+drum	9	64	1	-1	Drum kit 0	@24
+drum	9	64	1	0	Drum kit 1	@24
+drum	9	64	1	1	Drum kit 2	@24
+drum	9	64	1	8	Drum kit 9	@24
+drum	9	64	1	25	Drum kit 26	@24
+drum	9	64	1	56	Drum kit 57	@24
+drum	9	64	1	127	Drum kit 128	@24
+drum	9	64	1	128	Drum kit 129	@24
+drum	9	64	127	-1	Drum kit 0	@25
+drum	9	64	127	0	Drum kit 1	@25
+drum	9	64	127	1	Drum kit 2	@25
+drum	9	64	127	8	Drum kit 9	@25
+drum	9	64	127	25	Drum kit 26	@25
+drum	9	64	127	56	Drum kit 57	@25
+drum	9	64	127	127	Drum kit 128	@25
+drum	9	64	127	128	Drum kit 129	@25
+drum	9	119	-1	-1	Drum kit 0	@26
+drum	9	119	-1	0	Drum kit 1	@26
+drum	9	119	-1	1	Drum kit 2	@26
+drum	9	119	-1	8	Drum kit 9	@26
+drum	9	119	-1	25	Drum kit 26	@26
+drum	9	119	-1	56	Drum kit 57	@26
+drum	9	119	-1	127	Drum kit 128	@26
+drum	9	119	-1	128	Drum kit 129	@26
+drum	9	119	0	-1	Drum kit 0	@27
+drum	9	119	0	0	Drum kit 1	@27
+drum	9	119	0	1	Drum kit 2	@27
+drum	9	119	0	2	Drum kit 3	@27
+drum	9	119	0	3	Drum kit 4	@27
+drum	9	119	0	4	Drum kit 5	@27
+drum	9	119	0	5	Drum kit 6	@27
+drum	9	119	0	6	Drum kit 7	@27
+drum	9	119	0	7	Drum kit 8	@27
+drum	9	119	0	8	Drum kit 9	@27
+drum	9	119	0	9	Drum kit 10	@27
+drum	9	119	0	10	Drum kit 11	@27
+drum	9	119	0	11	Drum kit 12	@27
+drum	9	119	0	12	Drum kit 13	@27
+drum	9	119	0	13	Drum kit 14	@27
+drum	9	119	0	14	Drum kit 15	@27
+drum	9	119	0	15	Drum kit 16	@27
+drum	9	119	0	16	Drum kit 17	@27
+drum	9	119	0	17	Drum kit 18	@27
+drum	9	119	0	18	Drum kit 19	@27
+drum	9	119	0	19	Drum kit 20	@27
+drum	9	119	0	20	Drum kit 21	@27
+drum	9	119	0	21	Drum kit 22	@27
+drum	9	119	0	22	Drum kit 23	@27
+drum	9	119	0	23	Drum kit 24	@27
+drum	9	119	0	24	Drum kit 25	@27
+drum	9	119	0	25	Drum kit 26	@27
+drum	9	119	0	26	Drum kit 27	@27
+drum	9	119	0	27	Drum kit 28	@27
+drum	9	119	0	28	Drum kit 29	@27
+drum	9	119	0	29	Drum kit 30	@27
+drum	9	119	0	30	Drum kit 31	@27
+drum	9	119	0	31	Drum kit 32	@27
+drum	9	119	0	32	Drum kit 33	@27
+drum	9	119	0	33	Drum kit 34	@27
+drum	9	119	0	34	Drum kit 35	@27
+drum	9	119	0	35	Drum kit 36	@27
+drum	9	119	0	36	Drum kit 37	@27
+drum	9	119	0	37	Drum kit 38	@27
+drum	9	119	0	38	Drum kit 39	@27
+drum	9	119	0	39	Drum kit 40	@27
+drum	9	119	0	40	Drum kit 41	@27
+drum	9	119	0	41	Drum kit 42	@27
+drum	9	119	0	42	Drum kit 43	@27
+drum	9	119	0	43	Drum kit 44	@27
+drum	9	119	0	44	Drum kit 45	@27
+drum	9	119	0	45	Drum kit 46	@27
+drum	9	119	0	46	Drum kit 47	@27
+drum	9	119	0	47	Drum kit 48	@27
+drum	9	119	0	48	Drum kit 49	@27
+drum	9	119	0	49	Drum kit 50	@27
+drum	9	119	0	50	Drum kit 51	@27
+drum	9	119	0	51	Drum kit 52	@27
+drum	9	119	0	52	Drum kit 53	@27
+drum	9	119	0	53	Drum kit 54	@27
+drum	9	119	0	54	Drum kit 55	@27
+drum	9	119	0	55	Drum kit 56	@27
+drum	9	119	0	56	Drum kit 57	@27
+drum	9	119	0	57	Drum kit 58	@27
+drum	9	119	0	58	Drum kit 59	@27
+drum	9	119	0	59	Drum kit 60	@27
+drum	9	119	0	60	Drum kit 61	@27
+drum	9	119	0	61	Drum kit 62	@27
+drum	9	119	0	62	Drum kit 63	@27
+drum	9	119	0	63	Drum kit 64	@27
+drum	9	119	0	64	Drum kit 65	@27
+drum	9	119	0	65	Drum kit 66	@27
+drum	9	119	0	66	Drum kit 67	@27
+drum	9	119	0	67	Drum kit 68	@27
+drum	9	119	0	68	Drum kit 69	@27
+drum	9	119	0	69	Drum kit 70	@27
+drum	9	119	0	70	Drum kit 71	@27
+drum	9	119	0	71	Drum kit 72	@27
+drum	9	119	0	72	Drum kit 73	@27
+drum	9	119	0	73	Drum kit 74	@27
+drum	9	119	0	74	Drum kit 75	@27
+drum	9	119	0	75	Drum kit 76	@27
+drum	9	119	0	76	Drum kit 77	@27
+drum	9	119	0	77	Drum kit 78	@27
+drum	9	119	0	78	Drum kit 79	@27
+drum	9	119	0	79	Drum kit 80	@27
+drum	9	119	0	80	Drum kit 81	@27
+drum	9	119	0	81	Drum kit 82	@27
+drum	9	119	0	82	Drum kit 83	@27
+drum	9	119	0	83	Drum kit 84	@27
+drum	9	119	0	84	Drum kit 85	@27
+drum	9	119	0	85	Drum kit 86	@27
+drum	9	119	0	86	Drum kit 87	@27
+drum	9	119	0	87	Drum kit 88	@27
+drum	9	119	0	88	Drum kit 89	@27
+drum	9	119	0	89	Drum kit 90	@27
+drum	9	119	0	90	Drum kit 91	@27
+drum	9	119	0	91	Drum kit 92	@27
+drum	9	119	0	92	Drum kit 93	@27
+drum	9	119	0	93	Drum kit 94	@27
+drum	9	119	0	94	Drum kit 95	@27
+drum	9	119	0	95	Drum kit 96	@27
+drum	9	119	0	96	Drum kit 97	@27
+drum	9	119	0	97	Drum kit 98	@27
+drum	9	119	0	98	Drum kit 99	@27
+drum	9	119	0	99	Drum kit 100	@27
+drum	9	119	0	100	Drum kit 101	@27
+drum	9	119	0	101	Drum kit 102	@27
+drum	9	119	0	102	Drum kit 103	@27
+drum	9	119	0	103	Drum kit 104	@27
+drum	9	119	0	104	Drum kit 105	@27
+drum	9	119	0	105	Drum kit 106	@27
+drum	9	119	0	106	Drum kit 107	@27
+drum	9	119	0	107	Drum kit 108	@27
+drum	9	119	0	108	Drum kit 109	@27
+drum	9	119	0	109	Drum kit 110	@27
+drum	9	119	0	110	Drum kit 111	@27
+drum	9	119	0	111	Drum kit 112	@27
+drum	9	119	0	112	Drum kit 113	@27
+drum	9	119	0	113	Drum kit 114	@27
+drum	9	119	0	114	Drum kit 115	@27
+drum	9	119	0	115	Drum kit 116	@27
+drum	9	119	0	116	Drum kit 117	@27
+drum	9	119	0	117	Drum kit 118	@27
+drum	9	119	0	118	Drum kit 119	@27
+drum	9	119	0	119	Drum kit 120	@27
+drum	9	119	0	120	Drum kit 121	@27
+drum	9	119	0	121	Drum kit 122	@27
+drum	9	119	0	122	Drum kit 123	@27
+drum	9	119	0	123	Drum kit 124	@27
+drum	9	119	0	124	Drum kit 125	@27
+drum	9	119	0	125	Drum kit 126	@27
+drum	9	119	0	126	Drum kit 127	@27
+drum	9	119	0	127	Drum kit 128	@27
+drum	9	119	0	128	Drum kit 129	@27
+drum	9	119	1	-1	Drum kit 0	@28
+drum	9	119	1	0	Drum kit 1	@28
+drum	9	119	1	1	Drum kit 2	@28
+drum	9	119	1	8	Drum kit 9	@28
+drum	9	119	1	25	Drum kit 26	@28
+drum	9	119	1	56	Drum kit 57	@28
+drum	9	119	1	127	Drum kit 128	@28
+drum	9	119	1	128	Drum kit 129	@28
+drum	9	119	127	-1	Drum kit 0	@29
+drum	9	119	127	0	Drum kit 1	@29
+drum	9	119	127	1	Drum kit 2	@29
+drum	9	119	127	8	Drum kit 9	@29
+drum	9	119	127	25	Drum kit 26	@29
+drum	9	119	127	56	Drum kit 57	@29
+drum	9	119	127	127	Drum kit 128	@29
+drum	9	119	127	128	Drum kit 129	@29
+drum	9	120	-1	-1	Drum kit 0	@30
+drum	9	120	-1	0	Drum kit 1	@30
+drum	9	120	-1	1	Drum kit 2	@30
+drum	9	120	-1	8	Drum kit 9	@30
+drum	9	120	-1	25	Drum kit 26	@30
+drum	9	120	-1	56	Drum kit 57	@30
+drum	9	120	-1	127	Drum kit 128	@30
+drum	9	120	-1	128	Drum kit 129	@30
+drum	9	120	0	-1	Drum kit 0	@31
+drum	9	120	0	0	Standard Set (GM2)	@32
+drum	9	120	0	1	Drum kit 2	@31
+drum	9	120	0	2	Drum kit 3	@31
+drum	9	120	0	3	Drum kit 4	@31
+drum	9	120	0	4	Drum kit 5	@31
+drum	9	120	0	5	Drum kit 6	@31
+drum	9	120	0	6	Drum kit 7	@31
+drum	9	120	0	7	Drum kit 8	@31
+drum	9	120	0	8	Room Set (GM2)	@32
+drum	9	120	0	9	Drum kit 10	@31
+drum	9	120	0	10	Drum kit 11	@31
+drum	9	120	0	11	Drum kit 12	@31
+drum	9	120	0	12	Drum kit 13	@31
+drum	9	120	0	13	Drum kit 14	@31
+drum	9	120	0	14	Drum kit 15	@31
+drum	9	120	0	15	Drum kit 16	@31
+drum	9	120	0	16	Power Set (GM2)	@32
+drum	9	120	0	17	Drum kit 18	@31
+drum	9	120	0	18	Drum kit 19	@31
+drum	9	120	0	19	Drum kit 20	@31
+drum	9	120	0	20	Drum kit 21	@31
+drum	9	120	0	21	Drum kit 22	@31
+drum	9	120	0	22	Drum kit 23	@31
+drum	9	120	0	23	Drum kit 24	@31
+drum	9	120	0	24	Electronic Set (GM2)	@32
+drum	9	120	0	25	Analog Set (GM2)	@32
+drum	9	120	0	26	Drum kit 27	@31
+drum	9	120	0	27	Drum kit 28	@31
+drum	9	120	0	28	Drum kit 29	@31
+drum	9	120	0	29	Drum kit 30	@31
+drum	9	120	0	30	Drum kit 31	@31
+drum	9	120	0	31	Drum kit 32	@31
+drum	9	120	0	32	Jazz Set (GM2)	@32
+drum	9	120	0	33	Drum kit 34	@31
+drum	9	120	0	34	Drum kit 35	@31
+drum	9	120	0	35	Drum kit 36	@31
+drum	9	120	0	36	Drum kit 37	@31
+drum	9	120	0	37	Drum kit 38	@31
+drum	9	120	0	38	Drum kit 39	@31
+drum	9	120	0	39	Drum kit 40	@31
+drum	9	120	0	40	Brush Set (GM2)	@32
+drum	9	120	0	41	Drum kit 42	@31
+drum	9	120	0	42	Drum kit 43	@31
+drum	9	120	0	43	Drum kit 44	@31
+drum	9	120	0	44	Drum kit 45	@31
+drum	9	120	0	45	Drum kit 46	@31
+drum	9	120	0	46	Drum kit 47	@31
+drum	9	120	0	47	Drum kit 48	@31
+drum	9	120	0	48	Orchestra Set (GM2)	@32
+drum	9	120	0	49	Drum kit 50	@31
+drum	9	120	0	50	Drum kit 51	@31
+drum	9	120	0	51	Drum kit 52	@31
+drum	9	120	0	52	Drum kit 53	@31
+drum	9	120	0	53	Drum kit 54	@31
+drum	9	120	0	54	Drum kit 55	@31
+drum	9	120	0	55	Drum kit 56	@31
+drum	9	120	0	56	SFX Set (GM2)	@32
+drum	9	120	0	57	Drum kit 58	@31
+drum	9	120	0	58	Drum kit 59	@31
+drum	9	120	0	59	Drum kit 60	@31
+drum	9	120	0	60	Drum kit 61	@31
+drum	9	120	0	61	Drum kit 62	@31
+drum	9	120	0	62	Drum kit 63	@31
+drum	9	120	0	63	Drum kit 64	@31
+drum	9	120	0	64	Drum kit 65	@31
+drum	9	120	0	65	Drum kit 66	@31
+drum	9	120	0	66	Drum kit 67	@31
+drum	9	120	0	67	Drum kit 68	@31
+drum	9	120	0	68	Drum kit 69	@31
+drum	9	120	0	69	Drum kit 70	@31
+drum	9	120	0	70	Drum kit 71	@31
+drum	9	120	0	71	Drum kit 72	@31
+drum	9	120	0	72	Drum kit 73	@31
+drum	9	120	0	73	Drum kit 74	@31
+drum	9	120	0	74	Drum kit 75	@31
+drum	9	120	0	75	Drum kit 76	@31
+drum	9	120	0	76	Drum kit 77	@31
+drum	9	120	0	77	Drum kit 78	@31
+drum	9	120	0	78	Drum kit 79	@31
+drum	9	120	0	79	Drum kit 80	@31
+drum	9	120	0	80	Drum kit 81	@31
+drum	9	120	0	81	Drum kit 82	@31
+drum	9	120	0	82	Drum kit 83	@31
+drum	9	120	0	83	Drum kit 84	@31
+drum	9	120	0	84	Drum kit 85	@31
+drum	9	120	0	85	Drum kit 86	@31
+drum	9	120	0	86	Drum kit 87	@31
+drum	9	120	0	87	Drum kit 88	@31
+drum	9	120	0	88	Drum kit 89	@31
+drum	9	120	0	89	Drum kit 90	@31
+drum	9	120	0	90	Drum kit 91	@31
+drum	9	120	0	91	Drum kit 92	@31
+drum	9	120	0	92	Drum kit 93	@31
+drum	9	120	0	93	Drum kit 94	@31
+drum	9	120	0	94	Drum kit 95	@31
+drum	9	120	0	95	Drum kit 96	@31
+drum	9	120	0	96	Drum kit 97	@31
+drum	9	120	0	97	Drum kit 98	@31
+drum	9	120	0	98	Drum kit 99	@31
+drum	9	120	0	99	Drum kit 100	@31
+drum	9	120	0	100	Drum kit 101	@31
+drum	9	120	0	101	Drum kit 102	@31
+drum	9	120	0	102	Drum kit 103	@31
+drum	9	120	0	103	Drum kit 104	@31
+drum	9	120	0	104	Drum kit 105	@31
+drum	9	120	0	105	Drum kit 106	@31
+drum	9	120	0	106	Drum kit 107	@31
+drum	9	120	0	107	Drum kit 108	@31
+drum	9	120	0	108	Drum kit 109	@31
+drum	9	120	0	109	Drum kit 110	@31
+drum	9	120	0	110	Drum kit 111	@31
+drum	9	120	0	111	Drum kit 112	@31
+drum	9	120	0	112	Drum kit 113	@31
+drum	9	120	0	113	Drum kit 114	@31
+drum	9	120	0	114	Drum kit 115	@31
+drum	9	120	0	115	Drum kit 116	@31
+drum	9	120	0	116	Drum kit 117	@31
+drum	9	120	0	117	Drum kit 118	@31
+drum	9	120	0	118	Drum kit 119	@31
+drum	9	120	0	119	Drum kit 120	@31
+drum	9	120	0	120	Drum kit 121	@31
+drum	9	120	0	121	Drum kit 122	@31
+drum	9	120	0	122	Drum kit 123	@31
+drum	9	120	0	123	Drum kit 124	@31
+drum	9	120	0	124	Drum kit 125	@31
+drum	9	120	0	125	Drum kit 126	@31
+drum	9	120	0	126	Drum kit 127	@31
+drum	9	120	0	127	Drum kit 128	@31
+drum	9	120	0	128	Drum kit 129	@31
+drum	9	120	1	-1	Drum kit 0	@33
+drum	9	120	1	0	Drum kit 1	@33
+drum	9	120	1	1	Drum kit 2	@33
+drum	9	120	1	8	Drum kit 9	@33
+drum	9	120	1	25	Drum kit 26	@33
+drum	9	120	1	56	Drum kit 57	@33
+drum	9	120	1	127	Drum kit 128	@33
+drum	9	120	1	128	Drum kit 129	@33
+drum	9	120	127	-1	Drum kit 0	@34
+drum	9	120	127	0	Drum kit 1	@34
+drum	9	120	127	1	Drum kit 2	@34
+drum	9	120	127	8	Drum kit 9	@34
+drum	9	120	127	25	Drum kit 26	@34
+drum	9	120	127	56	Drum kit 57	@34
+drum	9	120	127	127	Drum kit 128	@34
+drum	9	120	127	128	Drum kit 129	@34
+drum	9	121	-1	-1	Drum kit 0	@35
+drum	9	121	-1	0	Drum kit 1	@35
+drum	9	121	-1	1	Drum kit 2	@35
+drum	9	121	-1	8	Drum kit 9	@35
+drum	9	121	-1	25	Drum kit 26	@35
+drum	9	121	-1	56	Drum kit 57	@35
+drum	9	121	-1	127	Drum kit 128	@35
+drum	9	121	-1	128	Drum kit 129	@35
+drum	9	121	0	-1	Drum kit 0	@36
+drum	9	121	0	0	Drum kit 1	@36
+drum	9	121	0	1	Drum kit 2	@36
+drum	9	121	0	2	Drum kit 3	@36
+drum	9	121	0	3	Drum kit 4	@36
+drum	9	121	0	4	Drum kit 5	@36
+drum	9	121	0	5	Drum kit 6	@36
+drum	9	121	0	6	Drum kit 7	@36
+drum	9	121	0	7	Drum kit 8	@36
+drum	9	121	0	8	Drum kit 9	@36
+drum	9	121	0	9	Drum kit 10	@36
+drum	9	121	0	10	Drum kit 11	@36
+drum	9	121	0	11	Drum kit 12	@36
+drum	9	121	0	12	Drum kit 13	@36
+drum	9	121	0	13	Drum kit 14	@36
+drum	9	121	0	14	Drum kit 15	@36
+drum	9	121	0	15	Drum kit 16	@36
+drum	9	121	0	16	Drum kit 17	@36
+drum	9	121	0	17	Drum kit 18	@36
+drum	9	121	0	18	Drum kit 19	@36
+drum	9	121	0	19	Drum kit 20	@36
+drum	9	121	0	20	Drum kit 21	@36
+drum	9	121	0	21	Drum kit 22	@36
+drum	9	121	0	22	Drum kit 23	@36
+drum	9	121	0	23	Drum kit 24	@36
+drum	9	121	0	24	Drum kit 25	@36
+drum	9	121	0	25	Drum kit 26	@36
+drum	9	121	0	26	Drum kit 27	@36
+drum	9	121	0	27	Drum kit 28	@36
+drum	9	121	0	28	Drum kit 29	@36
+drum	9	121	0	29	Drum kit 30	@36
+drum	9	121	0	30	Drum kit 31	@36
+drum	9	121	0	31	Drum kit 32	@36
+drum	9	121	0	32	Drum kit 33	@36
+drum	9	121	0	33	Drum kit 34	@36
+drum	9	121	0	34	Drum kit 35	@36
+drum	9	121	0	35	Drum kit 36	@36
+drum	9	121	0	36	Drum kit 37	@36
+drum	9	121	0	37	Drum kit 38	@36
+drum	9	121	0	38	Drum kit 39	@36
+drum	9	121	0	39	Drum kit 40	@36
+drum	9	121	0	40	Drum kit 41	@36
+drum	9	121	0	41	Drum kit 42	@36
+drum	9	121	0	42	Drum kit 43	@36
+drum	9	121	0	43	Drum kit 44	@36
+drum	9	121	0	44	Drum kit 45	@36
+drum	9	121	0	45	Drum kit 46	@36
+drum	9	121	0	46	Drum kit 47	@36
+drum	9	121	0	47	Drum kit 48	@36
+drum	9	121	0	48	Drum kit 49	@36
+drum	9	121	0	49	Drum kit 50	@36
+drum	9	121	0	50	Drum kit 51	@36
+drum	9	121	0	51	Drum kit 52	@36
+drum	9	121	0	52	Drum kit 53	@36
+drum	9	121	0	53	Drum kit 54	@36
+drum	9	121	0	54	Drum kit 55	@36
+drum	9	121	0	55	Drum kit 56	@36
+drum	9	121	0	56	Drum kit 57	@36
+drum	9	121	0	57	Drum kit 58	@36
+drum	9	121	0	58	Drum kit 59	@36
+drum	9	121	0	59	Drum kit 60	@36
+drum	9	121	0	60	Drum kit 61	@36
+drum	9	121	0	61	Drum kit 62	@36
+drum	9	121	0	62	Drum kit 63	@36
+drum	9	121	0	63	Drum kit 64	@36
+drum	9	121	0	64	Drum kit 65	@36
+drum	9	121	0	65	Drum kit 66	@36
+drum	9	121	0	66	Drum kit 67	@36
+drum	9	121	0	67	Drum kit 68	@36
+drum	9	121	0	68	Drum kit 69	@36
+drum	9	121	0	69	Drum kit 70	@36
+drum	9	121	0	70	Drum kit 71	@36
+drum	9	121	0	71	Drum kit 72	@36
+drum	9	121	0	72	Drum kit 73	@36
+drum	9	121	0	73	Drum kit 74	@36
+drum	9	121	0	74	Drum kit 75	@36
+drum	9	121	0	75	Drum kit 76	@36
+drum	9	121	0	76	Drum kit 77	@36
+drum	9	121	0	77	Drum kit 78	@36
+drum	9	121	0	78	Drum kit 79	@36
+drum	9	121	0	79	Drum kit 80	@36
+drum	9	121	0	80	Drum kit 81	@36
+drum	9	121	0	81	Drum kit 82	@36
+drum	9	121	0	82	Drum kit 83	@36
+drum	9	121	0	83	Drum kit 84	@36
+drum	9	121	0	84	Drum kit 85	@36
+drum	9	121	0	85	Drum kit 86	@36
+drum	9	121	0	86	Drum kit 87	@36
+drum	9	121	0	87	Drum kit 88	@36
+drum	9	121	0	88	Drum kit 89	@36
+drum	9	121	0	89	Drum kit 90	@36
+drum	9	121	0	90	Drum kit 91	@36
+drum	9	121	0	91	Drum kit 92	@36
+drum	9	121	0	92	Drum kit 93	@36
+drum	9	121	0	93	Drum kit 94	@36
+drum	9	121	0	94	Drum kit 95	@36
+drum	9	121	0	95	Drum kit 96	@36
+drum	9	121	0	96	Drum kit 97	@36
+drum	9	121	0	97	Drum kit 98	@36
+drum	9	121	0	98	Drum kit 99	@36
+drum	9	121	0	99	Drum kit 100	@36
+drum	9	121	0	100	Drum kit 101	@36
+drum	9	121	0	101	Drum kit 102	@36
+drum	9	121	0	102	Drum kit 103	@36
+drum	9	121	0	103	Drum kit 104	@36
+drum	9	121	0	104	Drum kit 105	@36
+drum	9	121	0	105	Drum kit 106	@36
+drum	9	121	0	106	Drum kit 107	@36
+drum	9	121	0	107	Drum kit 108	@36
+drum	9	121	0	108	Drum kit 109	@36
+drum	9	121	0	109	Drum kit 110	@36
+drum	9	121	0	110	Drum kit 111	@36
+drum	9	121	0	111	Drum kit 112	@36
+drum	9	121	0	112	Drum kit 113	@36
+drum	9	121	0	113	Drum kit 114	@36
+drum	9	121	0	114	Drum kit 115	@36
+drum	9	121	0	115	Drum kit 116	@36
+drum	9	121	0	116	Drum kit 117	@36
+drum	9	121	0	117	Drum kit 118	@36
+drum	9	121	0	118	Drum kit 119	@36
+drum	9	121	0	119	Drum kit 120	@36
+drum	9	121	0	120	Drum kit 121	@36
+drum	9	121	0	121	Drum kit 122	@36
+drum	9	121	0	122	Drum kit 123	@36
+drum	9	121	0	123	Drum kit 124	@36
+drum	9	121	0	124	Drum kit 125	@36
+drum	9	121	0	125	Drum kit 126	@36
+drum	9	121	0	126	Drum kit 127	@36
+drum	9	121	0	127	Drum kit 128	@36
+drum	9	121	0	128	Drum kit 129	@36
+drum	9	121	1	-1	Drum kit 0	@37
+drum	9	121	1	0	Drum kit 1	@37
+drum	9	121	1	1	Drum kit 2	@37
+drum	9	121	1	8	Drum kit 9	@37
+drum	9	121	1	25	Drum kit 26	@37
+drum	9	121	1	56	Drum kit 57	@37
+drum	9	121	1	127	Drum kit 128	@37
+drum	9	121	1	128	Drum kit 129	@37
+drum	9	121	127	-1	Drum kit 0	@38
+drum	9	121	127	0	Drum kit 1	@38
+drum	9	121	127	1	Drum kit 2	@38
+drum	9	121	127	8	Drum kit 9	@38
+drum	9	121	127	25	Drum kit 26	@38
+drum	9	121	127	56	Drum kit 57	@38
+drum	9	121	127	127	Drum kit 128	@38
+drum	9	121	127	128	Drum kit 129	@38
+drum	9	125	-1	-1	Drum kit 0	@39
+drum	9	125	-1	0	Drum kit 1	@39
+drum	9	125	-1	1	Drum kit 2	@39
+drum	9	125	-1	8	Drum kit 9	@39
+drum	9	125	-1	25	Drum kit 26	@39
+drum	9	125	-1	56	Drum kit 57	@39
+drum	9	125	-1	127	Drum kit 128	@39
+drum	9	125	-1	128	Drum kit 129	@39
+drum	9	125	0	-1	Drum kit 0	@40
+drum	9	125	0	0	Drum kit 1	@40
+drum	9	125	0	1	Drum kit 2	@40
+drum	9	125	0	2	Drum kit 3	@40
+drum	9	125	0	3	Drum kit 4	@40
+drum	9	125	0	4	Drum kit 5	@40
+drum	9	125	0	5	Drum kit 6	@40
+drum	9	125	0	6	Drum kit 7	@40
+drum	9	125	0	7	Drum kit 8	@40
+drum	9	125	0	8	Drum kit 9	@40
+drum	9	125	0	9	Drum kit 10	@40
+drum	9	125	0	10	Drum kit 11	@40
+drum	9	125	0	11	Drum kit 12	@40
+drum	9	125	0	12	Drum kit 13	@40
+drum	9	125	0	13	Drum kit 14	@40
+drum	9	125	0	14	Drum kit 15	@40
+drum	9	125	0	15	Drum kit 16	@40
+drum	9	125	0	16	Drum kit 17	@40
+drum	9	125	0	17	Drum kit 18	@40
+drum	9	125	0	18	Drum kit 19	@40
+drum	9	125	0	19	Drum kit 20	@40
+drum	9	125	0	20	Drum kit 21	@40
+drum	9	125	0	21	Drum kit 22	@40
+drum	9	125	0	22	Drum kit 23	@40
+drum	9	125	0	23	Drum kit 24	@40
+drum	9	125	0	24	Drum kit 25	@40
+drum	9	125	0	25	Drum kit 26	@40
+drum	9	125	0	26	Drum kit 27	@40
+drum	9	125	0	27	Drum kit 28	@40
+drum	9	125	0	28	Drum kit 29	@40
+drum	9	125	0	29	Drum kit 30	@40
+drum	9	125	0	30	Drum kit 31	@40
+drum	9	125	0	31	Drum kit 32	@40
+drum	9	125	0	32	Drum kit 33	@40
+drum	9	125	0	33	Drum kit 34	@40
+drum	9	125	0	34	Drum kit 35	@40
+drum	9	125	0	35	Drum kit 36	@40
+drum	9	125	0	36	Drum kit 37	@40
+drum	9	125	0	37	Drum kit 38	@40
+drum	9	125	0	38	Drum kit 39	@40
+drum	9	125	0	39	Drum kit 40	@40
+drum	9	125	0	40	Drum kit 41	@40
+drum	9	125	0	41	Drum kit 42	@40
+drum	9	125	0	42	Drum kit 43	@40
+drum	9	125	0	43	Drum kit 44	@40
+drum	9	125	0	44	Drum kit 45	@40
+drum	9	125	0	45	Drum kit 46	@40
+drum	9	125	0	46	Drum kit 47	@40
+drum	9	125	0	47	Drum kit 48	@40
+drum	9	125	0	48	Drum kit 49	@40
+drum	9	125	0	49	Drum kit 50	@40
+drum	9	125	0	50	Drum kit 51	@40
+drum	9	125	0	51	Drum kit 52	@40
+drum	9	125	0	52	Drum kit 53	@40
+drum	9	125	0	53	Drum kit 54	@40
+drum	9	125	0	54	Drum kit 55	@40
+drum	9	125	0	55	Drum kit 56	@40
+drum	9	125	0	56	Drum kit 57	@40
+drum	9	125	0	57	Drum kit 58	@40
+drum	9	125	0	58	Drum kit 59	@40
+drum	9	125	0	59	Drum kit 60	@40
+drum	9	125	0	60	Drum kit 61	@40
+drum	9	125	0	61	Drum kit 62	@40
+drum	9	125	0	62	Drum kit 63	@40
+drum	9	125	0	63	Drum kit 64	@40
+drum	9	125	0	64	Drum kit 65	@40
+drum	9	125	0	65	Drum kit 66	@40
+drum	9	125	0	66	Drum kit 67	@40
+drum	9	125	0	67	Drum kit 68	@40
+drum	9	125	0	68	Drum kit 69	@40
+drum	9	125	0	69	Drum kit 70	@40
+drum	9	125	0	70	Drum kit 71	@40
+drum	9	125	0	71	Drum kit 72	@40
+drum	9	125	0	72	Drum kit 73	@40
+drum	9	125	0	73	Drum kit 74	@40
+drum	9	125	0	74	Drum kit 75	@40
+drum	9	125	0	75	Drum kit 76	@40
+drum	9	125	0	76	Drum kit 77	@40
+drum	9	125	0	77	Drum kit 78	@40
+drum	9	125	0	78	Drum kit 79	@40
+drum	9	125	0	79	Drum kit 80	@40
+drum	9	125	0	80	Drum kit 81	@40
+drum	9	125	0	81	Drum kit 82	@40
+drum	9	125	0	82	Drum kit 83	@40
+drum	9	125	0	83	Drum kit 84	@40
+drum	9	125	0	84	Drum kit 85	@40
+drum	9	125	0	85	Drum kit 86	@40
+drum	9	125	0	86	Drum kit 87	@40
+drum	9	125	0	87	Drum kit 88	@40
+drum	9	125	0	88	Drum kit 89	@40
+drum	9	125	0	89	Drum kit 90	@40
+drum	9	125	0	90	Drum kit 91	@40
+drum	9	125	0	91	Drum kit 92	@40
+drum	9	125	0	92	Drum kit 93	@40
+drum	9	125	0	93	Drum kit 94	@40
+drum	9	125	0	94	Drum kit 95	@40
+drum	9	125	0	95	Drum kit 96	@40
+drum	9	125	0	96	Drum kit 97	@40
+drum	9	125	0	97	Drum kit 98	@40
+drum	9	125	0	98	Drum kit 99	@40
+drum	9	125	0	99	Drum kit 100	@40
+drum	9	125	0	100	Drum kit 101	@40
+drum	9	125	0	101	Drum kit 102	@40
+drum	9	125	0	102	Drum kit 103	@40
+drum	9	125	0	103	Drum kit 104	@40
+drum	9	125	0	104	Drum kit 105	@40
+drum	9	125	0	105	Drum kit 106	@40
+drum	9	125	0	106	Drum kit 107	@40
+drum	9	125	0	107	Drum kit 108	@40
+drum	9	125	0	108	Drum kit 109	@40
+drum	9	125	0	109	Drum kit 110	@40
+drum	9	125	0	110	Drum kit 111	@40
+drum	9	125	0	111	Drum kit 112	@40
+drum	9	125	0	112	Drum kit 113	@40
+drum	9	125	0	113	Drum kit 114	@40
+drum	9	125	0	114	Drum kit 115	@40
+drum	9	125	0	115	Drum kit 116	@40
+drum	9	125	0	116	Drum kit 117	@40
+drum	9	125	0	117	Drum kit 118	@40
+drum	9	125	0	118	Drum kit 119	@40
+drum	9	125	0	119	Drum kit 120	@40
+drum	9	125	0	120	Drum kit 121	@40
+drum	9	125	0	121	Drum kit 122	@40
+drum	9	125	0	122	Drum kit 123	@40
+drum	9	125	0	123	Drum kit 124	@40
+drum	9	125	0	124	Drum kit 125	@40
+drum	9	125	0	125	Drum kit 126	@40
+drum	9	125	0	126	Drum kit 127	@40
+drum	9	125	0	127	Drum kit 128	@40
+drum	9	125	0	128	Drum kit 129	@40
+drum	9	125	1	-1	Drum kit 0	@41
+drum	9	125	1	0	Drum kit 1	@41
+drum	9	125	1	1	Drum kit 2	@41
+drum	9	125	1	8	Drum kit 9	@41
+drum	9	125	1	25	Drum kit 26	@41
+drum	9	125	1	56	Drum kit 57	@41
+drum	9	125	1	127	Drum kit 128	@41
+drum	9	125	1	128	Drum kit 129	@41
+drum	9	125	127	-1	Drum kit 0	@42
+drum	9	125	127	0	Drum kit 1	@42
+drum	9	125	127	1	Drum kit 2	@42
+drum	9	125	127	8	Drum kit 9	@42
+drum	9	125	127	25	Drum kit 26	@42
+drum	9	125	127	56	Drum kit 57	@42
+drum	9	125	127	127	Drum kit 128	@42
+drum	9	125	127	128	Drum kit 129	@42
+drum	9	126	-1	-1	Drum kit 0	@43
+drum	9	126	-1	0	Drum kit 1	@43
+drum	9	126	-1	1	Drum kit 2	@43
+drum	9	126	-1	8	Drum kit 9	@43
+drum	9	126	-1	25	Drum kit 26	@43
+drum	9	126	-1	56	Drum kit 57	@43
+drum	9	126	-1	127	Drum kit 128	@43
+drum	9	126	-1	128	Drum kit 129	@43
+drum	9	126	0	-1	Drum kit 0	@44
+drum	9	126	0	0	SFX Kit 1 (XG)	@45
+drum	9	126	0	1	SFX Kit 2 (XG)	@45
+drum	9	126	0	2	Drum kit 3	@44
+drum	9	126	0	3	Drum kit 4	@44
+drum	9	126	0	4	Drum kit 5	@44
+drum	9	126	0	5	Drum kit 6	@44
+drum	9	126	0	6	Drum kit 7	@44
+drum	9	126	0	7	Drum kit 8	@44
+drum	9	126	0	8	Drum kit 9	@44
+drum	9	126	0	9	Drum kit 10	@44
+drum	9	126	0	10	Drum kit 11	@44
+drum	9	126	0	11	Drum kit 12	@44
+drum	9	126	0	12	Drum kit 13	@44
+drum	9	126	0	13	Drum kit 14	@44
+drum	9	126	0	14	Drum kit 15	@44
+drum	9	126	0	15	Drum kit 16	@44
+drum	9	126	0	16	Drum kit 17	@44
+drum	9	126	0	17	Drum kit 18	@44
+drum	9	126	0	18	Drum kit 19	@44
+drum	9	126	0	19	Drum kit 20	@44
+drum	9	126	0	20	Drum kit 21	@44
+drum	9	126	0	21	Drum kit 22	@44
+drum	9	126	0	22	Drum kit 23	@44
+drum	9	126	0	23	Drum kit 24	@44
+drum	9	126	0	24	Drum kit 25	@44
+drum	9	126	0	25	Drum kit 26	@44
+drum	9	126	0	26	Drum kit 27	@44
+drum	9	126	0	27	Drum kit 28	@44
+drum	9	126	0	28	Drum kit 29	@44
+drum	9	126	0	29	Drum kit 30	@44
+drum	9	126	0	30	Drum kit 31	@44
+drum	9	126	0	31	Drum kit 32	@44
+drum	9	126	0	32	Drum kit 33	@44
+drum	9	126	0	33	Drum kit 34	@44
+drum	9	126	0	34	Drum kit 35	@44
+drum	9	126	0	35	Drum kit 36	@44
+drum	9	126	0	36	Drum kit 37	@44
+drum	9	126	0	37	Drum kit 38	@44
+drum	9	126	0	38	Drum kit 39	@44
+drum	9	126	0	39	Drum kit 40	@44
+drum	9	126	0	40	Drum kit 41	@44
+drum	9	126	0	41	Drum kit 42	@44
+drum	9	126	0	42	Drum kit 43	@44
+drum	9	126	0	43	Drum kit 44	@44
+drum	9	126	0	44	Drum kit 45	@44
+drum	9	126	0	45	Drum kit 46	@44
+drum	9	126	0	46	Drum kit 47	@44
+drum	9	126	0	47	Drum kit 48	@44
+drum	9	126	0	48	Drum kit 49	@44
+drum	9	126	0	49	Drum kit 50	@44
+drum	9	126	0	50	Drum kit 51	@44
+drum	9	126	0	51	Drum kit 52	@44
+drum	9	126	0	52	Drum kit 53	@44
+drum	9	126	0	53	Drum kit 54	@44
+drum	9	126	0	54	Drum kit 55	@44
+drum	9	126	0	55	Drum kit 56	@44
+drum	9	126	0	56	Drum kit 57	@44
+drum	9	126	0	57	Drum kit 58	@44
+drum	9	126	0	58	Drum kit 59	@44
+drum	9	126	0	59	Drum kit 60	@44
+drum	9	126	0	60	Drum kit 61	@44
+drum	9	126	0	61	Drum kit 62	@44
+drum	9	126	0	62	Drum kit 63	@44
+drum	9	126	0	63	Drum kit 64	@44
+drum	9	126	0	64	Drum kit 65	@44
+drum	9	126	0	65	Drum kit 66	@44
+drum	9	126	0	66	Drum kit 67	@44
+drum	9	126	0	67	Drum kit 68	@44
+drum	9	126	0	68	Drum kit 69	@44
+drum	9	126	0	69	Drum kit 70	@44
+drum	9	126	0	70	Drum kit 71	@44
+drum	9	126	0	71	Drum kit 72	@44
+drum	9	126	0	72	Drum kit 73	@44
+drum	9	126	0	73	Drum kit 74	@44
+drum	9	126	0	74	Drum kit 75	@44
+drum	9	126	0	75	Drum kit 76	@44
+drum	9	126	0	76	Drum kit 77	@44
+drum	9	126	0	77	Drum kit 78	@44
+drum	9	126	0	78	Drum kit 79	@44
+drum	9	126	0	79	Drum kit 80	@44
+drum	9	126	0	80	Drum kit 81	@44
+drum	9	126	0	81	Drum kit 82	@44
+drum	9	126	0	82	Drum kit 83	@44
+drum	9	126	0	83	Drum kit 84	@44
+drum	9	126	0	84	Drum kit 85	@44
+drum	9	126	0	85	Drum kit 86	@44
+drum	9	126	0	86	Drum kit 87	@44
+drum	9	126	0	87	Drum kit 88	@44
+drum	9	126	0	88	Drum kit 89	@44
+drum	9	126	0	89	Drum kit 90	@44
+drum	9	126	0	90	Drum kit 91	@44
+drum	9	126	0	91	Drum kit 92	@44
+drum	9	126	0	92	Drum kit 93	@44
+drum	9	126	0	93	Drum kit 94	@44
+drum	9	126	0	94	Drum kit 95	@44
+drum	9	126	0	95	Drum kit 96	@44
+drum	9	126	0	96	Drum kit 97	@44
+drum	9	126	0	97	Drum kit 98	@44
+drum	9	126	0	98	Drum kit 99	@44
+drum	9	126	0	99	Drum kit 100	@44
+drum	9	126	0	100	Drum kit 101	@44
+drum	9	126	0	101	Drum kit 102	@44
+drum	9	126	0	102	Drum kit 103	@44
+drum	9	126	0	103	Drum kit 104	@44
+drum	9	126	0	104	Drum kit 105	@44
+drum	9	126	0	105	Drum kit 106	@44
+drum	9	126	0	106	Drum kit 107	@44
+drum	9	126	0	107	Drum kit 108	@44
+drum	9	126	0	108	Drum kit 109	@44
+drum	9	126	0	109	Drum kit 110	@44
+drum	9	126	0	110	Drum kit 111	@44
+drum	9	126	0	111	Drum kit 112	@44
+drum	9	126	0	112	Drum kit 113	@44
+drum	9	126	0	113	Drum kit 114	@44
+drum	9	126	0	114	Drum kit 115	@44
+drum	9	126	0	115	Drum kit 116	@44
+drum	9	126	0	116	Drum kit 117	@44
+drum	9	126	0	117	Drum kit 118	@44
+drum	9	126	0	118	Drum kit 119	@44
+drum	9	126	0	119	Drum kit 120	@44
+drum	9	126	0	120	Drum kit 121	@44
+drum	9	126	0	121	Drum kit 122	@44
+drum	9	126	0	122	Drum kit 123	@44
+drum	9	126	0	123	Drum kit 124	@44
+drum	9	126	0	124	Drum kit 125	@44
+drum	9	126	0	125	Drum kit 126	@44
+drum	9	126	0	126	Drum kit 127	@44
+drum	9	126	0	127	Drum kit 128	@44
+drum	9	126	0	128	Drum kit 129	@44
+drum	9	126	1	-1	Drum kit 0	@46
+drum	9	126	1	0	Drum kit 1	@46
+drum	9	126	1	1	Drum kit 2	@46
+drum	9	126	1	8	Drum kit 9	@46
+drum	9	126	1	25	Drum kit 26	@46
+drum	9	126	1	56	Drum kit 57	@46
+drum	9	126	1	127	Drum kit 128	@46
+drum	9	126	1	128	Drum kit 129	@46
+drum	9	126	127	-1	Drum kit 0	@47
+drum	9	126	127	0	Drum kit 1	@47
+drum	9	126	127	1	Drum kit 2	@47
+drum	9	126	127	8	Drum kit 9	@47
+drum	9	126	127	25	Drum kit 26	@47
+drum	9	126	127	56	Drum kit 57	@47
+drum	9	126	127	127	Drum kit 128	@47
+drum	9	126	127	128	Drum kit 129	@47
+drum	9	127	-1	-1	Drum kit 0	@48
+drum	9	127	-1	0	Drum kit 1	@48
+drum	9	127	-1	1	Drum kit 2	@48
+drum	9	127	-1	8	Drum kit 9	@48
+drum	9	127	-1	25	Drum kit 26	@48
+drum	9	127	-1	56	Drum kit 57	@48
+drum	9	127	-1	127	Drum kit 128	@48
+drum	9	127	-1	128	Drum kit 129	@48
+drum	9	127	0	-1	Drum kit 0	@49
+drum	9	127	0	0	Standard Kit 1 (XG)	@50
+drum	9	127	0	1	Standard Kit 2 (XG)	@50
+drum	9	127	0	2	Drum kit 3	@49
+drum	9	127	0	3	Drum kit 4	@49
+drum	9	127	0	4	Drum kit 5	@49
+drum	9	127	0	5	Drum kit 6	@49
+drum	9	127	0	6	Drum kit 7	@49
+drum	9	127	0	7	Drum kit 8	@49
+drum	9	127	0	8	Room Kit (XG)	@50
+drum	9	127	0	9	Drum kit 10	@49
+drum	9	127	0	10	Drum kit 11	@49
+drum	9	127	0	11	Drum kit 12	@49
+drum	9	127	0	12	Drum kit 13	@49
+drum	9	127	0	13	Drum kit 14	@49
+drum	9	127	0	14	Drum kit 15	@49
+drum	9	127	0	15	Drum kit 16	@49
+drum	9	127	0	16	Rock Kit (XG)	@50
+drum	9	127	0	17	Drum kit 18	@49
+drum	9	127	0	18	Drum kit 19	@49
+drum	9	127	0	19	Drum kit 20	@49
+drum	9	127	0	20	Drum kit 21	@49
+drum	9	127	0	21	Drum kit 22	@49
+drum	9	127	0	22	Drum kit 23	@49
+drum	9	127	0	23	Drum kit 24	@49
+drum	9	127	0	24	Electro Kit (XG)	@50
+drum	9	127	0	25	Analog Kit (XG)	@50
+drum	9	127	0	26	Drum kit 27	@49
+drum	9	127	0	27	Drum kit 28	@49
+drum	9	127	0	28	Drum kit 29	@49
+drum	9	127	0	29	Drum kit 30	@49
+drum	9	127	0	30	Drum kit 31	@49
+drum	9	127	0	31	Drum kit 32	@49
+drum	9	127	0	32	Jazz Kit (XG)	@50
+drum	9	127	0	33	Drum kit 34	@49
+drum	9	127	0	34	Drum kit 35	@49
+drum	9	127	0	35	Drum kit 36	@49
+drum	9	127	0	36	Drum kit 37	@49
+drum	9	127	0	37	Drum kit 38	@49
+drum	9	127	0	38	Drum kit 39	@49
+drum	9	127	0	39	Drum kit 40	@49
+drum	9	127	0	40	Brush Kit (XG)	@50
+drum	9	127	0	41	Drum kit 42	@49
+drum	9	127	0	42	Drum kit 43	@49
+drum	9	127	0	43	Drum kit 44	@49
+drum	9	127	0	44	Drum kit 45	@49
+drum	9	127	0	45	Drum kit 46	@49
+drum	9	127	0	46	Drum kit 47	@49
+drum	9	127	0	47	Drum kit 48	@49
+drum	9	127	0	48	Classic Kit (XG)	@50
+drum	9	127	0	49	Drum kit 50	@49
+drum	9	127	0	50	Drum kit 51	@49
+drum	9	127	0	51	Drum kit 52	@49
+drum	9	127	0	52	Drum kit 53	@49
+drum	9	127	0	53	Drum kit 54	@49
+drum	9	127	0	54	Drum kit 55	@49
+drum	9	127	0	55	Drum kit 56	@49
+drum	9	127	0	56	Drum kit 57	@49
+drum	9	127	0	57	Drum kit 58	@49
+drum	9	127	0	58	Drum kit 59	@49
+drum	9	127	0	59	Drum kit 60	@49
+drum	9	127	0	60	Drum kit 61	@49
+drum	9	127	0	61	Drum kit 62	@49
+drum	9	127	0	62	Drum kit 63	@49
+drum	9	127	0	63	Drum kit 64	@49
+drum	9	127	0	64	Drum kit 65	@49
+drum	9	127	0	65	Drum kit 66	@49
+drum	9	127	0	66	Drum kit 67	@49
+drum	9	127	0	67	Drum kit 68	@49
+drum	9	127	0	68	Drum kit 69	@49
+drum	9	127	0	69	Drum kit 70	@49
+drum	9	127	0	70	Drum kit 71	@49
+drum	9	127	0	71	Drum kit 72	@49
+drum	9	127	0	72	Drum kit 73	@49
+drum	9	127	0	73	Drum kit 74	@49
+drum	9	127	0	74	Drum kit 75	@49
+drum	9	127	0	75	Drum kit 76	@49
+drum	9	127	0	76	Drum kit 77	@49
+drum	9	127	0	77	Drum kit 78	@49
+drum	9	127	0	78	Drum kit 79	@49
+drum	9	127	0	79	Drum kit 80	@49
+drum	9	127	0	80	Drum kit 81	@49
+drum	9	127	0	81	Drum kit 82	@49
+drum	9	127	0	82	Drum kit 83	@49
+drum	9	127	0	83	Drum kit 84	@49
+drum	9	127	0	84	Drum kit 85	@49
+drum	9	127	0	85	Drum kit 86	@49
+drum	9	127	0	86	Drum kit 87	@49
+drum	9	127	0	87	Drum kit 88	@49
+drum	9	127	0	88	Drum kit 89	@49
+drum	9	127	0	89	Drum kit 90	@49
+drum	9	127	0	90	Drum kit 91	@49
+drum	9	127	0	91	Drum kit 92	@49
+drum	9	127	0	92	Drum kit 93	@49
+drum	9	127	0	93	Drum kit 94	@49
+drum	9	127	0	94	Drum kit 95	@49
+drum	9	127	0	95	Drum kit 96	@49
+drum	9	127	0	96	Drum kit 97	@49
+drum	9	127	0	97	Drum kit 98	@49
+drum	9	127	0	98	Drum kit 99	@49
+drum	9	127	0	99	Drum kit 100	@49
+drum	9	127	0	100	Drum kit 101	@49
+drum	9	127	0	101	Drum kit 102	@49
+drum	9	127	0	102	Drum kit 103	@49
+drum	9	127	0	103	Drum kit 104	@49
+drum	9	127	0	104	Drum kit 105	@49
+drum	9	127	0	105	Drum kit 106	@49
+drum	9	127	0	106	Drum kit 107	@49
+drum	9	127	0	107	Drum kit 108	@49
+drum	9	127	0	108	Drum kit 109	@49
+drum	9	127	0	109	Drum kit 110	@49
+drum	9	127	0	110	Drum kit 111	@49
+drum	9	127	0	111	Drum kit 112	@49
+drum	9	127	0	112	Drum kit 113	@49
+drum	9	127	0	113	Drum kit 114	@49
+drum	9	127	0	114	Drum kit 115	@49
+drum	9	127	0	115	Drum kit 116	@49
+drum	9	127	0	116	Drum kit 117	@49
+drum	9	127	0	117	Drum kit 118	@49
+drum	9	127	0	118	Drum kit 119	@49
+drum	9	127	0	119	Drum kit 120	@49
+drum	9	127	0	120	Drum kit 121	@49
+drum	9	127	0	121	Drum kit 122	@49
+drum	9	127	0	122	Drum kit 123	@49
+drum	9	127	0	123	Drum kit 124	@49
+drum	9	127	0	124	Drum kit 125	@49
+drum	9	127	0	125	Drum kit 126	@49
+drum	9	127	0	126	Drum kit 127	@49
+drum	9	127	0	127	Drum kit 128	@49
+drum	9	127	0	128	Drum kit 129	@49
+drum	9	127	1	-1	Drum kit 0	@51
+drum	9	127	1	0	Drum kit 1	@51
+drum	9	127	1	1	Drum kit 2	@51
+drum	9	127	1	8	Drum kit 9	@51
+drum	9	127	1	25	Drum kit 26	@51
+drum	9	127	1	56	Drum kit 57	@51
+drum	9	127	1	127	Drum kit 128	@51
+drum	9	127	1	128	Drum kit 129	@51
+drum	9	127	127	-1	Drum kit 0	@52
+drum	9	127	127	0	Drum kit 1	@52
+drum	9	127	127	1	Drum kit 2	@52
+drum	9	127	127	8	Drum kit 9	@52
+drum	9	127	127	25	Drum kit 26	@52
+drum	9	127	127	56	Drum kit 57	@52
+drum	9	127	127	127	Drum kit 128	@52
+drum	9	127	127	128	Drum kit 129	@52
+drum	0	-1	0	-1	Unknown program	@53
+drum	0	-1	0	0	Acoustic Grand Piano	@53
+drum	0	-1	0	25	Acoustic Guitar (steel)	@53
+drum	0	-1	0	127	Gunshot	@53
+drum	0	-1	0	128	Unknown program	@53
+drum	0	0	0	-1	Unknown program	@53
+drum	0	0	0	0	Acoustic Grand Piano	@53
+drum	0	0	0	25	Acoustic Guitar (steel)	@53
+drum	0	0	0	127	Gunshot	@53
+drum	0	0	0	128	Unknown program	@53
+drum	0	120	0	-1	Unknown program	@53
+drum	0	120	0	0	Acoustic Grand Piano	@53
+drum	0	120	0	25	Acoustic Guitar (steel)	@53
+drum	0	120	0	127	Gunshot	@53
+drum	0	120	0	128	Unknown program	@53
+drum	0	127	0	-1	Unknown program	@53
+drum	0	127	0	0	Acoustic Grand Piano	@53
+drum	0	127	0	25	Acoustic Guitar (steel)	@53
+drum	0	127	0	127	Gunshot	@53
+drum	0	127	0	128	Unknown program	@53
+drum	5	-1	0	-1	Unknown program	@53
+drum	5	-1	0	0	Acoustic Grand Piano	@53
+drum	5	-1	0	25	Acoustic Guitar (steel)	@53
+drum	5	-1	0	127	Gunshot	@53
+drum	5	-1	0	128	Unknown program	@53
+drum	5	0	0	-1	Unknown program	@53
+drum	5	0	0	0	Acoustic Grand Piano	@53
+drum	5	0	0	25	Acoustic Guitar (steel)	@53
+drum	5	0	0	127	Gunshot	@53
+drum	5	0	0	128	Unknown program	@53
+drum	5	120	0	-1	Unknown program	@53
+drum	5	120	0	0	Acoustic Grand Piano	@53
+drum	5	120	0	25	Acoustic Guitar (steel)	@53
+drum	5	120	0	127	Gunshot	@53
+drum	5	120	0	128	Unknown program	@53
+drum	5	127	0	-1	Unknown program	@53
+drum	5	127	0	0	Acoustic Grand Piano	@53
+drum	5	127	0	25	Acoustic Guitar (steel)	@53
+drum	5	127	0	127	Gunshot	@53
+drum	5	127	0	128	Unknown program	@53
+drum	8	-1	0	-1	Unknown program	@53
+drum	8	-1	0	0	Acoustic Grand Piano	@53
+drum	8	-1	0	25	Acoustic Guitar (steel)	@53
+drum	8	-1	0	127	Gunshot	@53
+drum	8	-1	0	128	Unknown program	@53
+drum	8	0	0	-1	Unknown program	@53
+drum	8	0	0	0	Acoustic Grand Piano	@53
+drum	8	0	0	25	Acoustic Guitar (steel)	@53
+drum	8	0	0	127	Gunshot	@53
+drum	8	0	0	128	Unknown program	@53
+drum	8	120	0	-1	Unknown program	@53
+drum	8	120	0	0	Acoustic Grand Piano	@53
+drum	8	120	0	25	Acoustic Guitar (steel)	@53
+drum	8	120	0	127	Gunshot	@53
+drum	8	120	0	128	Unknown program	@53
+drum	8	127	0	-1	Unknown program	@53
+drum	8	127	0	0	Acoustic Grand Piano	@53
+drum	8	127	0	25	Acoustic Guitar (steel)	@53
+drum	8	127	0	127	Gunshot	@53
+drum	8	127	0	128	Unknown program	@53
+drum	10	-1	0	-1	Unknown program	@53
+drum	10	-1	0	0	Acoustic Grand Piano	@53
+drum	10	-1	0	25	Acoustic Guitar (steel)	@53
+drum	10	-1	0	127	Gunshot	@53
+drum	10	-1	0	128	Unknown program	@53
+drum	10	0	0	-1	Unknown program	@53
+drum	10	0	0	0	Acoustic Grand Piano	@53
+drum	10	0	0	25	Acoustic Guitar (steel)	@53
+drum	10	0	0	127	Gunshot	@53
+drum	10	0	0	128	Unknown program	@53
+drum	10	120	0	-1	Unknown program	@53
+drum	10	120	0	0	Acoustic Grand Piano	@53
+drum	10	120	0	25	Acoustic Guitar (steel)	@53
+drum	10	120	0	127	Gunshot	@53
+drum	10	120	0	128	Unknown program	@53
+drum	10	127	0	-1	Unknown program	@53
+drum	10	127	0	0	Acoustic Grand Piano	@53
+drum	10	127	0	25	Acoustic Guitar (steel)	@53
+drum	10	127	0	127	Gunshot	@53
+drum	10	127	0	128	Unknown program	@53
+drum	15	-1	0	-1	Unknown program	@53
+drum	15	-1	0	0	Acoustic Grand Piano	@53
+drum	15	-1	0	25	Acoustic Guitar (steel)	@53
+drum	15	-1	0	127	Gunshot	@53
+drum	15	-1	0	128	Unknown program	@53
+drum	15	0	0	-1	Unknown program	@53
+drum	15	0	0	0	Acoustic Grand Piano	@53
+drum	15	0	0	25	Acoustic Guitar (steel)	@53
+drum	15	0	0	127	Gunshot	@53
+drum	15	0	0	128	Unknown program	@53
+drum	15	120	0	-1	Unknown program	@53
+drum	15	120	0	0	Acoustic Grand Piano	@53
+drum	15	120	0	25	Acoustic Guitar (steel)	@53
+drum	15	120	0	127	Gunshot	@53
+drum	15	120	0	128	Unknown program	@53
+drum	15	127	0	-1	Unknown program	@53
+drum	15	127	0	0	Acoustic Grand Piano	@53
+drum	15	127	0	25	Acoustic Guitar (steel)	@53
+drum	15	127	0	127	Gunshot	@53
+drum	15	127	0	128	Unknown program	@53
+patch	-1	-1	-2	No valid Program Change was found for this source lane.
+patch	-1	-1	-1	No valid Program Change was found for this source lane.
+patch	-1	-1	0	Program 1 \u2014 Acoustic Grand Piano (General MIDI reference only; bank ?/? may use a different sound).
+patch	-1	-1	1	Program 2 \u2014 Bright Acoustic Piano (General MIDI reference only; bank ?/? may use a different sound).
+patch	-1	-1	24	Program 25 \u2014 Acoustic Guitar (nylon) (General MIDI reference only; bank ?/? may use a different sound).
+patch	-1	-1	127	Program 128 \u2014 Gunshot (General MIDI reference only; bank ?/? may use a different sound).
+patch	-1	-1	128	No valid Program Change was found for this source lane.
+patch	-1	-1	129	No valid Program Change was found for this source lane.
+patch	-1	0	-2	No valid Program Change was found for this source lane.
+patch	-1	0	-1	No valid Program Change was found for this source lane.
+patch	-1	0	0	Program 1 \u2014 Acoustic Grand Piano (General MIDI reference only; bank ?/0 may use a different sound).
+patch	-1	0	1	Program 2 \u2014 Bright Acoustic Piano (General MIDI reference only; bank ?/0 may use a different sound).
+patch	-1	0	24	Program 25 \u2014 Acoustic Guitar (nylon) (General MIDI reference only; bank ?/0 may use a different sound).
+patch	-1	0	127	Program 128 \u2014 Gunshot (General MIDI reference only; bank ?/0 may use a different sound).
+patch	-1	0	128	No valid Program Change was found for this source lane.
+patch	-1	0	129	No valid Program Change was found for this source lane.
+patch	-1	1	-2	No valid Program Change was found for this source lane.
+patch	-1	1	-1	No valid Program Change was found for this source lane.
+patch	-1	1	0	Program 1 \u2014 Acoustic Grand Piano (General MIDI reference only; bank ?/1 may use a different sound).
+patch	-1	1	1	Program 2 \u2014 Bright Acoustic Piano (General MIDI reference only; bank ?/1 may use a different sound).
+patch	-1	1	24	Program 25 \u2014 Acoustic Guitar (nylon) (General MIDI reference only; bank ?/1 may use a different sound).
+patch	-1	1	127	Program 128 \u2014 Gunshot (General MIDI reference only; bank ?/1 may use a different sound).
+patch	-1	1	128	No valid Program Change was found for this source lane.
+patch	-1	1	129	No valid Program Change was found for this source lane.
+patch	0	-1	-2	No valid Program Change was found for this source lane.
+patch	0	-1	-1	No valid Program Change was found for this source lane.
+patch	0	-1	0	Program 1 \u2014 Acoustic Grand Piano (General MIDI reference only; bank 0/? may use a different sound).
+patch	0	-1	1	Program 2 \u2014 Bright Acoustic Piano (General MIDI reference only; bank 0/? may use a different sound).
+patch	0	-1	24	Program 25 \u2014 Acoustic Guitar (nylon) (General MIDI reference only; bank 0/? may use a different sound).
+patch	0	-1	127	Program 128 \u2014 Gunshot (General MIDI reference only; bank 0/? may use a different sound).
+patch	0	-1	128	No valid Program Change was found for this source lane.
+patch	0	-1	129	No valid Program Change was found for this source lane.
+patch	0	0	-2	No valid Program Change was found for this source lane.
+patch	0	0	-1	No valid Program Change was found for this source lane.
+patch	0	0	0	Program 1 \u2014 Acoustic Grand Piano (General MIDI).
+patch	0	0	1	Program 2 \u2014 Bright Acoustic Piano (General MIDI).
+patch	0	0	24	Program 25 \u2014 Acoustic Guitar (nylon) (General MIDI).
+patch	0	0	127	Program 128 \u2014 Gunshot (General MIDI).
+patch	0	0	128	No valid Program Change was found for this source lane.
+patch	0	0	129	No valid Program Change was found for this source lane.
+patch	0	1	-2	No valid Program Change was found for this source lane.
+patch	0	1	-1	No valid Program Change was found for this source lane.
+patch	0	1	0	Program 1 \u2014 Acoustic Grand Piano (General MIDI reference only; bank 0/1 may use a different sound).
+patch	0	1	1	Program 2 \u2014 Bright Acoustic Piano (General MIDI reference only; bank 0/1 may use a different sound).
+patch	0	1	24	Program 25 \u2014 Acoustic Guitar (nylon) (General MIDI reference only; bank 0/1 may use a different sound).
+patch	0	1	127	Program 128 \u2014 Gunshot (General MIDI reference only; bank 0/1 may use a different sound).
+patch	0	1	128	No valid Program Change was found for this source lane.
+patch	0	1	129	No valid Program Change was found for this source lane.
+patch	1	-1	-2	No valid Program Change was found for this source lane.
+patch	1	-1	-1	No valid Program Change was found for this source lane.
+patch	1	-1	0	Program 1 \u2014 Acoustic Grand Piano (General MIDI reference only; bank 1/? may use a different sound).
+patch	1	-1	1	Program 2 \u2014 Bright Acoustic Piano (General MIDI reference only; bank 1/? may use a different sound).
+patch	1	-1	24	Program 25 \u2014 Acoustic Guitar (nylon) (General MIDI reference only; bank 1/? may use a different sound).
+patch	1	-1	127	Program 128 \u2014 Gunshot (General MIDI reference only; bank 1/? may use a different sound).
+patch	1	-1	128	No valid Program Change was found for this source lane.
+patch	1	-1	129	No valid Program Change was found for this source lane.
+patch	1	0	-2	No valid Program Change was found for this source lane.
+patch	1	0	-1	No valid Program Change was found for this source lane.
+patch	1	0	0	Program 1 \u2014 Acoustic Grand Piano (General MIDI reference only; bank 1/0 may use a different sound).
+patch	1	0	1	Program 2 \u2014 Bright Acoustic Piano (General MIDI reference only; bank 1/0 may use a different sound).
+patch	1	0	24	Program 25 \u2014 Acoustic Guitar (nylon) (General MIDI reference only; bank 1/0 may use a different sound).
+patch	1	0	127	Program 128 \u2014 Gunshot (General MIDI reference only; bank 1/0 may use a different sound).
+patch	1	0	128	No valid Program Change was found for this source lane.
+patch	1	0	129	No valid Program Change was found for this source lane.
+patch	1	1	-2	No valid Program Change was found for this source lane.
+patch	1	1	-1	No valid Program Change was found for this source lane.
+patch	1	1	0	Program 1 \u2014 Acoustic Grand Piano (General MIDI reference only; bank 1/1 may use a different sound).
+patch	1	1	1	Program 2 \u2014 Bright Acoustic Piano (General MIDI reference only; bank 1/1 may use a different sound).
+patch	1	1	24	Program 25 \u2014 Acoustic Guitar (nylon) (General MIDI reference only; bank 1/1 may use a different sound).
+patch	1	1	127	Program 128 \u2014 Gunshot (General MIDI reference only; bank 1/1 may use a different sound).
+patch	1	1	128	No valid Program Change was found for this source lane.
+patch	1	1	129	No valid Program Change was found for this source lane.
+patch	127	-1	-2	No valid Program Change was found for this source lane.
+patch	127	-1	-1	No valid Program Change was found for this source lane.
+patch	127	-1	0	Program 1 \u2014 Acoustic Grand Piano (General MIDI reference only; bank 127/? may use a different sound).
+patch	127	-1	1	Program 2 \u2014 Bright Acoustic Piano (General MIDI reference only; bank 127/? may use a different sound).
+patch	127	-1	24	Program 25 \u2014 Acoustic Guitar (nylon) (General MIDI reference only; bank 127/? may use a different sound).
+patch	127	-1	127	Program 128 \u2014 Gunshot (General MIDI reference only; bank 127/? may use a different sound).
+patch	127	-1	128	No valid Program Change was found for this source lane.
+patch	127	-1	129	No valid Program Change was found for this source lane.
+patch	127	0	-2	No valid Program Change was found for this source lane.
+patch	127	0	-1	No valid Program Change was found for this source lane.
+patch	127	0	0	Program 1 \u2014 Acoustic Grand Piano (General MIDI reference only; bank 127/0 may use a different sound).
+patch	127	0	1	Program 2 \u2014 Bright Acoustic Piano (General MIDI reference only; bank 127/0 may use a different sound).
+patch	127	0	24	Program 25 \u2014 Acoustic Guitar (nylon) (General MIDI reference only; bank 127/0 may use a different sound).
+patch	127	0	127	Program 128 \u2014 Gunshot (General MIDI reference only; bank 127/0 may use a different sound).
+patch	127	0	128	No valid Program Change was found for this source lane.
+patch	127	0	129	No valid Program Change was found for this source lane.
+patch	127	1	-2	No valid Program Change was found for this source lane.
+patch	127	1	-1	No valid Program Change was found for this source lane.
+patch	127	1	0	Program 1 \u2014 Acoustic Grand Piano (General MIDI reference only; bank 127/1 may use a different sound).
+patch	127	1	1	Program 2 \u2014 Bright Acoustic Piano (General MIDI reference only; bank 127/1 may use a different sound).
+patch	127	1	24	Program 25 \u2014 Acoustic Guitar (nylon) (General MIDI reference only; bank 127/1 may use a different sound).
+patch	127	1	127	Program 128 \u2014 Gunshot (General MIDI reference only; bank 127/1 may use a different sound).
+patch	127	1	128	No valid Program Change was found for this source lane.
+patch	127	1	129	No valid Program Change was found for this source lane.

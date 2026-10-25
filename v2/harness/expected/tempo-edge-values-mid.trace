@@ -1,0 +1,64 @@
+# producer v1-reference (MIDIBottleneck v1.0.44 sources) x64 clr 4.0.30319.42000
+# input tempo-edge-values.mid
+trace-format 1
+mode full
+[file]
+size 79
+container smf
+[preflight]
+status ok
+format 0
+tracks 1
+division 120
+dispatchable-events 4
+note-ons 2
+final-long-payload-bytes 0
+provisional-payload-bytes 0
+tempo-changes 2
+source-value-entries 0
+chase-state-entries 0
+chase-parameter-value-entries 0
+running-status-repairs 0
+routing-lanes 1
+routing-patch-state-events 0
+routing-patch-timeline-upper-bound 0
+routing-generated-state-upper-bound 6
+track 0 events 4 payload-bytes 0 tempo-changes 2
+source-slots 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+routing-note-lanes-by-channel 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+routing-patch-state-by-channel 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+estimate ptr4 retained 9464 peak-low 2106708 peak-high 3335860 provisional 352 merge-workspace 2097244 names 576 routing-retained 1140 routing-peak 1356 retained-with-routing 10604 routing-peak-total 10820 warning-threshold 1073741824 architecture-risk 0 requires-warning 0
+estimate ptr8 retained 18184 peak-low 2115480 peak-high 3344728 provisional 448 merge-workspace 2097296 names 624 routing-retained 1688 routing-peak 2032 retained-with-routing 19872 routing-peak-total 20216 warning-threshold 4294967296 architecture-risk 0 requires-warning 0
+requires-preflight ptr4 0 ptr8 0
+[song]
+status ok
+format 0
+tracks 1
+division 120
+note-count 2
+running-status-repairs 0
+duration-us 85046223
+events 4
+payload-bytes 0
+track 0 name "" name-truncated 0 instrument "" instrument-truncated 0
+[tempo]
+count 2
+t 10 41667 1 0 4
+t 20 41667 16777215 0 6
+[events]
+count 4
+e 0 0 0 0 NoteOn 0 90 3 903C64
+e 1 20 41667 0 NoteOff 0 80 3 803C00
+e 2 148 17937363 0 NoteOn 0 90 3 903E64
+e 3 628 85046223 0 NoteOff 0 80 3 803E00
+[source-index]
+count 0
+[chase-index]
+entries 0 parameter-series 0
+[source-query]
+[chase-readouts]
+[chase-messages]
+final -
+[chase-messages-filtered]
+final -
+[end]

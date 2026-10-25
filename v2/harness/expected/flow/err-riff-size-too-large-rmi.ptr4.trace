@@ -1,0 +1,28 @@
+# producer v1-reference (MIDIBottleneck v1.0.44 sources) x86 clr 4.0.30319.42000
+# input err-riff-size-too-large.rmi
+trace-format 1
+kind flow
+mode full
+pointer-size 4
+[scenario natural]
+reports 0 decision-requested 0
+outcome error InvalidDataException "The RIFF/RMID container extends beyond the source file."
+[scenario preflight]
+reports 0 decision-requested 0
+outcome error InvalidDataException "The RIFF/RMID container extends beyond the source file."
+[scenario warning-decline]
+reports 0 decision-requested 0
+outcome error InvalidDataException "The RIFF/RMID container extends beyond the source file."
+[scenario warning-accept]
+reports 0 decision-requested 0
+outcome error InvalidDataException "The RIFF/RMID container extends beyond the source file."
+[scenario warning-accept-cancel]
+reports 0 decision-requested 0
+outcome error InvalidDataException "The RIFF/RMID container extends beyond the source file."
+[cancel-sweep natural]
+k 0 reports 0 decision-requested 0 outcome error InvalidDataException "The RIFF/RMID container extends beyond the source file."
+k 1 reports 0 decision-requested 0 outcome error InvalidDataException "The RIFF/RMID container extends beyond the source file."
+[cancel-sweep warning-accept]
+k 0 reports 0 decision-requested 0 outcome error InvalidDataException "The RIFF/RMID container extends beyond the source file."
+k 1 reports 0 decision-requested 0 outcome error InvalidDataException "The RIFF/RMID container extends beyond the source file."
+[end]

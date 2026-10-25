@@ -6,7 +6,7 @@ body:
   - type: input
     id: build
     attributes:
-      label: Build, architecture, Windows version
+      label: Build and architecture (x64, x86 or XP), Windows version
     validations:
       required: true
   - type: textarea
@@ -20,4 +20,4 @@ body:
     id: measurements
     attributes:
       label: Measurements
-      description: Prefer median/range and distinguish load time, source waiting, managed work, native calls, lag, and memory metric.
+      description: Prefer median/range and distinguish load time, source waiting, engine work, native calls, lag, and memory metric.

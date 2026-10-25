@@ -1,0 +1,8 @@
+# Parity inputs and reference outputs must keep their exact bytes.
+harness/fixtures/*.mid binary
+harness/fixtures/*.rmi binary
+harness/expected/** -text
+*.trace -text
+
+# Shell scripts run on Linux (also from a Windows checkout through WSL): always LF line endings.
+*.sh text eol=lf

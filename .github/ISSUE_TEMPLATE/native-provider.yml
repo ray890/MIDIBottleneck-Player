@@ -1,20 +1,20 @@
 name: Native-provider compatibility
-description: Report a bounded WinMM or KDMAPI compatibility issue.
+description: Report a bounded WinMM, Direct WinMM or KDMAPI compatibility issue.
 title: "[Provider] "
 labels: [compatibility]
 body:
   - type: input
     id: build
     attributes:
-      label: Build and executable architecture
-      placeholder: Build 23, x64
+      label: Build and architecture
+      placeholder: "2.0.0, x64 (or x86, or XP; see About)"
     validations:
       required: true
   - type: input
     id: provider
     attributes:
       label: Output API and provider
-      placeholder: WinMM or KDMAPI; provider name/version/architecture
+      placeholder: WinMM, Direct WinMM or KDMAPI; provider name/version/architecture
     validations:
       required: true
   - type: textarea

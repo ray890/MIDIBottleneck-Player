@@ -1,0 +1,201 @@
+# routing-ui table for routing-patches-4097.mid (v1 TrackRoutingForm, see RoutingUiReference.cs)
+fixture	routing-patches-4097.mid
+session	1	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	2	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	3	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	4	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	5	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	6	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	7	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	8	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	9	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	10	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	11	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	12	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	13	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	14	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	15	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	16	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	17	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	18	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	19	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	20	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	21	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	22	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	23	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	24	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	25	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	26	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	27	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	28	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	29	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	30	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	31	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	32	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	33	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	34	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	35	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	36	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	37	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	38	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	39	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	40	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	41	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	42	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	43	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	44	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	45	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	46	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	47	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	48	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	49	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	50	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	51	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	52	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	53	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	54	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	55	init=tier=1,cap=4,perc=0,usable=FFFF,manual=-	active=1	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	56	init=tier=2,cap=3,perc=1,usable=0E07,manual=-	active=1	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	57	init=tier=0,cap=0,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	58	init=tier=1,cap=99,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	59	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=1	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	60	init=tier=2,cap=4,perc=0,usable=FFFF,manual=-	active=0	culture=de-DE
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	61	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=de-DE
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	62	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	63	init=tier=0,cap=15,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	64	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=1	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	65	init=tier=2,cap=2,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+session	66	init=tier=0,cap=16,perc=0,usable=FFFF,manual=-	active=0	culture=en-US
+X	InvalidOperationException	Track-routing analysis exceeded the bounded distinct-patch limit for track 1, ch 1.
+end
+# end of table

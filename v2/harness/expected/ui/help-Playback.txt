@@ -1,0 +1,5 @@
+Play starts the loaded MIDI. The same button pauses and resumes. Stop silences the output and clears pending work. Use the timeline or five-second buttons to seek.
+
+Chase MIDI state on Play/Seek is on by default in the title-bar menu. It restores earlier bank, program, controller, bend, and pressure settings at a nonzero starting point, but does not replay earlier notes. Pause and Seek normally use a safe reset boundary. The default-off Preserve playback queue on Pause and Seek command instead parks the same worker on Pause; Seek drains admitted work, then sends All Notes Off before target chase and target events. It can take a long time and does not guarantee immediate silence.
+
+The default-off Output-paced timeline command pauses source progression while deterministic service or a synchronous output call is being accepted. Later source timestamps keep their spacing instead of catching up in a burst. Analysis models deterministic service but cannot predict native-provider blocking.

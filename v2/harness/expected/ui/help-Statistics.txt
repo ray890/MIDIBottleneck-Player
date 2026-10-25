@@ -1,0 +1,5 @@
+Timeline / output shows the player's current source position and the last dispatched output position. Queue now / maximum measures unsent scheduler/output work, including a blocked output call.
+
+Events sent excludes muted and override-filtered source events. Queue drops and gate exclusions are combined in the visible dropped total while diagnostics retain separate reasons. Output rate gate reports required safety/state messages sent over its configured target separately, not as dropped work. Output rate is a recent dispatch rate. Effective speed compares resolved source progress with real time. Lag compares a sent event's time with its original MIDI time; it does not measure audio-device latency.
+
+Reset stats clears counters without changing playback.

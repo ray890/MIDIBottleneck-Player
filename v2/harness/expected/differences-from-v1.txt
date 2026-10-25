@@ -1,0 +1,83 @@
+# Rules that classify the differences between v1.0.44's recorded output and v2's output.
+# Read by midibn-parity and v2-xp-selftest (and midibn-engine-harness --rules). Every rule belongs to an entry
+# of the improvement register, v2/docs/DIFFERENCES_FROM_V1.md (the DD-NNN id). A difference that no rule
+# explains fails; a rule whose targets were compared and that no longer matches anything also fails.
+# Grammar: v2/harness/TRACE_FORMAT.md, "Difference rules". Short form, one rule per line:
+#   trace  DD-NNN <trace glob> /<v1 line regex>/ /<v2 line regex>/   a line that differs at the same position
+#                                                                  (${N} in the v2 regex = text of group N of the v1 regex)
+#   insert DD-NNN <trace glob> /<v2 line regex>/                     a line v2 has and v1 does not
+#   delete DD-NNN <trace glob> /<v1 line regex>/                     a line v1 has and v2 no longer has
+#   engine DD-NNN <scenario glob>@<fixture glob> normalize=<name> [pin=<fixture>:<lines>,...] [files=out|sched|both]
+#   engine DD-NNN <scenario glob>@<fixture glob> explained [files=out|sched|both]
+# Regular expressions are ECMAScript and must match the whole line. Globs: * and ? and comma-separated alternatives.
+format 1
+
+# DD-001: SysEx messages of 1 to 3 bytes keep their bytes (v1 reads them back as zeros).
+# Load/index traces: the line is the same except that the data field, all zeros in v1, holds the file's bytes in v2.
+trace DD-001 sysex-short-mid.trace,sysex-variants-mid.trace /(e \d+ \d+ \d+ \d+ SystemExclusive -1 (?:F0|F7) )([123]) (?:00)+/ /${1}${2} [0-9A-F]{2,6}/
+# Engine recordings: v2's SEND line of a 1-3 byte SysEx is mapped to v1's zeros before hashing; the number of
+# mapped recording lines is pinned per fixture (over all 172 scenarios). The pins count v2's lines; v1 has fewer (1976 and 679) because in the
+# DD-006 scenario v2 plays on after the Resume where v1 froze (9 and 2 more SysEx lines); make-engine-expected.ps1 checks v1 against this:
+# v1-pin: sysex-short:1976,sysex-variants:679
+engine DD-001 *@sysex-short,sysex-variants normalize=short-sysex-zeroed pin=sysex-short:1985,sysex-variants:681
+
+# DD-020: event times from exact integer arithmetic. v1's decimal rounding noise made it one microsecond low where the
+# true time is exactly halfway between two microseconds, so a changed time is always v1's plus one.
+# Load/index traces: the tempo-map time and the event time of the affected lines.
+trace DD-020 decimal-halfway-mid.trace,tempo-changes-mid.trace /t (\d+) (\d+) (\d+) (\d+) (\d+)/ /t ${1} ${2+1} ${3} ${4} ${5}/
+trace DD-020 decimal-halfway-mid.trace,tempo-changes-mid.trace /e (\d+) (\d+) (\d+) (\d+) (.*)/ /e ${1} ${2} ${3+1} ${4} ${5}/
+# The large fixture's summary digest (it covers the event times).
+trace DD-020 large-8m-mid.summary.trace /digest sha256 [0-9A-F]{64}/ /digest sha256 [0-9A-F]{64}/
+# Analysis results computed on those two fixtures (digest of the buckets or of the emitted messages).
+trace DD-020 models/analysis.trace /= (buckets|emitted) (\d+) [0-9a-f]{16} (.*)/ /= ${1} ${2} [0-9a-f]{16} .*/
+# Engine recordings of the two fixtures: sends and wake-ups move by that microsecond.
+engine DD-020 *@decimal-halfway,tempo-changes explained
+
+# DD-024: the large-file memory estimate counts what v2 really stores (24-byte events, no .NET object headers).
+trace DD-024 *-mid.trace,*-rmi.trace,large-8m-mid.summary.trace /estimate ptr(\d) retained .*/ /estimate ptr${1} retained .*/
+
+# DD-027: the routing memory estimate is tight, so the 8M-event fixture no longer needs the large-file warning on a 32-bit
+# system. Its 32-bit load flow asks no question (v1: one decision request and one more progress report, "Waiting for confirmation"),
+# which also changes the digest of the reports (two scenarios: natural load and forced preflight).
+trace DD-027 flow/large-8m-mid.ptr4.summary.trace /digest sha256 [0-9A-F]{64}/ /digest sha256 [0-9A-F]{64}/
+trace DD-027 flow/large-8m-mid.ptr4.summary.trace /reports \d+ decision-requested 1/ /reports \d+ decision-requested 0/
+
+# DD-025: the single-event overflow choices are named "Drop newest events" / "Drop oldest events"; the message of the Analysis model
+# that names a choice follows (16 lines of the analysis model trace; the policy numbers in the traces are unchanged).
+trace DD-025 models/analysis.trace /! InvalidOperationException - Drop oldest and Clear buffer require Simulate slowdown; a forward-only model cannot retract MIDI that was already sent\./ /! InvalidOperationException - Drop oldest events and Clear buffer require Simulate slowdown; a forward-only model cannot retract MIDI that was already sent\./
+
+# DD-004: model misuse made robust. A second attack with an index already queued is refused without half-adding a node (v1: the node stays linked);
+# the four state lines until the queue is cleared show the missing node. A bitrate near Int64.Max no longer overflows (142 results are 1 where v1 threw);
+# a negative pacer timestamp is stored as the clamped 0 (18 state lines).
+trace DD-004 models/queue.trace /~ n481 o120 k481 e161 s2 f-1 x481 h20 t19 eh20 et19 ho0 to0 d5a738d0b57dbd9d0/ /~ n480 o120 k481 e160 s2 f19 x481 h20 t480 eh20 et478 ho0 to0 d3b702d6c79cb662d/
+trace DD-004 models/queue.trace /~ n482 o120 k482 e161 s2 f-1 x482 h20 t481 eh20 et19 ho0 to0 d88e77af24c1c49bd/ /~ n481 o120 k481 e160 s2 f-1 x481 h20 t19 eh20 et478 ho0 to0 dd6bff3e849a143f0/
+trace DD-004 models/queue.trace /~ n481 o121 k482 e160 s2 f20 x482 h21 t481 eh23 et19 ho0 to0 dd032cdb20d75813a/ /~ n480 o121 k481 e159 s2 f20 x481 h21 t19 eh23 et478 ho0 to0 db19a61648844f72f/
+trace DD-004 models/queue.trace /~ n481 o121 k481 e0 s2 f-1 x0 h-1 t-1 eh-1 et-1 ho0 to225 dd032cdb20d75813a/ /~ n480 o121 k480 e0 s2 f-1 x0 h-1 t-1 eh-1 et-1 ho0 to224 db19a61648844f72f/
+trace DD-004 models/rate.trace /! OverflowException - Arithmetic operation resulted in an overflow\./ /= 1/
+trace DD-004 models/rate.trace /(~ i1 x0 w\d+ r\d+ h1 v[01] q0 t)-\d+(:1)/ /${1}0${2}/
+
+# DD-006: an override set and cleared while paused no longer freezes the ordered path (v1: PlaybackFailed after the livelock guard; v2 plays on).
+engine DD-006 ordered-override-pause-set-clear-resume@* explained files=both
+# DD-007: an event that lands exactly on the paused / restart time is not sent a second time. Only songs with several events at the same
+# microsecond near the command (long-sysex-segment-crossing, many-events-segments, the two metadata songs) show it in the lock-step runs.
+engine DD-007 queue-pause-resume,queue-pause-resume-twice,override-pause-resume,override-pause-set-clear-resume@long-sysex-segment-crossing explained files=both
+engine DD-007 gate-per-note-interval-live,gate-per-note-interval-restart-while-paused,gate-note-attack-limit-live,gate-output-rate-limit-live,gate-output-rate-limit-restart-while-paused,ordered-gate-note-attack-limit-live,ordered-gate-output-rate-limit-live,ordered-gate-output-rate-limit-restart-while-paused@long-sysex-segment-crossing,many-events-segments explained files=both
+engine DD-007 ordered-output-paced-gate-output-rate-limit-live@long-sysex-segment-crossing,many-events-segments,metadata-edge,metadata-names explained files=both
+engine DD-007 gate-delayed-note-off-live@many-events-segments explained files=both
+# DD-008: the ordered Drop path counts a NoteOff that is suppressed with its dropped NoteOn as dropped (the SNAP/FINAL dropped counters).
+engine DD-008 ordered-drop-policy-drop-oldest-complete-note,ordered-drop-policy-drop-background-notes@many-events-segments,models-dense,models-notes explained files=out
+engine DD-008 ordered-drop-policy-drop-incoming-complete-notes@models-dense,models-notes explained files=out
+# DD-009: the snapshot of the ordered Per-note interval and Delayed NoteOff modes reports the real queue length, outstanding count and age.
+engine DD-009 ordered-gate-per-note-interval,ordered-gate-per-note-interval-scale-polyphony-4,ordered-gate-delayed-note-off,ordered-output-paced-gate-per-note-interval,ordered-output-paced-gate-delayed-note-off@* explained files=out
+engine DD-009 ordered-gate-per-note-interval-live,ordered-gate-delayed-note-off-live@* explained files=both
+
+
+# DD-012: the file ends inside the MIDI header: .NET's end-of-stream text is replaced by a plain sentence (24 trace lines: 2 load lines, 11 per flow trace).
+trace DD-012 err-header-truncated-mid.trace,flow/err-header-truncated-mid.ptr4.trace,flow/err-header-truncated-mid.ptr8.trace /(.*EndOfStreamException )"Unable to read beyond the end of the stream\."/ /${1}"The file ended before its MIDI header was complete\. It is damaged or not a complete MIDI file\."/
+
+# DD-044: a track name that is cut at 128 UTF-16 units is cut between whole characters (v1 could end it with the first half of
+# a character: one line in the metadata-names load trace, 108 lines in the routing model trace where the name appears in lane, row and preview lines).
+trace DD-044 metadata-names-mid.trace /(track \d+ name "a+)\\uD83D(" name-truncated 1 .*)/ /${1}${2}/
+trace DD-044 models/routing.trace /(= lane \S+ name a+)\\uD83D( inst .* display a+)\\uD83D( .*)/ /${1}${2}${3}/
+trace DD-044 models/routing.trace /(= row \S+ \| a+)\\uD83D( \\u00B7 channel .*)/ /${1}${2}/
+trace DD-044 models/routing.trace /(= preview   \\u2022 a+)\\uD83D( \\u00B7 source ch .*)/ /${1}${2}/

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Light theme from API 27: dark navigation bar icons on the light bottom bar. (Dark mode uses values-night.) -->
+<resources>
+    <style name="AppTheme" parent="android:Theme.DeviceDefault.Light.NoActionBar">
+        <item name="android:windowBackground">@color/p_background</item>
+        <item name="android:colorPrimary">@color/p_bar</item>
+        <item name="android:colorPrimaryDark">@color/p_bar</item>
+        <item name="android:colorAccent">@color/p_accent</item>
+        <item name="android:colorControlActivated">@color/p_accent</item>
+        <item name="android:colorControlNormal">@color/p_text_secondary</item>
+        <item name="android:colorButtonNormal">@color/p_tonal</item>
+        <item name="android:statusBarColor">@color/p_bar</item>
+        <item name="android:navigationBarColor">@color/p_surface</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+</resources>

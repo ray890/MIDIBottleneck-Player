@@ -1,0 +1,73 @@
+trace-format 1
+mode full
+[file]
+size 124
+container rmid
+[preflight]
+status ok
+format 1
+tracks 2
+division 480
+dispatchable-events 6
+note-ons 2
+final-long-payload-bytes 4
+provisional-payload-bytes 4
+tempo-changes 2
+source-value-entries 1
+chase-state-entries 1
+chase-parameter-value-entries 0
+running-status-repairs 0
+routing-lanes 1
+routing-patch-state-events 1
+routing-patch-timeline-upper-bound 1
+routing-generated-state-upper-bound 9
+track 0 events 0 payload-bytes 0 tempo-changes 2
+track 1 events 6 payload-bytes 4 tempo-changes 0
+source-slots 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+routing-note-lanes-by-channel 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+routing-patch-state-by-channel 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+estimate ptr4 retained 61420 peak-low 1175884 peak-high 1236080 provisional 460 merge-workspace 1114176 names 1200 routing-retained 974 routing-peak 1186 retained-with-routing 62394 routing-peak-total 62606 warning-threshold 1073741824 architecture-risk 0 requires-warning 0
+estimate ptr8 retained 121500 peak-low 1236108 peak-high 1356336 provisional 604 merge-workspace 1114176 names 1248 routing-retained 1230 routing-peak 1482 retained-with-routing 122730 routing-peak-total 122982 warning-threshold 4294967296 architecture-risk 0 requires-warning 0
+requires-preflight ptr4 0 ptr8 0
+[song]
+status ok
+format 1
+tracks 2
+division 480
+note-count 2
+running-status-repairs 0
+duration-us 1500000
+events 6
+payload-bytes 4
+track 0 name "" name-truncated 0 instrument "" instrument-truncated 0
+track 1 name "" name-truncated 0 instrument "" instrument-truncated 0
+[tempo]
+count 2
+t 0 0 500000 0 0
+t 480 500000 1000000 0 1
+[events]
+count 6
+e 0 0 0 1 ProgramChange 0 C0 2 C005
+e 1 0 0 1 NoteOn 0 90 3 903C64
+e 2 240 250000 1 NoteOn 0 90 3 903E64
+e 3 480 500000 1 NoteOff 0 80 3 803C00
+e 4 960 1500000 1 SystemExclusive -1 F0 4 sha256:F81528A8E4DA9F2A20D3B078D795D6C97CCBD1F2AA994CA6AB707E7656D525E2
+e 5 960 1500000 1 NoteOff 0 80 3 803E00
+[source-index]
+count 1
+slot 0 Program 1
+v 0 5
+[chase-index]
+entries 1 parameter-series 0
+state 0 120 1
+v 0 5
+[source-query]
+q 0 0 0.Program=5
+[chase-readouts]
+r 1 0.Program=5
+[chase-messages]
+c 1 1 sha256:82E5F596FE8DC3CEA6410B50B66F79FCB5908DEAD2100AAB124C1BF6F07A1AC0
+final ProgramChange:C005
+[chase-messages-filtered]
+final -
+[end]

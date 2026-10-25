@@ -1,0 +1,13 @@
+# producer v1-reference (MIDIBottleneck v1.0.44 sources) x64 clr 4.0.30319.42000
+# input err-rmid-empty-data.rmi
+trace-format 1
+mode full
+[file]
+size 20
+container error
+[preflight]
+status error InvalidDataException "The RIFF/RMID data chunk is empty."
+requires-preflight ptr4 0 ptr8 0
+[song]
+status error InvalidDataException "The RIFF/RMID data chunk is empty."
+[end]

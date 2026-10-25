@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Playback continues with the screen off: a foreground service of type mediaPlayback (API 29+; the type
+         permission is required from API 34), a notification (runtime permission from API 33) and a partial wake lock
+         held only while a song plays or is paused. Files come through the system file picker: no storage permission. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <application
+        android:label="@string/app_name"
+        android:allowBackup="false"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|density|fontScale|layoutDirection"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- A MIDI file opened or shared from another app (file manager, browser download, messaging app): by type ... -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="audio/midi" />
+                <data android:mimeType="audio/x-midi" />
+                <data android:mimeType="audio/mid" />
+                <data android:mimeType="audio/x-mid" />
+                <data android:mimeType="audio/sp-midi" />
+                <data android:mimeType="audio/rmf" />
+                <data android:mimeType="application/x-midi" />
+                <data android:mimeType="application/midi" />
+                <data android:mimeType="audio/x-karaoke" />
+            </intent-filter>
+            <!-- ... and by file name, for files a provider labels with some other type (.mid .midi .rmi .kar .smf) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:host="*" />
+                <data android:mimeType="*/*" />
+                <data android:pathPattern=".*\\.mid" />
+                <data android:pathPattern=".*\\.MID" />
+                <data android:pathPattern=".*\\.midi" />
+                <data android:pathPattern=".*\\.MIDI" />
+                <data android:pathPattern=".*\\.rmi" />
+                <data android:pathPattern=".*\\.RMI" />
+                <data android:pathPattern=".*\\.kar" />
+                <data android:pathPattern=".*\\.KAR" />
+                <data android:pathPattern=".*\\.smf" />
+                <data android:pathPattern=".*\\.SMF" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="audio/midi" />
+                <data android:mimeType="audio/x-midi" />
+                <data android:mimeType="audio/mid" />
+                <data android:mimeType="audio/sp-midi" />
+                <data android:mimeType="application/x-midi" />
+                <data android:mimeType="application/midi" />
+            </intent-filter>
+            <!-- A USB MIDI device plugged in: the system offers the player and grants it the device (direct USB route). -->
+            <intent-filter>
+                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
+                android:resource="@xml/usb_midi_filter" />
+        </activity>
+        <activity
+            android:name=".HelpActivity"
+            android:exported="false"
+            android:label="Help" />
+        <activity
+            android:name=".AboutActivity"
+            android:exported="false"
+            android:label="About and licences" />
+        <activity
+            android:name=".SynthSettingsActivity"
+            android:exported="false"
+            android:label="Synth settings" />
+        <service
+            android:name=".PlayerService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+    </application>
+</manifest>

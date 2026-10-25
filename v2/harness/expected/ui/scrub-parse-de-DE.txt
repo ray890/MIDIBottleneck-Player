@@ -1,0 +1,1368 @@
+# ScrubOrTypeTextBox.TryParseEditable / FormatEditable / displayed text under de-DE.
+# Rows: 'parse kind text ok value' (value is the out parameter, the box's value on failure);
+# 'format kind value text'; 'flat kind value text' (the box's displayed text after Value = value).
+culture	de-DE	,	.
+parse	numeric		0	1234
+parse	numeric	 	0	1234
+parse	numeric	0	1	0
+parse	numeric	1	1	1
+parse	numeric	5	1	5
+parse	numeric	-0	1	0
+parse	numeric	-1	1	-1
+parse	numeric	+1	1	1
+parse	numeric	+0	1	0
+parse	numeric	007	1	7
+parse	numeric	000000000000000000000012	1	12
+parse	numeric	42	1	42
+parse	numeric	 42	1	42
+parse	numeric	42 	1	42
+parse	numeric	\t42\t	1	42
+parse	numeric	\u00a042	1	42
+parse	numeric	1,234	0	1234
+parse	numeric	1,2,3	0	1234
+parse	numeric	1,,2	0	1234
+parse	numeric	,1	0	1234
+parse	numeric	1,	0	1234
+parse	numeric	1,234,567	0	1234
+parse	numeric	1.234	1	1234
+parse	numeric	1.234.567	1	1234567
+parse	numeric	1.	1	1
+parse	numeric	.5	0	1234
+parse	numeric	1.5	1	15
+parse	numeric	1,5	0	1234
+parse	numeric	12 34	0	1234
+parse	numeric	1 234	0	1234
+parse	numeric	2147483647	1	2147483647
+parse	numeric	2147483648	0	1234
+parse	numeric	-2147483648	1	-2147483648
+parse	numeric	-2147483649	0	1234
+parse	numeric	4294967296	0	1234
+parse	numeric	99999999999	0	1234
+parse	numeric	0000002147483647	1	2147483647
+parse	numeric	1234567890	1	1234567890
+parse	numeric	12345678901	0	1234
+parse	numeric	- 5	0	1234
+parse	numeric	+ 5	0	1234
+parse	numeric	--5	0	1234
+parse	numeric	-+5	0	1234
+parse	numeric	5-	0	1234
+parse	numeric	5+	0	1234
+parse	numeric	(5)	0	1234
+parse	numeric	-(5)	0	1234
+parse	numeric	1e3	0	1234
+parse	numeric	1E3	0	1234
+parse	numeric	0x10	0	1234
+parse	numeric	abc	0	1234
+parse	numeric	5a	0	1234
+parse	numeric	a5	0	1234
+parse	numeric	On	0	1234
+parse	numeric	Off	0	1234
+parse	numeric	on	0	1234
+parse	numeric	OFF	0	1234
+parse	numeric	oN	0	1234
+parse	numeric	 on 	0	1234
+parse	numeric	onn	0	1234
+parse	numeric	1,000,000	0	1234
+parse	numeric	1000000	1	1000000
+parse	numeric	1000001	1	1000001
+parse	numeric	127	1	127
+parse	numeric	128	1	128
+parse	numeric	126	1	126
+parse	numeric	-128	1	-128
+parse	numeric	\u0661\u0662	0	1234
+parse	numeric	\uff11\uff12	0	1234
+parse	numeric	1\u00a0234	0	1234
+parse	numeric	1\u202f234	0	1234
+parse	numeric	5\u2212	0	1234
+parse	numeric	\u22125	0	1234
+parse	numeric	1\u066c234	0	1234
+parse	numeric	\u200b5	0	1234
+parse	numeric	5\u200b	0	1234
+parse	numeric	\ufeff5	0	1234
+parse	numeric	\u2003 5 \u2003	1	5
+parse	numeric	\u00855	1	5
+parse	numeric	5\u2028	1	5
+parse	numeric	1_000	0	1234
+parse	numeric	\u0661\u0662\u0663	0	1234
+parse	numeric	15\u0000	1	15
+parse	numeric	\u000015	0	1234
+parse	numeric	\u2212 	0	1234
+parse	numeric	511-2941	0	1234
+parse	numeric	9(7	0	1234
+parse	numeric	34	1	34
+parse	numeric	\u00a0	0	1234
+parse	numeric	OO\u22121,4.	0	1234
+parse	numeric	+0	1	0
+parse	numeric	4	1	4
+parse	numeric	5	1	5
+parse	numeric	3795-19)8	0	1234
+parse	numeric	648)4n 0	0	1234
+parse	numeric	38	1	38
+parse	numeric	 9e	0	1234
+parse	numeric	 	0	1234
+parse	numeric	4	1	4
+parse	numeric	 63,-56	0	1234
+parse	numeric	a)	0	1234
+parse	numeric	10+2880	0	1234
+parse	numeric	89a\u221265	0	1234
+parse	numeric	5\u00a0	1	5
+parse	numeric	\u202f3+6-71	0	1234
+parse	numeric	3+9 3\u22120)1	0	1234
+parse	numeric	1 3	0	1234
+parse	numeric	69	1	69
+parse	numeric	0,4	0	1234
+parse	numeric	\u2212.87(03\u066c9	0	1234
+parse	numeric	, .394 8	0	1234
+parse	numeric	936,O	0	1234
+parse	numeric	61724\u00a0	1	61724
+parse	numeric	\u202f	0	1234
+parse	numeric	1073.	1	1073
+parse	numeric	8	1	8
+parse	numeric	16\u202f	1	16
+parse	numeric	ea\u00a03 )	0	1234
+parse	numeric	 0\u00a08	0	1234
+parse	numeric	e6086	0	1234
+parse	numeric	1)a	0	1234
+parse	numeric	6766+6	0	1234
+parse	numeric	70\u221207-15	0	1234
+parse	numeric	..013	0	1234
+parse	numeric	\u066c320\u00a0-	0	1234
+parse	numeric	5396	1	5396
+parse	numeric	\u22128	0	1234
+parse	numeric	79946.7-	0	1234
+parse	numeric	37 	1	37
+parse	numeric	6	1	6
+parse	numeric	9\u2212\u202f302	0	1234
+parse	numeric	5)05,	0	1234
+parse	numeric	7a5-	0	1234
+parse	numeric	8910+417-	0	1234
+parse	numeric	8	1	8
+parse	numeric	.0667 n	0	1234
+parse	numeric	809	1	809
+parse	numeric	\u00a085	1	85
+parse	numeric	\u066c896\u202faO98	0	1234
+parse	numeric	a	0	1234
+parse	numeric	\u00a00n(	0	1234
+parse	numeric	+69\u202f	1	69
+parse	numeric	3+686928	0	1234
+parse	numeric	03	1	3
+parse	numeric	5895. 96	0	1234
+parse	numeric	\u2212	0	1234
+parse	numeric	.a225,722	0	1234
+parse	numeric	(6,4	0	1234
+parse	numeric	6a	0	1234
+parse	numeric	2\u066c387	0	1234
+parse	numeric	7	1	7
+parse	numeric	53+85016	0	1234
+parse	numeric	22-87-+16	0	1234
+parse	numeric	+	0	1234
+parse	numeric	8 1	0	1234
+parse	numeric	269+6	0	1234
+parse	numeric	\u066c1. .899	0	1234
+parse	numeric	900 ,	0	1234
+parse	numeric	48.5.e2	0	1234
+parse	numeric	\u202f86	1	86
+parse	numeric	4492	1	4492
+parse	numeric	02\u066cena	0	1234
+parse	numeric	56,6.	0	1234
+parse	numeric	\u202f9+,769	0	1234
+parse	numeric	,	0	1234
+parse	numeric	2	1	2
+parse	numeric	59	1	59
+parse	numeric	n823-	0	1234
+parse	numeric	\u00a021979	1	21979
+parse	numeric	8 	1	8
+parse	numeric	4153.+ 	0	1234
+parse	numeric	29,\u00a0e	0	1234
+parse	numeric	82.	1	82
+parse	numeric	2	1	2
+parse	numeric	95\u00a0\u00a02	0	1234
+parse	numeric	.-07-e	0	1234
+parse	numeric	807 3	0	1234
+parse	numeric	48149	1	48149
+parse	numeric	9,956	0	1234
+parse	numeric	\u066c,562819	0	1234
+parse	numeric	OO,15	0	1234
+parse	numeric	9.30562\u066c	0	1234
+parse	numeric	0nn0	0	1234
+parse	numeric	8..	1	8
+parse	numeric	9n965	0	1234
+parse	numeric	7+2 4e	0	1234
+parse	numeric	838	1	838
+parse	numeric	1a	0	1234
+parse	numeric	+517	1	517
+parse	numeric	83e4\u066c	0	1234
+parse	numeric	092\u202f241	0	1234
+parse	numeric	024	1	24
+parse	numeric	014664750	1	14664750
+parse	numeric	33+	0	1234
+parse	numeric	5 O2121(	0	1234
+parse	numeric	55 17	0	1234
+parse	numeric	03\u2212458	0	1234
+parse	numeric	9\u066c-\u00a09\u202f	0	1234
+parse	numeric	9116\u2212.8	0	1234
+parse	numeric	7((3+,-O9	0	1234
+parse	numeric	9	1	9
+parse	numeric	83)67331	0	1234
+parse	numeric	81.46	1	8146
+parse	numeric	+9n+97.\u00a01	0	1234
+parse	numeric	746	1	746
+parse	numeric	62,-	0	1234
+parse	numeric	85182\u066c9	0	1234
+parse	numeric	97, 2	0	1234
+parse	numeric	.)267	0	1234
+parse	numeric	22443606	1	22443606
+parse	numeric	7424442	1	7424442
+parse	numeric	9	1	9
+parse	numeric	48\u066c(3962	0	1234
+parse	numeric	758,29	0	1234
+parse	numeric	726141O	0	1234
+parse	numeric	a0+	0	1234
+parse	numeric	26\u22128186\u066c	0	1234
+parse	numeric	8\u202f76	0	1234
+parse	numeric	22,9	0	1234
+parse	numeric	96+-9	0	1234
+parse	numeric	8-07	0	1234
+parse	numeric	4824+ 	0	1234
+parse	numeric	.446-.	0	1234
+parse	numeric	e233736\u202f	0	1234
+parse	numeric	.)2608	0	1234
+parse	numeric	-25419(7	0	1234
+parse	numeric	\u066c351-129	0	1234
+parse	numeric	5((9,	0	1234
+parse	numeric	3	1	3
+parse	numeric	-8 -7	0	1234
+parse	numeric	98051	1	98051
+parse	numeric	3(452	0	1234
+parse	numeric	\u066cO2110112	0	1234
+parse	numeric	1407	1	1407
+parse	numeric	8a644	0	1234
+parse	numeric	5a	0	1234
+parse	numeric	82\u066c294	0	1234
+parse	numeric	5	1	5
+parse	numeric	108990\u2212a	0	1234
+parse	numeric	\u066c84507	0	1234
+parse	numeric	990-\u221252	0	1234
+parse	numeric	3898.8	1	38988
+parse	numeric	9O2368910	0	1234
+parse	numeric	+-n-6-	0	1234
+parse	numeric	6-\u202f41	0	1234
+parse	numeric	\u00a07008+	0	1234
+parse	numeric	33a\u22123\u00a08\u066c	0	1234
+parse	numeric	..9227	0	1234
+parse	numeric	34 8912	0	1234
+parse	numeric	7951	1	7951
+parse	numeric	08353,	0	1234
+parse	numeric	89	1	89
+parse	numeric	(4.+20a9\u00a0	0	1234
+parse	numeric	)7a)1\u066c	0	1234
+parse	numeric	-2+	0	1234
+parse	numeric	\u2212+030.-59	0	1234
+parse	numeric	-\u202f086-5)	0	1234
+parse	numeric	6	1	6
+parse	numeric	3.31	1	331
+parse	numeric	680675-	0	1234
+parse	numeric	\u066c04	0	1234
+parse	numeric	.,26O ,	0	1234
+parse	numeric	02	1	2
+parse	numeric	23	1	23
+parse	numeric	1758	1	1758
+parse	numeric	999.48	1	99948
+parse	numeric	290,4	0	1234
+parse	numeric	,	0	1234
+parse	numeric	9+	0	1234
+parse	numeric	3  3812	0	1234
+parse	numeric	7	1	7
+parse	numeric	\u221293 .	0	1234
+parse	numeric	O	0	1234
+parse	numeric	80O+ 	0	1234
+parse	numeric	22.-9e	0	1234
+parse	numeric	(17	0	1234
+parse	numeric	1\u202f1n	0	1234
+parse	numeric	4,8996418	0	1234
+parse	numeric	4969-1+ 3	0	1234
+parse	numeric	4e67	0	1234
+parse	numeric	7	1	7
+parse	numeric	,24+++n	0	1234
+parse	numeric	04a.5	0	1234
+parse	numeric	\u00a02	1	2
+parse	numeric	8.  	1	8
+parse	numeric	59\u221251	0	1234
+parse	numeric	59\u00a04,3+	0	1234
+parse	numeric	26	1	26
+parse	numeric	480n9	0	1234
+parse	numeric	)+16	0	1234
+parse	numeric	 .969892 	0	1234
+parse	numeric	\u202fn42..8	0	1234
+parse	numeric	45 12.	0	1234
+parse	numeric	96e761	0	1234
+parse	numeric	788.67\u00a0	1	78867
+parse	numeric	07\u22123	0	1234
+parse	numeric	3322a169\u202f	0	1234
+parse	numeric	79((	0	1234
+parse	numeric	 ,	0	1234
+parse	numeric	5(70e	0	1234
+parse	numeric	902	1	902
+parse	numeric	41881a3	0	1234
+parse	numeric	5	1	5
+parse	numeric	\u2212+7226451	0	1234
+parse	numeric	9	1	9
+parse	numeric	881	1	881
+parse	numeric	5	1	5
+parse	numeric	14371)\u00a03	0	1234
+parse	numeric	6.5\u202f	1	65
+parse	numeric	1	1	1
+parse	numeric	4051 3),	0	1234
+parse	numeric	)--431	0	1234
+parse	numeric	+,e7\u066c	0	1234
+parse	numeric	6	1	6
+parse	numeric	\u066cO3-n	0	1234
+parse	numeric	013\u2212 \u2212-	0	1234
+parse	numeric	 	0	1234
+parse	numeric	748n4O	0	1234
+parse	numeric	2(6+-5  	0	1234
+parse	numeric	)++)\u066c8	0	1234
+parse	numeric	756 . +	0	1234
+parse	numeric	1.1787	1	11787
+parse	numeric	\u066c1643587	0	1234
+parse	numeric	6533-8 O,	0	1234
+parse	numeric	0	1	0
+parse	numeric	13)	0	1234
+parse	numeric	5O3	0	1234
+parse	numeric	,03	0	1234
+parse	numeric	0	1	0
+parse	numeric	13	1	13
+parse	numeric	+95a9	0	1234
+parse	numeric	1	1	1
+parse	numeric	395	1	395
+parse	numeric	\u066c\u2212 8	0	1234
+parse	numeric	+8\u00a01	0	1234
+parse	numeric	3120(75	0	1234
+parse	numeric	O\u22128-71	0	1234
+parse	numeric	2,9e	0	1234
+parse	numeric	4\u00a0	1	4
+parse	numeric	n01	0	1234
+parse	numeric	5139	1	5139
+parse	numeric	31\u066c24	0	1234
+parse	numeric	53	1	53
+parse	numeric	5857e	0	1234
+parse	numeric	0033669	1	33669
+parse	numeric	.8(622 	0	1234
+parse	numeric	7666(0	0	1234
+parse	numeric	7\u202f408a	0	1234
+parse	numeric	10822	1	10822
+parse	numeric	594a+,0	0	1234
+parse	numeric	\u066c1	0	1234
+parse	numeric	3620 -3	0	1234
+parse	numeric	3	1	3
+parse	numeric	-	0	1234
+parse	numeric	44771\u202f11	0	1234
+parse	numeric	9	1	9
+parse	numeric	en90	0	1234
+parse	numeric	4\u00a09171+-a	0	1234
+parse	numeric	.4+	0	1234
+parse	numeric	8 942406	0	1234
+parse	numeric	763	1	763
+parse	numeric	1 53.\u202f\u066c3O	0	1234
+parse	numeric	3..-7	0	1234
+parse	numeric	e08	0	1234
+parse	numeric	,	0	1234
+parse	numeric	287722	1	287722
+parse	numeric	5	1	5
+parse	numeric	4359\u2212\u00a0700	0	1234
+parse	numeric	7\u00a0	1	7
+parse	numeric	186	1	186
+parse	numeric	.\u2212	0	1234
+parse	numeric	341.01070	1	34101070
+parse	numeric	\u22124\u066c56.31	0	1234
+parse	numeric	253	1	253
+parse	numeric	)9 n 	0	1234
+parse	numeric	.71	0	1234
+parse	numeric	5	1	5
+parse	numeric	3\u066c5	0	1234
+parse	numeric	e3	0	1234
+parse	numeric	349,330e	0	1234
+parse	numeric	78	1	78
+parse	numeric	\u00a012	1	12
+parse	numeric	00\u22128.5,(	0	1234
+parse	numeric	30	1	30
+parse	numeric	96e0\u202f)0	0	1234
+parse	numeric	\u202f688a	0	1234
+parse	numeric	+01	1	1
+parse	numeric	5e9	0	1234
+parse	numeric	\u066c2-25	0	1234
+parse	numeric	3	1	3
+parse	numeric	84	1	84
+parse	numeric	13,e	0	1234
+parse	numeric	8-,	0	1234
+parse	numeric	.\u066c	0	1234
+parse	numeric	55	1	55
+parse	numeric	9	1	9
+parse	numeric	055	1	55
+parse	numeric	2.9O0	0	1234
+parse	numeric	,a)62e	0	1234
+parse	numeric	82853\u202f8	0	1234
+parse	numeric	71	1	71
+parse	numeric	6 \u221236\u00a02	0	1234
+parse	numeric	).8	0	1234
+parse	numeric	n885	0	1234
+parse	numeric	66	1	66
+parse	numeric	.9942	0	1234
+parse	numeric	888(	0	1234
+parse	numeric	7542n96	0	1234
+parse	numeric	3951	1	3951
+parse	numeric	76,	0	1234
+parse	numeric	 94. 78-7	0	1234
+parse	numeric	75 2854	0	1234
+parse	numeric	572\u2212548\u066c8	0	1234
+parse	numeric	2913\u066c7904	0	1234
+parse	numeric	.+2292\u202f6	0	1234
+parse	numeric	288303	1	288303
+parse	numeric	 329409	1	329409
+parse	numeric	0)6722	0	1234
+parse	numeric	2)a4	0	1234
+parse	numeric	528 \u221200	0	1234
+parse	numeric	22215-	0	1234
+parse	numeric	9942	1	9942
+parse	numeric	7\u00a00\u00a05\u22124.3	0	1234
+parse	numeric	-9..+71,	0	1234
+parse	numeric	2(1615\u202f3-	0	1234
+parse	numeric	9(3877066	0	1234
+parse	numeric	0794(	0	1234
+parse	numeric	58-e 	0	1234
+parse	numeric	56	1	56
+parse	numeric	-eO	0	1234
+parse	numeric	4406en2\u2212	0	1234
+parse	numeric	6390375	1	6390375
+parse	numeric	+23e76	0	1234
+parse	numeric	5)658	0	1234
+parse	numeric	70164	1	70164
+parse	numeric	2.-30	0	1234
+parse	numeric	9 8	0	1234
+parse	numeric	8.7,-0+27	0	1234
+parse	numeric	43158-3	0	1234
+parse	numeric	6\u066c5	0	1234
+parse	numeric	539470	1	539470
+parse	numeric	O3\u202fn 39-	0	1234
+parse	numeric	4,+ 887	0	1234
+parse	numeric	\u202f9\u00a0	1	9
+parse	numeric	85	1	85
+parse	numeric	9-6-8.76	0	1234
+parse	numeric	7a9e471	0	1234
+parse	numeric	3\u202f	1	3
+parse	numeric	22446n,\u2212	0	1234
+parse	numeric	 )39	0	1234
+parse	numeric	9639\u00a033a,	0	1234
+parse	numeric	472 	1	472
+parse	numeric	67242	1	67242
+parse	numeric	\u2212	0	1234
+parse	numeric	.	0	1234
+parse	numeric	\u066c	0	1234
+parse	numeric	-6280 49	0	1234
+parse	numeric	+44,(	0	1234
+parse	numeric	62a	0	1234
+parse	numeric	n98,9a,	0	1234
+parse	numeric	90	1	90
+parse	numeric	,914)	0	1234
+parse	numeric	60	1	60
+parse	numeric	9	1	9
+parse	numeric	18\u202f77	0	1234
+parse	numeric	9	1	9
+parse	numeric	\u202f24+34	0	1234
+parse	numeric	.e3864	0	1234
+parse	numeric	465+0	0	1234
+parse	numeric	.89+6	0	1234
+parse	numeric	49.\u2212 9	0	1234
+parse	numeric	 .8	0	1234
+parse	numeric	63566631	1	63566631
+parse	numeric	615\u066c	0	1234
+parse	numeric	n7290\u066c	0	1234
+parse	numeric	17334	1	17334
+parse	numeric	4.3\u202f0	0	1234
+parse	numeric	16\u066c\u066c\u202f.59	0	1234
+parse	numeric	24+	0	1234
+parse	numeric	.4\u22129, 141	0	1234
+parse	numeric	\u22124.	0	1234
+parse	numeric	231	1	231
+parse	numeric	102-a2a	0	1234
+parse	numeric	1.	1	1
+parse	numeric	9\u2212 +3\u221249	0	1234
+parse	numeric	3a4231	0	1234
+parse	numeric	925	1	925
+parse	numeric	9\u066c\u202f	0	1234
+parse	numeric	,05080-9-	0	1234
+parse	numeric	,898.4++	0	1234
+parse	numeric	 4.-7	0	1234
+parse	numeric	78	1	78
+parse	numeric	8 	1	8
+parse	numeric	(3	0	1234
+parse	numeric	4	1	4
+parse	numeric	6+4,4O92	0	1234
+parse	numeric	633286	1	633286
+parse	numeric	680\u066ce\u066ca	0	1234
+parse	numeric	9	1	9
+parse	numeric	4+554	0	1234
+parse	numeric	e2-\u2212.910	0	1234
+parse	numeric	.8\u202f.938	0	1234
+parse	numeric	\u00a0	0	1234
+parse	numeric	2	1	2
+parse	numeric	\u00a06266,	0	1234
+parse	numeric	3	1	3
+parse	numeric	8,e385	0	1234
+parse	numeric	39	1	39
+parse	numeric	478 4322	0	1234
+parse	numeric	75846	1	75846
+parse	numeric	248\u2212	0	1234
+parse	numeric	6\u2212,9,	0	1234
+parse	numeric	7	1	7
+parse	numeric	8	1	8
+parse	numeric	+3\u2212\u066c079	0	1234
+parse	numeric	e5	0	1234
+parse	numeric	0\u00a05On71	0	1234
+parse	numeric	99.O	0	1234
+parse	numeric	\u22129	0	1234
+parse	numeric	4e3e\u202f 4n	0	1234
+parse	numeric	24(51(7()	0	1234
+parse	numeric	a344177	0	1234
+parse	numeric	4\u00a0	1	4
+parse	numeric	5+O9	0	1234
+parse	numeric	1874522	1	1874522
+parse	numeric	24	1	24
+parse	numeric	5503O4	0	1234
+parse	numeric	.38159 	0	1234
+parse	numeric	646)20 0	0	1234
+parse	numeric	013	1	13
+parse	numeric	059-3,05a	0	1234
+parse	numeric	92.\u202f86	0	1234
+parse	numeric	8	1	8
+parse	numeric	7\u2212 79a76	0	1234
+parse	numeric	394788-+0	0	1234
+parse	numeric	335\u066c43	0	1234
+parse	numeric	+2a1 83	0	1234
+parse	numeric	3an	0	1234
+parse	numeric	9(70	0	1234
+parse	numeric	6	1	6
+parse	numeric	4,\u2212-,3301	0	1234
+parse	numeric	-4.7	1	-47
+parse	numeric	923	1	923
+parse	numeric	039732	1	39732
+parse	numeric	608372393	1	608372393
+parse	numeric	7	1	7
+parse	numeric	0,,a4\u202f	0	1234
+parse	numeric	4a56 2\u00a0	0	1234
+parse	numeric	0285348	1	285348
+parse	numeric	6392)(+5.	0	1234
+parse	numeric	,23 522	0	1234
+parse	numeric	00	1	0
+parse	numeric	2+	0	1234
+parse	numeric	7\u202f+809\u202f	0	1234
+parse	numeric	36(\u066c	0	1234
+parse	numeric	4019	1	4019
+parse	numeric	4.a	0	1234
+parse	numeric	(\u066c	0	1234
+parse	numeric	26(1	0	1234
+parse	numeric	an64\u2212 	0	1234
+parse	numeric	5.\u00a0	1	5
+parse	numeric	9-29a30(	0	1234
+parse	numeric	22	1	22
+parse	numeric	706 3	0	1234
+parse	numeric	,79,2	0	1234
+parse	numeric	9	1	9
+parse	numeric	868n(2	0	1234
+parse	numeric	1+62n62\u00a06	0	1234
+parse	numeric	6n-	0	1234
+parse	numeric	.8 4\u066c8359	0	1234
+parse	numeric	0,2\u202f	0	1234
+parse	numeric	,985.651	0	1234
+parse	numeric	97O.(	0	1234
+parse	numeric	39.3	1	393
+parse	numeric	,66	0	1234
+parse	numeric	\u066cn318	0	1234
+parse	numeric	\u202f-584	1	-584
+parse	numeric	768 2	0	1234
+parse	numeric	a	0	1234
+parse	numeric	1053. .	0	1234
+parse	numeric	3\u2212O	0	1234
+parse	numeric	2+,9.1	0	1234
+parse	numeric	7+06	0	1234
+parse	numeric	3	1	3
+parse	numeric	+91	1	91
+parse	numeric	3	1	3
+parse	numeric	23	1	23
+parse	numeric	+7659107	1	7659107
+parse	numeric	\u202fn3	0	1234
+parse	numeric	5204	1	5204
+parse	numeric	a5\u22120 33	0	1234
+parse	numeric	\u066cn	0	1234
+parse	numeric	9+9	0	1234
+parse	numeric	21O	0	1234
+parse	numeric	\u00a00851	1	851
+parse	numeric	3754n	0	1234
+parse	numeric	n894\u00a049	0	1234
+parse	numeric	n	0	1234
+parse	numeric	1834201	1	1834201
+parse	numeric	 1 59	0	1234
+parse	numeric	503+70	0	1234
+parse	numeric	95	1	95
+parse	numeric	56+6-.9	0	1234
+parse	numeric	5e42735	0	1234
+parse	numeric	 710	1	710
+parse	numeric	614,n395	0	1234
+parse	numeric	-)79+1e0	0	1234
+parse	numeric	88O 	0	1234
+parse	numeric	886	1	886
+parse	numeric	O244-n5a6	0	1234
+parse	numeric	4e82439	0	1234
+parse	numeric	,+706	0	1234
+parse	numeric	063	1	63
+parse	numeric	4	1	4
+parse	numeric	5	1	5
+parse	numeric	5	1	5
+parse	numeric	-24(4072	0	1234
+parse	numeric	e+3 0	0	1234
+parse	numeric	04	1	4
+parse	numeric	7\u202f071	0	1234
+parse	numeric	e69	0	1234
+parse	numeric	7\u00a03,+9.a3	0	1234
+parse	numeric	88	1	88
+parse	numeric	923(,	0	1234
+parse	numeric	 0	1	0
+parse	numeric	82..-28	0	1234
+parse	numeric	992	1	992
+parse	numeric	 ,1	0	1234
+parse	numeric	36)73	0	1234
+parse	numeric	(50 (01	0	1234
+parse	numeric	5554- 	0	1234
+parse	numeric	0\u066c697a331	0	1234
+parse	numeric	3(	0	1234
+parse	numeric	9056a	0	1234
+parse	numeric	+45	1	45
+parse	numeric	1 +58	0	1234
+parse	numeric	348a	0	1234
+parse	numeric	e75,-	0	1234
+parse	numeric	989.79+4.	0	1234
+parse	numeric	80231)43+	0	1234
+parse	numeric	948	1	948
+parse	numeric	9\u066c 66	0	1234
+parse	numeric	3en7	0	1234
+parse	numeric	n)9\u066c\u00a08406	0	1234
+parse	numeric	701 ,	0	1234
+parse	numeric	971	1	971
+parse	numeric	e-5	0	1234
+parse	numeric	20-1	0	1234
+parse	numeric	87	1	87
+parse	numeric	8394961a	0	1234
+parse	numeric	344\u22123	0	1234
+parse	numeric	3617,\u066c01	0	1234
+parse	numeric	0\u202f8	0	1234
+parse	numeric	47-233+11	0	1234
+parse	numeric	a	0	1234
+parse	numeric	1O.1	0	1234
+parse	numeric	7	1	7
+parse	numeric	187,72	0	1234
+parse	numeric	866\u066c 	0	1234
+parse	numeric	\u00a09 ,\u22127\u202f\u066c2	0	1234
+parse	numeric	0	1	0
+parse	numeric	793\u202f5. 8	0	1234
+parse	numeric	4 	1	4
+parse	numeric	,4	0	1234
+parse	numeric	1+03)6+90	0	1234
+parse	numeric	0\u22127	0	1234
+parse	numeric	31	1	31
+parse	numeric	n.5	0	1234
+parse	numeric	1 -5901	0	1234
+parse	numeric	0889a0	0	1234
+parse	numeric	11687152	1	11687152
+parse	numeric	+854+68\u066c(	0	1234
+parse	numeric	15e-\u066c9O70	0	1234
+parse	numeric	)e412.13a	0	1234
+parse	numeric	 04481 7	0	1234
+parse	numeric	39a91467	0	1234
+parse	numeric	8	1	8
+parse	numeric	0+.3	0	1234
+parse	numeric	(59	0	1234
+parse	numeric	027\u066c	0	1234
+parse	numeric	4+ 5	0	1234
+parse	numeric	\u066c\u066c2en01	0	1234
+parse	numeric	.	0	1234
+parse	numeric	8\u00a091674	0	1234
+parse	numeric	7.30e7,	0	1234
+parse	numeric	4741(-9.4	0	1234
+parse	numeric	.21+.16-8	0	1234
+parse	numeric	0,-0.0 18	0	1234
+parse	numeric	19	1	19
+parse	numeric	-6\u00a01929	0	1234
+parse	numeric	-4	1	-4
+parse	numeric	39\u22126	0	1234
+parse	numeric	,+e0	0	1234
+parse	numeric	607.	1	607
+parse	numeric	n 9657e	0	1234
+parse	numeric	91-1	0	1234
+parse	numeric	+29O	0	1234
+parse	numeric	835	1	835
+parse	numeric	3\u2212	0	1234
+parse	numeric	,.888864-	0	1234
+format	numeric	-2147483648	-2147483648
+format	numeric	-1000	-1000
+format	numeric	-5	-5
+format	numeric	-1	-1
+format	numeric	0	0
+format	numeric	1	1
+format	numeric	5	5
+format	numeric	126	126
+format	numeric	127	127
+format	numeric	128	128
+format	numeric	1000	1000
+format	numeric	123456	123456
+format	numeric	2147483646	2147483646
+format	numeric	2147483647	2147483647
+flat	numeric	0	0
+flat	numeric	1	1
+flat	numeric	5	5
+flat	numeric	126	126
+flat	numeric	127	127
+flat	numeric	999	999
+flat	numeric	1000	1.000
+flat	numeric	1234	1.234
+flat	numeric	12345	12.345
+flat	numeric	123456	123.456
+flat	numeric	1000000	1.000.000
+parse	channel		0	5
+parse	channel	 	0	5
+parse	channel	0	1	-1
+parse	channel	1	1	0
+parse	channel	5	1	4
+parse	channel	-0	1	-1
+parse	channel	-1	1	-2
+parse	channel	+1	1	0
+parse	channel	+0	1	-1
+parse	channel	007	1	6
+parse	channel	000000000000000000000012	1	11
+parse	channel	42	1	41
+parse	channel	 42	1	41
+parse	channel	42 	1	41
+parse	channel	\t42\t	1	41
+parse	channel	\u00a042	1	41
+parse	channel	1,234	0	5
+parse	channel	1,2,3	0	5
+parse	channel	1,,2	0	5
+parse	channel	,1	0	5
+parse	channel	1,	0	5
+parse	channel	1,234,567	0	5
+parse	channel	1.234	0	5
+parse	channel	1.234.567	0	5
+parse	channel	1.	0	5
+parse	channel	.5	0	5
+parse	channel	1.5	0	5
+parse	channel	1,5	0	5
+parse	channel	12 34	0	5
+parse	channel	1 234	0	5
+parse	channel	2147483647	1	2147483646
+parse	channel	2147483648	0	5
+parse	channel	-2147483648	1	2147483647
+parse	channel	-2147483649	0	5
+parse	channel	4294967296	0	5
+parse	channel	99999999999	0	5
+parse	channel	0000002147483647	1	2147483646
+parse	channel	1234567890	1	1234567889
+parse	channel	12345678901	0	5
+parse	channel	- 5	0	5
+parse	channel	+ 5	0	5
+parse	channel	--5	0	5
+parse	channel	-+5	0	5
+parse	channel	5-	0	5
+parse	channel	5+	0	5
+parse	channel	(5)	0	5
+parse	channel	-(5)	0	5
+parse	channel	1e3	0	5
+parse	channel	1E3	0	5
+parse	channel	0x10	0	5
+parse	channel	abc	0	5
+parse	channel	5a	0	5
+parse	channel	a5	0	5
+parse	channel	On	0	5
+parse	channel	Off	0	5
+parse	channel	on	0	5
+parse	channel	OFF	0	5
+parse	channel	oN	0	5
+parse	channel	 on 	0	5
+parse	channel	onn	0	5
+parse	channel	1,000,000	0	5
+parse	channel	1000000	1	999999
+parse	channel	1000001	1	1000000
+parse	channel	127	1	126
+parse	channel	128	1	127
+parse	channel	126	1	125
+parse	channel	-128	1	-129
+parse	channel	\u0661\u0662	0	5
+parse	channel	\uff11\uff12	0	5
+parse	channel	1\u00a0234	0	5
+parse	channel	1\u202f234	0	5
+parse	channel	5\u2212	0	5
+parse	channel	\u22125	0	5
+parse	channel	1\u066c234	0	5
+parse	channel	\u200b5	0	5
+parse	channel	5\u200b	0	5
+parse	channel	\ufeff5	0	5
+parse	channel	\u2003 5 \u2003	1	4
+parse	channel	\u00855	1	4
+parse	channel	5\u2028	1	4
+parse	channel	1_000	0	5
+parse	channel	\u0661\u0662\u0663	0	5
+parse	channel	15\u0000	1	14
+parse	channel	\u000015	0	5
+parse	channel	\u2212 	0	5
+parse	channel	511-2941	0	5
+parse	channel	9(7	0	5
+parse	channel	34	1	33
+parse	channel	\u00a0	0	5
+parse	channel	OO\u22121,4.	0	5
+parse	channel	+0	1	-1
+parse	channel	4	1	3
+parse	channel	5	1	4
+parse	channel	3795-19)8	0	5
+parse	channel	648)4n 0	0	5
+parse	channel	38	1	37
+parse	channel	 9e	0	5
+parse	channel	 	0	5
+parse	channel	4	1	3
+parse	channel	 63,-56	0	5
+parse	channel	a)	0	5
+parse	channel	10+2880	0	5
+parse	channel	89a\u221265	0	5
+parse	channel	5\u00a0	1	4
+parse	channel	\u202f3+6-71	0	5
+parse	channel	3+9 3\u22120)1	0	5
+parse	channel	1 3	0	5
+parse	channel	69	1	68
+parse	channel	0,4	0	5
+parse	channel	\u2212.87(03\u066c9	0	5
+parse	channel	, .394 8	0	5
+parse	channel	936,O	0	5
+parse	channel	61724\u00a0	1	61723
+parse	channel	\u202f	0	5
+parse	channel	1073.	0	5
+parse	channel	8	1	7
+parse	channel	16\u202f	1	15
+parse	channel	ea\u00a03 )	0	5
+parse	channel	 0\u00a08	0	5
+parse	channel	e6086	0	5
+parse	channel	1)a	0	5
+parse	channel	6766+6	0	5
+parse	channel	70\u221207-15	0	5
+parse	channel	..013	0	5
+parse	channel	\u066c320\u00a0-	0	5
+parse	channel	5396	1	5395
+parse	channel	\u22128	0	5
+parse	channel	79946.7-	0	5
+parse	channel	37 	1	36
+parse	channel	6	1	5
+parse	channel	9\u2212\u202f302	0	5
+parse	channel	5)05,	0	5
+parse	channel	7a5-	0	5
+parse	channel	8910+417-	0	5
+parse	channel	8	1	7
+parse	channel	.0667 n	0	5
+parse	channel	809	1	808
+parse	channel	\u00a085	1	84
+parse	channel	\u066c896\u202faO98	0	5
+parse	channel	a	0	5
+parse	channel	\u00a00n(	0	5
+parse	channel	+69\u202f	1	68
+parse	channel	3+686928	0	5
+parse	channel	03	1	2
+parse	channel	5895. 96	0	5
+parse	channel	\u2212	0	5
+parse	channel	.a225,722	0	5
+parse	channel	(6,4	0	5
+parse	channel	6a	0	5
+parse	channel	2\u066c387	0	5
+parse	channel	7	1	6
+parse	channel	53+85016	0	5
+parse	channel	22-87-+16	0	5
+parse	channel	+	0	5
+parse	channel	8 1	0	5
+parse	channel	269+6	0	5
+parse	channel	\u066c1. .899	0	5
+parse	channel	900 ,	0	5
+parse	channel	48.5.e2	0	5
+parse	channel	\u202f86	1	85
+parse	channel	4492	1	4491
+parse	channel	02\u066cena	0	5
+parse	channel	56,6.	0	5
+parse	channel	\u202f9+,769	0	5
+parse	channel	,	0	5
+parse	channel	2	1	1
+parse	channel	59	1	58
+parse	channel	n823-	0	5
+parse	channel	\u00a021979	1	21978
+parse	channel	8 	1	7
+parse	channel	4153.+ 	0	5
+parse	channel	29,\u00a0e	0	5
+parse	channel	82.	0	5
+parse	channel	2	1	1
+parse	channel	95\u00a0\u00a02	0	5
+parse	channel	.-07-e	0	5
+parse	channel	807 3	0	5
+parse	channel	48149	1	48148
+parse	channel	9,956	0	5
+parse	channel	\u066c,562819	0	5
+parse	channel	OO,15	0	5
+parse	channel	9.30562\u066c	0	5
+parse	channel	0nn0	0	5
+parse	channel	8..	0	5
+parse	channel	9n965	0	5
+parse	channel	7+2 4e	0	5
+parse	channel	838	1	837
+parse	channel	1a	0	5
+parse	channel	+517	1	516
+parse	channel	83e4\u066c	0	5
+parse	channel	092\u202f241	0	5
+parse	channel	024	1	23
+parse	channel	014664750	1	14664749
+parse	channel	33+	0	5
+parse	channel	5 O2121(	0	5
+parse	channel	55 17	0	5
+parse	channel	03\u2212458	0	5
+parse	channel	9\u066c-\u00a09\u202f	0	5
+parse	channel	9116\u2212.8	0	5
+parse	channel	7((3+,-O9	0	5
+parse	channel	9	1	8
+parse	channel	83)67331	0	5
+parse	channel	81.46	0	5
+parse	channel	+9n+97.\u00a01	0	5
+parse	channel	746	1	745
+parse	channel	62,-	0	5
+parse	channel	85182\u066c9	0	5
+parse	channel	97, 2	0	5
+parse	channel	.)267	0	5
+parse	channel	22443606	1	22443605
+parse	channel	7424442	1	7424441
+parse	channel	9	1	8
+parse	channel	48\u066c(3962	0	5
+parse	channel	758,29	0	5
+parse	channel	726141O	0	5
+parse	channel	a0+	0	5
+parse	channel	26\u22128186\u066c	0	5
+parse	channel	8\u202f76	0	5
+parse	channel	22,9	0	5
+parse	channel	96+-9	0	5
+parse	channel	8-07	0	5
+parse	channel	4824+ 	0	5
+parse	channel	.446-.	0	5
+parse	channel	e233736\u202f	0	5
+parse	channel	.)2608	0	5
+parse	channel	-25419(7	0	5
+parse	channel	\u066c351-129	0	5
+parse	channel	5((9,	0	5
+parse	channel	3	1	2
+parse	channel	-8 -7	0	5
+parse	channel	98051	1	98050
+parse	channel	3(452	0	5
+parse	channel	\u066cO2110112	0	5
+parse	channel	1407	1	1406
+parse	channel	8a644	0	5
+parse	channel	5a	0	5
+parse	channel	82\u066c294	0	5
+parse	channel	5	1	4
+parse	channel	108990\u2212a	0	5
+parse	channel	\u066c84507	0	5
+parse	channel	990-\u221252	0	5
+parse	channel	3898.8	0	5
+parse	channel	9O2368910	0	5
+parse	channel	+-n-6-	0	5
+parse	channel	6-\u202f41	0	5
+parse	channel	\u00a07008+	0	5
+parse	channel	33a\u22123\u00a08\u066c	0	5
+parse	channel	..9227	0	5
+parse	channel	34 8912	0	5
+parse	channel	7951	1	7950
+parse	channel	08353,	0	5
+parse	channel	89	1	88
+parse	channel	(4.+20a9\u00a0	0	5
+parse	channel	)7a)1\u066c	0	5
+parse	channel	-2+	0	5
+parse	channel	\u2212+030.-59	0	5
+parse	channel	-\u202f086-5)	0	5
+parse	channel	6	1	5
+parse	channel	3.31	0	5
+parse	channel	680675-	0	5
+parse	channel	\u066c04	0	5
+parse	channel	.,26O ,	0	5
+parse	channel	02	1	1
+parse	channel	23	1	22
+parse	channel	1758	1	1757
+parse	channel	999.48	0	5
+parse	channel	290,4	0	5
+parse	channel	,	0	5
+parse	channel	9+	0	5
+parse	channel	3  3812	0	5
+parse	channel	7	1	6
+parse	channel	\u221293 .	0	5
+parse	channel	O	0	5
+parse	channel	80O+ 	0	5
+parse	channel	22.-9e	0	5
+parse	channel	(17	0	5
+parse	channel	1\u202f1n	0	5
+parse	channel	4,8996418	0	5
+parse	channel	4969-1+ 3	0	5
+parse	channel	4e67	0	5
+parse	channel	7	1	6
+parse	channel	,24+++n	0	5
+parse	channel	04a.5	0	5
+parse	channel	\u00a02	1	1
+parse	channel	8.  	0	5
+parse	channel	59\u221251	0	5
+parse	channel	59\u00a04,3+	0	5
+parse	channel	26	1	25
+parse	channel	480n9	0	5
+parse	channel	)+16	0	5
+parse	channel	 .969892 	0	5
+parse	channel	\u202fn42..8	0	5
+parse	channel	45 12.	0	5
+parse	channel	96e761	0	5
+parse	channel	788.67\u00a0	0	5
+parse	channel	07\u22123	0	5
+parse	channel	3322a169\u202f	0	5
+parse	channel	79((	0	5
+parse	channel	 ,	0	5
+parse	channel	5(70e	0	5
+format	channel	-2147483648	-2147483647
+format	channel	-1000	-999
+format	channel	-5	-4
+format	channel	-1	0
+format	channel	0	1
+format	channel	1	2
+format	channel	5	6
+format	channel	126	127
+format	channel	127	128
+format	channel	128	129
+format	channel	1000	1001
+format	channel	123456	123457
+format	channel	2147483646	2147483647
+format	channel	2147483647	-2147483648
+flat	channel	0	1
+flat	channel	1	2
+flat	channel	5	6
+flat	channel	126	127
+flat	channel	127	128
+flat	channel	127	128
+flat	channel	127	128
+flat	channel	127	128
+flat	channel	127	128
+flat	channel	127	128
+flat	channel	127	128
+parse	toggle		0	0
+parse	toggle	 	0	0
+parse	toggle	0	1	0
+parse	toggle	1	1	1
+parse	toggle	5	1	5
+parse	toggle	-0	1	0
+parse	toggle	-1	1	-1
+parse	toggle	+1	1	1
+parse	toggle	+0	1	0
+parse	toggle	007	1	7
+parse	toggle	000000000000000000000012	1	12
+parse	toggle	42	1	42
+parse	toggle	 42	1	42
+parse	toggle	42 	1	42
+parse	toggle	\t42\t	1	42
+parse	toggle	\u00a042	1	42
+parse	toggle	1,234	0	0
+parse	toggle	1,2,3	0	0
+parse	toggle	1,,2	0	0
+parse	toggle	,1	0	0
+parse	toggle	1,	0	0
+parse	toggle	1,234,567	0	0
+parse	toggle	1.234	0	0
+parse	toggle	1.234.567	0	0
+parse	toggle	1.	0	0
+parse	toggle	.5	0	0
+parse	toggle	1.5	0	0
+parse	toggle	1,5	0	0
+parse	toggle	12 34	0	0
+parse	toggle	1 234	0	0
+parse	toggle	2147483647	1	2147483647
+parse	toggle	2147483648	0	0
+parse	toggle	-2147483648	1	-2147483648
+parse	toggle	-2147483649	0	0
+parse	toggle	4294967296	0	0
+parse	toggle	99999999999	0	0
+parse	toggle	0000002147483647	1	2147483647
+parse	toggle	1234567890	1	1234567890
+parse	toggle	12345678901	0	0
+parse	toggle	- 5	0	0
+parse	toggle	+ 5	0	0
+parse	toggle	--5	0	0
+parse	toggle	-+5	0	0
+parse	toggle	5-	0	0
+parse	toggle	5+	0	0
+parse	toggle	(5)	0	0
+parse	toggle	-(5)	0	0
+parse	toggle	1e3	0	0
+parse	toggle	1E3	0	0
+parse	toggle	0x10	0	0
+parse	toggle	abc	0	0
+parse	toggle	5a	0	0
+parse	toggle	a5	0	0
+parse	toggle	On	1	1
+parse	toggle	Off	1	0
+parse	toggle	on	1	1
+parse	toggle	OFF	1	0
+parse	toggle	oN	1	1
+parse	toggle	 on 	1	1
+parse	toggle	onn	0	0
+parse	toggle	1,000,000	0	0
+parse	toggle	1000000	1	1000000
+parse	toggle	1000001	1	1000001
+parse	toggle	127	1	127
+parse	toggle	128	1	128
+parse	toggle	126	1	126
+parse	toggle	-128	1	-128
+parse	toggle	\u0661\u0662	0	0
+parse	toggle	\uff11\uff12	0	0
+parse	toggle	1\u00a0234	0	0
+parse	toggle	1\u202f234	0	0
+parse	toggle	5\u2212	0	0
+parse	toggle	\u22125	0	0
+parse	toggle	1\u066c234	0	0
+parse	toggle	\u200b5	0	0
+parse	toggle	5\u200b	0	0
+parse	toggle	\ufeff5	0	0
+parse	toggle	\u2003 5 \u2003	1	5
+parse	toggle	\u00855	1	5
+parse	toggle	5\u2028	1	5
+parse	toggle	1_000	0	0
+parse	toggle	\u0661\u0662\u0663	0	0
+parse	toggle	15\u0000	1	15
+parse	toggle	\u000015	0	0
+parse	toggle	\u2212 	0	0
+parse	toggle	511-2941	0	0
+parse	toggle	9(7	0	0
+parse	toggle	34	1	34
+parse	toggle	\u00a0	0	0
+parse	toggle	OO\u22121,4.	0	0
+parse	toggle	+0	1	0
+parse	toggle	4	1	4
+parse	toggle	5	1	5
+parse	toggle	3795-19)8	0	0
+parse	toggle	648)4n 0	0	0
+parse	toggle	38	1	38
+parse	toggle	 9e	0	0
+parse	toggle	 	0	0
+parse	toggle	4	1	4
+parse	toggle	 63,-56	0	0
+parse	toggle	a)	0	0
+parse	toggle	10+2880	0	0
+parse	toggle	89a\u221265	0	0
+parse	toggle	5\u00a0	1	5
+parse	toggle	\u202f3+6-71	0	0
+parse	toggle	3+9 3\u22120)1	0	0
+parse	toggle	1 3	0	0
+parse	toggle	69	1	69
+parse	toggle	0,4	0	0
+parse	toggle	\u2212.87(03\u066c9	0	0
+parse	toggle	, .394 8	0	0
+parse	toggle	936,O	0	0
+parse	toggle	61724\u00a0	1	61724
+parse	toggle	\u202f	0	0
+parse	toggle	1073.	0	0
+parse	toggle	8	1	8
+parse	toggle	16\u202f	1	16
+parse	toggle	ea\u00a03 )	0	0
+parse	toggle	 0\u00a08	0	0
+parse	toggle	e6086	0	0
+parse	toggle	1)a	0	0
+parse	toggle	6766+6	0	0
+parse	toggle	70\u221207-15	0	0
+parse	toggle	..013	0	0
+parse	toggle	\u066c320\u00a0-	0	0
+parse	toggle	5396	1	5396
+parse	toggle	\u22128	0	0
+parse	toggle	79946.7-	0	0
+parse	toggle	37 	1	37
+parse	toggle	6	1	6
+parse	toggle	9\u2212\u202f302	0	0
+parse	toggle	5)05,	0	0
+parse	toggle	7a5-	0	0
+parse	toggle	8910+417-	0	0
+parse	toggle	8	1	8
+parse	toggle	.0667 n	0	0
+parse	toggle	809	1	809
+parse	toggle	\u00a085	1	85
+parse	toggle	\u066c896\u202faO98	0	0
+parse	toggle	a	0	0
+parse	toggle	\u00a00n(	0	0
+parse	toggle	+69\u202f	1	69
+parse	toggle	3+686928	0	0
+parse	toggle	03	1	3
+parse	toggle	5895. 96	0	0
+parse	toggle	\u2212	0	0
+parse	toggle	.a225,722	0	0
+parse	toggle	(6,4	0	0
+parse	toggle	6a	0	0
+parse	toggle	2\u066c387	0	0
+parse	toggle	7	1	7
+parse	toggle	53+85016	0	0
+parse	toggle	22-87-+16	0	0
+parse	toggle	+	0	0
+parse	toggle	8 1	0	0
+parse	toggle	269+6	0	0
+parse	toggle	\u066c1. .899	0	0
+parse	toggle	900 ,	0	0
+parse	toggle	48.5.e2	0	0
+parse	toggle	\u202f86	1	86
+parse	toggle	4492	1	4492
+parse	toggle	02\u066cena	0	0
+parse	toggle	56,6.	0	0
+parse	toggle	\u202f9+,769	0	0
+parse	toggle	,	0	0
+parse	toggle	2	1	2
+parse	toggle	59	1	59
+parse	toggle	n823-	0	0
+parse	toggle	\u00a021979	1	21979
+parse	toggle	8 	1	8
+parse	toggle	4153.+ 	0	0
+parse	toggle	29,\u00a0e	0	0
+parse	toggle	82.	0	0
+parse	toggle	2	1	2
+parse	toggle	95\u00a0\u00a02	0	0
+parse	toggle	.-07-e	0	0
+parse	toggle	807 3	0	0
+parse	toggle	48149	1	48149
+parse	toggle	9,956	0	0
+parse	toggle	\u066c,562819	0	0
+parse	toggle	OO,15	0	0
+parse	toggle	9.30562\u066c	0	0
+parse	toggle	0nn0	0	0
+parse	toggle	8..	0	0
+parse	toggle	9n965	0	0
+parse	toggle	7+2 4e	0	0
+parse	toggle	838	1	838
+parse	toggle	1a	0	0
+parse	toggle	+517	1	517
+parse	toggle	83e4\u066c	0	0
+parse	toggle	092\u202f241	0	0
+parse	toggle	024	1	24
+parse	toggle	014664750	1	14664750
+parse	toggle	33+	0	0
+parse	toggle	5 O2121(	0	0
+parse	toggle	55 17	0	0
+parse	toggle	03\u2212458	0	0
+parse	toggle	9\u066c-\u00a09\u202f	0	0
+parse	toggle	9116\u2212.8	0	0
+parse	toggle	7((3+,-O9	0	0
+parse	toggle	9	1	9
+parse	toggle	83)67331	0	0
+parse	toggle	81.46	0	0
+parse	toggle	+9n+97.\u00a01	0	0
+parse	toggle	746	1	746
+parse	toggle	62,-	0	0
+parse	toggle	85182\u066c9	0	0
+parse	toggle	97, 2	0	0
+parse	toggle	.)267	0	0
+parse	toggle	22443606	1	22443606
+parse	toggle	7424442	1	7424442
+parse	toggle	9	1	9
+parse	toggle	48\u066c(3962	0	0
+parse	toggle	758,29	0	0
+parse	toggle	726141O	0	0
+parse	toggle	a0+	0	0
+parse	toggle	26\u22128186\u066c	0	0
+parse	toggle	8\u202f76	0	0
+parse	toggle	22,9	0	0
+parse	toggle	96+-9	0	0
+parse	toggle	8-07	0	0
+parse	toggle	4824+ 	0	0
+parse	toggle	.446-.	0	0
+parse	toggle	e233736\u202f	0	0
+parse	toggle	.)2608	0	0
+parse	toggle	-25419(7	0	0
+parse	toggle	\u066c351-129	0	0
+parse	toggle	5((9,	0	0
+parse	toggle	3	1	3
+parse	toggle	-8 -7	0	0
+parse	toggle	98051	1	98051
+parse	toggle	3(452	0	0
+parse	toggle	\u066cO2110112	0	0
+parse	toggle	1407	1	1407
+parse	toggle	8a644	0	0
+parse	toggle	5a	0	0
+parse	toggle	82\u066c294	0	0
+parse	toggle	5	1	5
+parse	toggle	108990\u2212a	0	0
+parse	toggle	\u066c84507	0	0
+parse	toggle	990-\u221252	0	0
+parse	toggle	3898.8	0	0
+parse	toggle	9O2368910	0	0
+parse	toggle	+-n-6-	0	0
+parse	toggle	6-\u202f41	0	0
+parse	toggle	\u00a07008+	0	0
+parse	toggle	33a\u22123\u00a08\u066c	0	0
+parse	toggle	..9227	0	0
+parse	toggle	34 8912	0	0
+parse	toggle	7951	1	7951
+parse	toggle	08353,	0	0
+parse	toggle	89	1	89
+parse	toggle	(4.+20a9\u00a0	0	0
+parse	toggle	)7a)1\u066c	0	0
+parse	toggle	-2+	0	0
+parse	toggle	\u2212+030.-59	0	0
+parse	toggle	-\u202f086-5)	0	0
+parse	toggle	6	1	6
+parse	toggle	3.31	0	0
+parse	toggle	680675-	0	0
+parse	toggle	\u066c04	0	0
+parse	toggle	.,26O ,	0	0
+parse	toggle	02	1	2
+parse	toggle	23	1	23
+parse	toggle	1758	1	1758
+parse	toggle	999.48	0	0
+parse	toggle	290,4	0	0
+parse	toggle	,	0	0
+parse	toggle	9+	0	0
+parse	toggle	3  3812	0	0
+parse	toggle	7	1	7
+parse	toggle	\u221293 .	0	0
+parse	toggle	O	0	0
+parse	toggle	80O+ 	0	0
+parse	toggle	22.-9e	0	0
+parse	toggle	(17	0	0
+parse	toggle	1\u202f1n	0	0
+parse	toggle	4,8996418	0	0
+parse	toggle	4969-1+ 3	0	0
+parse	toggle	4e67	0	0
+parse	toggle	7	1	7
+parse	toggle	,24+++n	0	0
+parse	toggle	04a.5	0	0
+parse	toggle	\u00a02	1	2
+parse	toggle	8.  	0	0
+parse	toggle	59\u221251	0	0
+parse	toggle	59\u00a04,3+	0	0
+parse	toggle	26	1	26
+parse	toggle	480n9	0	0
+parse	toggle	)+16	0	0
+parse	toggle	 .969892 	0	0
+parse	toggle	\u202fn42..8	0	0
+parse	toggle	45 12.	0	0
+parse	toggle	96e761	0	0
+parse	toggle	788.67\u00a0	0	0
+parse	toggle	07\u22123	0	0
+parse	toggle	3322a169\u202f	0	0
+parse	toggle	79((	0	0
+parse	toggle	 ,	0	0
+parse	toggle	5(70e	0	0
+format	toggle	-2147483648	On
+format	toggle	-1000	On
+format	toggle	-5	On
+format	toggle	-1	On
+format	toggle	0	Off
+format	toggle	1	On
+format	toggle	5	On
+format	toggle	126	On
+format	toggle	127	On
+format	toggle	128	On
+format	toggle	1000	On
+format	toggle	123456	On
+format	toggle	2147483646	On
+format	toggle	2147483647	On

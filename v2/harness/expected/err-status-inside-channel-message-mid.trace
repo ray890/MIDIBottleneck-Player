@@ -1,0 +1,13 @@
+# producer v1-reference (MIDIBottleneck v1.0.44 sources) x64 clr 4.0.30319.42000
+# input err-status-inside-channel-message.mid
+trace-format 1
+mode full
+[file]
+size 28
+container smf
+[preflight]
+status error InvalidDataException "Unexpected status byte inside a channel message in track 0."
+requires-preflight ptr4 0 ptr8 0
+[song]
+status error InvalidDataException "Unexpected status byte inside a channel message in track 0."
+[end]

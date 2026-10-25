@@ -1,0 +1,14 @@
+Open a .mid, .midi, or RIFF/RMID .rmi file, or drag one file anywhere onto the main window. You can cancel a load without leaving a partly loaded song. Large files may first be inspected and may show a memory warning. A narrowly repairable nonstandard running-status message is disclosed after loading; other malformed MIDI remains rejected.
+
+WinMM uses a Windows MIDI output. KDMAPI needs a compatible provider that you supply. None runs the player without audible MIDI output; it is useful for testing timing and Analysis.
+
+TRACK ROUTING
+With a file loaded and playback stopped, choose Track routing from the title-bar system menu. The planner shows every MIDI track and channel combination, so one MIDI track can appear more than once when it uses multiple channels. It shows the complete destination plan, representative patches, conflicts, retimbrings, percussion exceptions, and unresolved errors, and lets you correct the selected row's destination.
+• Aggressive routing chooses destination representatives across the whole song. It balances important parts, overlapping roles, state conflicts, and distinct instrument colors instead of filling channels with the first safe groups.
+• If merging a lower-value track/channel entry would be more damaging than leaving it out, Aggressive may mark that row Omitted. The table and full preview show the entry and its note-start count. This is a valid lossy plan, not an unresolved error, but Apply remains unavailable until you confirm the warning.
+• Apply is unavailable while any MIDI track/channel entry is genuinely unresolved. GM-family, aggressive, omitted, and manual plans require an explicit warning confirmation.
+• Bank and Program state follows its source MIDI channel even when stored in another track. State-only initialized channels do not become musical entries. Each output channel gets its own deliberate patch timeline: clean non-overlapping instrument handoffs are retained, while competing changes during real overlap yield to the selected representative.
+• The summary states how many MIDI track/channel entries were routed, shared an output channel, were retimbred or omitted, and how many destination Bank/Program messages were generated. These counts describe the same routed view used by Playback and Analysis.
+• Large-file inspection includes bounded routing workspace and retained-name allowances. It does not build a second MIDI copy merely to preview a route; Cancel at the memory warning prevents the risky load.
+• Routing is session-only. It creates an immutable output-channel view shared by Playback, Analysis, state chase, Channels, filtering, overrides, and statistics; the original MIDI data is unchanged.
+• Use original routing clears the stopped session plan. The command is unavailable while Playing or Paused.

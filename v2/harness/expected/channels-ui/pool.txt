@@ -1,0 +1,1435 @@
+# Long texts referenced as @<id> by the other tables.
+0	Channel 10 percussion fallback for unrecognized Bank ?/?. Device-specific drum mappings can differ.
+1	Channel 10 percussion fallback for unrecognized Bank ?/0. Device-specific drum mappings can differ.
+2	Channel 10 percussion fallback for unrecognized Bank ?/1. Device-specific drum mappings can differ.
+3	Channel 10 percussion fallback for unrecognized Bank ?/127. Device-specific drum mappings can differ.
+4	Channel 10 percussion fallback for unrecognized Bank 0/?. Device-specific drum mappings can differ.
+5	Channel 10 percussion fallback for unrecognized Bank 0/0. Device-specific drum mappings can differ.
+6	GM/GS common percussion reference for Bank 0/0. Device-specific drum mappings can differ.
+7	common GS percussion reference for Bank 0/0. Device-specific drum mappings can differ.
+8	Channel 10 percussion fallback for unrecognized Bank 0/1. Device-specific drum mappings can differ.
+9	Channel 10 percussion fallback for unrecognized Bank 0/127. Device-specific drum mappings can differ.
+10	Channel 10 percussion fallback for unrecognized Bank 1/?. Device-specific drum mappings can differ.
+11	Channel 10 percussion fallback for unrecognized Bank 1/0. Device-specific drum mappings can differ.
+12	Channel 10 percussion fallback for unrecognized Bank 1/1. Device-specific drum mappings can differ.
+13	Channel 10 percussion fallback for unrecognized Bank 1/127. Device-specific drum mappings can differ.
+14	Channel 10 percussion fallback for unrecognized Bank 2/?. Device-specific drum mappings can differ.
+15	Channel 10 percussion fallback for unrecognized Bank 2/0. Device-specific drum mappings can differ.
+16	Channel 10 percussion fallback for unrecognized Bank 2/1. Device-specific drum mappings can differ.
+17	Channel 10 percussion fallback for unrecognized Bank 2/127. Device-specific drum mappings can differ.
+18	Channel 10 percussion fallback for unrecognized Bank 63/?. Device-specific drum mappings can differ.
+19	Channel 10 percussion fallback for unrecognized Bank 63/0. Device-specific drum mappings can differ.
+20	Channel 10 percussion fallback for unrecognized Bank 63/1. Device-specific drum mappings can differ.
+21	Channel 10 percussion fallback for unrecognized Bank 63/127. Device-specific drum mappings can differ.
+22	Channel 10 percussion fallback for unrecognized Bank 64/?. Device-specific drum mappings can differ.
+23	Channel 10 percussion fallback for unrecognized Bank 64/0. Device-specific drum mappings can differ.
+24	Channel 10 percussion fallback for unrecognized Bank 64/1. Device-specific drum mappings can differ.
+25	Channel 10 percussion fallback for unrecognized Bank 64/127. Device-specific drum mappings can differ.
+26	Channel 10 percussion fallback for unrecognized Bank 119/?. Device-specific drum mappings can differ.
+27	Channel 10 percussion fallback for unrecognized Bank 119/0. Device-specific drum mappings can differ.
+28	Channel 10 percussion fallback for unrecognized Bank 119/1. Device-specific drum mappings can differ.
+29	Channel 10 percussion fallback for unrecognized Bank 119/127. Device-specific drum mappings can differ.
+30	Channel 10 percussion fallback for unrecognized Bank 120/?. Device-specific drum mappings can differ.
+31	Channel 10 percussion fallback for unrecognized Bank 120/0. Device-specific drum mappings can differ.
+32	GM2 percussion reference for Bank 120/0. Device-specific drum mappings can differ.
+33	Channel 10 percussion fallback for unrecognized Bank 120/1. Device-specific drum mappings can differ.
+34	Channel 10 percussion fallback for unrecognized Bank 120/127. Device-specific drum mappings can differ.
+35	Channel 10 percussion fallback for unrecognized Bank 121/?. Device-specific drum mappings can differ.
+36	Channel 10 percussion fallback for unrecognized Bank 121/0. Device-specific drum mappings can differ.
+37	Channel 10 percussion fallback for unrecognized Bank 121/1. Device-specific drum mappings can differ.
+38	Channel 10 percussion fallback for unrecognized Bank 121/127. Device-specific drum mappings can differ.
+39	Channel 10 percussion fallback for unrecognized Bank 125/?. Device-specific drum mappings can differ.
+40	Channel 10 percussion fallback for unrecognized Bank 125/0. Device-specific drum mappings can differ.
+41	Channel 10 percussion fallback for unrecognized Bank 125/1. Device-specific drum mappings can differ.
+42	Channel 10 percussion fallback for unrecognized Bank 125/127. Device-specific drum mappings can differ.
+43	Channel 10 percussion fallback for unrecognized Bank 126/?. Device-specific drum mappings can differ.
+44	Channel 10 percussion fallback for unrecognized Bank 126/0. Device-specific drum mappings can differ.
+45	XG percussion reference for Bank 126/0. Device-specific drum mappings can differ.
+46	Channel 10 percussion fallback for unrecognized Bank 126/1. Device-specific drum mappings can differ.
+47	Channel 10 percussion fallback for unrecognized Bank 126/127. Device-specific drum mappings can differ.
+48	Channel 10 percussion fallback for unrecognized Bank 127/?. Device-specific drum mappings can differ.
+49	Channel 10 percussion fallback for unrecognized Bank 127/0. Device-specific drum mappings can differ.
+50	XG percussion reference for Bank 127/0. Device-specific drum mappings can differ.
+51	Channel 10 percussion fallback for unrecognized Bank 127/1. Device-specific drum mappings can differ.
+52	Channel 10 percussion fallback for unrecognized Bank 127/127. Device-specific drum mappings can differ.
+53	
+54	Click to enable or disable this MIDI channel. Disabled source events are filtered before scheduler admission and do not consume queue/service work.
+55	MIDI-observed held-key polyphony from successfully dispatched Note On/Off messages. This is not necessarily the synthesizer's internal voice count.
+56	Highest MIDI-observed held-key polyphony since Reset stats.
+57	Successfully dispatched source channel messages. Override injections are not source events.
+58	Channel messages rejected by the selected finite-queue overflow policy.
+59	Source messages filtered before scheduler admission because they conflict with a forced channel value. They consume no queue/service work and are not queue-overflow drops.
+60	Latest successfully dispatched Bank Select MSB (CC0). Click to type or drag horizontally. Right-click releases a forced value to historical Auto; right-click a historical value to restore the latest source value for that attribute.
+61	Latest successfully dispatched Bank Select LSB (CC32). Click to type or drag horizontally. Right-click releases a forced value to historical Auto; right-click a historical value to restore the latest source value for that attribute.
+62	Latest Program Change, displayed as 1\u2013128. Melodic channels use General MIDI reference names; Channel 10 uses recognized GM2, GS, or XG drum-kit names from the displayed Bank and otherwise shows a numbered drum-kit fallback. Device-specific sounds can differ. Click to type or drag horizontally. Right-click releases a forced value to historical Auto; right-click a historical value to restore the latest source value for that attribute.
+63	Latest Channel Volume (CC7). Click to type or drag horizontally. Right-click releases a forced value to historical Auto; right-click a historical value to restore the latest source value for that attribute.
+64	Latest Expression (CC11). Click to type or drag horizontally. Right-click releases a forced value to historical Auto; right-click a historical value to restore the latest source value for that attribute.
+65	Latest Pan (CC10). Click to type or drag horizontally. Right-click releases a forced value to historical Auto; right-click a historical value to restore the latest source value for that attribute.
+66	Latest Sustain Pedal (CC64) state. Panic safety always sends sustain off before a forced On is reapplied at the next playback boundary. Click to type or drag horizontally. Right-click releases a forced value to historical Auto; right-click a historical value to restore the latest source value for that attribute.
+67	Latest pitch bend, centered at 0. Drag by 16 units per pixel or hold Shift for single-unit changes. Click to type or drag horizontally. Right-click releases a forced value to historical Auto; right-click a historical value to restore the latest source value for that attribute.
+68	Latest MIDI channel pressure/channel aftertouch. Click to type or drag horizontally. Right-click releases a forced value to historical Auto; right-click a historical value to restore the latest source value for that attribute.
+69	Source timestamp of the most recent successfully dispatched channel message.
+70	Dispatched MIDI state. Click a Ch cell to enable/disable. Attribute cells scrub or type; right-click releases force or restores one latest source value. Blue bold is forced; gray italic is historical.
+71	0\u2013127. Bank interpretation is synthesizer-specific. Drag one step per eight pixels, or one per sixteen with Shift.
+72	Program 1\u2013128 with a General MIDI reference name; actual sounds may differ. Drag one step per eight pixels, or one per sixteen with Shift.
+73	Program 1\u2013128 with a Bank-aware GM2, GS, or XG drum-kit reference when recognized; device-specific mappings can differ. Drag one step per eight pixels, or one per sixteen with Shift.
+74	MIDI channel volume, 0\u2013127. Drag one step per eight pixels, or one per sixteen with Shift.
+75	MIDI expression, 0\u2013127. Drag one step per eight pixels, or one per sixteen with Shift.
+76	0 left, 64 center, 127 right. Drag one step per eight pixels, or one per sixteen with Shift.
+77	Off/On. Note-safety cleanup still sends sustain off before reapplying On.
+78	\u22128192 through +8191. Drag by 16 units per pixel; hold Shift for one unit per pixel.
+79	0\u2013127 channel-wide pressure; drag one step per eight pixels or one per sixteen with Shift. The synthesizer may map or ignore it.
+80	Channel enabled. Click to disable it.
+81	0
+82	0\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+83	1 \u2014 Acoustic Grand Piano\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+84	100\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+85	127\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+86	64\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+87	Off\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+88	6 \u2014 Electric Piano 2\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+89	On\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+90	11 \u2014 Music Box\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+91	16 \u2014 Dulcimer\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+92	-300\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+93	21 \u2014 Reed Organ\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+94	26 \u2014 Acoustic Guitar (steel)\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+95	31 \u2014 Distortion Guitar\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+96	36 \u2014 Fretless Bass\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+97	41 \u2014 Violin\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+98	120\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+99	9 \u2014 Room Set (GM2)\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.\r\nGM2 percussion reference for Bank 120/0. Device-specific drum mappings can differ.
+100	51 \u2014 Synth Strings 1\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+101	56 \u2014 Orchestra Hit\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+102	61 \u2014 French Horn\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+103	66 \u2014 Alto Sax\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+104	71 \u2014 Bassoon\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+105	76 \u2014 Pan Flute\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+106	Channel disabled; 3 source channel event(s) filtered at output. Click to enable; no state chase is performed.
+107	99,999
+108	1,000
+109	1,234,567
+110	0\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+111	1
+112	79 \u2014 Whistle\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+113	104
+114	58\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+115	+1\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+116	34
+117	600:00.000\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+118	1,234
+119	12,345,678
+120	12
+121	48
+122	2
+123	101
+124	On
+125	-9000
+126	87
+127	00:00.000
+128	64\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+129	99 \u2014 FX 3 (crystal)
+130	95\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+131	41\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+132	On\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+133	-8192\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+134	65
+135	00:59.999\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+136	9,876,543,210,123
+137	127\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+138	32
+139	62 \u2014 Brass Section
+140	71
+141	60
+142	-1\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+143	11\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+144	00:59.999
+145	17
+146	7,654,321
+147	94 \u2014 Pad 6 (metallic)
+148	23
+149	Off
+150	-1
+151	Channel disabled; 0 source channel event(s) filtered at output. Click to enable; no state chase is performed.
+152	128
+153	5
+154	122 \u2014 Breath Noise\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+155	33
+156	1\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+157	Historical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+158	74
+159	32 \u2014 Guitar Harmonics\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+160	14\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+161	21
+162	101\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+163	+16\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+164	18
+165	01:01.234\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+166	999
+167	64
+168	85
+169	+16
+170	83
+171	Channel disabled; 1,000 source channel event(s) filtered at output. Click to enable; no state chase is performed.
+172	100,999
+173	127 \u2014 Applause
+174	51\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+175	123\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+176	67\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+177	2,234
+178	49 \u2014 Orchestra Set (common GS)\r\ncommon GS percussion reference for Bank 0/0. Device-specific drum mappings can differ.
+179	84
+180	70
+181	80 \u2014 Ocarina
+182	105
+183	51
+184	30
+185	11 \u2014 Music Box
+186	96
+187	56
+188	+8191
+189	113
+190	600:00.000
+191	20
+192	78\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+193	1\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+194	36 \u2014 Fretless Bass\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+195	95\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+196	22
+197	Off\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+198	92
+199	83 \u2014 Lead 3 (calliope)
+200	123
+201	69
+202	114
+203	3
+204	119 \u2014 Synth Drum
+205	68
+206	67
+207	42 \u2014 Viola\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+208	76
+209	54\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+210	8
+211	Channel disabled; 45,678,901 source channel event(s) filtered at output. Click to enable; no state chase is performed.
+212	109 \u2014 Kalimba
+213	24
+214	86
+215	1\r\nForced override is configured but has not yet been applied successfully to the current output session.
+216	60 \u2014 Muted Trumpet\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+217	2\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+218	117
+219	11
+220	+8191\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+221	39
+222	1\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+223	0\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+224	118 \u2014 Melodic Tom\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+225	100
+226	29\r\nForced override is configured but has not yet been applied successfully to the current output session.
+227	88\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+228	-1\r\nForced override is configured but has not yet been applied successfully to the current output session.
+229	118\r\nForced override is configured but has not yet been applied successfully to the current output session.
+230	59:59.999\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+231	18 \u2014 Percussive Organ
+232	114\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+233	00:00.000\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+234	42 \u2014 Viola
+235	93\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+236	31
+237	52
+238	+1
+239	16
+240	1,128
+241	106 \u2014 Banjo
+242	46\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+243	31 \u2014 Distortion Guitar\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+244	38\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+245	2\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+246	100 \u2014 FX 4 (atmosphere)\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+247	103\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+248	41
+249	111\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+250	59:59.999
+251	37\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+252	111
+253	115\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+254	1,001
+255	126\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+256	49 \u2014 Drum kit 49\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.\r\nChannel 10 percussion fallback for unrecognized Bank 126/1. Device-specific drum mappings can differ.
+257	122\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+258	20\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+259	27\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+260	104\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+261	62
+262	78
+263	56\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+264	102 \u2014 FX 6 (goblins)\r\nForced override is configured but has not yet been applied successfully to the current output session.
+265	13
+266	26\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+267	19\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+268	Off\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+269	+8191\r\nForced override is configured but has not yet been applied successfully to the current output session.
+270	29\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+271	1,017
+272	2 \u2014 Bright Acoustic Piano
+273	27
+274	125
+275	43
+276	4
+277	67\r\nForced override is configured but has not yet been applied successfully to the current output session.
+278	74 \u2014 Flute\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+279	64\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+280	16\r\nForced override is configured but has not yet been applied successfully to the current output session.
+281	19\r\nForced override is configured but has not yet been applied successfully to the current output session.
+282	54 \u2014 Voice Oohs
+283	91\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+284	103
+285	88\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+286	+4811
+287	25
+288	56\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+289	114 \u2014 Agogo
+290	6
+291	89
+292	69\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+293	56 \u2014 Orchestra Hit\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+294	12\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+295	119\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+296	36\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+297	100,002
+298	90\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+299	0\r\nForced override is configured but has not yet been applied successfully to the current output session.
+300	59 \u2014 Tuba
+301	16\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+302	-8192\r\nForced override is configured but has not yet been applied successfully to the current output session.
+303	42\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+304	80
+305	106\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+306	37 \u2014 Slap Bass 1
+307	55
+308	+1896
+309	6 \u2014 Electric Piano 2\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+310	121\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+311	97
+312	102\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+313	71\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+314	107
+315	1,237
+316	127
+317	32\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+318	72 \u2014 Clarinet\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+319	62\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+320	35\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+321	23\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+322	117 \u2014 Taiko Drum
+323	10\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+324	35\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+325	49
+326	116
+327	+6012
+328	84 \u2014 Lead 4 (chiff)
+329	6\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+330	91\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+331	40
+332	2 \u2014 Bright Acoustic Piano\r\nForced override is configured but has not yet been applied successfully to the current output session.
+333	66\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+334	22\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+335	74\r\nForced override is configured but has not yet been applied successfully to the current output session.
+336	On\r\nForced override is configured but has not yet been applied successfully to the current output session.
+337	+1\r\nForced override is configured but has not yet been applied successfully to the current output session.
+338	98
+339	92 \u2014 Pad 4 (choir)\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+340	52\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+341	+16\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+342	11\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+343	01:01.234
+344	-8192
+345	10
+346	32\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+347	15 \u2014 Tubular Bells\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+348	74\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+349	+8191\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+350	8\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+351	99 \u2014 FX 3 (crystal)\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+352	119\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+353	61
+354	110
+355	50 \u2014 String Ensemble 2
+356	93
+357	38
+358	54
+359	120
+360	124 \u2014 Bird Tweet
+361	113\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+362	45
+363	44
+364	32\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+365	93 \u2014 Pad 5 (bowed)
+366	29
+367	61\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+368	57
+369	-3766
+370	1,002
+371	78 \u2014 Shakuhachi
+372	36
+373	118
+374	64 \u2014 Synth Brass 2
+375	90
+376	68 \u2014 Baritone Sax
+377	17\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+378	82
+379	92\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+380	-5\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+381	74 \u2014 Flute\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+382	110\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+383	36 \u2014 Fretless Bass\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+384	25 \u2014 Electronic Set (common GS)\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.\r\ncommon GS percussion reference for Bank 0/0. Device-specific drum mappings can differ.
+385	27\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+386	22\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+387	+5\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+388	76\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+389	123 \u2014 Seashore\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+390	112\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+391	34\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+392	87 \u2014 Lead 7 (fifths)
+393	26
+394	38\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+395	82\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+396	107\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+397	128 \u2014 Gunshot\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+398	72\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+399	124\r\nForced override is configured but has not yet been applied successfully to the current output session.
+400	7
+401	Off\r\nForced override is configured but has not yet been applied successfully to the current output session.
+402	77\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+403	63 \u2014 Synth Brass 1\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+404	108\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+405	-1\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+406	6\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+407	35 \u2014 Electric Bass (pick)
+408	39\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+409	55\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+410	81 \u2014 Lead 1 (square)
+411	39\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+412	+8191\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+413	100 \u2014 FX 4 (atmosphere)\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+414	43\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+415	+359
+416	98 \u2014 FX 2 (soundtrack)
+417	66\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+418	72 \u2014 Clarinet
+419	115\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+420	-8192\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+421	17\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+422	123\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+423	68\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+424	91 \u2014 Pad 3 (polysynth)\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+425	46
+426	97 \u2014 FX 1 (rain)
+427	-8192\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+428	112 \u2014 Shanai\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+429	116\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+430	75\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+431	59\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+432	104 \u2014 FX 8 (sci-fi)
+433	25\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+434	60\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+435	128 \u2014 Gunshot
+436	11 \u2014 Drum kit 11\r\nChannel 10 percussion fallback for unrecognized Bank 0/0. Device-specific drum mappings can differ.
+437	126
+438	14
+439	58
+440	115
+441	89 \u2014 Pad 1 (new age)
+442	95\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+443	-6122
+444	66 \u2014 Alto Sax\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+445	30\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+446	124\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+447	19
+448	27 \u2014 Electric Guitar (jazz)\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+449	5\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+450	-5030\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+451	40 \u2014 Synth Bass 2\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+452	70\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+453	121 \u2014 Guitar Fret Noise\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+454	71 \u2014 Bassoon
+455	53\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+456	63\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+457	72\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+458	56\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+459	17 \u2014 Drawbar Organ
+460	105\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+461	108\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+462	59\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+463	90 \u2014 Pad 2 (warm)\r\nForced override is configured but has not yet been applied successfully to the current output session.
+464	63
+465	43\r\nForced override is configured but has not yet been applied successfully to the current output session.
+466	28 \u2014 Electric Guitar (clean)\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+467	65\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+468	131
+469	16 \u2014 Dulcimer
+470	50
+471	-4438
+472	+1371
+473	28
+474	41 \u2014 Brush Set (common GS)\r\ncommon GS percussion reference for Bank 0/0. Device-specific drum mappings can differ.
+475	9
+476	98\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+477	115 \u2014 Steel Drums\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+478	98\r\nForced override is configured but has not yet been applied successfully to the current output session.
+479	89\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+480	40 \u2014 Synth Bass 2
+481	42
+482	-6511\r\nForced override is configured but has not yet been applied successfully to the current output session.
+483	47
+484	112 \u2014 Shanai
+485	96\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+486	52\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+487	99\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+488	63 \u2014 Synth Brass 1
+489	117\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+490	+1\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+491	84\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+492	9 \u2014 Celesta\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+493	On\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+494	38\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+495	57 \u2014 Trumpet
+496	114\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+497	59 \u2014 Tuba\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+498	26\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+499	110\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+500	+7113
+501	96\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+502	6 \u2014 Electric Piano 2
+503	37
+504	126 \u2014 Helicopter\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+505	120\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+506	-4981\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+507	109\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+508	73 \u2014 Piccolo
+509	81\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+510	125\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+511	57 \u2014 Trumpet\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+512	31\r\nForced override is configured but has not yet been applied successfully to the current output session.
+513	40\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+514	82\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+515	20\r\nForced override is configured but has not yet been applied successfully to the current output session.
+516	123\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+517	45\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+518	9\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+519	2 \u2014 Drum kit 2\r\nChannel 10 percussion fallback for unrecognized Bank 64/0. Device-specific drum mappings can differ.
+520	77
+521	86\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+522	114 \u2014 Agogo\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+523	33\r\nForced override is configured but has not yet been applied successfully to the current output session.
+524	35
+525	14\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+526	90 \u2014 Pad 2 (warm)
+527	79
+528	29 \u2014 Electric Guitar (muted)\r\nForced override is configured but has not yet been applied successfully to the current output session.
+529	-3522\r\nForced override is configured but has not yet been applied successfully to the current output session.
+530	106\r\nForced override is configured but has not yet been applied successfully to the current output session.
+531	14 \u2014 Xylophone
+532	66
+533	85 \u2014 Lead 5 (charang)
+534	119
+535	-5518
+536	26 \u2014 Acoustic Guitar (steel)
+537	109
+538	-2312
+539	115 \u2014 Steel Drums
+540	39\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+541	99
+542	4 \u2014 Honky-tonk Piano\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+543	118\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+544	9\r\nForced override is configured but has not yet been applied successfully to the current output session.
+545	21 \u2014 Reed Organ\r\nForced override is configured but has not yet been applied successfully to the current output session.
+546	29\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+547	26 \u2014 Drum kit 26\r\nChannel 10 percussion fallback for unrecognized Bank ?/0. Device-specific drum mappings can differ.
+548	124
+549	43 \u2014 Cello
+550	+423
+551	24\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+552	97\r\nForced override is configured but has not yet been applied successfully to the current output session.
+553	32 \u2014 Guitar Harmonics
+554	102
+555	72
+556	60\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+557	116\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+558	56 \u2014 Orchestra Hit
+559	112\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+560	57\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+561	3\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+562	77\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+563	31\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+564	10\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+565	125 \u2014 Telephone Ring
+566	113 \u2014 Tinkle Bell
+567	112 \u2014 Shanai\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+568	83\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+569	7\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+570	92\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+571	98\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+572	54\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+573	25\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+574	51\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+575	74\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+576	73
+577	+6613
+578	90 \u2014 Pad 2 (warm)\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+579	29\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+580	75
+581	17\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+582	25 \u2014 Drum kit 25\r\nChannel 10 percussion fallback for unrecognized Bank 64/0. Device-specific drum mappings can differ.
+583	88
+584	112
+585	5 \u2014 Electric Piano 1\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+586	-3526\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+587	110\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+588	88 \u2014 Lead 8 (bass + lead)
+589	104\r\nForced override is configured but has not yet been applied successfully to the current output session.
+590	112\r\nForced override is configured but has not yet been applied successfully to the current output session.
+591	27 \u2014 Electric Guitar (jazz)
+592	122
+593	121\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+594	81 \u2014 Lead 1 (square)\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+595	25\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+596	32 \u2014 Guitar Harmonics\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+597	28 \u2014 Electric Guitar (clean)
+598	108
+599	60 \u2014 Muted Trumpet\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+600	89\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+601	42 \u2014 Viola\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+602	13\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+603	+878
+604	10 \u2014 Glockenspiel\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+605	58 \u2014 Trombone\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+606	31\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+607	121
+608	69 \u2014 Oboe\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+609	87\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+610	36\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+611	79\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+612	17 \u2014 Drum kit 17\r\nChannel 10 percussion fallback for unrecognized Bank 5/0. Device-specific drum mappings can differ.
+613	28 \u2014 Electric Guitar (clean)\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+614	54\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+615	103\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+616	73\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+617	126 \u2014 Helicopter\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+618	9\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+619	82 \u2014 Lead 2 (sawtooth)\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+620	73\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+621	34 \u2014 Electric Bass (finger)\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+622	48\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+623	37\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+624	3 \u2014 Electric Grand Piano\r\nForced override is configured but has not yet been applied successfully to the current output session.
+625	13\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+626	83 \u2014 Lead 3 (calliope)\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+627	47\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+628	100\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+629	109\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+630	124\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+631	66 \u2014 Alto Sax
+632	6\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+633	95 \u2014 Pad 7 (halo)
+634	13 \u2014 Marimba\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+635	77 \u2014 Blown Bottle\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+636	87\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+637	80 \u2014 Ocarina\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+638	47\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+639	-9000\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+640	32\r\nForced override is configured but has not yet been applied successfully to the current output session.
+641	45 \u2014 Drum kit 45\r\nForced override is configured but has not yet been applied successfully to the current output session.\r\nChannel 10 percussion fallback for unrecognized Bank ?/32. Device-specific drum mappings can differ.
+642	87\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+643	105\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+644	99 \u2014 FX 3 (crystal)\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+645	42\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+646	95
+647	-389\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+648	27 \u2014 Electric Guitar (jazz)\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+649	106
+650	+394
+651	21\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+652	11 \u2014 Music Box\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+653	21\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+654	108 \u2014 Koto\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+655	121\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+656	34\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+657	24\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+658	84\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+659	3 \u2014 Electric Grand Piano\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+660	5\r\nForced override is configured but has not yet been applied successfully to the current output session.
+661	65\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+662	118\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+663	93\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+664	15\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+665	94
+666	5\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+667	53 \u2014 Choir Aahs
+668	49\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+669	70\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+670	79\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+671	12 \u2014 Vibraphone\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+672	103 \u2014 FX 7 (echoes)\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+673	18\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+674	124\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+675	9 \u2014 Drum kit 9\r\nChannel 10 percussion fallback for unrecognized Bank 0/?. Device-specific drum mappings can differ.
+676	59
+677	78 \u2014 Shakuhachi\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+678	30\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+679	88\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+680	124 \u2014 Bird Tweet\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+681	113\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+682	4\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+683	16 \u2014 Dulcimer\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+684	50\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+685	81\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+686	34 \u2014 Electric Bass (finger)
+687	121 \u2014 Guitar Fret Noise\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+688	44\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+689	120 \u2014 Reverse Cymbal
+690	118\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+691	125\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+692	37 \u2014 Slap Bass 1\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+693	79 \u2014 Whistle
+694	8 \u2014 Clavinet\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+695	90\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+696	+2371\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+697	5 \u2014 Electric Piano 1\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+698	53
+699	74 \u2014 Flute
+700	128 \u2014 Gunshot\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+701	106\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+702	115\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+703	44 \u2014 Contrabass
+704	97\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+705	73\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+706	66\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+707	46\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+708	47 \u2014 Orchestral Harp\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+709	75\r\nForced override is configured but has not yet been applied successfully to the current output session.
+710	38\r\nForced override is configured but has not yet been applied successfully to the current output session.
+711	68 \u2014 Baritone Sax\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+712	23\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+713	22\r\nForced override is configured but has not yet been applied successfully to the current output session.
+714	77 \u2014 Blown Bottle
+715	15\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+716	76 \u2014 Pan Flute
+717	67\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+718	49 \u2014 Drum kit 49\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.\r\nChannel 10 percussion fallback for unrecognized Bank 64/1. Device-specific drum mappings can differ.
+719	92 \u2014 Pad 4 (choir)
+720	10 \u2014 Glockenspiel
+721	126 \u2014 Helicopter
+722	81
+723	125\r\nForced override is configured but has not yet been applied successfully to the current output session.
+724	49\r\nForced override is configured but has not yet been applied successfully to the current output session.
+725	41\r\nForced override is configured but has not yet been applied successfully to the current output session.
+726	88 \u2014 Lead 8 (bass + lead)\r\nForced override is configured but has not yet been applied successfully to the current output session.
+727	13 \u2014 Marimba
+728	+1982
+729	101 \u2014 FX 5 (brightness)
+730	+4443
+731	12 \u2014 Vibraphone
+732	92 \u2014 Drum kit 92\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.\r\nChannel 10 percussion fallback for unrecognized Bank 1/0. Device-specific drum mappings can differ.
+733	10\r\nForced override is configured but has not yet been applied successfully to the current output session.
+734	-7570\r\nForced override is configured but has not yet been applied successfully to the current output session.
+735	39 \u2014 Synth Bass 1\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+736	58 \u2014 Trombone\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+737	67 \u2014 Tenor Sax
+738	95 \u2014 Pad 7 (halo)\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+739	48\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+740	4\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+741	107 \u2014 Shamisen
+742	60 \u2014 Muted Trumpet\r\nForced override is configured but has not yet been applied successfully to the current output session.
+743	107\r\nForced override is configured but has not yet been applied successfully to the current output session.
+744	93 \u2014 Pad 5 (bowed)\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+745	76\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+746	80 \u2014 Ocarina\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+747	80\r\nForced override is configured but has not yet been applied successfully to the current output session.
+748	-888\r\nForced override is configured but has not yet been applied successfully to the current output session.
+749	67\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+750	3\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+751	49 \u2014 Drum kit 49\r\nChannel 10 percussion fallback for unrecognized Bank 64/0. Device-specific drum mappings can differ.
+752	3 \u2014 Electric Grand Piano
+753	57\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+754	47 \u2014 Orchestral Harp
+755	104\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+756	26\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+757	21 \u2014 Reed Organ
+758	5\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+759	19\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+760	77 \u2014 Blown Bottle\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+761	7\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+762	108 \u2014 Koto\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+763	7 \u2014 Harpsichord
+764	91 \u2014 Pad 3 (polysynth)\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+765	121 \u2014 Guitar Fret Noise
+766	85\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+767	36\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+768	41 \u2014 Violin\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+769	105\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+770	80\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+771	34\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+772	82 \u2014 Lead 2 (sawtooth)
+773	75\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+774	83\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+775	96 \u2014 Pad 8 (sweep)\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+776	17 \u2014 Drum kit 17\r\nChannel 10 percussion fallback for unrecognized Bank ?/1. Device-specific drum mappings can differ.
+777	63\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+778	44\r\nForced override is configured but has not yet been applied successfully to the current output session.
+779	82\r\nForced override is configured but has not yet been applied successfully to the current output session.
+780	-1121
+781	22 \u2014 Accordion
+782	74\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+783	75 \u2014 Recorder\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+784	103 \u2014 FX 7 (echoes)\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+785	9 \u2014 Celesta\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+786	44\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+787	102\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+788	7 \u2014 Harpsichord\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+789	91\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+790	18\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+791	99\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+792	36 \u2014 Fretless Bass
+793	37\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+794	79\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+795	-1693
+796	9 \u2014 Room Set (common GS)\r\ncommon GS percussion reference for Bank 0/0. Device-specific drum mappings can differ.
+797	119\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+798	48 \u2014 Timpani
+799	19\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+800	72\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+801	12\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+802	120 \u2014 Reverse Cymbal\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+803	60\r\nForced override is configured but has not yet been applied successfully to the current output session.
+804	59\r\nForced override is configured but has not yet been applied successfully to the current output session.
+805	-6944
+806	116 \u2014 Woodblock
+807	62\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+808	43\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+809	61\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+810	+3908
+811	49\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+812	97 \u2014 FX 1 (rain)\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+813	86\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+814	47 \u2014 Orchestral Harp\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+815	33 \u2014 Acoustic Bass
+816	9 \u2014 Drum kit 9\r\nChannel 10 percussion fallback for unrecognized Bank 64/0. Device-specific drum mappings can differ.
+817	123\r\nForced override is configured but has not yet been applied successfully to the current output session.
+818	20 \u2014 Church Organ
+819	8 \u2014 Clavinet
+820	78\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+821	98\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+822	82 \u2014 Lead 2 (sawtooth)\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+823	-4197\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+824	+3603\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+825	3\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+826	17\r\nForced override is configured but has not yet been applied successfully to the current output session.
+827	69 \u2014 Oboe
+828	8\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+829	16\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+830	25 \u2014 Drum kit 25\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.\r\nChannel 10 percussion fallback for unrecognized Bank 5/1. Device-specific drum mappings can differ.
+831	62 \u2014 Brass Section\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+832	13\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+833	52\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+834	117\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+835	41\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+836	118 \u2014 Melodic Tom
+837	52 \u2014 Synth Strings 2
+838	95 \u2014 Pad 7 (halo)\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+839	28\r\nForced override is configured but has not yet been applied successfully to the current output session.
+840	41 \u2014 Violin
+841	-5157\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+842	127\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+843	78\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+844	9\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+845	94\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+846	99\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+847	14 \u2014 Xylophone\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+848	73 \u2014 Piccolo\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+849	104\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+850	83\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+851	89\r\nForced override is configured but has not yet been applied successfully to the current output session.
+852	73\r\nForced override is configured but has not yet been applied successfully to the current output session.
+853	+2683
+854	39 \u2014 Synth Bass 1
+855	43\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+856	28\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+857	123 \u2014 Seashore
+858	71\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+859	109\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+860	45\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+861	61\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+862	120\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+863	11 \u2014 Drum kit 11\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.\r\nChannel 10 percussion fallback for unrecognized Bank 120/0. Device-specific drum mappings can differ.
+864	84\r\nForced override is configured but has not yet been applied successfully to the current output session.
+865	114\r\nForced override is configured but has not yet been applied successfully to the current output session.
+866	79\r\nForced override is configured but has not yet been applied successfully to the current output session.
+867	72 \u2014 Clarinet\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+868	11 \u2014 Music Box\r\nForced override is configured but has not yet been applied successfully to the current output session.
+869	95\r\nForced override is configured but has not yet been applied successfully to the current output session.
+870	84 \u2014 Lead 4 (chiff)\r\nForced override is configured but has not yet been applied successfully to the current output session.
+871	121\r\nForced override is configured but has not yet been applied successfully to the current output session.
+872	101 \u2014 FX 5 (brightness)\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+873	63\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+874	91
+875	8\r\nForced override is configured but has not yet been applied successfully to the current output session.
+876	46\r\nForced override is configured but has not yet been applied successfully to the current output session.
+877	+7891\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+878	23 \u2014 Drum kit 23\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.\r\nChannel 10 percussion fallback for unrecognized Bank 16/0. Device-specific drum mappings can differ.
+879	-6947
+880	102\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+881	38 \u2014 Slap Bass 2
+882	115 \u2014 Steel Drums\r\nForced override is configured but has not yet been applied successfully to the current output session.
+883	69\r\nForced override is configured but has not yet been applied successfully to the current output session.
+884	52\r\nForced override is configured but has not yet been applied successfully to the current output session.
+885	93 \u2014 Pad 5 (bowed)\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+886	84\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+887	121 \u2014 Guitar Fret Noise\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+888	15 \u2014 Tubular Bells
+889	19 \u2014 Rock Organ
+890	53\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+891	82\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+892	91 \u2014 Pad 3 (polysynth)
+893	44\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+894	107\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+895	122 \u2014 Breath Noise
+896	+5666\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+897	58\r\nForced override is configured but has not yet been applied successfully to the current output session.
+898	74 \u2014 Flute\r\nForced override is configured but has not yet been applied successfully to the current output session.
+899	86\r\nForced override is configured but has not yet been applied successfully to the current output session.
+900	126\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+901	128 \u2014 Drum kit 128\r\nChannel 10 percussion fallback for unrecognized Bank 126/0. Device-specific drum mappings can differ.
+902	61 \u2014 French Horn
+903	102\r\nForced override is configured but has not yet been applied successfully to the current output session.
+904	20\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+905	72\r\nForced override is configured but has not yet been applied successfully to the current output session.
+906	89\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+907	42\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+908	77\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+909	111 \u2014 Fiddle
+910	106 \u2014 Banjo\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+911	+221\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+912	28\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+913	86 \u2014 Lead 6 (voice)
+914	15
+915	105\r\nForced override is configured but has not yet been applied successfully to the current output session.
+916	89 \u2014 Pad 1 (new age)\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+917	8 \u2014 Clavinet\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+918	57 \u2014 Drum kit 57\r\nChannel 10 percussion fallback for unrecognized Bank 120/1. Device-specific drum mappings can differ.
+919	81\r\nForced override is configured but has not yet been applied successfully to the current output session.
+920	54\r\nForced override is configured but has not yet been applied successfully to the current output session.
+921	55\r\nForced override is configured but has not yet been applied successfully to the current output session.
+922	4 \u2014 Honky-tonk Piano
+923	7 \u2014 Harpsichord\r\nForced override is configured but has not yet been applied successfully to the current output session.
+924	81\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+925	52 \u2014 Synth Strings 2\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+926	116\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+927	33\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+928	33\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+929	39 \u2014 Synth Bass 1\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+930	31\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+931	35\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+932	107\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+933	51\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+934	127\r\nForced override is configured but has not yet been applied successfully to the current output session.
+935	+752\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+936	+1489\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+937	108\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+938	103 \u2014 FX 7 (echoes)
+939	112\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+940	30 \u2014 Overdriven Guitar\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+941	+5657
+942	55 \u2014 Synth Voice\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+943	-2375
+944	1 \u2014 Acoustic Grand Piano
+945	92\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+946	31 \u2014 Distortion Guitar
+947	104 \u2014 FX 8 (sci-fi)\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+948	23 \u2014 Harmonica
+949	24\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+950	3 \u2014 Drum kit 3\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.\r\nChannel 10 percussion fallback for unrecognized Bank ?/32. Device-specific drum mappings can differ.
+951	28\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+952	58\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+953	25 \u2014 Acoustic Guitar (nylon)
+954	24 \u2014 Tango Accordion
+955	125\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+956	46 \u2014 Pizzicato Strings
+957	40\r\nForced override is configured but has not yet been applied successfully to the current output session.
+958	65\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+959	69\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+960	+4073
+961	5 \u2014 Electric Piano 1\r\nForced override is configured but has not yet been applied successfully to the current output session.
+962	-6986\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+963	30 \u2014 Overdriven Guitar
+964	85 \u2014 Lead 5 (charang)\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+965	107 \u2014 Shamisen\r\nForced override is configured but has not yet been applied successfully to the current output session.
+966	126\r\nForced override is configured but has not yet been applied successfully to the current output session.
+967	65 \u2014 Soprano Sax
+968	12\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+969	116\r\nForced override is configured but has not yet been applied successfully to the current output session.
+970	70\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+971	17 \u2014 Drum kit 17\r\nChannel 10 percussion fallback for unrecognized Bank 0/32. Device-specific drum mappings can differ.
+972	35\r\nForced override is configured but has not yet been applied successfully to the current output session.
+973	18\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+974	110 \u2014 Bag Pipe\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+975	60 \u2014 Muted Trumpet
+976	-6456\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+977	25 \u2014 Electronic Set (common GS)\r\ncommon GS percussion reference for Bank 0/0. Device-specific drum mappings can differ.
+978	100 \u2014 FX 4 (atmosphere)
+979	111 \u2014 Fiddle\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+980	-4687\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+981	43 \u2014 Cello\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+982	-5913
+983	75\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+984	-5302
+985	-2717
+986	96 \u2014 Pad 8 (sweep)
+987	+6535
+988	50\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+989	88\r\nForced override is configured but has not yet been applied successfully to the current output session.
+990	46 \u2014 Pizzicato Strings\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+991	111 \u2014 Fiddle\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+992	85\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+993	109 \u2014 Kalimba\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+994	61 \u2014 French Horn\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+995	-5295
+996	110 \u2014 Bag Pipe\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+997	29 \u2014 Electric Guitar (muted)
+998	25\r\nForced override is configured but has not yet been applied successfully to the current output session.
+999	103\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1000	108\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1001	29 \u2014 Electric Guitar (muted)\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1002	58\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1003	49 \u2014 String Ensemble 1
+1004	49 \u2014 Drum kit 49\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.\r\nChannel 10 percussion fallback for unrecognized Bank 120/1. Device-specific drum mappings can differ.
+1005	77\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1006	51 \u2014 Synth Strings 1
+1007	-2317
+1008	16 \u2014 Dulcimer\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1009	122\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1010	-1617
+1011	-5927
+1012	47 \u2014 Orchestral Harp\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1013	99\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1014	-985
+1015	+4310
+1016	22 \u2014 Accordion\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1017	50\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1018	48\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1019	40\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1020	9 \u2014 Drum kit 9\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.\r\nChannel 10 percussion fallback for unrecognized Bank 0/1. Device-specific drum mappings can differ.
+1021	13 \u2014 Marimba\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1022	114\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1023	15 \u2014 Tubular Bells\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1024	98 \u2014 FX 2 (soundtrack)\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1025	100\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1026	57 \u2014 SFX Set (common GS)\r\ncommon GS percussion reference for Bank 0/0. Device-specific drum mappings can differ.
+1027	45 \u2014 Tremolo Strings
+1028	94 \u2014 Pad 6 (metallic)\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1029	111\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1030	55\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1031	30\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1032	90 \u2014 Pad 2 (warm)\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1033	52 \u2014 Synth Strings 2\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1034	42\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1035	96\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1036	70 \u2014 English Horn\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1037	120 \u2014 Reverse Cymbal\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1038	47\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1039	86\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1040	+2105
+1041	122\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1042	38 \u2014 Slap Bass 2\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1043	117 \u2014 Taiko Drum\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1044	97\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1045	6 \u2014 Electric Piano 2\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1046	23\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1047	82 \u2014 Lead 2 (sawtooth)\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1048	8\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1049	1 \u2014 Acoustic Grand Piano\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1050	+5710
+1051	102 \u2014 FX 6 (goblins)\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1052	14\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1053	70 \u2014 English Horn
+1054	110 \u2014 Bag Pipe\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1055	4\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1056	97 \u2014 FX 1 (rain)\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1057	119 \u2014 Synth Drum\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1058	17 \u2014 Drum kit 17\r\nChannel 10 percussion fallback for unrecognized Bank 0/?. Device-specific drum mappings can differ.
+1059	108 \u2014 Koto\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1060	93\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1061	106\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1062	40 \u2014 Synth Bass 2\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1063	-777
+1064	57 \u2014 Drum kit 57\r\nChannel 10 percussion fallback for unrecognized Bank 127/0. Device-specific drum mappings can differ.
+1065	35 \u2014 Electric Bass (pick)\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1066	116 \u2014 Woodblock\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1067	20\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1068	1 \u2014 Drum kit 1\r\nChannel 10 percussion fallback for unrecognized Bank 127/1. Device-specific drum mappings can differ.
+1069	-7295
+1070	120 \u2014 Reverse Cymbal\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1071	104 \u2014 FX 8 (sci-fi)\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1072	73 \u2014 Piccolo\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1073	36\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1074	100\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1075	21\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1076	101\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1077	15\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1078	33 \u2014 Jazz Set (common GS)\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.\r\ncommon GS percussion reference for Bank 0/0. Device-specific drum mappings can differ.
+1079	40\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1080	74 \u2014 Flute\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1081	20 \u2014 Church Organ\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1082	71\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1083	+5207
+1084	+3175
+1085	92 \u2014 Pad 4 (choir)\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1086	-7258
+1087	67 \u2014 Tenor Sax\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1088	113\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1089	48 \u2014 Timpani\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1090	96\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1091	2 \u2014 Bright Acoustic Piano\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1092	-6
+1093	105 \u2014 Sitar\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1094	-6475
+1095	105 \u2014 Sitar
+1096	-5820
+1097	53\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1098	+978\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1099	24 \u2014 Tango Accordion\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1100	62\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1101	+6459
+1102	35 \u2014 Electric Bass (pick)\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1103	41 \u2014 Drum kit 41\r\nChannel 10 percussion fallback for unrecognized Bank 120/?. Device-specific drum mappings can differ.
+1104	-7658
+1105	124 \u2014 Bird Tweet\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1106	46\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1107	14 \u2014 Xylophone\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1108	94\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1109	109\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1110	76 \u2014 Pan Flute\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1111	41\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1112	16\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1113	108 \u2014 Koto
+1114	+2781\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1115	85\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1116	42 \u2014 Viola\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1117	49 \u2014 Orchestra Set (GM2)\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.\r\nGM2 percussion reference for Bank 120/0. Device-specific drum mappings can differ.
+1118	102 \u2014 FX 6 (goblins)
+1119	5 \u2014 Electric Piano 1
+1120	83\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1121	33 \u2014 Acoustic Bass\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1122	42 \u2014 Drum kit 42\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.\r\nChannel 10 percussion fallback for unrecognized Bank ?/?. Device-specific drum mappings can differ.
+1123	-1860\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1124	58 \u2014 Trombone
+1125	112 \u2014 Shanai\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1126	69\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1127	25 \u2014 Drum kit 25\r\nChannel 10 percussion fallback for unrecognized Bank 127/32. Device-specific drum mappings can differ.
+1128	97\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1129	125 \u2014 Telephone Ring\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1130	122\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1131	70\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1132	110 \u2014 Bag Pipe
+1133	18 \u2014 Percussive Organ\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1134	24\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1135	96 \u2014 Pad 8 (sweep)\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1136	17 \u2014 Drum kit 17\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.\r\nChannel 10 percussion fallback for unrecognized Bank 123/?. Device-specific drum mappings can differ.
+1137	64\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1138	87\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1139	109 \u2014 Kalimba\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1140	56\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1141	18 \u2014 Percussive Organ\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1142	49 \u2014 Drum kit 49\r\nChannel 10 percussion fallback for unrecognized Bank ?/0. Device-specific drum mappings can differ.
+1143	117 \u2014 Taiko Drum\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1144	61 \u2014 French Horn\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1145	116 \u2014 Woodblock\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1146	126\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1147	81 \u2014 Lead 1 (square)\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1148	+7159
+1149	+2800\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1150	12 \u2014 Vibraphone\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1151	94 \u2014 Pad 6 (metallic)\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1152	21\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1153	+2592\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1154	-6433
+1155	+3711\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1156	107 \u2014 Shamisen\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1157	1 \u2014 Standard Set (GM/GS common)\r\nGM/GS common percussion reference for Bank 0/0. Device-specific drum mappings can differ.
+1158	60\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1159	25 \u2014 Acoustic Guitar (nylon)\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1160	122 \u2014 Breath Noise\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1161	-473
+1162	54 \u2014 Voice Oohs\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1163	32 \u2014 Guitar Harmonics\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1164	17 \u2014 Drum kit 17\r\nChannel 10 percussion fallback for unrecognized Bank 126/0. Device-specific drum mappings can differ.
+1165	49 \u2014 String Ensemble 1\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1166	68\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1167	-916\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1168	55 \u2014 Synth Voice
+1169	51 \u2014 Synth Strings 1\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1170	111\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1171	110\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1172	63\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1173	56 \u2014 Orchestra Hit\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1174	46 \u2014 Drum kit 46\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.\r\nChannel 10 percussion fallback for unrecognized Bank 92/1. Device-specific drum mappings can differ.
+1175	-2762\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1176	+6652
+1177	62\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1178	90\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1179	+1718\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1180	12\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1181	41 \u2014 Drum kit 41\r\nChannel 10 percussion fallback for unrecognized Bank 0/?. Device-specific drum mappings can differ.
+1182	24 \u2014 Tango Accordion\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1183	55\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1184	71 \u2014 Bassoon\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1185	+4761
+1186	43 \u2014 Cello\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1187	16 \u2014 Dulcimer\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1188	76\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1189	2\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1190	11\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1191	-6874
+1192	28 \u2014 Electric Guitar (clean)\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1193	80\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1194	50\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1195	83 \u2014 Lead 3 (calliope)\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1196	70 \u2014 English Horn\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1197	93\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1198	2 \u2014 Standard Kit 2 (XG)\r\nXG percussion reference for Bank 127/0. Device-specific drum mappings can differ.
+1199	-4694
+1200	51\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1201	87 \u2014 Lead 7 (fifths)\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1202	83 \u2014 Lead 3 (calliope)\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1203	59\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1204	48\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1205	-7649
+1206	4 \u2014 Honky-tonk Piano\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1207	79 \u2014 Whistle\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1208	128 \u2014 Gunshot\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1209	49 \u2014 Classic Kit (XG)\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.\r\nXG percussion reference for Bank 127/0. Device-specific drum mappings can differ.
+1210	125 \u2014 Telephone Ring\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1211	14\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1212	45 \u2014 Tremolo Strings\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1213	+5667\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1214	7\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1215	92 \u2014 Pad 4 (choir)\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1216	56 \u2014 Orchestra Hit\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1217	49\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1218	+2653
+1219	113 \u2014 Tinkle Bell\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1220	101\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1221	+5469\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1222	9 \u2014 Celesta\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1223	39\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1224	14 \u2014 Xylophone\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1225	113 \u2014 Tinkle Bell\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1226	105 \u2014 Drum kit 105\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.\r\nChannel 10 percussion fallback for unrecognized Bank 5/1. Device-specific drum mappings can differ.
+1227	23 \u2014 Harmonica\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1228	29 \u2014 Electric Guitar (muted)\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1229	+6236\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1230	79 \u2014 Whistle\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1231	-1934
+1232	128 \u2014 Drum kit 128\r\nChannel 10 percussion fallback for unrecognized Bank 120/0. Device-specific drum mappings can differ.
+1233	15\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1234	100 \u2014 FX 4 (atmosphere)\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1235	49 \u2014 Drum kit 49\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.\r\nChannel 10 percussion fallback for unrecognized Bank 64/0. Device-specific drum mappings can differ.
+1236	48 \u2014 Timpani\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1237	+5297\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1238	30\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1239	-3430\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1240	1 \u2014 Acoustic Grand Piano\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1241	-6364\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1242	+6557\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1243	53 \u2014 Choir Aahs\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1244	38 \u2014 Drum kit 38\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.\r\nChannel 10 percussion fallback for unrecognized Bank 64/?. Device-specific drum mappings can differ.
+1245	37 \u2014 Slap Bass 1\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1246	114 \u2014 Agogo\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1247	+8134\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1248	117\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1249	23 \u2014 Harmonica\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1250	+1200
+1251	20 \u2014 Church Organ\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1252	1 \u2014 Drum kit 1\r\nForced override is configured but has not yet been applied successfully to the current output session.\r\nChannel 10 percussion fallback for unrecognized Bank 5/0. Device-specific drum mappings can differ.
+1253	22 \u2014 Accordion\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1254	3 \u2014 Electric Grand Piano\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1255	-3649
+1256	+1702
+1257	27\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1258	-5338
+1259	-4418\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1260	39 \u2014 Synth Bass 1\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1261	27\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1262	2 \u2014 Drum kit 2\r\nChannel 10 percussion fallback for unrecognized Bank 90/0. Device-specific drum mappings can differ.
+1263	-1038\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1264	+49
+1265	59 \u2014 Tuba\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1266	1 \u2014 Drum kit 1\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.\r\nChannel 10 percussion fallback for unrecognized Bank 0/32. Device-specific drum mappings can differ.
+1267	-7619\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1268	87 \u2014 Lead 7 (fifths)\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1269	77 \u2014 Blown Bottle\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1270	123 \u2014 Seashore\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1271	55 \u2014 Synth Voice\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1272	-5583
+1273	104 \u2014 FX 8 (sci-fi)\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1274	113\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1275	+1025
+1276	25 \u2014 Acoustic Guitar (nylon)\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1277	4 \u2014 Drum kit 4\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.\r\nChannel 10 percussion fallback for unrecognized Bank ?/1. Device-specific drum mappings can differ.
+1278	+2592\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1279	75 \u2014 Recorder\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1280	71 \u2014 Bassoon\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1281	76 \u2014 Pan Flute\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1282	67 \u2014 Drum kit 67\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.\r\nChannel 10 percussion fallback for unrecognized Bank 127/0. Device-specific drum mappings can differ.
+1283	13\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1284	+6497
+1285	105 \u2014 Sitar\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1286	+3136
+1287	7\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1288	-4196
+1289	-6184
+1290	49 \u2014 String Ensemble 1\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1291	17 \u2014 Drum kit 17\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.\r\nChannel 10 percussion fallback for unrecognized Bank 33/0. Device-specific drum mappings can differ.
+1292	17 \u2014 Drawbar Organ\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1293	-479\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1294	-5702
+1295	12 \u2014 Vibraphone\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1296	17 \u2014 Drum kit 17\r\nChannel 10 percussion fallback for unrecognized Bank ?/?. Device-specific drum mappings can differ.
+1297	85 \u2014 Lead 5 (charang)\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1298	+7685\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1299	54 \u2014 Voice Oohs\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1300	89 \u2014 Pad 1 (new age)\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1301	90\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1302	+16\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1303	127 \u2014 Applause\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1304	91\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1305	-2823
+1306	9 \u2014 Celesta\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1307	+437
+1308	118 \u2014 Melodic Tom\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1309	+5134\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1310	70 \u2014 English Horn\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1311	+2783
+1312	2 \u2014 Drum kit 2\r\nChannel 10 percussion fallback for unrecognized Bank 0/32. Device-specific drum mappings can differ.
+1313	68\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1314	80\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1315	-2016\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1316	122 \u2014 Breath Noise\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1317	18\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1318	68\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1319	46 \u2014 Pizzicato Strings\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1320	62 \u2014 Brass Section\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1321	-1220
+1322	15 \u2014 Tubular Bells\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1323	115\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1324	+262\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1325	-6371
+1326	30 \u2014 Overdriven Guitar\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1327	125 \u2014 Telephone Ring\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1328	-5134\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1329	+4706
+1330	+435
+1331	+992\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1332	9 \u2014 Celesta
+1333	+3361
+1334	41 \u2014 Violin\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1335	-7693
+1336	+7936
+1337	111 \u2014 Fiddle\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1338	101 \u2014 FX 5 (brightness)\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1339	+6881
+1340	120\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1341	57\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1342	52 \u2014 Synth Strings 2\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1343	51 \u2014 Synth Strings 1\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1344	41 \u2014 Drum kit 41\r\nChannel 10 percussion fallback for unrecognized Bank 5/0. Device-specific drum mappings can differ.
+1345	117 \u2014 Taiko Drum\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1346	-373
+1347	45\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1348	45 \u2014 Tremolo Strings\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1349	34 \u2014 Electric Bass (finger)\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1350	-1496
+1351	26 \u2014 Drum kit 26\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.\r\nChannel 10 percussion fallback for unrecognized Bank ?/?. Device-specific drum mappings can differ.
+1352	+5945\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1353	22 \u2014 Accordion\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1354	-3764
+1355	-3047\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1356	2 \u2014 Drum kit 2\r\nChannel 10 percussion fallback for unrecognized Bank 73/0. Device-specific drum mappings can differ.
+1357	-3173\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1358	50 \u2014 String Ensemble 2\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1359	-883\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1360	84 \u2014 Lead 4 (chiff)\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1361	-2055
+1362	57 \u2014 Drum kit 57\r\nForced override is configured but has not yet been applied successfully to the current output session.\r\nChannel 10 percussion fallback for unrecognized Bank 127/0. Device-specific drum mappings can differ.
+1363	109 \u2014 Kalimba\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1364	8 \u2014 Clavinet\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1365	+4011
+1366	85 \u2014 Lead 5 (charang)\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1367	+1973
+1368	8 \u2014 Drum kit 8\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.\r\nChannel 10 percussion fallback for unrecognized Bank 3/0. Device-specific drum mappings can differ.
+1369	118 \u2014 Melodic Tom\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1370	11\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1371	+4188\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1372	-2105\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1373	50 \u2014 String Ensemble 2\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1374	34 \u2014 Electric Bass (finger)\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1375	113 \u2014 Tinkle Bell\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1376	+448
+1377	+6638
+1378	+3600
+1379	9 \u2014 Drum kit 9\r\nChannel 10 percussion fallback for unrecognized Bank 127/?. Device-specific drum mappings can differ.
+1380	101\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1381	78\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1382	59 \u2014 Tuba\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1383	+2195
+1384	-8079
+1385	-7898
+1386	22\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1387	51 \u2014 Synth Strings 1\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1388	-4711
+1389	53\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1390	58 \u2014 Trombone\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1391	-2638\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1392	26 \u2014 Drum kit 26\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.\r\nChannel 10 percussion fallback for unrecognized Bank 5/0. Device-specific drum mappings can differ.
+1393	19 \u2014 Rock Organ\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1394	-4260\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1395	-5331
+1396	59 \u2014 Tuba\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1397	94\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1398	1 \u2014 Drum kit 1\r\nChannel 10 percussion fallback for unrecognized Bank 126/32. Device-specific drum mappings can differ.
+1399	-4446
+1400	65\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1401	45\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1402	27 \u2014 Electric Guitar (jazz)\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1403	-7257
+1404	25 \u2014 Drum kit 25\r\nChannel 10 percussion fallback for unrecognized Bank ?/?. Device-specific drum mappings can differ.
+1405	31 \u2014 Distortion Guitar\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1406	103 \u2014 FX 7 (echoes)\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1407	117\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1408	96 \u2014 Pad 8 (sweep)\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1409	24 \u2014 Tango Accordion\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1410	105 \u2014 Sitar\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1411	21 \u2014 Reed Organ\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1412	+3281\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1413	26 \u2014 TR-808 Set (common GS)\r\ncommon GS percussion reference for Bank 0/0. Device-specific drum mappings can differ.
+1414	88 \u2014 Lead 8 (bass + lead)\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1415	40 \u2014 Synth Bass 2\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1416	78 \u2014 Shakuhachi\r\nHistorical last-sent value; it is not enforced and may no longer be effective. Right-click to restore the latest source-file value for this attribute at the current position.
+1417	3\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1418	10 \u2014 Drum kit 10\r\nForced override is configured but has not yet been applied successfully to the current output session.\r\nChannel 10 percussion fallback for unrecognized Bank 120/32. Device-specific drum mappings can differ.
+1419	69 \u2014 Oboe\r\nForced override is configured but has not yet been applied successfully to the current output session.
+1420	+8053
+1421	boom
+1422	Not available.
+1423	Program could not be sent.
+1424	Pitch bend failed.
+1425	First
+1426	-100\r\nForced override is active. Conflicting source messages are filtered at the ordered output boundary.
+1427	-42\r\nSource-file value immediately before this position. It has not been confirmed at MIDI output; queued or dropped events may differ.
+1428	Channel disabled; 1,234 source channel event(s) filtered at output. Click to enable; no state chase is performed.
+1429	Cannot change the channel.
+1430	Enable the channel before restoring its source value.
+1431	No source value here.
+1432	Engine busy.
+1433	9 \u2014 Room Set (GM2)\r\nGM2 percussion reference for Bank 120/0. Device-specific drum mappings can differ.

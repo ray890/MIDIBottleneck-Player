@@ -1,0 +1,13 @@
+# producer v1-reference (MIDIBottleneck v1.0.44 sources) x64 clr 4.0.30319.42000
+# input err-zero-tracks.mid
+trace-format 1
+mode full
+[file]
+size 14
+container smf
+[preflight]
+status error InvalidDataException "The MIDI file contains no tracks."
+requires-preflight ptr4 0 ptr8 0
+[song]
+status error InvalidDataException "The MIDI file contains no tracks."
+[end]

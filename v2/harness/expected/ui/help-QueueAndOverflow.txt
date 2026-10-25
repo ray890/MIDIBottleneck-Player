@@ -1,0 +1,19 @@
+ORDINARY QUEUE LIMIT
+Queue length normally caps delayed work by event count. The numeric count can be edited during ordinary finite-queue playback: an increase applies immediately; a decrease does not retract the event being sent or silently purge accepted work. New arrivals use the selected limit.
+
+OVERFLOW CHOICES
+• Drop newest or Drop oldest removes individual pending work.
+• Complete-note choices keep a note start and its matching release together.
+• Drop background notes uses musical context to keep prominent chord voices and fair track/lane representation.
+• Required releases and safety work stay protected, so an ordinary queue limit can be exceeded softly.
+
+INTERVAL POLYPHONY
+With Per-note interval gate or Delayed NoteOff selected, the same controls become a separate Interval polyphony limit. It is off by default and allows 1–128 transmitted NoteOn/NoteOff messages in one logical interval. It is not the synthesizer's total sounding-voice limit.
+• Required releases take priority over new attacks.
+• If required releases alone fill the interval, only their excess carries to the earliest later intervals.
+• No interval exceeds the hard value; new attacks are dropped rather than delayed into another interval.
+
+WAITING-TIME AND FORWARD-ONLY MODES
+Limit queue by waiting time measures the oldest pending event in microseconds. Apply queue limit without slowdown rejects future arrivals without delaying accepted output. Each mode shows only overflow choices that can work safely.
+
+Queue now / maximum reports outstanding work. Green, amber, and red show increasing pressure; purple marks protected release or safety traffic beyond an ordinary soft limit.

@@ -1,0 +1,13 @@
+# producer v1-reference (MIDIBottleneck v1.0.44 sources) x64 clr 4.0.30319.42000
+# input err-smpte-division.mid
+trace-format 1
+mode full
+[file]
+size 26
+container smf
+[preflight]
+status error InvalidDataException "SMPTE time division is not supported; this version requires PPQN timing."
+requires-preflight ptr4 0 ptr8 0
+[song]
+status error InvalidDataException "SMPTE time division is not supported; this version requires PPQN timing."
+[end]

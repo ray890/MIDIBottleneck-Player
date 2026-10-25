@@ -1,0 +1,27 @@
+# producer v1-reference (MIDIBottleneck v1.0.44 sources) x64 clr 4.0.30319.42000
+# input large-8m.mid
+trace-format 1
+kind flow
+mode summary
+pointer-size 8
+[scenario natural]
+digest sha256 36DAD1941D84094E1C8EBCD3B18D32C5492351687CBD40D499E7EA67FDB2D0FF
+reports 2893 decision-requested 0
+outcome ok events 8000160 notes 4466592 duration-us 784626928
+[scenario preflight]
+digest sha256 7E5EF6835C85230D1CE9FD88DED64BCAF0455C267ABD77A7FC49874D29943A0D
+reports 5279 decision-requested 0
+outcome ok events 8000160 notes 4466592 duration-us 784626928
+[scenario warning-decline]
+digest sha256 2044B999A4592FF84AAC859668DFBDA3B52A8A8FDB73A4BBCB5480EB3817282C
+reports 2387 decision-requested 1
+outcome declined
+[scenario warning-accept]
+digest sha256 EC7E3555D89BC1D973DDA182C3185AB8A4CFD0C06A58C99355CA41AA01FAF962
+reports 5280 decision-requested 1
+outcome ok events 8000160 notes 4466592 duration-us 784626928
+[scenario warning-accept-cancel]
+digest sha256 2044B999A4592FF84AAC859668DFBDA3B52A8A8FDB73A4BBCB5480EB3817282C
+reports 2387 decision-requested 1
+outcome error OperationCanceledException "The operation was canceled."
+[end]

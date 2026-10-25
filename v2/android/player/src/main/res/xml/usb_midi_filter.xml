@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- USB MIDI devices: interface class 1 (audio), subclass 3 (MIDI streaming). Plugging one in offers the player and
+     grants it the USB permission for that device (see the USB_DEVICE_ATTACHED filter in AndroidManifest.xml). -->
+<resources>
+    <usb-device class="1" subclass="3" />
+</resources>

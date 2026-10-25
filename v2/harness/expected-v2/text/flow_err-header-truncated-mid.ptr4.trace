@@ -1,0 +1,31 @@
+trace-format 1
+kind flow
+mode full
+pointer-size 4
+[scenario natural]
+reports 0 decision-requested 0
+outcome error EndOfStreamException "The file ended before its MIDI header was complete. It is damaged or not a complete MIDI file."
+[scenario preflight]
+p "Inspecting large MIDI" 0 0 0 10000 0 9
+reports 1 decision-requested 0
+outcome error EndOfStreamException "The file ended before its MIDI header was complete. It is damaged or not a complete MIDI file."
+[scenario warning-decline]
+p "Inspecting large MIDI" 0 0 0 10000 0 9
+reports 1 decision-requested 0
+outcome error EndOfStreamException "The file ended before its MIDI header was complete. It is damaged or not a complete MIDI file."
+[scenario warning-accept]
+p "Inspecting large MIDI" 0 0 0 10000 0 9
+reports 1 decision-requested 0
+outcome error EndOfStreamException "The file ended before its MIDI header was complete. It is damaged or not a complete MIDI file."
+[scenario warning-accept-cancel]
+p "Inspecting large MIDI" 0 0 0 10000 0 9
+reports 1 decision-requested 0
+outcome error EndOfStreamException "The file ended before its MIDI header was complete. It is damaged or not a complete MIDI file."
+[cancel-sweep natural]
+k 0 reports 0 decision-requested 0 outcome error EndOfStreamException "The file ended before its MIDI header was complete. It is damaged or not a complete MIDI file."
+k 1 reports 0 decision-requested 0 outcome error EndOfStreamException "The file ended before its MIDI header was complete. It is damaged or not a complete MIDI file."
+[cancel-sweep warning-accept]
+k 0 reports 1 decision-requested 0 outcome error EndOfStreamException "The file ended before its MIDI header was complete. It is damaged or not a complete MIDI file."
+k 1 reports 1 decision-requested 0 outcome error EndOfStreamException "The file ended before its MIDI header was complete. It is damaged or not a complete MIDI file."
+k 2 reports 1 decision-requested 0 outcome error EndOfStreamException "The file ended before its MIDI header was complete. It is damaged or not a complete MIDI file."
+[end]

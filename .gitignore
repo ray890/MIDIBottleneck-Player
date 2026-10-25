@@ -24,3 +24,19 @@ TestResults/
 *.zip
 *.pdb
 *.user
+
+# AI assistant entry files: kept locally, not published (user decision 2026-10-25)
+/AGENTS.md
+/AGENT_CONTINUITY.md
+/CLAUDE.md
+# Internal planning, helper notes, release drafts and the push guard sources: kept locally, not published
+/v2/docs/PUBLICATION_PLAN.md
+/v2/docs/MILESTONE_8_PLAN.md
+/v2/docs/OPTIMIZATION_SCAN_P11.md
+/v2/docs/drafts/
+/v2/docs/release-drafts/
+/v2/android/HOW-TO-TEST-ANDROID.txt
+/v2/tools/pre-push-guard-2.0-draft.sh
+/v2/tools/test-pre-push-guard-draft.sh
+# Vendored Sonivox synthesizer source (Android only, not part of 2.0): kept locally, not published
+/v2/android/third_party/sonivox/

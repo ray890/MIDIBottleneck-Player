@@ -1,0 +1,73 @@
+# col <index> <name> <caption> <width> <tooltip> <alignment> <attribute|-> | explanation | title | seed | help | clock
+rows	16	16
+col	0	Channel	Ch	48	@54	32	-
+col	1	KeysDown	Polyphony	72	@55	64	-
+col	2	PeakKeys	Peak polyphony	90	@56	64	-
+col	3	Sent	Sent	76	@57	64	-
+col	4	Dropped	Dropped	68	@58	64	-
+col	5	Suppressed	Override filtered	108	@59	64	-
+col	6	BankMsb	Bank MSB	72	@60	64	0
+col	7	BankLsb	Bank LSB	72	@61	64	1
+col	8	Program	Program	158	@62	64	2
+col	9	Volume	Volume	60	@63	64	3
+col	10	Expression	Expr	54	@64	64	4
+col	11	Pan	Pan	48	@65	64	5
+col	12	Sustain	Sustain	68	@66	64	6
+col	13	Bend	Pitch bend	76	@67	64	7
+col	14	Aftertouch	Aftertouch	72	@68	64	8
+col	15	Position	Position	72	@69	64	-
+explanation	@70
+title	probe.mid	MIDIBottleneck Player \u2014 MIDI Channel Monitor \u2014 probe.mid
+title	(null)	MIDIBottleneck Player \u2014 MIDI Channel Monitor \u2014 
+title	a\u00e9.mid	MIDIBottleneck Player \u2014 MIDI Channel Monitor \u2014 a\u00e9.mid
+detached0	0
+detach	(null)	1	No MIDI file is loaded.	MIDIBottleneck Player \u2014 MIDI Channel Monitor \u2014 no file
+attach	b.mid	0	MIDIBottleneck Player \u2014 MIDI Channel Monitor \u2014 b.mid
+detach	Loading new MIDI\u2026	1	Loading new MIDI\u2026	MIDIBottleneck Player \u2014 MIDI Channel Monitor \u2014 no file
+attach	(null)	0	MIDIBottleneck Player \u2014 MIDI Channel Monitor \u2014 
+seed	0	0
+help	0	0	@71
+help	0	9	@71
+seed	1	0
+help	1	0	@71
+help	1	9	@71
+seed	2	0
+help	2	0	@72
+help	2	9	@73
+seed	3	100
+help	3	0	@74
+help	3	9	@74
+seed	4	127
+help	4	0	@75
+help	4	9	@75
+seed	5	64
+help	5	0	@76
+help	5	9	@76
+seed	6	0
+help	6	0	@77
+help	6	9	@77
+seed	7	0
+help	7	0	@78
+help	7	9	@78
+seed	8	0
+help	8	0	@79
+help	8	9	@79
+clock	-5	00:00.000
+clock	0	00:00.000
+clock	1	00:00.000
+clock	999	00:00.000
+clock	1000	00:00.001
+clock	59999	00:00.059
+clock	999999	00:00.999
+clock	1000000	00:01.000
+clock	59999999	00:59.999
+clock	60000000	01:00.000
+clock	61001000	01:01.001
+clock	599999999	09:59.999
+clock	600000000	10:00.000
+clock	3599999999	59:59.999
+clock	3600000000	60:00.000
+clock	6000000000	100:00.000
+clock	60000000000	1000:00.000
+clock	6000000000000	100000:00.000
+clock	100000000000000	1666666:40.000

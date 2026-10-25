@@ -1,0 +1,34 @@
+NO ARTIFICIAL DELAY
+None sends eligible MIDI without adding a processing delay. It is the startup choice.
+
+SLOWDOWN MODELS — RETAIN WORK
+• Processing time per event, MIDI serial bitrate, and Events per second model slower service.
+• Retained work can build a queue. Zero processing time or zero Events/sec means immediate modeled service.
+• A live rate change applies when the next MIDI event begins service.
+
+NOTE-INTERVAL GATES — REDUCE NOTE TRAFFIC
+• Per-note interval gate permits one selected transition per pitch in a logical interval.
+• Delayed NoteOff gives each pitch one owner, a minimum duration, and a short recovery period after release. During that recovery it retains only one musically selected replacement for the pitch, so a melody retrigger is not lost merely because the old owner had to close first.
+• These gates drop unused attacks with their paired releases. Required releases for attacks already sent remain protected.
+
+NOTE START RATE GATE — LIMIT NOTEONS
+This gate counts velocity-positive NoteOn starts, not all MIDI traffic. It uses exact fractional pacing plus a short, fixed batching tolerance so ordinary chords and below-limit passages remain intact. An exact rolling second never exceeds the selected maximum, and quiet time cannot enlarge the fixed tolerance into saved burst credit. The maximum setting leaves practical simultaneous chords unchanged.
+• Simultaneous starts use the shared musical ranking, so prominent chord boundaries and fair lane representation are preferred.
+• A rejected start and its future paired release are both suppressed. Releases for admitted starts, state messages, and safety traffic remain protected.
+
+OUTPUT RATE GATE — LIMIT ALL TRANSMITTED MIDI
+Maximum output rate applies exact fractional pacing and an exact rolling one-second ceiling to ordinary transmitted MIDI messages. A short, fixed batching tolerance preserves ordinary below-limit timing and chords without becoming saved quiet-period credit. The maximum setting leaves practical same-time batches unchanged. This is separate from the Events per second slowdown model, and rejected work never waits in a catch-up queue.
+• An admitted attack reserves ordinary capacity for its release. Controllers and source state use ordinary capacity too. Immediate Stop, Panic, replacement, failure, and disposal cleanup may bypass the musical gate and is counted separately. Rare required generated state sent without capacity is reported as required messages sent over target.
+• When capacity is short, complete unsent note occurrences are rejected with the shared musical ranking; their paired releases remain suppressed.
+• Analysis shows the deterministic ideal result for a nonblocking output. Live decisions use the actual time each output call completes, so unpredictable provider blocking can legitimately change later admissions.
+
+GRAPH AND DROP RHYTHM
+Analysis events/sec is an average inside the selected graph interval, not the exact rolling-second measurement. A short interval can briefly read above Maximum output rate when the fixed batching tolerance preserves a group, even though every half-open rolling second remains within the target. The corresponding rejected count can echo one second later as that group expires from the exact ledger. Keeping this bounded rhythm avoids severe live underuse when Windows wakes the output worker in small batches.
+
+OPTION: SCALE NOTE INTERVAL BY NOTE TRAFFIC
+This option is off by default and can be prepared under any Rate model while playback is stopped. Only the two note-interval gates use it. If a logical batch sends N NoteOn/NoteOff messages, the next batch waits N selected intervals. A chord can still be one burst followed by proportional waiting, so this is not an instantaneous events/sec ceiling.
+
+INTERNAL AND EXTERNAL DELAY
+A note occurrence does not survive into another batch solely because interval pacing held it. Delayed NoteOff's one per-pitch replacement during its short recovery is bounded ownership state, not a queue; the other exception is an excess required release held by Interval polyphony. At a zero interval, neither note gate adds positive delay or time quantization. Scheduler delay or a blocking MIDI output is external: already accepted work remains retained and may be sent close together when the delay ends. Analysis shows the deterministic logical timing, not unpredictable device blocking.
+
+Switching to or from None or a gate safely silences and restarts playback at the same position.

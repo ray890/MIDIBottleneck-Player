@@ -1,0 +1,336 @@
+# MIDIBottleneck Player v2 - real-time engine scenarios (Milestone 5 exit test).
+#
+# Read by v1-realtime.exe (v2/harness/v1-reference/realtime) and
+# midibn-engine-realtime.exe (v2/tools/engine_realtime_main.cpp), driven by
+# v2/tools/engine-properties.ps1. Same grammar as engine-scenarios.txt
+# (v2/harness/ENGINE_SCENARIOS.md) with two differences:
+#   * every time is REAL elapsed microseconds since the run began ("N/M" is
+#     still the fraction N/M of max(1000, song duration)), and the commands are
+#     applied by a control thread at those wall-clock offsets;
+#   * "route" is not supported.
+# The "describe" line of each scenario carries machine-read tags before a "|":
+#   fixture=NAME[,NAME]   fixtures (stems in v2/harness/fixtures) the scenario runs on
+#   class=exact|prop      exact: no real-time-dependent decision (v1 decides only on
+#                         song time), so the sent sequence must be identical between
+#                         runs, programs and architectures; prop: property checks only
+#   ends=N                PlaybackEnded events expected
+# The rules behind the scenarios are cited in v2/docs/ENGINE_PROPERTY_CHECKS.md.
+# Scenarios are added, not edited, once results exist.
+#
+# Fixtures (v2/harness/fixtures): models-dense is 9,166 events in 1.41 s (two
+# bursts of about 4,500 events within 100 ms, NoteOn/NoteOff/controllers);
+# index-chase-rich is 1,255 controller/program/bend/aftertouch events in 3.16 s
+# on all 16 channels (no NoteOff); f1-v1-test-midi is 6 events in 1.5 s;
+# f0-all-message-types, sysex-short and sysex-variants are under 0.1 s.
+format 1
+
+# MainForm's configuration for a rate model on the Drop path (ENGINE_SCENARIOS.md section 5).
+profile drop-300us-limit24
+  set simulate-slowdown on
+  service processing-time 300 31250 10000
+  set queue-length-limit 24
+end-profile
+
+# ---------------------------------------------------------------- Queue
+
+scenario rt-queue-all-kinds
+  describe fixture=f0-all-message-types,sysex-short,sysex-variants class=exact ends=1 | Queue mode, engine defaults, every message kind including SysEx.
+  at 0 start queue 0
+
+scenario rt-queue-dense
+  describe fixture=models-dense class=exact ends=1 | Queue mode, no rate model (immediate dispatch), two 4,500-event bursts.
+  at 0 start queue 0
+
+scenario rt-queue-rate-service
+  describe fixture=index-chase-rich class=exact ends=1 | Queue mode with a 300 us processing time, started at 60 percent (state chase, then play to the end).
+  set simulate-slowdown on
+  service processing-time 300 31250 10000
+  at 0 start queue 6/10
+
+scenario rt-queue-ordered-dense
+  describe fixture=models-dense class=exact ends=1 | Ordered (preserve-on-Pause/Seek) Queue path, immediate dispatch.
+  set preserve-playback-queue-on-pause-seek on
+  at 0 start queue 0
+
+scenario rt-queue-ordered-rate
+  describe fixture=index-chase-rich class=exact ends=1 | Ordered Queue path with a 300 us processing time, started at 60 percent.
+  set preserve-playback-queue-on-pause-seek on
+  set simulate-slowdown on
+  service processing-time 300 31250 10000
+  at 0 start queue 6/10
+
+# ---------------------------------------------------------------- gates (song-time decisions except Output rate limit)
+
+scenario rt-gate-pernote
+  describe fixture=models-dense class=exact ends=1 | Per-note interval gate, 2 ms interval.
+  set simulate-slowdown off
+  service processing-time 2000 31250 10000
+  at 0 start per-note-interval-gate 0
+
+scenario rt-gate-delayed-off
+  describe fixture=models-dense class=exact ends=1 | Delayed NoteOff, 3 ms minimum note-on time.
+  set simulate-slowdown off
+  service processing-time 3000 31250 10000
+  at 0 start delayed-note-off 0
+
+scenario rt-gate-attack-limit
+  describe fixture=models-dense class=exact ends=1 | Note attack limit, 300 starts per second.
+  set simulate-slowdown off
+  service events-per-second 100 31250 300
+  at 0 start note-attack-limit 0
+
+scenario rt-gate-output-rate
+  describe fixture=models-dense class=prop ends=1 | Output rate limit, 2,000 messages per second (decides on the real dispatch clock).
+  set simulate-slowdown off
+  service events-per-second 100 31250 2000
+  at 0 start output-rate-limit 0
+
+scenario rt-gate-pernote-ordered
+  describe fixture=models-dense class=exact ends=1 | Per-note interval gate on the ordered path.
+  set preserve-playback-queue-on-pause-seek on
+  set simulate-slowdown off
+  service processing-time 2000 31250 10000
+  at 0 start per-note-interval-gate 0
+
+scenario rt-gate-outrate-ordered-paced
+  describe fixture=models-dense class=prop ends=1 | Output rate limit on the ordered path with the Output-paced timeline.
+  set preserve-playback-queue-on-pause-seek on
+  set output-paced-timeline on
+  set simulate-slowdown off
+  service events-per-second 100 31250 2000
+  at 0 start output-rate-limit 0
+
+# ---------------------------------------------------------------- Drop (finite queue)
+# rt-protected is a 1 s synthetic song that the script generates (never committed): overlapping notes,
+# velocity-0 releases, orphan NoteOffs, sustain and CC120/121/123 in a dense mix.
+
+scenario rt-drop-newest
+  describe fixture=models-dense class=prop ends=1 | Drop mode, 300 us service, limit 24, Drop newest.
+  use drop-300us-limit24
+  set overflow-policy drop-newest
+  at 0 start drop 0
+
+scenario rt-drop-clear
+  describe fixture=models-dense class=prop ends=1 | Drop mode, 300 us service, limit 24, Clear buffer and catch up.
+  use drop-300us-limit24
+  set overflow-policy clear-buffer-and-catch-up
+  at 0 start drop 0
+
+scenario rt-drop-age
+  describe fixture=models-dense class=prop ends=1 | Drop mode, 300 us service, queue waiting-time limit 20 ms with Drop oldest.
+  set simulate-slowdown on
+  service processing-time 300 31250 10000
+  set queue-age-limit-enabled on
+  set queue-age-limit-microseconds 20000
+  set overflow-policy drop-oldest
+  at 0 start drop 0
+
+scenario rt-drop-ample
+  describe fixture=models-dense class=prop ends=1 | Drop mode with a limit larger than the song (nothing may be dropped), 20 us service.
+  set simulate-slowdown on
+  service processing-time 20 31250 10000
+  set queue-length-limit 100000
+  set overflow-policy drop-newest
+  at 0 start drop 0
+
+scenario rt-drop-forward
+  describe fixture=models-dense class=prop ends=1 | Forward-only Drop (queue limit without slowdown), limit 24, Drop newest.
+  set simulate-slowdown off
+  set apply-queue-limit-without-slowdown on
+  service processing-time 1000 31250 10000
+  set queue-length-limit 24
+  set overflow-policy drop-newest
+  at 0 start drop 0
+
+scenario rt-drop-live-edit
+  describe fixture=models-dense class=prop ends=1 | Drop mode with the limit, policy and service time edited while playing.
+  use drop-300us-limit24
+  set overflow-policy drop-newest
+  at 0 start drop 0
+  at 300000 set queue-length-limit 8
+  at 600000 set overflow-policy drop-oldest
+  at 900000 service processing-time 400 31250 10000
+  at 1100000 set queue-length-limit 64
+
+scenario rt-drop-prot-newest
+  describe fixture=rt-protected class=prop ends=1 | Synthetic song, Drop mode, 300 us service, limit 24, Drop newest.
+  use drop-300us-limit24
+  set overflow-policy drop-newest
+  at 0 start drop 0
+
+scenario rt-drop-prot-oldest
+  describe fixture=rt-protected class=prop ends=1 | Synthetic song, Drop mode, 300 us service, limit 24, Drop oldest.
+  use drop-300us-limit24
+  set overflow-policy drop-oldest
+  at 0 start drop 0
+
+scenario rt-drop-prot-incoming
+  describe fixture=rt-protected class=prop ends=1 | Synthetic song, Drop mode, limit 24, Drop incoming complete notes.
+  use drop-300us-limit24
+  set overflow-policy drop-incoming-complete-notes
+  at 0 start drop 0
+
+scenario rt-drop-prot-oldest-note
+  describe fixture=rt-protected class=prop ends=1 | Synthetic song, Drop mode, limit 24, Drop oldest complete note.
+  use drop-300us-limit24
+  set overflow-policy drop-oldest-complete-note
+  at 0 start drop 0
+
+scenario rt-drop-prot-background
+  describe fixture=rt-protected class=prop ends=1 | Synthetic song, Drop mode, limit 24, Drop background notes.
+  use drop-300us-limit24
+  set overflow-policy drop-background-notes
+  at 0 start drop 0
+
+scenario rt-drop-prot-forward-incoming
+  describe fixture=rt-protected class=prop ends=1 | Synthetic song, forward-only Drop with Drop incoming complete notes, limit 24.
+  set simulate-slowdown off
+  set apply-queue-limit-without-slowdown on
+  service processing-time 1000 31250 10000
+  set queue-length-limit 24
+  set overflow-policy drop-incoming-complete-notes
+  at 0 start drop 0
+
+scenario rt-drop-prot-ordered
+  describe fixture=rt-protected class=prop ends=1 | Synthetic song, ordered Drop path, limit 24, Drop oldest complete note.
+  set preserve-playback-queue-on-pause-seek on
+  use drop-300us-limit24
+  set overflow-policy drop-oldest-complete-note
+  at 0 start drop 0
+
+# ---------------------------------------------------------------- transport
+
+scenario rt-pause-resume-classic
+  describe fixture=f1-v1-test-midi class=exact ends=1 | Classic path Pause and Resume in the middle of a sparse song.
+  at 0 start queue 0
+  at 300000 pause
+  at 700000 resume
+
+scenario rt-pause-resume-ordered
+  describe fixture=f1-v1-test-midi class=exact ends=1 | Ordered path Pause and Resume.
+  set preserve-playback-queue-on-pause-seek on
+  at 0 start queue 0
+  at 300000 pause
+  at 700000 resume
+
+scenario rt-pause-resume-dense
+  describe fixture=models-dense class=prop ends=1 | Classic Pause during the first burst (the unsent backlog is discarded by v1's Pause), Resume 200 ms later.
+  at 0 start queue 0
+  at 40000 pause
+  at 240000 resume
+
+scenario rt-pause-resume-dense-ordered
+  describe fixture=models-dense class=exact ends=1 | Ordered Pause during the first burst with a 100 us service time (a backlog is retained), Resume 200 ms later.
+  set preserve-playback-queue-on-pause-seek on
+  set simulate-slowdown on
+  service processing-time 100 31250 10000
+  at 0 start queue 0
+  at 60000 pause
+  at 260000 resume
+
+scenario rt-seek-classic
+  describe fixture=index-chase-rich class=prop ends=1 | Classic Seek forward to 60 percent while playing.
+  at 0 start queue 0
+  at 400000 seek 6/10
+
+scenario rt-seek-ordered
+  describe fixture=index-chase-rich class=prop ends=1 | Ordered position-keeping Seeks forward, twice.
+  set preserve-playback-queue-on-pause-seek on
+  at 0 start queue 0
+  at 400000 seek 5/10
+  at 700000 seek 8/10
+
+scenario rt-seek-ordered-backlog
+  describe fixture=models-dense class=prop ends=1 | Ordered Seek with a retained backlog (100 us service time): the old queue is delivered, then the Seek marker, then the new position.
+  set preserve-playback-queue-on-pause-seek on
+  set simulate-slowdown on
+  service processing-time 100 31250 10000
+  at 0 start queue 0
+  at 200000 seek 9/10
+
+scenario rt-pause-seek-resume-ordered
+  describe fixture=index-chase-rich class=prop ends=1 | Ordered Pause, Seek while paused, Resume.
+  set preserve-playback-queue-on-pause-seek on
+  at 0 start queue 0
+  at 300000 pause
+  at 400000 seek 7/10
+  at 600000 resume
+
+scenario rt-stop-start
+  describe fixture=index-chase-rich class=prop ends=1 | Stop in the middle, Start again at 60 percent.
+  at 0 start queue 0
+  at 500000 stop
+  at 700000 start queue 6/10
+
+scenario rt-restart-while-playing
+  describe fixture=index-chase-rich class=prop ends=1 | Start while playing (Start stops the running worker first), Drop mode the second time.
+  set simulate-slowdown on
+  service processing-time 200 31250 10000
+  set queue-length-limit 400
+  at 0 start queue 0
+  at 400000 start drop 7/10
+
+scenario rt-start-paused
+  describe fixture=index-chase-rich class=prop ends=1 | Start paused at 70 percent, Resume 300 ms later.
+  at 0 start queue 7/10 paused
+  at 300000 resume
+
+# ---------------------------------------------------------------- chase
+
+scenario rt-chase-mid
+  describe fixture=index-chase-rich class=exact ends=1 | Start at 60 percent with the MIDI state chase on.
+  at 0 start queue 6/10
+
+scenario rt-chase-off
+  describe fixture=index-chase-rich class=exact ends=1 | Start at 60 percent with the MIDI state chase off.
+  set chase-midi-state-on-play-seek off
+  at 0 start queue 6/10
+
+scenario rt-chase-gate-ordered
+  describe fixture=index-chase-rich class=exact ends=1 | Ordered path, Note attack limit, started at 70 percent.
+  set preserve-playback-queue-on-pause-seek on
+  set simulate-slowdown off
+  service events-per-second 100 31250 300
+  at 0 start note-attack-limit 7/10
+
+# ---------------------------------------------------------------- channel controls
+
+scenario rt-override-live
+  describe fixture=index-chase-rich class=prop ends=1 | Overrides set and cleared while playing (classic path).
+  at 0 start queue 6/10
+  at 50000 override 8 program 42
+  at 100000 override 8 volume 20
+  at 150000 override 12 pitch-bend 500
+  at 650000 override 8 program auto
+  at 700000 override 8 volume auto
+
+scenario rt-channel-toggle
+  describe fixture=index-chase-rich class=prop ends=1 | Channels disabled and enabled while playing (classic path).
+  at 0 start queue 6/10
+  at 100000 channel 5 off
+  at 200000 channel 9 off
+  at 500000 channel 5 on
+  at 700000 channel 9 on
+
+scenario rt-controls-drop
+  describe fixture=index-chase-rich class=prop ends=1 | Overrides and channel toggles over a finite queue with a slow service.
+  set simulate-slowdown on
+  service processing-time 500 31250 10000
+  set queue-length-limit 16
+  set overflow-policy drop-oldest
+  at 0 start drop 6/10
+  at 100000 override 2 pan 10
+  at 200000 channel 6 off
+  at 500000 channel 6 on
+
+scenario rt-ordered-paced-controls
+  describe fixture=index-chase-rich class=prop ends=1 | Ordered path with the Output-paced timeline: live override and channel control while an item is in service (the ordered worker polls the clock).
+  set preserve-playback-queue-on-pause-seek on
+  set output-paced-timeline on
+  set simulate-slowdown on
+  service processing-time 800 31250 10000
+  at 0 start queue 6/10
+  at 200000 override 7 program 42
+  at 300000 channel 3 off
+  at 450000 override 2 pitch-bend 1000
+  at 600000 channel 3 on

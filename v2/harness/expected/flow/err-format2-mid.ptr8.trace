@@ -1,0 +1,33 @@
+# producer v1-reference (MIDIBottleneck v1.0.44 sources) x64 clr 4.0.30319.42000
+# input err-format2.mid
+trace-format 1
+kind flow
+mode full
+pointer-size 8
+[scenario natural]
+reports 0 decision-requested 0
+outcome error InvalidDataException "Format 2 MIDI files contain independent sequences and are not supported in this version."
+[scenario preflight]
+p "Inspecting large MIDI" 0 0 0 10000 0 26
+reports 1 decision-requested 0
+outcome error InvalidDataException "Format 2 MIDI files contain independent sequences and are not supported in this version."
+[scenario warning-decline]
+p "Inspecting large MIDI" 0 0 0 10000 0 26
+reports 1 decision-requested 0
+outcome error InvalidDataException "Format 2 MIDI files contain independent sequences and are not supported in this version."
+[scenario warning-accept]
+p "Inspecting large MIDI" 0 0 0 10000 0 26
+reports 1 decision-requested 0
+outcome error InvalidDataException "Format 2 MIDI files contain independent sequences and are not supported in this version."
+[scenario warning-accept-cancel]
+p "Inspecting large MIDI" 0 0 0 10000 0 26
+reports 1 decision-requested 0
+outcome error InvalidDataException "Format 2 MIDI files contain independent sequences and are not supported in this version."
+[cancel-sweep natural]
+k 0 reports 0 decision-requested 0 outcome error InvalidDataException "Format 2 MIDI files contain independent sequences and are not supported in this version."
+k 1 reports 0 decision-requested 0 outcome error InvalidDataException "Format 2 MIDI files contain independent sequences and are not supported in this version."
+[cancel-sweep warning-accept]
+k 0 reports 1 decision-requested 0 outcome error InvalidDataException "Format 2 MIDI files contain independent sequences and are not supported in this version."
+k 1 reports 1 decision-requested 0 outcome error InvalidDataException "Format 2 MIDI files contain independent sequences and are not supported in this version."
+k 2 reports 1 decision-requested 0 outcome error InvalidDataException "Format 2 MIDI files contain independent sequences and are not supported in this version."
+[end]

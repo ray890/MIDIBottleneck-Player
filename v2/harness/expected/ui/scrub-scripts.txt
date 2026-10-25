@@ -1,0 +1,1713 @@
+# ScrubOrTypeTextBox scripts on a real control. 'scenario name kind value min max coarseUnits coarsePixels fineUnits finePixels offset increment mapping'
+# starts a script; each op row ends with the control's state: value forced typing error text.
+# ops: scrub px fine | begin (StartScrubbing's state reset) | end (EndGesture) | key up|down | type | commit text explicit(1)|focusloss(0) | arrow up|down | escape | request value
+scenario	queue	numeric	50	1	1000000	1	4	1	2	0	100	queue
+end	50	0	0		50
+type	50	0	1		50
+key	up	50	0	1		51
+commit	1e3	1	50	0	0	Enter a value from 1 through 1000000.	50
+scrub	1481	0	420	0	0		420
+scrub	1	0	421	0	0		421
+scrub	-3	0	420	0	0		420
+scrub	36	0	429	0	0		429
+begin	429	0	0		429
+scrub	-2325	0	1	0	0		1
+scrub	-1	0	1	0	0		1
+scrub	3	1	2	0	0		2
+scrub	1	0	2	0	0		2
+request	52	52	0	0		52
+begin	52	0	0		52
+end	52	0	0		52
+scrub	3	0	53	0	0		53
+scrub	25	0	59	0	0		59
+begin	59	0	0		59
+scrub	3	1	60	0	0		60
+key	up	160	0	0		160
+scrub	6	0	162	0	0		162
+scrub	-2	1	161	0	0		161
+begin	161	0	0		161
+scrub	-2	0	160	0	0		160
+scrub	-3	0	160	0	0		160
+end	160	0	0		160
+escape	160	0	0		160
+scrub	0	0	160	0	0		160
+scrub	-2	0	159	0	0		159
+begin	159	0	0		159
+begin	159	0	0		159
+key	up	259	0	0		259
+scrub	1	0	259	0	0		259
+scrub	-1	0	259	0	0		259
+begin	259	0	0		259
+request	5	5	0	0		5
+begin	5	0	0		5
+scrub	-3	0	4	0	0		4
+scrub	-2	0	4	0	0		4
+scrub	2	0	4	0	0		4
+scrub	0	1	4	0	0		4
+scrub	2	0	5	0	0		5
+scrub	1	0	5	0	0		5
+begin	5	0	0		5
+scrub	2	0	6	0	0		6
+scrub	-1921	0	1	0	0		1
+scrub	1	1	1	0	0		1
+key	down	1	0	0		1
+key	down	1	0	0		1
+scrub	0	1	1	0	0		1
+scrub	0	0	1	0	0		1
+scrub	0	0	1	0	0		1
+end	1	0	0		1
+begin	1	0	0		1
+scrub	-3	0	1	0	0		1
+key	up	101	0	0		101
+escape	101	0	0		101
+scrub	0	0	101	0	0		101
+scrub	1	0	101	0	0		101
+scrub	34	0	110	0	0		110
+scrub	-21	0	105	0	0		105
+scrub	2956	1	1583	0	0		1,583
+type	1583	0	1		1583
+escape	1583	0	0		1,583
+scrub	3	0	1585	0	0		1,585
+scrub	0	1	1585	0	0		1,585
+scrub	-2789	0	380	0	0		380
+scrub	0	1	380	0	0		380
+scrub	32	1	396	0	0		396
+scrub	0	0	396	0	0		396
+scrub	3	0	397	0	0		397
+scrub	-1	1	397	0	0		397
+scrub	-1	0	397	0	0		397
+key	down	297	0	0		297
+scrub	-1	0	396	0	0		396
+begin	396	0	0		396
+begin	396	0	0		396
+scrub	-3	1	395	0	0		395
+scrub	1	0	395	0	0		395
+scrub	3	0	396	0	0		396
+scrub	-2	1	395	0	0		395
+scrub	13	1	401	0	0		401
+key	up	501	0	0		501
+request	127	127	0	0		127
+scrub	1	1	402	0	0		402
+scrub	2	1	403	0	0		403
+scrub	0	0	403	0	0		403
+request	34	34	0	0		34
+scrub	0	1	34	0	0		34
+begin	34	0	0		34
+key	up	134	0	0		134
+scrub	38	0	144	0	0		144
+scrub	2	0	144	0	0		144
+scrub	3	1	145	0	0		145
+key	down	45	0	0		45
+scrub	-2	0	44	0	0		44
+scrub	2	0	45	0	0		45
+scrub	39	1	64	0	0		64
+begin	64	0	0		64
+scrub	-1	1	64	0	0		64
+end	64	0	0		64
+key	down	1	0	0		1
+scrub	29	0	8	0	0		8
+type	8	0	1		8
+arrow	down	8	0	1		7
+commit	+7	1	7	0	0		7
+scrub	-1	0	7	0	0		7
+scrub	-3	0	6	0	0		6
+scrub	6	1	9	0	0		9
+scrub	3	0	10	0	0		10
+scrub	3	0	11	0	0		11
+scrub	1	0	11	0	0		11
+request	110	110	0	0		110
+scrub	731	0	194	0	0		194
+end	194	0	0		194
+scrub	-1	0	194	0	0		194
+begin	194	0	0		194
+scrub	0	0	194	0	0		194
+end	194	0	0		194
+scrub	2	0	195	0	0		195
+scrub	0	0	195	0	0		195
+begin	195	0	0		195
+end	195	0	0		195
+begin	195	0	0		195
+begin	195	0	0		195
+scrub	0	0	195	0	0		195
+scrub	1	1	195	0	0		195
+end	195	0	0		195
+escape	195	0	0		195
+scrub	1	0	195	0	0		195
+escape	195	0	0		195
+key	up	295	0	0		295
+scrub	0	0	295	0	0		295
+scrub	0	1	295	0	0		295
+scrub	-1	0	295	0	0		295
+begin	295	0	0		295
+key	down	195	0	0		195
+scrub	-1	0	195	0	0		195
+request	112	112	0	0		112
+scrub	-2743	0	1	0	0		1
+scrub	1	0	1	0	0		1
+scrub	1286	0	1	0	0		1
+scrub	-32	0	1	0	0		1
+scrub	-2	0	1	0	0		1
+scrub	2	0	1	0	0		1
+scrub	2	0	1	0	0		1
+scrub	0	0	1	0	0		1
+escape	1	0	0		1
+scrub	6	0	3	0	0		3
+scrub	3	0	3	0	0		3
+end	3	0	0		3
+scrub	-2	0	2	0	0		2
+escape	2	0	0		2
+begin	2	0	0		2
+scrub	31	0	10	0	0		10
+begin	10	0	0		10
+scrub	1	0	10	0	0		10
+scrub	-3	0	9	0	0		9
+type	9	0	1		9
+key	down	9	0	1		8
+commit	-3	1	9	0	0	Enter a value from 1 through 1000000.	9
+scrub	1	0	9	0	0	Enter a value from 1 through 1000000.	9
+type	9	0	1	Enter a value from 1 through 1000000.	9
+arrow	down	9	0	1		8
+escape	9	0	0		9
+scrub	-6	1	6	0	0		6
+escape	6	0	0		6
+scrub	3	0	7	0	0		7
+scrub	-843	1	1	0	0		1
+scenario	age	numeric	1000000	1	1800000000	1	4	1	2	0	1000	age
+scrub	0	0	1000000	0	0		1,000,000
+scrub	2942	1	1001471	0	0		1,001,471
+type	1001471	0	1		1001471
+escape	1001471	0	0		1,001,471
+scrub	-2	1	1001470	0	0		1,001,470
+request	42	42	0	0		42
+scrub	5	1	1001472	0	0		1,001,472
+key	up	1002472	0	0		1,002,472
+begin	1002472	0	0		1,002,472
+scrub	0	0	1002472	0	0		1,002,472
+type	1002472	0	1		1002472
+commit	128	0	128	0	0		128
+scrub	-6	1	125	0	0		125
+key	down	1	0	0		1
+scrub	40	0	10001	0	0		10,001
+end	10001	0	0		10,001
+scrub	1	1	10001	0	0		10,001
+scrub	1	0	10251	0	0		10,251
+scrub	3	0	11001	0	0		11,001
+scrub	0	0	11001	0	0		11,001
+end	11001	0	0		11,001
+scrub	0	0	11001	0	0		11,001
+scrub	0	0	11001	0	0		11,001
+scrub	13	1	11007	0	0		11,007
+begin	11007	0	0		11,007
+scrub	-13	0	7757	0	0		7,757
+scrub	3	1	7758	0	0		7,758
+begin	7758	0	0		7,758
+end	7758	0	0		7,758
+scrub	2	0	8258	0	0		8,258
+scrub	-3	0	7508	0	0		7,508
+end	7508	0	0		7,508
+scrub	3	0	8258	0	0		8,258
+begin	8258	0	0		8,258
+scrub	3	0	9008	0	0		9,008
+scrub	2	0	9508	0	0		9,508
+type	9508	0	1		9508
+arrow	down	9508	0	1		9507
+commit	12 34	1	9508	0	0	Enter a value from 1 through 1800000000.	9,508
+scrub	1	1	9508	0	0	Enter a value from 1 through 1800000000.	9,508
+scrub	2	1	9509	0	0		9,509
+end	9509	0	0		9,509
+begin	9509	0	0		9,509
+scrub	-1	1	9509	0	0		9,509
+type	9509	0	1		9509
+commit	9999999	1	9999999	0	0		9,999,999
+type	9999999	0	1		9999999
+commit	+7	0	7	0	0		7
+scrub	1	0	257	0	0		257
+type	257	0	1		257
+commit	128	0	128	0	0		128
+end	128	0	0		128
+end	128	0	0		128
+scrub	-2	0	1	0	0		1
+begin	1	0	0		1
+key	down	1	0	0		1
+scrub	-2	0	1	0	0		1
+scrub	13	1	7	0	0		7
+scrub	-33	0	1	0	0		1
+scrub	-2	0	1	0	0		1
+end	1	0	0		1
+scrub	0	0	1	0	0		1
+escape	1	0	0		1
+scrub	1	0	251	0	0		251
+scrub	2386	0	596751	0	0		596,751
+scrub	-27	0	590001	0	0		590,001
+scrub	1	0	590251	0	0		590,251
+scrub	-2	0	589751	0	0		589,751
+scrub	11	0	592501	0	0		592,501
+scrub	0	1	592501	0	0		592,501
+escape	592501	0	0		592,501
+begin	592501	0	0		592,501
+scrub	-3	1	592500	0	0		592,500
+begin	592500	0	0		592,500
+type	592500	0	1		592500
+commit	+7	1	7	0	0		7
+scrub	1521	0	380257	0	0		380,257
+begin	380257	0	0		380,257
+scrub	0	1	380257	0	0		380,257
+scrub	0	1	380257	0	0		380,257
+type	380257	0	1		380257
+arrow	up	380257	0	1		380258
+commit	1800000000	1	1800000000	0	0		1,800,000,000
+scrub	-2	1	1799999999	0	0		1,799,999,999
+scrub	-2	1	1799999998	0	0		1,799,999,998
+scrub	2	0	1800000000	0	0		1,800,000,000
+scrub	6	1	1800000000	0	0		1,800,000,000
+scrub	3	1	1800000000	0	0		1,800,000,000
+scrub	-2	0	1798500625	0	0		1,798,500,625
+scrub	-6	0	1794009989	0	0		1,794,009,989
+escape	1794009989	0	0		1,794,009,989
+key	down	1794008989	0	0		1,794,008,989
+scrub	-1	0	1793261641	0	0		1,793,261,641
+type	1793261641	0	1		1793261641
+arrow	down	1793261641	0	1		1793261640
+commit	+7	1	7	0	0		7
+request	79	79	0	0		79
+scrub	0	1	79	0	0		79
+key	up	1079	0	0		1,079
+scrub	-2	0	579	0	0		579
+scrub	-2	1	578	0	0		578
+begin	578	0	0		578
+end	578	0	0		578
+key	down	1	0	0		1
+scrub	-2	0	1	0	0		1
+scrub	-3	0	1	0	0		1
+scrub	0	1	1	0	0		1
+scrub	-22	1	1	0	0		1
+scrub	-3	0	1	0	0		1
+scrub	-2	0	1	0	0		1
+scrub	0	1	1	0	0		1
+request	116	116	0	0		116
+scrub	-868	1	1	0	0		1
+begin	1	0	0		1
+scrub	2	0	501	0	0		501
+scrub	-3	0	1	0	0		1
+scrub	-3	1	1	0	0		1
+request	54	54	0	0		54
+scrub	0	0	54	0	0		54
+scrub	23	0	5804	0	0		5,804
+scrub	1	1	5804	0	0		5,804
+scrub	3	1	5806	0	0		5,806
+request	39	39	0	0		39
+end	39	0	0		39
+scrub	-2	0	1	0	0		1
+scrub	3	0	289	0	0		289
+scrub	-40	0	1	0	0		1
+scrub	-2	1	1	0	0		1
+scrub	2	0	501	0	0		501
+key	down	1	0	0		1
+begin	1	0	0		1
+begin	1	0	0		1
+scrub	2	0	501	0	0		501
+scrub	-38	1	482	0	0		482
+key	down	1	0	0		1
+type	1	0	1		1
+escape	1	0	0		1
+scrub	2	0	501	0	0		501
+scrub	-1	1	501	0	0		501
+scrub	-30	0	1	0	0		1
+scrub	-2948	0	1	0	0		1
+escape	1	0	0		1
+scrub	3	0	751	0	0		751
+scrub	-9	0	1	0	0		1
+scrub	1	1	1	0	0		1
+scrub	0	0	1	0	0		1
+scrub	2	0	501	0	0		501
+scrub	0	0	501	0	0		501
+scrub	3	1	502	0	0		502
+scrub	2	0	1002	0	0		1,002
+scrub	29	0	8252	0	0		8,252
+scrub	1	0	8502	0	0		8,502
+begin	8502	0	0		8,502
+scrub	-1	0	8252	0	0		8,252
+key	down	7252	0	0		7,252
+type	7252	0	1		7252
+arrow	down	7252	0	1		7251
+commit	-3	0	7252	0	0	Enter a value from 1 through 1800000000.	7,252
+scrub	-3	1	7251	0	0		7,251
+key	down	6251	0	0		6,251
+type	6251	0	1		6251
+arrow	up	6251	0	1		6252
+key	up	6251	0	1		6253
+arrow	down	6251	0	1		6252
+key	up	6251	0	1		6253
+arrow	down	6251	0	1		6252
+commit	Off	1	6251	0	0	Enter a value from 1 through 1800000000.	6,251
+scrub	1	0	6501	0	0		6,501
+scrub	2	1	6502	0	0		6,502
+scrub	2	1	6503	0	0		6,503
+scenario	rate-us	numeric	0	0	1000000	16	1	1	1	0	1	rate0
+scrub	-24	0	0	0	0		0
+type	0	0	1		0
+commit	12 34	1	0	0	0	Enter a value from 0 through 1000000.	0
+scrub	23	0	19	0	0		19
+type	19	0	1		19
+escape	19	0	0		19
+type	19	0	1		19
+escape	19	0	0		19
+key	up	20	0	0		20
+scrub	0	0	20	0	0		20
+scrub	2	0	22	0	0		22
+scrub	0	1	22	0	0		22
+scrub	2	0	23	0	0		23
+type	23	0	1		23
+commit	1000000	1	1000000	0	0		1,000,000
+type	1000000	0	1		1000000
+arrow	down	1000000	0	1		999999
+commit	127	0	127	0	0		127
+scrub	-37	0	96	0	0		96
+scrub	0	0	96	0	0		96
+scrub	-3	0	93	0	0		93
+scrub	30	0	118	0	0		118
+scrub	6	0	123	0	0		123
+scrub	-3	0	121	0	0		121
+scrub	0	0	121	0	0		121
+begin	121	0	0		121
+begin	121	0	0		121
+scrub	15	1	136	0	0		136
+scrub	-1	0	135	0	0		135
+request	18	18	0	0		18
+type	18	0	1		18
+commit	-3	1	18	0	0	Enter a value from 0 through 1000000.	18
+scrub	-1	0	18	0	0	Enter a value from 0 through 1000000.	18
+scrub	3	0	20	0	0		20
+scrub	0	0	20	0	0		20
+scrub	3	1	23	0	0		23
+scrub	2	0	25	0	0		25
+begin	25	0	0		25
+scrub	1	0	26	0	0		26
+scrub	3	0	28	0	0		28
+scrub	-925	0	0	0	0		0
+scrub	37	1	37	0	0		37
+escape	37	0	0		37
+scrub	2	1	39	0	0		39
+scrub	0	0	39	0	0		39
+scrub	-2	0	38	0	0		38
+scrub	2	0	39	0	0		39
+scrub	-2865	0	0	0	0		0
+scrub	3	1	3	0	0		3
+scrub	-18	0	0	0	0		0
+scrub	8	0	0	0	0		0
+scrub	-608	0	0	0	0		0
+scrub	3	0	0	0	0		0
+scrub	1	0	0	0	0		0
+scrub	2795	0	1821	0	0		1,821
+escape	1821	0	0		1,821
+escape	1821	0	0		1,821
+scrub	0	1	1821	0	0		1,821
+begin	1821	0	0		1,821
+scrub	-22	0	1802	0	0		1,802
+scrub	3	0	1805	0	0		1,805
+scrub	3	0	1808	0	0		1,808
+type	1808	0	1		1808
+commit	1800000001	1	1808	0	0	Enter a value from 0 through 1000000.	1,808
+scrub	1	0	1809	0	0		1,809
+scrub	-3	0	1807	0	0		1,807
+scrub	10	0	1815	0	0		1,815
+scrub	0	0	1815	0	0		1,815
+begin	1815	0	0		1,815
+request	86	86	0	0		86
+type	86	0	1		86
+commit	1800000000	0	86	0	0	Enter a value from 0 through 1000000.	86
+scrub	-2	1	84	0	0		84
+escape	84	0	0		84
+key	up	85	0	0		85
+scrub	2	1	87	0	0		87
+scrub	1	0	88	0	0		88
+escape	88	0	0		88
+end	88	0	0		88
+type	88	0	1		88
+key	up	88	0	1		89
+commit	128	1	128	0	0		128
+end	128	0	0		128
+scrub	1318	0	1227	0	0		1,227
+scrub	3	0	1229	0	0		1,229
+type	1229	0	1		1229
+commit	 42 	1	42	0	0		42
+scrub	3	0	44	0	0		44
+key	down	43	0	0		43
+scrub	-3	0	42	0	0		42
+scrub	-909	0	0	0	0		0
+scrub	-1875	0	0	0	0		0
+scrub	2	1	2	0	0		2
+scrub	-1	0	1	0	0		1
+scrub	1	0	2	0	0		2
+scrub	-3	1	0	0	0		0
+scrub	-3	1	0	0	0		0
+end	0	0	0		0
+request	9	9	0	0		9
+end	9	0	0		9
+scrub	16	0	22	0	0		22
+begin	22	0	0		22
+scrub	-2	0	20	0	0		20
+type	20	0	1		20
+arrow	down	20	0	1		19
+arrow	up	20	0	1		20
+commit	999999999999	1	20	0	0	Enter a value from 0 through 1000000.	20
+scrub	2	1	22	0	0		22
+scrub	-11	0	12	0	0		12
+type	12	0	1		12
+arrow	down	12	0	1		11
+escape	12	0	0		12
+key	down	11	0	0		11
+scrub	-1	1	10	0	0		10
+escape	10	0	0		10
+escape	10	0	0		10
+begin	10	0	0		10
+scrub	22	1	32	0	0		32
+scrub	-547	0	0	0	0		0
+scrub	-3	0	0	0	0		0
+begin	0	0	0		0
+key	down	0	0	0		0
+scrub	39	0	32	0	0		32
+scrub	0	0	32	0	0		32
+scrub	3	0	35	0	0		35
+scrub	2	1	37	0	0		37
+scrub	-696	0	0	0	0		0
+scrub	1	1	1	0	0		1
+scrub	2	0	2	0	0		2
+scrub	259	0	218	0	0		218
+scrub	38	0	250	0	0		250
+scrub	-1	0	249	0	0		249
+scrub	2858	0	2631	0	0		2,631
+scrub	0	0	2631	0	0		2,631
+scrub	-3	0	2628	0	0		2,628
+scrub	-1	0	2628	0	0		2,628
+scrub	-27	0	2605	0	0		2,605
+scrub	0	0	2605	0	0		2,605
+scrub	-432	0	2245	0	0		2,245
+scrub	2	1	2247	0	0		2,247
+begin	2247	0	0		2,247
+scrub	-2	0	2245	0	0		2,245
+scrub	-115	0	2149	0	0		2,149
+scrub	0	0	2149	0	0		2,149
+scrub	2	0	2151	0	0		2,151
+request	113	113	0	0		113
+scrub	11	0	2160	0	0		2,160
+end	2160	0	0		2,160
+scrub	31	1	2191	0	0		2,191
+end	2191	0	0		2,191
+scrub	0	1	2191	0	0		2,191
+end	2191	0	0		2,191
+scrub	15	1	2206	0	0		2,206
+key	up	2207	0	0		2,207
+end	2207	0	0		2,207
+scrub	3	0	2209	0	0		2,209
+scrub	2125	1	4334	0	0		4,334
+scrub	-1571	0	3025	0	0		3,025
+scrub	0	0	3025	0	0		3,025
+scrub	1	0	3026	0	0		3,026
+scrub	0	1	3026	0	0		3,026
+key	down	3025	0	0		3,025
+scrub	0	0	3025	0	0		3,025
+scrub	1	1	3026	0	0		3,026
+begin	3026	0	0		3,026
+begin	3026	0	0		3,026
+scrub	2	0	3028	0	0		3,028
+scrub	0	0	3028	0	0		3,028
+scrub	0	0	3028	0	0		3,028
+scrub	-3	1	3025	0	0		3,025
+scenario	rate-bitrate	numeric	31250	1	100000000	16	1	1	1	0	1	rate1
+scrub	25	0	32348	0	0		32,348
+scrub	-1	0	32304	0	0		32,304
+scrub	-1	0	32259	0	0		32,259
+begin	32259	0	0		32,259
+scrub	2	1	32261	0	0		32,261
+key	up	32262	0	0		32,262
+scrub	3	0	32396	0	0		32,396
+scrub	3	1	32399	0	0		32,399
+scrub	3	0	32534	0	0		32,534
+scrub	-3	0	32399	0	0		32,399
+scrub	-11	1	32388	0	0		32,388
+scrub	2	1	32390	0	0		32,390
+key	down	32389	0	0		32,389
+scrub	-1843	0	2539	0	0		2,539
+scrub	3	0	2549	0	0		2,549
+begin	2549	0	0		2,549
+escape	2549	0	0		2,549
+type	2549	0	1		2549
+arrow	up	2549	0	1		2550
+key	up	2549	0	1		2551
+commit	12 34	1	2549	0	0	Enter a value from 1 through 100000000.	2,549
+begin	2549	0	0	Enter a value from 1 through 100000000.	2,549
+scrub	-3	0	2539	0	0		2,539
+scrub	-11	1	2528	0	0		2,528
+key	up	2529	0	0		2,529
+type	2529	0	1		2529
+key	down	2529	0	1		2528
+arrow	down	2529	0	1		2527
+arrow	up	2529	0	1		2528
+arrow	up	2529	0	1		2529
+arrow	up	2529	0	1		2530
+commit	On	1	2529	0	0	Enter a value from 1 through 100000000.	2,529
+end	2529	0	0	Enter a value from 1 through 100000000.	2,529
+scrub	-1	0	2526	0	0		2,526
+scrub	2139	0	48485	0	0		48,485
+scrub	-2	1	48483	0	0		48,483
+scrub	2	0	48617	0	0		48,617
+end	48617	0	0		48,617
+type	48617	0	1		48617
+commit	1,2,3	1	123	0	0		123
+scrub	7	1	130	0	0		130
+begin	130	0	0		130
+begin	130	0	0		130
+scrub	-2	1	128	0	0		128
+scrub	3	1	131	0	0		131
+scrub	1	0	131	0	0		131
+scrub	2	1	133	0	0		133
+escape	133	0	0		133
+type	133	0	1		133
+commit	12 34	1	133	0	0	Enter a value from 1 through 100000000.	133
+scrub	1	0	133	0	0	Enter a value from 1 through 100000000.	133
+scrub	1810	0	1623	0	0		1,623
+type	1623	0	1		1623
+key	down	1623	0	1		1622
+arrow	down	1623	0	1		1621
+arrow	down	1623	0	1		1620
+commit	128	1	128	0	0		128
+scrub	-1	1	127	0	0		127
+scrub	-1875	0	100	0	0		100
+escape	100	0	0		100
+scrub	3	0	100	0	0		100
+scrub	-3	1	97	0	0		97
+type	97	0	1		97
+commit		1	97	0	0	Enter a value from 1 through 100000000.	97
+type	97	0	1	Enter a value from 1 through 100000000.	97
+commit		1	97	0	0	Enter a value from 1 through 100000000.	97
+begin	97	0	0	Enter a value from 1 through 100000000.	97
+scrub	40	0	137	0	0		137
+scrub	-1	0	136	0	0		136
+scrub	0	1	136	0	0		136
+scrub	0	0	136	0	0		136
+key	down	135	0	0		135
+scrub	0	0	136	0	0		136
+scrub	-3	0	136	0	0		136
+scrub	-2	1	134	0	0		134
+scrub	2	0	134	0	0		134
+scrub	19	0	138	0	0		138
+scrub	-22	0	134	0	0		134
+scrub	0	0	134	0	0		134
+scrub	18	0	137	0	0		137
+scrub	3	0	138	0	0		138
+scrub	-20	1	118	0	0		118
+end	118	0	0		118
+scrub	0	0	118	0	0		118
+scrub	-3	0	118	0	0		118
+end	118	0	0		118
+scrub	-1	0	118	0	0		118
+scrub	-2	0	118	0	0		118
+scrub	0	1	118	0	0		118
+begin	118	0	0		118
+type	118	0	1		118
+arrow	down	118	0	1		117
+escape	118	0	0		118
+type	118	0	1		118
+commit	100	0	100	0	0		100
+end	100	0	0		100
+scrub	2	0	100	0	0		100
+scrub	-2	1	98	0	0		98
+scrub	2	0	100	0	0		100
+scrub	2	1	102	0	0		102
+end	102	0	0		102
+scrub	-2	0	102	0	0		102
+escape	102	0	0		102
+escape	102	0	0		102
+scrub	-3	0	102	0	0		102
+scrub	0	0	102	0	0		102
+scrub	-1029	0	100	0	0		100
+begin	100	0	0		100
+end	100	0	0		100
+end	100	0	0		100
+scrub	1	0	100	0	0		100
+begin	100	0	0		100
+scrub	0	0	100	0	0		100
+type	100	0	1		100
+arrow	up	100	0	1		101
+commit	9999999	0	9999999	0	0		9,999,999
+type	9999999	0	1		9999999
+key	up	9999999	0	1		10000000
+escape	9999999	0	0		9,999,999
+scrub	-3	0	9958657	0	0		9,958,657
+begin	9958657	0	0		9,958,657
+request	25	25	0	0		25
+scrub	-2	0	23	0	0		23
+type	23	0	1		23
+commit	10000000	0	10000000	0	0		10,000,000
+scrub	0	1	10000000	0	0		10,000,000
+scrub	-3	1	9999997	0	0		9,999,997
+end	9999997	0	0		9,999,997
+scrub	0	1	9999997	0	0		9,999,997
+begin	9999997	0	0		9,999,997
+end	9999997	0	0		9,999,997
+scrub	2	1	9999999	0	0		9,999,999
+scrub	0	1	9999999	0	0		9,999,999
+type	9999999	0	1		9999999
+commit	100	0	100	0	0		100
+type	100	0	1		100
+commit	0	1	100	0	0	Enter a value from 1 through 100000000.	100
+scrub	2214	1	2314	0	0		2,314
+scrub	-38	0	2196	0	0		2,196
+type	2196	0	1		2196
+commit		1	2196	0	0	Enter a value from 1 through 100000000.	2,196
+scrub	-1603	0	240	0	0		240
+scrub	1	0	240	0	0		240
+scrub	0	0	240	0	0		240
+begin	240	0	0		240
+request	94	94	0	0		94
+request	121	121	0	0		121
+scrub	-13	1	108	0	0		108
+scrub	38	0	114	0	0		114
+key	up	115	0	0		115
+scrub	-1	0	114	0	0		114
+scrub	-1	0	114	0	0		114
+scrub	3	0	114	0	0		114
+begin	114	0	0		114
+begin	114	0	0		114
+scrub	1	0	114	0	0		114
+begin	114	0	0		114
+scrub	-3	0	114	0	0		114
+type	114	0	1		114
+commit	129	1	129	0	0		129
+end	129	0	0		129
+escape	129	0	0		129
+key	up	130	0	0		130
+key	up	131	0	0		131
+scrub	3	1	134	0	0		134
+scrub	207	0	178	0	0		178
+scrub	2594	0	6424	0	0		6,424
+scrub	1	0	6433	0	0		6,433
+key	down	6432	0	0		6,432
+scrub	-25	0	6214	0	0		6,214
+scenario	rate-eps	numeric	100	0	9999999	16	1	1	1	0	1	rate2
+scrub	-1	0	100	0	0		100
+type	100	0	1		100
+commit	128	1	128	0	0		128
+escape	128	0	0		128
+end	128	0	0		128
+scrub	-3	1	125	0	0		125
+begin	125	0	0		125
+scrub	-3	0	124	0	0		124
+request	106	106	0	0		106
+request	75	75	0	0		75
+scrub	-1	0	124	0	0		124
+scrub	506	0	397	0	0		397
+scrub	-3	0	394	0	0		394
+scrub	-3	1	391	0	0		391
+scrub	-2	0	389	0	0		389
+scrub	1	0	390	0	0		390
+begin	390	0	0		390
+scrub	-3	1	387	0	0		387
+key	down	386	0	0		386
+type	386	0	1		386
+commit	0	1	0	0	0		0
+scrub	-6	0	0	0	0		0
+scrub	920	1	920	0	0		920
+scrub	-32	0	855	0	0		855
+type	855	0	1		855
+escape	855	0	0		855
+type	855	0	1		855
+commit	100	1	100	0	0		100
+scrub	3	1	103	0	0		103
+begin	103	0	0		103
+type	103	0	1		103
+commit	1000000	1	1000000	0	0		1,000,000
+type	1000000	0	1		1000000
+commit		1	1000000	0	0	Enter a value from 0 through 9999999.	1,000,000
+scrub	3	0	1006932	0	0		1,006,932
+scrub	-1	0	1004616	0	0		1,004,616
+scrub	-3	0	997700	0	0		997,700
+scrub	16	0	1035142	0	0		1,035,142
+scrub	-3	1	1035139	0	0		1,035,139
+begin	1035139	0	0		1,035,139
+end	1035139	0	0		1,035,139
+key	down	1035138	0	0		1,035,138
+type	1035138	0	1		1035138
+commit	127	1	127	0	0		127
+begin	127	0	0		127
+scrub	1	0	127	0	0		127
+scrub	31	0	137	0	0		137
+request	38	38	0	0		38
+scrub	1	0	137	0	0		137
+end	137	0	0		137
+end	137	0	0		137
+type	137	0	1		137
+key	up	137	0	1		138
+key	up	137	0	1		139
+arrow	down	137	0	1		138
+commit	9999999	0	9999999	0	0		9,999,999
+scrub	1	0	9999999	0	0		9,999,999
+scrub	-2	0	9977000	0	0		9,977,000
+scrub	23	0	9999999	0	0		9,999,999
+begin	9999999	0	0		9,999,999
+type	9999999	0	1		9999999
+escape	9999999	0	0		9,999,999
+scrub	-2	0	9954053	0	0		9,954,053
+key	down	9954052	0	0		9,954,052
+key	up	9954053	0	0		9,954,053
+scrub	2	0	9999999	0	0		9,999,999
+escape	9999999	0	0		9,999,999
+scrub	19	0	9999999	0	0		9,999,999
+end	9999999	0	0		9,999,999
+type	9999999	0	1		9999999
+arrow	up	9999999	0	1		9999999
+commit	1	1	1	0	0		1
+scrub	105	0	22	0	0		22
+scrub	1	1	23	0	0		23
+key	down	22	0	0		22
+type	22	0	1		22
+escape	22	0	0		22
+scrub	33	0	29	0	0		29
+escape	29	0	0		29
+escape	29	0	0		29
+begin	29	0	0		29
+scrub	1	0	29	0	0		29
+scrub	-2	0	29	0	0		29
+escape	29	0	0		29
+scrub	-3	1	26	0	0		26
+scrub	-2	0	26	0	0		26
+scrub	-1	0	25	0	0		25
+end	25	0	0		25
+end	25	0	0		25
+type	25	0	1		25
+arrow	up	25	0	1		26
+arrow	up	25	0	1		27
+commit	1800000001	1	25	0	0	Enter a value from 0 through 9999999.	25
+scrub	0	0	25	0	0	Enter a value from 0 through 9999999.	25
+scrub	2	1	27	0	0		27
+scrub	1	0	27	0	0		27
+scrub	-695	1	0	0	0		0
+scrub	2	0	1	0	0		1
+scrub	1885	0	2438	0	0		2,438
+scrub	0	0	2438	0	0		2,438
+type	2438	0	1		2438
+commit	1000000	1	1000000	0	0		1,000,000
+scrub	-2	0	995405	0	0		995,405
+scrub	-2	0	990832	0	0		990,832
+scrub	-19	1	990813	0	0		990,813
+scrub	1	0	993097	0	0		993,097
+scrub	2	0	997681	0	0		997,681
+type	997681	0	1		997681
+escape	997681	0	0		997,681
+scrub	-3	0	990813	0	0		990,813
+scrub	1	1	990814	0	0		990,814
+scrub	1	0	993098	0	0		993,098
+begin	993098	0	0		993,098
+scrub	-2	1	993096	0	0		993,096
+begin	993096	0	0		993,096
+end	993096	0	0		993,096
+end	993096	0	0		993,096
+begin	993096	0	0		993,096
+scrub	-1	0	990812	0	0		990,812
+scrub	-1344	0	44855	0	0		44,855
+begin	44855	0	0		44,855
+key	up	44856	0	0		44,856
+scrub	-2818	0	48	0	0		48
+scrub	3	0	49	0	0		49
+scrub	2380	0	16463	0	0		16,463
+scrub	-1	0	16425	0	0		16,425
+scrub	-3	0	16312	0	0		16,312
+type	16312	0	1		16312
+key	up	16312	0	1		16313
+key	down	16312	0	1		16312
+commit	12 34	1	16312	0	0	Enter a value from 0 through 9999999.	16,312
+scrub	-15	1	16297	0	0		16,297
+scrub	-2	0	16222	0	0		16,222
+scrub	17	0	16870	0	0		16,870
+scrub	0	0	16870	0	0		16,870
+scrub	0	0	16870	0	0		16,870
+scrub	37	0	18369	0	0		18,369
+scrub	1	0	18412	0	0		18,412
+scrub	0	1	18412	0	0		18,412
+end	18412	0	0		18,412
+scrub	3	0	18539	0	0		18,539
+key	up	18540	0	0		18,540
+scrub	3	0	18668	0	0		18,668
+begin	18668	0	0		18,668
+scrub	-3	0	18539	0	0		18,539
+scrub	-2	0	18454	0	0		18,454
+type	18454	0	1		18454
+key	up	18454	0	1		18455
+key	down	18454	0	1		18454
+arrow	down	18454	0	1		18453
+escape	18454	0	0		18,454
+scrub	3	0	18582	0	0		18,582
+end	18582	0	0		18,582
+scrub	1	1	18583	0	0		18,583
+scrub	1	1	18584	0	0		18,584
+type	18584	0	1		18584
+arrow	up	18584	0	1		18585
+commit	0	0	0	0	0		0
+scrub	2	0	1	0	0		1
+scrub	-3	0	0	0	0		0
+scrub	-8	1	0	0	0		0
+scrub	2402	0	7980	0	0		7,980
+scrub	-2	0	7943	0	0		7,943
+escape	7943	0	0		7,943
+scrub	2	0	7980	0	0		7,980
+scrub	-2	0	7943	0	0		7,943
+end	7943	0	0		7,943
+scrub	3	0	7998	0	0		7,998
+scrub	-2	1	7996	0	0		7,996
+scrub	-2	1	7994	0	0		7,994
+scenario	plain	numeric	10	1	128	1	4	1	2	0	1	none
+begin	10	0	0		10
+type	10	0	1		10
+commit	999999999999	0	10	0	0	Enter a value from 1 through 128.	10
+end	10	0	0	Enter a value from 1 through 128.	10
+end	10	0	0	Enter a value from 1 through 128.	10
+scrub	2	0	10	0	0	Enter a value from 1 through 128.	10
+key	down	9	0	0		9
+scrub	-23	0	4	0	0		4
+end	4	0	0		4
+scrub	11	0	6	0	0		6
+scrub	0	0	6	0	0		6
+scrub	-2	0	6	0	0		6
+scrub	2418	0	128	0	0		128
+begin	128	0	0		128
+begin	128	0	0		128
+scrub	30	0	128	0	0		128
+scrub	1	0	128	0	0		128
+request	115	115	0	0		115
+escape	115	0	0		115
+type	115	0	1		115
+arrow	down	115	0	1		114
+commit	On	1	115	0	0	Enter a value from 1 through 128.	115
+key	up	116	0	0		116
+scrub	3	0	116	0	0		116
+scrub	488	0	128	0	0		128
+scrub	38	0	128	0	0		128
+scrub	3	0	128	0	0		128
+scrub	1	1	128	0	0		128
+scrub	3	0	128	0	0		128
+scrub	0	0	128	0	0		128
+scrub	28	0	128	0	0		128
+begin	128	0	0		128
+scrub	-4	0	127	0	0		127
+scrub	0	0	127	0	0		127
+begin	127	0	0		127
+escape	127	0	0		127
+end	127	0	0		127
+scrub	0	0	127	0	0		127
+scrub	2	0	127	0	0		127
+type	127	0	1		127
+escape	127	0	0		127
+key	down	126	0	0		126
+scrub	1	0	126	0	0		126
+scrub	0	0	126	0	0		126
+scrub	2	0	126	0	0		126
+scrub	-2	0	126	0	0		126
+scrub	2	0	126	0	0		126
+scrub	37	0	128	0	0		128
+scrub	-1774	1	1	0	0		1
+scrub	1	0	1	0	0		1
+begin	1	0	0		1
+scrub	-3	1	1	0	0		1
+type	1	0	1		1
+arrow	down	1	0	1		1
+key	down	1	0	1		1
+commit	1800000001	1	1	0	0	Enter a value from 1 through 128.	1
+end	1	0	0	Enter a value from 1 through 128.	1
+key	up	2	0	0		2
+scrub	-1	1	2	0	0		2
+scrub	0	0	2	0	0		2
+key	down	1	0	0		1
+scrub	2	0	1	0	0		1
+scrub	-2312	0	1	0	0		1
+scrub	2	0	1	0	0		1
+scrub	-2	1	1	0	0		1
+scrub	1	0	1	0	0		1
+scrub	-31	1	1	0	0		1
+scrub	-3	1	1	0	0		1
+scrub	2	1	2	0	0		2
+scrub	1	1	2	0	0		2
+end	2	0	0		2
+scrub	2366	0	128	0	0		128
+begin	128	0	0		128
+scrub	-2	1	127	0	0		127
+scrub	-1	0	127	0	0		127
+scrub	-4	1	125	0	0		125
+scrub	2	0	125	0	0		125
+begin	125	0	0		125
+scrub	3	0	125	0	0		125
+scrub	-1	0	125	0	0		125
+request	5	5	0	0		5
+scrub	1	0	5	0	0		5
+scrub	33	0	14	0	0		14
+begin	14	0	0		14
+key	down	13	0	0		13
+scrub	-3	1	12	0	0		12
+request	50	50	0	0		50
+request	66	66	0	0		66
+scrub	2	0	66	0	0		66
+scrub	-2	0	66	0	0		66
+end	66	0	0		66
+scrub	-2	0	66	0	0		66
+type	66	0	1		66
+commit	10	1	10	0	0		10
+type	10	0	1		10
+arrow	down	10	0	1		9
+commit	1,234	1	10	0	0	Enter a value from 1 through 128.	10
+begin	10	0	0	Enter a value from 1 through 128.	10
+begin	10	0	0	Enter a value from 1 through 128.	10
+scrub	-2	0	10	0	0	Enter a value from 1 through 128.	10
+scrub	-1	0	10	0	0	Enter a value from 1 through 128.	10
+begin	10	0	0	Enter a value from 1 through 128.	10
+scrub	-3	1	9	0	0		9
+scrub	0	0	9	0	0		9
+escape	9	0	0		9
+key	up	10	0	0		10
+escape	10	0	0		10
+scrub	446	0	121	0	0		121
+type	121	0	1		121
+key	up	121	0	1		122
+commit	10	0	10	0	0		10
+scrub	-3	0	10	0	0		10
+begin	10	0	0		10
+scrub	0	0	10	0	0		10
+begin	10	0	0		10
+begin	10	0	0		10
+type	10	0	1		10
+escape	10	0	0		10
+scrub	-1043	0	1	0	0		1
+request	76	76	0	0		76
+end	76	0	0		76
+type	76	0	1		76
+commit	12 34	0	76	0	0	Enter a value from 1 through 128.	76
+scrub	3	1	77	0	0		77
+scrub	-2	1	77	0	0		77
+begin	77	0	0		77
+scrub	-21	1	67	0	0		67
+scrub	0	1	67	0	0		67
+scrub	-2	1	66	0	0		66
+scrub	-1	1	65	0	0		65
+scrub	1256	0	128	0	0		128
+type	128	0	1		128
+commit	On	1	128	0	0	Enter a value from 1 through 128.	128
+scrub	-3	0	128	0	0	Enter a value from 1 through 128.	128
+type	128	0	1	Enter a value from 1 through 128.	128
+commit	1000001	1	128	0	0	Enter a value from 1 through 128.	128
+scrub	-2	0	128	0	0	Enter a value from 1 through 128.	128
+type	128	0	1	Enter a value from 1 through 128.	128
+commit	127	1	127	0	0		127
+scrub	1	0	127	0	0		127
+begin	127	0	0		127
+begin	127	0	0		127
+scrub	0	1	127	0	0		127
+begin	127	0	0		127
+end	127	0	0		127
+scrub	-16	0	123	0	0		123
+scrub	3	1	124	0	0		124
+begin	124	0	0		124
+key	down	123	0	0		123
+scrub	-2	0	123	0	0		123
+scrub	3	1	124	0	0		124
+request	10	10	0	0		10
+scrub	-2199	0	1	0	0		1
+end	1	0	0		1
+key	down	1	0	0		1
+scrub	-2322	0	1	0	0		1
+scrub	-3	0	1	0	0		1
+scrub	-1	0	1	0	0		1
+scrub	15	0	4	0	0		4
+scrub	-2	0	4	0	0		4
+type	4	0	1		4
+arrow	up	4	0	1		5
+arrow	up	4	0	1		6
+commit		0	4	0	0	Enter a value from 1 through 128.	4
+request	102	102	0	0		102
+type	102	0	1		102
+key	up	102	0	1		103
+commit	10000000	1	102	0	0	Enter a value from 1 through 128.	102
+type	102	0	1	Enter a value from 1 through 128.	102
+commit	999999999999	0	102	0	0	Enter a value from 1 through 128.	102
+scenario	plain-wide	numeric	500	0	100000	7	3	2	5	0	10	none
+scrub	-3	1	500	0	0		500
+begin	500	0	0		500
+scrub	0	1	500	0	0		500
+end	500	0	0		500
+begin	500	0	0		500
+scrub	2	0	500	0	0		500
+scrub	0	1	500	0	0		500
+begin	500	0	0		500
+begin	500	0	0		500
+request	30	30	0	0		30
+end	30	0	0		30
+key	up	40	0	0		40
+scrub	13	0	68	0	0		68
+type	68	0	1		68
+arrow	down	68	0	1		67
+key	up	68	0	1		68
+arrow	down	68	0	1		67
+escape	68	0	0		68
+scrub	0	1	68	0	0		68
+type	68	0	1		68
+commit	129	0	129	0	0		129
+scrub	-3	1	129	0	0		129
+scrub	3	0	136	0	0		136
+scrub	-1	1	136	0	0		136
+type	136	0	1		136
+key	down	136	0	1		135
+commit	126	1	126	0	0		126
+scrub	-1	1	126	0	0		126
+begin	126	0	0		126
+type	126	0	1		126
+key	down	126	0	1		125
+arrow	up	126	0	1		126
+arrow	down	126	0	1		125
+escape	126	0	0		126
+begin	126	0	0		126
+scrub	0	1	126	0	0		126
+scrub	-668	0	0	0	0		0
+escape	0	0	0		0
+scrub	3	0	7	0	0		7
+scrub	-1	0	7	0	0		7
+scrub	3	0	7	0	0		7
+end	7	0	0		7
+scrub	-2	0	7	0	0		7
+scrub	-2664	0	0	0	0		0
+request	49	49	0	0		49
+scrub	0	1	49	0	0		49
+scrub	-1234	1	0	0	0		0
+request	13	13	0	0		13
+end	13	0	0		13
+scrub	0	0	13	0	0		13
+end	13	0	0		13
+begin	13	0	0		13
+type	13	0	1		13
+commit	 42 	0	42	0	0		42
+scrub	-1161	0	0	0	0		0
+scrub	-3	0	0	0	0		0
+scrub	-3	1	0	0	0		0
+end	0	0	0		0
+scrub	2	0	0	0	0		0
+scrub	38	0	91	0	0		91
+scrub	-2	1	91	0	0		91
+scrub	-3	0	84	0	0		84
+scrub	10	0	105	0	0		105
+scrub	-2	0	105	0	0		105
+type	105	0	1		105
+arrow	down	105	0	1		104
+arrow	down	105	0	1		103
+commit	5	1	5	0	0		5
+scrub	2260	1	909	0	0		909
+begin	909	0	0		909
+scrub	0	0	909	0	0		909
+end	909	0	0		909
+scrub	3	0	916	0	0		916
+begin	916	0	0		916
+scrub	0	0	916	0	0		916
+scrub	18	1	922	0	0		922
+type	922	0	1		922
+commit	1,234	1	1234	0	0		1,234
+scrub	-3	1	1234	0	0		1,234
+key	down	1224	0	0		1,224
+scrub	-27	0	1161	0	0		1,161
+scrub	3	1	1161	0	0		1,161
+scrub	3	0	1168	0	0		1,168
+type	1168	0	1		1168
+escape	1168	0	0		1,168
+type	1168	0	1		1168
+arrow	down	1168	0	1		1167
+arrow	up	1168	0	1		1168
+escape	1168	0	0		1,168
+end	1168	0	0		1,168
+type	1168	0	1		1168
+commit	129	1	129	0	0		129
+begin	129	0	0		129
+scrub	3	0	136	0	0		136
+type	136	0	1		136
+arrow	up	136	0	1		137
+arrow	up	136	0	1		138
+commit	10	0	10	0	0		10
+scrub	-1	0	10	0	0		10
+scrub	-1	0	10	0	0		10
+scrub	0	0	10	0	0		10
+key	up	20	0	0		20
+begin	20	0	0		20
+scrub	3	0	27	0	0		27
+scrub	-1149	1	0	0	0		0
+scrub	3	1	0	0	0		0
+scrub	1	0	0	0	0		0
+request	58	58	0	0		58
+begin	58	0	0		58
+scrub	-1	1	58	0	0		58
+scrub	0	1	58	0	0		58
+begin	58	0	0		58
+begin	58	0	0		58
+scrub	3	1	58	0	0		58
+scrub	-2	0	58	0	0		58
+scrub	1	0	58	0	0		58
+request	57	57	0	0		57
+scrub	0	0	57	0	0		57
+begin	57	0	0		57
+scrub	-1	0	57	0	0		57
+scrub	0	0	57	0	0		57
+type	57	0	1		57
+commit	100	1	100	0	0		100
+scrub	0	1	100	0	0		100
+scrub	1143	0	2767	0	0		2,767
+request	34	34	0	0		34
+scrub	-3	0	27	0	0		27
+end	27	0	0		27
+scrub	-2	0	27	0	0		27
+scrub	-2	1	27	0	0		27
+begin	27	0	0		27
+type	27	0	1		27
+commit	129	1	129	0	0		129
+scrub	-33	0	52	0	0		52
+end	52	0	0		52
+type	52	0	1		52
+arrow	down	52	0	1		51
+key	down	52	0	1		50
+key	down	52	0	1		49
+commit	abc	0	52	0	0	Enter a value from 0 through 100000.	52
+scrub	0	0	52	0	0	Enter a value from 0 through 100000.	52
+begin	52	0	0	Enter a value from 0 through 100000.	52
+scrub	2	1	52	0	0	Enter a value from 0 through 100000.	52
+begin	52	0	0	Enter a value from 0 through 100000.	52
+scrub	1	1	52	0	0	Enter a value from 0 through 100000.	52
+end	52	0	0	Enter a value from 0 through 100000.	52
+type	52	0	1	Enter a value from 0 through 100000.	52
+commit	999999999999	1	52	0	0	Enter a value from 0 through 100000.	52
+scrub	-2	0	52	0	0	Enter a value from 0 through 100000.	52
+key	up	62	0	0		62
+scrub	-13	0	27	0	0		27
+scrub	2	0	27	0	0		27
+scrub	3	1	27	0	0		27
+request	129	129	0	0		129
+scrub	-334	0	0	0	0		0
+scrub	-2	0	0	0	0		0
+scrub	-3	1	0	0	0		0
+scrub	-3	0	0	0	0		0
+scrub	3	0	7	0	0		7
+scrub	3	1	7	0	0		7
+scrub	1	0	7	0	0		7
+scrub	-7	1	5	0	0		5
+scrub	-2	1	5	0	0		5
+key	down	0	0	0		0
+scrub	9	1	2	0	0		2
+begin	2	0	0		2
+scrub	0	1	2	0	0		2
+begin	2	0	0		2
+escape	2	0	0		2
+scrub	-3	0	0	0	0		0
+scenario	channel	channel	64	0	127	1	4	1	8	1	1	none
+scrub	342	1	106	1	0		107
+begin	106	1	0		107
+begin	106	1	0		107
+key	down	106	1	0		107
+scrub	0	1	106	1	0		107
+end	106	1	0		107
+scrub	1	1	106	1	0		107
+scrub	0	0	106	1	0		107
+scrub	2	0	106	1	0		107
+request	29	29	1	0		30
+scrub	-1	1	29	1	0		30
+type	29	1	1		30
+commit	129	1	29	1	0	Enter a value from 1 through 128.	30
+key	up	29	1	0	Enter a value from 1 through 128.	30
+scrub	0	0	29	1	0	Enter a value from 1 through 128.	30
+scrub	-1	0	29	1	0	Enter a value from 1 through 128.	30
+scrub	2	0	29	1	0	Enter a value from 1 through 128.	30
+begin	29	1	0	Enter a value from 1 through 128.	30
+type	29	1	1	Enter a value from 1 through 128.	30
+commit	1	1	0	1	0		1
+begin	0	1	0		1
+scrub	-3	0	0	1	0		1
+scrub	-17	1	0	1	0		1
+scrub	-37	0	0	1	0		1
+scrub	3	0	0	1	0		1
+key	up	0	1	0		1
+type	0	1	1		1
+commit	100	0	99	1	0		100
+key	up	99	1	0		100
+scrub	1	1	99	1	0		100
+scrub	2	1	99	1	0		100
+scrub	3	0	99	1	0		100
+escape	99	1	0		100
+scrub	1	0	99	1	0		100
+scrub	3	0	100	1	0		101
+key	up	100	1	0		101
+begin	100	1	0		101
+scrub	3	1	100	1	0		101
+scrub	-3	0	100	1	0		101
+scrub	-3	1	100	1	0		101
+scrub	0	1	100	1	0		101
+end	100	1	0		101
+end	100	1	0		101
+type	100	1	1		101
+commit	 42 	1	41	1	0		42
+key	up	41	1	0		42
+scrub	-3	0	41	1	0		42
+scrub	6	0	41	1	0		42
+scrub	-6	1	41	1	0		42
+scrub	2	1	41	1	0		42
+escape	41	1	0		42
+scrub	-2	1	41	1	0		42
+begin	41	1	0		42
+begin	41	1	0		42
+end	41	1	0		42
+scrub	-3	1	41	1	0		42
+scrub	-3	1	41	1	0		42
+scrub	2	0	41	1	0		42
+begin	41	1	0		42
+scrub	-1887	0	0	1	0		1
+scrub	-1	0	0	1	0		1
+scrub	1	0	0	1	0		1
+escape	0	1	0		1
+type	0	1	1		1
+commit	1e3	0	0	1	0	Enter a value from 1 through 128.	1
+begin	0	1	0	Enter a value from 1 through 128.	1
+scrub	0	0	0	1	0	Enter a value from 1 through 128.	1
+key	down	0	1	0	Enter a value from 1 through 128.	1
+type	0	1	1	Enter a value from 1 through 128.	1
+commit	1000001	0	0	1	0	Enter a value from 1 through 128.	1
+scrub	1	0	0	1	0	Enter a value from 1 through 128.	1
+end	0	1	0	Enter a value from 1 through 128.	1
+scrub	1	0	0	1	0	Enter a value from 1 through 128.	1
+scrub	2	1	0	1	0	Enter a value from 1 through 128.	1
+escape	0	1	0	Enter a value from 1 through 128.	1
+end	0	1	0	Enter a value from 1 through 128.	1
+request	16	16	1	0		17
+scrub	2	0	16	1	0		17
+escape	16	1	0		17
+type	16	1	1		17
+arrow	down	16	1	1		16
+arrow	up	16	1	1		17
+commit	10000000	0	16	1	0	Enter a value from 1 through 128.	17
+begin	16	1	0	Enter a value from 1 through 128.	17
+scrub	0	0	16	1	0	Enter a value from 1 through 128.	17
+begin	16	1	0	Enter a value from 1 through 128.	17
+type	16	1	1	Enter a value from 1 through 128.	17
+escape	16	1	0		17
+scrub	-642	0	0	1	0		1
+begin	0	1	0		1
+scrub	1	1	0	1	0		1
+begin	0	1	0		1
+scrub	3	1	0	1	0		1
+scrub	1	1	0	1	0		1
+scrub	-2	0	0	1	0		1
+scrub	-2	1	0	1	0		1
+scrub	-1	1	0	1	0		1
+key	down	0	1	0		1
+type	0	1	1		1
+commit	12 34	1	0	1	0	Enter a value from 1 through 128.	1
+scrub	2	0	0	1	0	Enter a value from 1 through 128.	1
+end	0	1	0	Enter a value from 1 through 128.	1
+escape	0	1	0	Enter a value from 1 through 128.	1
+key	up	0	1	0	Enter a value from 1 through 128.	1
+scrub	-107	0	0	1	0	Enter a value from 1 through 128.	1
+scrub	3	0	0	1	0	Enter a value from 1 through 128.	1
+scrub	0	0	0	1	0	Enter a value from 1 through 128.	1
+scrub	-2	0	0	1	0	Enter a value from 1 through 128.	1
+scrub	-1	0	0	1	0	Enter a value from 1 through 128.	1
+key	up	0	1	0	Enter a value from 1 through 128.	1
+scrub	-4	0	0	1	0	Enter a value from 1 through 128.	1
+scrub	0	0	0	1	0	Enter a value from 1 through 128.	1
+scrub	1	1	0	1	0	Enter a value from 1 through 128.	1
+scrub	0	0	0	1	0	Enter a value from 1 through 128.	1
+scrub	3	0	0	1	0	Enter a value from 1 through 128.	1
+scrub	1712	0	127	1	0		128
+scrub	2	0	127	1	0		128
+type	127	1	1		128
+commit	99999999	1	127	1	0	Enter a value from 1 through 128.	128
+scrub	-3	0	127	1	0	Enter a value from 1 through 128.	128
+end	127	1	0	Enter a value from 1 through 128.	128
+scrub	-1	0	127	1	0	Enter a value from 1 through 128.	128
+scrub	2	0	127	1	0	Enter a value from 1 through 128.	128
+scrub	0	0	127	1	0	Enter a value from 1 through 128.	128
+key	down	127	1	0	Enter a value from 1 through 128.	128
+scrub	-1698	0	0	1	0		1
+scrub	1	0	0	1	0		1
+scrub	15	0	3	1	0		4
+scrub	1	1	3	1	0		4
+begin	3	1	0		4
+scrub	3	0	3	1	0		4
+type	3	1	1		4
+key	up	3	1	1		5
+commit	+7	0	6	1	0		7
+type	6	1	1		7
+commit	Off	1	6	1	0	Enter a value from 1 through 128.	7
+scrub	1	0	6	1	0	Enter a value from 1 through 128.	7
+end	6	1	0	Enter a value from 1 through 128.	7
+begin	6	1	0	Enter a value from 1 through 128.	7
+scrub	2	0	6	1	0	Enter a value from 1 through 128.	7
+scrub	2	0	7	1	0		8
+scrub	-2	0	7	1	0		8
+scrub	-3	0	6	1	0		7
+scrub	-11	1	5	1	0		6
+scrub	29	1	8	1	0		9
+begin	8	1	0		9
+type	8	1	1		9
+commit	128	1	127	1	0		128
+scrub	-3	0	127	1	0		128
+scrub	-3	0	126	1	0		127
+type	126	1	1		127
+commit	1800000000	0	126	1	0	Enter a value from 1 through 128.	127
+key	down	126	1	0	Enter a value from 1 through 128.	127
+scrub	-2	0	126	1	0	Enter a value from 1 through 128.	127
+key	up	126	1	0	Enter a value from 1 through 128.	127
+request	84	84	1	0		85
+scrub	25	1	87	1	0		88
+scrub	35	1	91	1	0		92
+scrub	1	0	91	1	0		92
+scrub	0	0	91	1	0		92
+scrub	35	0	100	1	0		101
+begin	100	1	0		101
+end	100	1	0		101
+scrub	-36	1	96	1	0		97
+scrub	0	1	96	1	0		97
+key	up	96	1	0		97
+begin	96	1	0		97
+begin	96	1	0		97
+key	down	96	1	0		97
+scrub	-12	0	93	1	0		94
+scenario	channel-fast	channel	0	0	127	3	1	1	3	0	1	none
+scrub	2	0	6	1	0		6
+key	up	6	1	0		6
+end	6	1	0		6
+scrub	2	0	12	1	0		12
+begin	12	1	0		12
+end	12	1	0		12
+scrub	3	0	21	1	0		21
+scrub	0	0	21	1	0		21
+scrub	1	0	24	1	0		24
+begin	24	1	0		24
+scrub	-1	1	24	1	0		24
+begin	24	1	0		24
+scrub	0	0	24	1	0		24
+begin	24	1	0		24
+scrub	1	0	27	1	0		27
+key	up	27	1	0		27
+end	27	1	0		27
+scrub	-5	0	12	1	0		12
+scrub	-2	0	6	1	0		6
+scrub	2	0	12	1	0		12
+key	up	12	1	0		12
+begin	12	1	0		12
+scrub	0	0	12	1	0		12
+scrub	3	0	21	1	0		21
+scrub	-1	0	18	1	0		18
+scrub	0	0	18	1	0		18
+scrub	38	1	30	1	0		30
+begin	30	1	0		30
+end	30	1	0		30
+scrub	8	1	32	1	0		32
+scrub	-2	0	26	1	0		26
+scrub	30	1	36	1	0		36
+scrub	-32	1	26	1	0		26
+end	26	1	0		26
+key	up	26	1	0		26
+scrub	3	0	35	1	0		35
+end	35	1	0		35
+scrub	-2	0	29	1	0		29
+scrub	0	0	29	1	0		29
+end	29	1	0		29
+scrub	0	1	29	1	0		29
+scrub	3	0	38	1	0		38
+begin	38	1	0		38
+scrub	-1	0	35	1	0		35
+scrub	-2643	0	0	1	0		0
+scrub	30	1	10	1	0		10
+begin	10	1	0		10
+key	down	10	1	0		10
+scrub	-1	1	10	1	0		10
+begin	10	1	0		10
+scrub	3	1	11	1	0		11
+escape	11	1	0		11
+scrub	-1	1	11	1	0		11
+scrub	0	0	11	1	0		11
+escape	11	1	0		11
+scrub	0	0	11	1	0		11
+scrub	0	0	11	1	0		11
+begin	11	1	0		11
+scrub	-2	0	5	1	0		5
+scrub	-3	0	0	1	0		0
+scrub	2	1	0	1	0		0
+scrub	1263	0	127	1	0		127
+scrub	944	0	127	1	0		127
+scrub	24	0	127	1	0		127
+scrub	0	0	127	1	0		127
+key	up	127	1	0		127
+scrub	-1765	0	0	1	0		0
+scrub	-3	0	0	1	0		0
+scrub	-28	1	0	1	0		0
+scrub	738	0	127	1	0		127
+scrub	-18	1	121	1	0		121
+scrub	8	0	127	1	0		127
+end	127	1	0		127
+scrub	-1685	0	0	1	0		0
+scrub	-31	1	0	1	0		0
+scrub	-1	0	0	1	0		0
+scrub	372	0	127	1	0		127
+key	down	127	1	0		127
+scrub	-3	0	118	1	0		118
+type	118	1	1		118
+arrow	up	118	1	1		119
+key	down	118	1	1		118
+commit	10	1	10	1	0		10
+escape	10	1	0		10
+key	up	10	1	0		10
+scrub	1	0	13	1	0		13
+scrub	0	0	13	1	0		13
+end	13	1	0		13
+key	up	13	1	0		13
+scrub	0	0	13	1	0		13
+scrub	-11	0	0	1	0		0
+scrub	-1	0	0	1	0		0
+end	0	1	0		0
+begin	0	1	0		0
+scrub	-34	1	0	1	0		0
+begin	0	1	0		0
+begin	0	1	0		0
+scrub	0	1	0	1	0		0
+scrub	1	0	3	1	0		3
+key	down	3	1	0		3
+end	3	1	0		3
+key	down	3	1	0		3
+scrub	2940	0	127	1	0		127
+scrub	-15	0	82	1	0		82
+key	down	82	1	0		82
+scrub	0	0	82	1	0		82
+scrub	1	1	82	1	0		82
+scrub	-3	1	82	1	0		82
+key	down	82	1	0		82
+scrub	402	0	127	1	0		127
+scrub	-3	0	118	1	0		118
+scrub	2	1	118	1	0		118
+begin	118	1	0		118
+scrub	-3	0	109	1	0		109
+scrub	-3	0	100	1	0		100
+scrub	2	0	106	1	0		106
+request	84	84	1	0		84
+begin	84	1	0		84
+scrub	1	0	87	1	0		87
+type	87	1	1		87
+commit	1,234	1	87	1	0	Enter a value from 0 through 127.	87
+end	87	1	0	Enter a value from 0 through 127.	87
+begin	87	1	0	Enter a value from 0 through 127.	87
+type	87	1	1	Enter a value from 0 through 127.	87
+commit		1	87	1	0	Enter a value from 0 through 127.	87
+escape	87	1	0	Enter a value from 0 through 127.	87
+scrub	0	0	87	1	0	Enter a value from 0 through 127.	87
+scrub	-453	0	0	1	0		0
+begin	0	1	0		0
+scrub	1	1	0	1	0		0
+type	0	1	1		0
+key	up	0	1	1		1
+commit	31250	1	0	1	0	Enter a value from 0 through 127.	0
+scrub	641	0	127	1	0		127
+key	up	127	1	0		127
+request	44	44	1	0		44
+scrub	0	0	44	1	0		44
+request	6	6	1	0		6
+key	up	6	1	0		6
+end	6	1	0		6
+type	6	1	1		6
+commit	+7	1	7	1	0		7
+scrub	2	1	7	1	0		7
+scrub	0	0	7	1	0		7
+scrub	-3	0	0	1	0		0
+scrub	2979	1	127	1	0		127
+end	127	1	0		127
+begin	127	1	0		127
+scrub	-2	0	121	1	0		121
+end	121	1	0		121
+key	down	121	1	0		121
+scrub	-1	0	118	1	0		118
+scrub	39	1	127	1	0		127
+key	down	127	1	0		127
+scrub	1332	0	127	1	0		127
+scrub	1	1	127	1	0		127
+scrub	3	0	127	1	0		127
+scrub	1	1	127	1	0		127
+type	127	1	1		127
+commit	999999999999	0	127	1	0	Enter a value from 0 through 127.	127
+scrub	16	0	127	1	0	Enter a value from 0 through 127.	127
+scrub	18	0	127	1	0	Enter a value from 0 through 127.	127
+type	127	1	1	Enter a value from 0 through 127.	127
+key	down	127	1	1		126
+commit	12 34	0	127	1	0	Enter a value from 0 through 127.	127
+scrub	0	1	127	1	0	Enter a value from 0 through 127.	127
+scrub	1	0	127	1	0	Enter a value from 0 through 127.	127
+scrub	40	0	127	1	0	Enter a value from 0 through 127.	127
+scrub	2	1	127	1	0	Enter a value from 0 through 127.	127
+end	127	1	0	Enter a value from 0 through 127.	127
+scenario	toggle	toggle	0	0	1	1	1	1	1	0	1	none
+scrub	-2	1	0	1	0		Off
+end	0	1	0		Off
+scrub	0	0	0	1	0		Off
+scrub	1565	0	1	1	0		On
+end	1	1	0		On
+end	1	1	0		On
+scrub	3	0	1	1	0		On
+scrub	1	0	1	1	0		On
+scrub	-2	0	0	1	0		Off
+end	0	1	0		Off
+scrub	3	1	1	1	0		On
+scrub	2	0	1	1	0		On
+escape	1	1	0		On
+request	23	1	1	0		On
+key	down	1	1	0		On
+scrub	-6	0	0	1	0		Off
+escape	0	1	0		Off
+scrub	-20	1	0	1	0		Off
+key	up	0	1	0		Off
+scrub	-2	0	0	1	0		Off
+scrub	-1	0	0	1	0		Off
+scrub	0	1	0	1	0		Off
+scrub	-2465	0	0	1	0		Off
+escape	0	1	0		Off
+scrub	2	0	1	1	0		On
+scrub	22	0	1	1	0		On
+escape	1	1	0		On
+type	1	1	1		On
+commit	999999999999	1	1	1	0	Enter a value from Off through On.	On
+scrub	-37	0	0	1	0		Off
+scrub	0	1	0	1	0		Off
+end	0	1	0		Off
+scrub	0	1	0	1	0		Off
+scrub	35	0	1	1	0		On
+scrub	0	1	1	1	0		On
+scrub	0	1	1	1	0		On
+scrub	-1	0	0	1	0		Off
+end	0	1	0		Off
+type	0	1	1		Off
+escape	0	1	0		Off
+end	0	1	0		Off
+scrub	3	0	1	1	0		On
+scrub	1	0	1	1	0		On
+scrub	3	0	1	1	0		On
+scrub	1	0	1	1	0		On
+end	1	1	0		On
+type	1	1	1		On
+commit	On	0	1	1	0		On
+scrub	-33	0	0	1	0		Off
+scrub	1	0	1	1	0		On
+end	1	1	0		On
+key	up	1	1	0		On
+scrub	-2	1	0	1	0		Off
+scrub	4	0	1	1	0		On
+type	1	1	1		On
+commit		0	1	1	0	Enter a value from Off through On.	On
+scrub	-1	0	0	1	0		Off
+begin	0	1	0		Off
+scrub	0	1	0	1	0		Off
+scrub	0	0	0	1	0		Off
+scrub	-451	0	0	1	0		Off
+begin	0	1	0		Off
+begin	0	1	0		Off
+scrub	0	0	0	1	0		Off
+scrub	27	0	1	1	0		On
+scrub	0	0	1	1	0		On
+scrub	-16	1	0	1	0		Off
+escape	0	1	0		Off
+type	0	1	1		Off
+arrow	up	0	1	1		On
+key	down	0	1	1		Off
+key	up	0	1	1		On
+key	down	0	1	1		Off
+arrow	down	0	1	1		Off
+commit	1	1	1	1	0		On
+end	1	1	0		On
+scrub	-17	0	0	1	0		Off
+request	6	1	1	0		On
+scrub	0	0	1	1	0		On
+scrub	-3	1	0	1	0		Off
+scrub	-2	0	0	1	0		Off
+scrub	-33	0	0	1	0		Off
+scrub	-1	1	0	1	0		Off
+scrub	2835	0	1	1	0		On
+scrub	0	0	1	1	0		On
+end	1	1	0		On
+scrub	-2	0	0	1	0		Off
+key	down	0	1	0		Off
+type	0	1	1		Off
+commit	10	0	0	1	0	Enter a value from Off through On.	Off
+scrub	6	1	1	1	0		On
+scrub	-2	1	0	1	0		Off
+scrub	-3	0	0	1	0		Off
+scrub	-3	0	0	1	0		Off
+key	up	0	1	0		Off
+begin	0	1	0		Off
+begin	0	1	0		Off
+type	0	1	1		Off
+arrow	up	0	1	1		On
+commit	1000001	0	0	1	0	Enter a value from Off through On.	Off
+scrub	0	0	0	1	0	Enter a value from Off through On.	Off
+scrub	-2	0	0	1	0	Enter a value from Off through On.	Off
+scrub	4	0	1	1	0		On
+escape	1	1	0		On
+scrub	-39	0	0	1	0		Off
+scrub	-3	1	0	1	0		Off
+scrub	2	0	1	1	0		On
+scrub	1	1	1	1	0		On
+scrub	-1	0	0	1	0		Off
+begin	0	1	0		Off
+begin	0	1	0		Off
+scrub	-1	0	0	1	0		Off
+scrub	-3	0	0	1	0		Off
+end	0	1	0		Off
+scrub	-3	0	0	1	0		Off
+scrub	0	0	0	1	0		Off
+scrub	-2	1	0	1	0		Off
+begin	0	1	0		Off
+scrub	0	0	0	1	0		Off
+scrub	-24	0	0	1	0		Off
+scrub	-2	0	0	1	0		Off
+end	0	1	0		Off
+scrub	0	1	0	1	0		Off
+scrub	2	1	1	1	0		On
+type	1	1	1		On
+arrow	up	1	1	1		On
+arrow	up	1	1	1		On
+commit	1000001	0	1	1	0	Enter a value from Off through On.	On
+scrub	-3	1	0	1	0		Off
+type	0	1	1		Off
+arrow	up	0	1	1		On
+escape	0	1	0		Off
+scrub	1	1	1	1	0		On
+scrub	300	0	1	1	0		On
+scrub	0	0	1	1	0		On
+scrub	-6	0	0	1	0		Off
+scrub	28	0	1	1	0		On
+scrub	0	0	1	1	0		On
+begin	1	1	0		On
+end	1	1	0		On
+scrub	0	0	1	1	0		On
+scrub	0	0	1	1	0		On
+begin	1	1	0		On
+scrub	0	0	1	1	0		On
+scrub	0	0	1	1	0		On
+scrub	1	0	1	1	0		On
+scrub	3	0	1	1	0		On
+begin	1	1	0		On
+type	1	1	1		On
+arrow	up	1	1	1		On
+key	up	1	1	1		On
+commit	0	1	0	1	0		Off
+escape	0	1	0		Off
+begin	0	1	0		Off
+scrub	-1	0	0	1	0		Off
+end	0	1	0		Off
+scrub	-3	0	0	1	0		Off
+scrub	-2	0	0	1	0		Off
+scrub	-2	0	0	1	0		Off
+key	up	0	1	0		Off
+scrub	-1	0	0	1	0		Off
+begin	0	1	0		Off
+begin	0	1	0		Off
+type	0	1	1		Off
+commit	0	1	0	1	0		Off
+scrub	-30	0	0	1	0		Off
+scrub	2	0	1	1	0		On
+type	1	1	1		On
+arrow	up	1	1	1		On
+arrow	up	1	1	1		On

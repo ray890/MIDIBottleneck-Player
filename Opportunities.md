@@ -1,32 +1,40 @@
 # Engineering opportunities
 
-These are evidence-backed future directions, not promises for a particular release. The shorter public view is [ROADMAP.md](ROADMAP.md).
+These are evidence-backed future directions and recorded design decisions, not promises for a particular release. The shorter public view is [ROADMAP.md](ROADMAP.md).
 
 ## Near term
 
-Build 44 is published and closed. The .NET v1 line is now in maintenance, and no further v1 feature builds are planned. v1.0.44 (commit `3f108be`) is the frozen behavioral reference for version 2. Version 2 development is under way privately on a local branch; milestone status is tracked privately, and version 2 will be published only at v1 feature parity. Nothing in this file is an active build, and v1 behavior is not being changed to address the version 2 requirements below.
+Version 2.0.0 is released for Windows (x64, x86, XP). Version 1 (last release `v1.0.44`) is no longer maintained; its files are kept unchanged in `archive/v1`. Nothing in this file is an active build. The sections from "Completed foundations" on are the version 1 engineering notes; they are kept as the reasoning behind features that version 2 carries over, and they describe version 1 builds, not version 2.
 
-## Version 2 rewrite plan
+## Version 2 rewrite plan (carried out in 2.0)
 
-These are the recorded product decisions guiding the private version 2 development.
+These were the recorded product decisions for the rewrite. The 2.0 items are done; the platform items after Windows are future work.
 
-- **Frozen reference.** v1.0.44 behavior, source, and tests define the features version 2 carries over. Version 2 keeps every v1 feature and makes it work as intended, with bug fixes, performance and quality improvements (timing precision, overhead, clearer messages, cleaner code). It is never made worse just to match v1.
-- **Architecture.** A portable, optimized C++17 core with thin per-platform frontends. The core makes no direct operating-system calls; a platform layer supplies timers, threads, file access, and MIDI output.
-- **Performance.** Equal or better than v1.0.44, including memory and processor cost per event for very large files. The v1 compact segmented storage and direct parser remain the baseline to match or beat.
-- **Parity evidence.** A comparison harness records emitted MIDI messages and their timing for deterministic fixtures under v1 and v2 and compares them. Every difference must be an intended, recorded improvement, and an unexplained difference is a failure; the recordings, not visual similarity, are the evidence.
-- **Platform order.** Windows first with a plain Win32 frontend, then Android, Linux, macOS, and possibly web.
-- **Android sequence.** First the Android MIDI API, which already covers class-compliant USB MIDI devices on Android 6 and later; then additional USB MIDI support beyond that; then an optional integrated BASSMIDI output for Android only. BASSMIDI requires a third-party license review and an explicit exception to the current policy that releases never bundle a synthesizer. Users would supply their own SoundFonts.
-- **Windows XP SP3.** Occasional builds rather than every release, which may lag the main core. C++17 was chosen so XP-capable compilers remain possible. XP receives fallbacks—a 32-bit memory limit and therefore a smaller maximum file size, coarser timers, and no newer processor instruction sets—without degrading other builds. XP support continues only while real recorded evidence shows no meaningful harm elsewhere; an XP cost log records that evidence.
-- **Windows 98 SE.** An experimental one-time fork. The core is never degraded for it. A later 98 SE build is possible only as a fresh downport from the then-current core, following a recorded downport recipe.
-- **Development and publication.** Version 2 is numbered 2.x, developed privately, and not published until it reaches v1 feature parity. At publication, the v1 files move into a v1 archive folder.
+- **Frozen reference.** v1.0.44 behavior, source, and tests defined the features version 2 carries over. Version 2 keeps every v1 feature and makes it work as intended, with bug fixes, performance and quality improvements (timing precision, overhead, clearer messages, cleaner code). It is never made worse just to match v1. Done; see [v2/docs/DIFFERENCES_FROM_V1.md](v2/docs/DIFFERENCES_FROM_V1.md).
+- **Architecture.** A portable, optimized C++17 core with thin per-platform frontends. The core makes no direct operating-system calls; a platform layer supplies timers, threads, file access, and MIDI output. Done for Windows; see [v2/docs/ARCHITECTURE.md](v2/docs/ARCHITECTURE.md).
+- **Performance.** Equal or better than v1.0.44, including memory and processor cost per event for very large files. Done.
+- **Parity evidence.** A comparison harness records emitted MIDI messages and their timing for deterministic fixtures under v1 and v2 and compares them. Every difference must be an intended, recorded improvement, and an unexplained difference is a failure. In use for every change.
+- **Platform order.** Windows first with a plain Win32 frontend (done), then Android, Linux, macOS, and possibly web (future).
+- **Android sequence (future).** First the Android MIDI API, which already covers class-compliant USB MIDI devices on Android 6 and later; then additional USB MIDI support beyond that; then an optional integrated synthesizer for Android only. That would require a third-party license review and an explicit exception to the current policy that releases never bundle a synthesizer. Users would supply their own SoundFonts.
+- **Windows XP SP3.** Done as a dedicated build. XP support continues only while real recorded evidence shows no meaningful harm elsewhere; [v2/docs/XP_COST_LOG.md](v2/docs/XP_COST_LOG.md) records that evidence.
+- **Windows 98 SE.** An experimental one-time fork at most. The core is never degraded for it. A later 98 SE build is possible only as a fresh downport from the then-current core.
+- **Version 1 archive.** Done: the v1 files moved to `archive/v1`.
 
-### Version 2 requirements from Build 44 testing
+### Requirements found while testing v1.0.44 (both done in version 2)
 
-- **Integrated header.** In v1.0.44 the Integrated header is a separate 24-pixel strip (≡, "File and output", —, □, ×) over the File and output box, so it still occupies its own row. The intended design places window controls inline with existing rows—for example ≡ before **Open MIDI…** and —/□/× at the right end of the file-name row—with no separate strip and no box heading, so the window is shorter by the strip's height. Dragging and double-clicking work on the file name or empty area. The Auto-hide overlay is close to this intent.
-- **Resize cursor.** In v1.0.44, invisible-edge resizing works by dragging, but the pointer never changes to a resize cursor while hovering over an edge or corner, in any borderless style. The main form's own edge hit-test never takes effect because child controls (the fill-docked root layout and the chrome panels) cover its entire client area, and the child-control message filter intercepts only the left-button press. Version 2 must show correct resize-cursor feedback everywhere along the invisible edges and corners.
+- **Integrated header.** The window controls now sit inside rows that already exist (the menu button before **Open MIDI...**, minimize/maximize/close at the right end of the file-name row), with no separate strip.
+- **Resize cursor.** In borderless mode the pointer now changes to a resize arrow at every edge and corner.
 - **Output-paced timeline.** The name is retained.
 
-## Completed foundations
+## Future work
+
+- Android, Linux and macOS frontends (see the platform order above).
+- Helper-process MIDI isolation as part of the output backend; it changes IPC, timing, SysEx ownership, and output lifetime.
+- A tempo scale control.
+- Channel override extensions beyond the narrow per-Analysis-window projection (presets, requested/forced display, static transformations).
+- Compositor-synchronized rendering and producer/consumer output separation (which would redefine queue and lag semantics).
+
+## Completed foundations (version 1 builds)
 
 - **Build 18 — archive/history foundation:** corrected the private diagnostics chronology after a provenance audit. The sanitized public history keeps exact/nearest-preserved qualifications and excludes private evidence.
 - **Build 25 — corrected Per-note gate:** separates source-note occurrences from one constrained Up/Down output state per pitch. Repeated Note On strikes can retrigger through a clean release gap; simultaneous layers and dense overload are deterministic.
@@ -118,12 +126,12 @@ Native `WS_EX_CONTEXTHELP` conflicts with the principal windows' minimize/maximi
 
 ## Public project maintenance
 
-The public repository uses explicit first-party packaging and explicit `main`/tag pushes. Build 31 continues to publish versioned loose executables plus checksums. Private diagnostics, provider logs, machine paths, and recovery refs stay local.
+The public repository uses explicit first-party packaging and explicit `main`/tag pushes. Releases publish loose executables plus a checksum file (for 2.0: the three programs and `SHA256SUMS.txt`). Private diagnostics, provider logs, machine paths, and recovery refs stay local.
 
 A bounded GitHub Actions trial was retired because realized WinForms geometry tests depend on interactive desktop, font, and working-area metrics. Future CI should separate display-independent tests or provide a controlled interactive desktop instead of weakening layout assertions.
 
-## Version 2 design questions and longer-term research
+## Longer-term research
 
-- **Version 2 design questions:** compositor synchronization, producer/consumer output separation, and portability (now addressed by the version 2 plan above) will be decided within the version 2 design rather than added to v1. Override extensions beyond the accepted narrow per-Analysis-window projection would also be considered there.
-- **Version 2 output backend:** helper-process MIDI isolation may be reconsidered as part of the version 2 backend because it changes IPC, timing, SysEx ownership, and output lifetime. It was not Build 44 work and will not be added to v1.
+- **Open design questions:** compositor synchronization and producer/consumer output separation remain open for a later 2.x release. Override extensions beyond the accepted narrow per-Analysis-window projection would also be considered there.
+- **Output backend:** helper-process MIDI isolation may be reconsidered as part of the output backend because it changes IPC, timing, SysEx ownership, and output lifetime.
 - **Static Per-note Analysis:** completed in Build 39 using the shared gate decisions. The only implemented override projection is the narrow default-off per-window Build 44 item stated above.

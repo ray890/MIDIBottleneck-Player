@@ -1,0 +1,65 @@
+trace-format 1
+mode full
+[file]
+size 86
+container smf
+[preflight]
+status ok
+format 1
+tracks 4
+division 96
+dispatchable-events 2
+note-ons 1
+final-long-payload-bytes 0
+provisional-payload-bytes 0
+tempo-changes 1
+source-value-entries 0
+chase-state-entries 0
+chase-parameter-value-entries 0
+running-status-repairs 0
+routing-lanes 1
+routing-patch-state-events 0
+routing-patch-timeline-upper-bound 0
+routing-generated-state-upper-bound 3
+track 0 events 0 payload-bytes 0 tempo-changes 0
+track 1 events 0 payload-bytes 0 tempo-changes 0
+track 2 events 0 payload-bytes 0 tempo-changes 1
+track 3 events 2 payload-bytes 0 tempo-changes 0
+source-slots 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+routing-note-lanes-by-channel 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+routing-patch-state-by-channel 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+estimate ptr4 retained 62496 peak-low 1177240 peak-high 1237320 provisional 568 merge-workspace 1114240 names 2400 routing-retained 846 routing-peak 936 retained-with-routing 63342 routing-peak-total 63432 warning-threshold 1073741824 architecture-risk 0 requires-warning 0
+estimate ptr8 retained 122624 peak-low 1237656 peak-high 1357768 provisional 856 merge-workspace 1114240 names 2496 routing-retained 1102 routing-peak 1212 retained-with-routing 123726 routing-peak-total 123836 warning-threshold 4294967296 architecture-risk 0 requires-warning 0
+requires-preflight ptr4 0 ptr8 0
+[song]
+status ok
+format 1
+tracks 4
+division 96
+note-count 1
+running-status-repairs 0
+duration-us 729167
+events 2
+payload-bytes 0
+track 0 name "" name-truncated 0 instrument "" instrument-truncated 0
+track 1 name "" name-truncated 0 instrument "" instrument-truncated 0
+track 2 name "Meta only" name-truncated 0 instrument "" instrument-truncated 0
+track 3 name "" name-truncated 0 instrument "" instrument-truncated 0
+[tempo]
+count 1
+t 100 520833 400000 2 1
+[events]
+count 2
+e 0 0 0 3 NoteOn 0 90 3 904040
+e 1 96 500000 3 NoteOff 0 80 3 804000
+[source-index]
+count 0
+[chase-index]
+entries 0 parameter-series 0
+[source-query]
+[chase-readouts]
+[chase-messages]
+final -
+[chase-messages-filtered]
+final -
+[end]
