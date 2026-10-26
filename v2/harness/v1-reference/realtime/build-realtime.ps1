@@ -14,7 +14,7 @@ $out = Join-Path $repo 'v2\out\realtime\v1'
 $compiler = 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 if (-not (Test-Path -LiteralPath $compiler)) { throw "csc.exe not found at $compiler" }
 
-$sources = @(Get-ChildItem -LiteralPath (Join-Path $repo 'archive1src') -Filter '*.cs' |
+$sources = @(Get-ChildItem -LiteralPath (Join-Path $repo 'archive\v1\src') -Filter '*.cs' |
     Where-Object { $_.Name -ne 'Program.cs' } | Sort-Object Name)
 $mismatch = @()
 foreach ($file in $sources) {

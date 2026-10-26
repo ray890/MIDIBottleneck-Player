@@ -40,6 +40,7 @@ Speed and size figures were measured on the author's development PC, with no sou
 
 - **Very short SysEx messages** (1 to 3 bytes) were stored as zeros; they are now sent exactly as written (DD-001).
 - With a forced override or a muted channel, a very large backlog could freeze the player; it now stays responsive (DD-093).
+- The first Play after plugging in a USB MIDI device no longer fails when Windows refuses that device's first session: the player opens the device once more (DD-178).
 - The "Interval polyphony" label no longer changes back to "Queue length limit" in a narrow window (UI differences, item 5).
 - "Clear buffer" at a full queue no longer counts muted channels' events as dropped (DD-041).
 - Several statistics of the Per-note and Delayed NoteOff modes were corrected (DD-009), and a Pause or restart exactly on an event's time no longer sends that event twice (DD-007).

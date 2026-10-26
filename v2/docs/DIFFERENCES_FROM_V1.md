@@ -1445,6 +1445,16 @@ Entry template:
 - **Risk:** low: the old ranking stays in the engine and is the reference in the unit test; the Analysis queue is only a different way to find the same note. Memory: about 80 bytes per queued note instead of 36 (only matters with an age limit and a very long queue).
 - **Harness rules:** none (no output difference).
 
+## DD-178 — Windows: a USB MIDI device that was just plugged in is opened once more if it refuses the first message
+
+- **Category:** robustness (Windows output).
+- **What changed:** when the player opens a WinMM output, it sends one harmless message (Sustain Off on channel 1). If Windows refuses it with "Undefined external error" (MMSYSERR_ERROR), the player closes the device and opens it once more, then checks again. A second refusal is reported like any failed open (plain sentence first, details below).
+- **Why:** on Windows 10, the first session after plugging in a USB MIDI device refused every message with that error, while the next session worked. Seen with a DreamBlaster X2 (three times) and a CH345-based "USB2.0-MIDI" cable, also with a small test program that calls Windows directly, without any of the player's code. The cause is below the player, in Windows' USB MIDI path.
+- **User-visible effect:** the first Play after plugging in a USB synthesizer plays normally instead of reporting refused messages. Nothing changes for devices that accept the first message.
+- **Evidence:** standalone probe after a fresh connection: 300 of 300 and 3,000 of 3,000 messages refused, the next session 0 refused; midibn-midi-output-tests 153/0; the fixed player played to a freshly connected DreamBlaster X2 as the first session (scripted Short scenario, 20 checks). The unfixed 2.0 player also passed that scenario once, so the full player does not always meet the condition; the fix is a safety net.
+- **Risk:** low: one extra harmless message per open; the reopen happens only on that specific refusal.
+- **Harness rules:** none (output backend only; no engine, model or loader code changed).
+
 ## The prompt 011 questions: answers (recorded in prompt 012) and what is still open
 
 - **Q1** (the matters of taste): all accepted, keep v2's way (2026-10-19). See `UI_DIFFERENCES.md`.

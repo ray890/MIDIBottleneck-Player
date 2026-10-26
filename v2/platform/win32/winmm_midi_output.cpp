@@ -232,6 +232,34 @@ OutputStatus WinMmMidiOutput::open(uint32_t deviceId)
         dispose_handle();
         return status;
     }
+    // A USB MIDI device that was plugged in a moment ago can refuse every message of its first session with
+    // MMSYSERR_ERROR, while the next session works (seen with a DreamBlaster X2 and a CH345 "USB2.0-MIDI" on
+    // Windows 10). One harmless Sustain Off on channel 1 tells; when it is refused that way the device is
+    // closed and opened once more. A second refusal is reported like any failed open.
+    const uint32_t sustainOffChannelOne = 0x0040B0;
+    if (!usesCumulativeByteCountResults_ && api_.short_msg(handle_, sustainOffChannelOne) == MMSYSERR_ERROR) {
+        midiOutClose(static_cast<HMIDIOUT>(handle_));
+        handle_ = nullptr;
+        Sleep(50);
+        handle = nullptr;
+        result = midiOutOpen(&handle, deviceId, 0, 0, CALLBACK_NULL);
+        status = error_status(result, "opening MIDI output " + deviceName + " (device " + std::to_string(deviceId) +
+            ") a second time, after it refused a first harmless message");
+        if (!status.ok()) {
+            deviceName_.clear();
+            haveDeviceName_ = false;
+            outputIdentity_.clear();
+            return status;
+        }
+        handle_ = handle;
+        const uint32_t again = api_.short_msg(handle_, sustainOffChannelOne);
+        if (again != 0) {
+            status = error_status(again, "sending a first harmless message (Sustain Off, channel 1) to " + outputIdentity_ +
+                " after opening it a second time");
+            dispose_handle();
+            return status;
+        }
+    }
     return OutputStatus::success();
 }
 
